@@ -15,7 +15,7 @@ C(A) = 1.159715。
 ┌───────────────┐   inspirations   ┌────────────────┐   solution    ┌─────────┐
 │ Context Agent │ ───────────────► │ Proposal Agent │ ────────────► │ Sandbox │
 │  (LLM：读全库    │                  │  ×N workers      │               │ +可信评估器 │
-│   写局势分析)    │                  │  (claude -p)     │               └────┬────┘
+│   写局势分析)    │                  │ (Claude/Codex)   │               └────┬────┘
 └──────▲────────┘                  └────────────────┘                     │
        │                     ┌──────────────────┐                         │
        └──────────────────── │ Experience Bank  │ ◄───────────────────────┘
@@ -25,7 +25,7 @@ C(A) = 1.159715。
 - **Experience Bank**（`eb.py`）：每个 solution 的代码、产物、日志、评估指标；线程安全。
 - **Context Agent**（`context_agent.py`）：LLM agent，每轮读全库写 ≤250 词局势分析、
   定下一个实验与出发点；分析持久化为跨轮记忆；失败自动回退到确定性方向轮换。
-- **Proposal Agent**（`proposal_agent.py`）：headless `claude -p` 在 draft 中修改
+- **Proposal Agent**（`proposal_agent.py`）：headless Claude Code 或 Codex CLI 在 draft 中修改
   唯一可编辑文件，写 `PROPOSAL.md`；`--workers N` 时多个提案与评估重叠执行。
 - **Sandbox**（`sandbox.py`）：macOS seatbelt（`sandbox-exec`）隔离——禁网络、
   只允许写沙盒目录；退出码非零即 crash。
@@ -48,15 +48,18 @@ runs/<task>/       经验库、draft、沙盒等运行时产物（不入库）
 ## 运行
 
 ```bash
-# 依赖：python3 + numpy；提案与分析用 Claude Code CLI（headless）
+# 依赖：python3 + numpy；提案与分析默认用 Claude Code CLI（headless）
 python3 harness.py --task sums_diffs --init          # 种子过可信管线入库
 python3 harness.py --task sums_diffs --iterations 5 --workers 2
+# 改用 Codex CLI + GPT/Codex 模型（--model 可省略，使用 Codex 当前默认模型）
+python3 harness.py --task sums_diffs --iterations 5 --workers 2 \
+  --backend codex --model gpt-5.6-sol
 python3 harness.py --task sums_diffs --status
 ```
 
 ## 与真 Hyra 的已知差距
 
-- Proposal 模型为 Claude Code CLI（代替内部混元模型）；
+- Proposal 模型为 Claude Code 或 Codex CLI（代替内部混元模型）；
 - 单机并发规模远小于其信号量控制的 agent 舰队；
 - 未实现评估器共进化外层循环（本任务评估器固定，无此需求）；
 - seatbelt 为进程级隔离，弱于容器/VM。

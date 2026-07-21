@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import threading
@@ -24,6 +25,7 @@ from pathlib import Path
 
 from eb import ExperienceBank
 from context_agent import build_inspiration
+from llm_backend import SUPPORTED_BACKENDS
 from proposal_agent import propose
 from sandbox import run_solution
 
@@ -78,14 +80,19 @@ def check_frozen(parent_dir, draft_dir, editable):
     return violations
 
 
-def iterate(task, eb, iteration, eval_sem):
+def iterate(task, eb, iteration, eval_sem, backend, model):
     """One full Hyra loop iteration. Returns the committed record."""
-    parent, prompt, direction = build_inspiration(task, eb, iteration)
+    parent, prompt, direction = build_inspiration(
+        task, eb, iteration, backend=backend, model=model,
+    )
     short_dir = " ".join(direction.split())[:160]
     print(f"[context] iter {iteration}: parent = {parent['id']}, next = {short_dir}")
 
     draft = task.run_dir / "drafts" / f"iter_{iteration:04d}"
-    ok, description = propose(Path(parent["path"]), draft, prompt, task.editable_files)
+    ok, description = propose(
+        Path(parent["path"]), draft, prompt, task.editable_files,
+        backend=backend, model=model,
+    )
     print(f"[proposal] iter {iteration}: {description}" if ok else f"[proposal] iter {iteration} FAILED: {description}")
     if not ok:
         return eb.commit(draft, None, "crash", description, parent["id"], "")
@@ -143,6 +150,11 @@ def main():
     ap.add_argument("--iterations", type=int, default=0)
     ap.add_argument("--workers", type=int, default=1,
                     help="concurrent proposal workers (evaluation stays behind the task's semaphore)")
+    ap.add_argument("--backend", choices=SUPPORTED_BACKENDS,
+                    default=os.environ.get("OPENHYRA_BACKEND", "claude"),
+                    help="LLM CLI backend (or set OPENHYRA_BACKEND)")
+    ap.add_argument("--model", default=os.environ.get("OPENHYRA_MODEL"),
+                    help="optional backend model override (or set OPENHYRA_MODEL)")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
 
@@ -172,10 +184,11 @@ def main():
     start = len([r for r in eb.records() if r["parent"] is not None])
     if args.workers <= 1:
         for i in range(start, start + args.iterations):
-            iterate(task, eb, i, eval_sem)
+            iterate(task, eb, i, eval_sem, args.backend, args.model)
     else:
         with ThreadPoolExecutor(max_workers=args.workers) as ex:
-            futures = [ex.submit(iterate, task, eb, i, eval_sem)
+            futures = [ex.submit(iterate, task, eb, i, eval_sem,
+                                 args.backend, args.model)
                        for i in range(start, start + args.iterations)]
             for f in futures:
                 f.result()
