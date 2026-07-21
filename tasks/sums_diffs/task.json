@@ -5,7 +5,6 @@
   "editable_files": ["solver.py"],
   "sandbox_timeout_s": 200,
   "eval_concurrency": 2,
-  "python": "system",
   "reference_score": 1.159715,
   "fallback_directions": [
     "Refine near the current best: small perturbations of the best known set or its generating parameters. Exploitation, not exploration.",

@@ -8,41 +8,29 @@ candidate's own output; that weaker trust model is documented in their TASK.md.
 """
 
 import json
-import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-SCORE_RE = re.compile(r"^val_bpb:\s*([0-9.]+)", re.MULTILINE)
-
-METRIC_KEYS = ["val_bpb", "training_seconds", "total_seconds", "peak_vram_mb",
-               "mfu_percent", "total_tokens_M", "num_steps", "num_params_M", "depth"]
-
-
-def parse_metrics(log_text):
-    metrics = {}
-    for key in METRIC_KEYS:
-        m = re.search(rf"^{key}:\s*([0-9.]+)", log_text, re.MULTILINE)
-        if m:
-            metrics[key] = float(m.group(1))
-    return metrics
+# macOS seatbelt profile: candidate code gets no network and may write only
+# inside its own sandbox directory (plus the system temp dirs Python needs).
+SANDBOX_PROFILE = """(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write* (subpath "{sandbox}"))
+(allow file-write* (subpath "/private/var/folders"))
+(allow file-write* (subpath "/private/tmp"))
+(allow file-write* (subpath "/dev"))
+"""
 
 
-def _legacy_score(sandbox_dir, log):
-    """Candidate-reported score (no trusted evaluator): solution.json then log grep."""
-    sol_json = sandbox_dir / "solution.json"
-    if sol_json.exists():
-        try:
-            result = json.loads(sol_json.read_text())
-            if "val_bpb" in result:
-                return float(result["val_bpb"]), "ok", parse_metrics(log)
-        except (ValueError, TypeError):
-            pass
-    m = SCORE_RE.search(log)
-    if m:
-        return float(m.group(1)), "ok", parse_metrics(log)
-    return None, "crash", {}
+def _sandboxed_cmd(sandbox_dir, cmd):
+    if sys.platform == "darwin":
+        profile = SANDBOX_PROFILE.format(sandbox=sandbox_dir.resolve())
+        return ["sandbox-exec", "-p", profile] + cmd
+    return cmd  # non-macOS: no seatbelt available; run unconfined
 
 
 def _trusted_score(evaluator, sandbox_dir, timeout_s=300):
@@ -76,9 +64,9 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     try:
         with open(log_path, "w") as log_f:
             proc = subprocess.run(
-                ["bash", "solve.sh"],
+                _sandboxed_cmd(sandbox_dir, ["bash", "solve.sh"]),
                 cwd=sandbox_dir,
-                env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(Path.home()),
+                env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(sandbox_dir),
                      "OPENHYRA_PYTHON": task.python_bin},
                 stdout=log_f, stderr=subprocess.STDOUT,
                 timeout=task.timeout_s, check=False,
@@ -94,13 +82,9 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     tail = "\n".join(log.replace("\r", "\n").splitlines()[-15:])
     # A non-zero exit is a crash even if output was produced.
     if proc.returncode != 0:
-        return None, "crash", tail, parse_metrics(log)
+        return None, "crash", tail, {}
 
-    if task.evaluator is not None:
-        score, status, metrics, note = _trusted_score(task.evaluator, sandbox_dir)
-        if note:
-            tail = (tail + "\n[evaluator] " + note).strip()
-        return score, status, tail, metrics
-
-    score, status, metrics = _legacy_score(sandbox_dir, log)
+    score, status, metrics, note = _trusted_score(task.evaluator, sandbox_dir)
+    if note:
+        tail = (tail + "\n[evaluator] " + note).strip()
     return score, status, tail, metrics

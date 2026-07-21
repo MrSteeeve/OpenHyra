@@ -16,7 +16,6 @@ Usage:
 
 import argparse
 import json
-import os
 import shutil
 import sys
 import threading
@@ -29,10 +28,6 @@ from proposal_agent import propose
 from sandbox import run_solution
 
 ROOT = Path(__file__).resolve().parent
-AUTORESEARCH_DIR = Path(os.environ.get("OPENHYRA_AUTORESEARCH", Path.home() / "GitHub" / "autoresearch"))
-
-# Files a proposal may create in addition to the task's editable files.
-ALLOWED_NEW_FILES = {"PROPOSAL.md"}
 
 
 class Task:
@@ -51,11 +46,12 @@ class Task:
         self.max_training_seconds = cfg.get("max_training_seconds")
         self.fallback_directions = cfg.get("fallback_directions", [])
         self.description = (self.dir / "TASK.md").read_text()
-        ev = self.dir / "evaluator.py"
-        self.evaluator = ev if ev.exists() else None
+        self.evaluator = self.dir / "evaluator.py"
+        if not self.evaluator.exists():
+            sys.exit(f"Task {name!r} has no trusted evaluator.py — refusing to run "
+                     f"(candidate-reported scores are never accepted).")
         self.seed_dir = self.dir / "seed_solution"
-        self.python_bin = (str(AUTORESEARCH_DIR / ".venv" / "bin" / "python")
-                          if cfg.get("python") == "autoresearch" else sys.executable)
+        self.python_bin = sys.executable
         self.run_dir = ROOT / "runs" / self.name
 
 
