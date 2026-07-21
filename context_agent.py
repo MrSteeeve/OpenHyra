@@ -14,6 +14,7 @@ never stalls on the Context Agent. Task specifics (description, metric
 direction, fallback directions) come from the task plugin.
 """
 
+import json
 import re
 import subprocess
 
@@ -43,11 +44,12 @@ def _fmt_metrics(metrics):
 
 
 def _history_table(records):
-    lines = ["| id | score | status | evaluator metrics | description |",
-             "|---|---|---|---|---|"]
+    lines = ["| id | iter | score | status | evaluator metrics | description |",
+             "|---|---:|---:|---|---|---|"]
     for r in records:
         score = f"{r['score']:.6f}" if r["score"] is not None else "-"
-        lines.append(f"| {r['id']} | {score} | {r['status']} | {_fmt_metrics(r.get('metrics'))} "
+        iteration = r.get("metadata", {}).get("iteration", "-")
+        lines.append(f"| {r['id']} | {iteration} | {score} | {r['status']} | {_fmt_metrics(r.get('metrics'))} "
                      f"| {r['description']} |")
     return "\n".join(lines)
 
@@ -67,12 +69,41 @@ def _analyses_dir(eb):
     return d
 
 
-def _previous_analysis(eb):
-    files = sorted(_analyses_dir(eb).glob("iter_*.md"))
-    return files[-1].read_text() if files else ""
+def _analysis_path(eb, iteration):
+    return _analyses_dir(eb) / f"iter_{iteration:04d}.json"
+
+
+def _previous_analysis(eb, records):
+    """Use only analyses whose candidate has completed evaluation."""
+    visible = {r["id"] for r in records}
+    for path in reversed(sorted(_analyses_dir(eb).glob("iter_*.json"))):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if data.get("result_id") in visible:
+            return data.get("text", "")
+    return ""
+
+
+def _write_analysis(eb, iteration, payload):
+    path = _analysis_path(eb, iteration)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def finalize_analysis(eb, iteration, result_id):
+    path = _analysis_path(eb, iteration)
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    data["result_id"] = result_id
+    _write_analysis(eb, iteration, data)
 
 
 def _llm_context_analysis(task, eb, records, best, history, iteration,
+                          eb_version, active_directions, trial_seed,
                           timeout_s=240, backend="claude", model=None):
     """One light LLM call: situation analysis + next direction + parent choice.
 
@@ -82,8 +113,13 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
         f"### {r['id']} (score={r['score']})\n```\n{r.get('log_tail', '')}\n```"
         for r in records[-4:]
     )
-    prev = _previous_analysis(eb)
+    prev = _previous_analysis(eb, records)
     prev_block = f"\n## Your previous analysis (build on it, don't restate it)\n\n{prev}\n" if prev else ""
+    active_block = ""
+    if active_directions:
+        active_block = "\n## Experiments already in flight (choose a materially different one)\n\n" + "\n".join(
+            f"- {direction}" for direction in active_directions
+        ) + "\n"
     better = "lower" if task.direction == "min" else "higher"
 
     prompt = f"""You are the Context Agent of an autonomous research loop (Hyra-style).
@@ -100,6 +136,7 @@ for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is
 
 {recent_tails}
 {prev_block}
+{active_block}
 ## Output format (STRICT, total under 250 words)
 
 ## Analysis
@@ -136,19 +173,31 @@ lineage is more promising). Format: exactly `sol_XXXX`.
         if chosen:
             parent = chosen
 
-    (_analyses_dir(eb) / f"iter_{iteration:04d}.md").write_text(out)
+    _write_analysis(eb, iteration, {
+        "iteration": iteration,
+        "eb_version": eb_version,
+        "visible_solution_ids": [r["id"] for r in records],
+        "trial_seed": trial_seed,
+        "direction": direction,
+        "result_id": None,
+        "text": out,
+    })
     return out, direction, parent
 
 
-def build_inspiration(task, eb, iteration: int, backend="claude", model=None):
+def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
+                      active_directions=(), trial_seed=0):
     """Return (parent_record, prompt, direction) for a Proposal Agent."""
-    best = eb.best()
-    records = eb.records()
+    eb_version, records = eb.snapshot()
+    scored = [r for r in records if r["score"] is not None]
+    pick = min if task.direction == "min" else max
+    best = pick(scored, key=lambda r: r["score"])
     history = _history_table(records)
     failure_notes = _failure_notes(records)
 
     llm = _llm_context_analysis(
-        task, eb, records, best, history, iteration,
+        task, eb, records, best, history, iteration, eb_version,
+        active_directions, trial_seed,
         backend=backend, model=model,
     )
     if llm is not None:
@@ -167,6 +216,15 @@ if you see a clear flaw in the reasoning — say so in PROPOSAL.md if you do."""
         direction = pick_direction(task, iteration)
         guidance = f"""Suggested exploration direction (you may deviate if you have a clearly better idea):
 **{direction}**"""
+        _write_analysis(eb, iteration, {
+            "iteration": iteration,
+            "eb_version": eb_version,
+            "visible_solution_ids": [r["id"] for r in records],
+            "trial_seed": trial_seed,
+            "direction": direction,
+            "result_id": None,
+            "text": "Context LLM unavailable; deterministic fallback used.",
+        })
 
     better = "lower" if task.direction == "min" else "higher"
     editable = ", ".join(f"`{f}`" for f in task.editable_files)
@@ -191,6 +249,9 @@ The files in your working directory are {parent['id']}'s. Log tail of its run:
 
 {guidance}
 
+Use `{trial_seed}` as the deterministic random seed for this trial whenever the
+experiment needs randomness.
+
 Modify {editable} in the current directory to implement ONE focused experiment.
 Keep the change minimal and surgical — this is one iteration of an experiment
 loop, not a rewrite. Then write a single line describing the change to a new
@@ -199,4 +260,11 @@ file named `PROPOSAL.md` (one short sentence, no markdown headers).
 Do not run the solution yourself. ONLY {editable} may change — the harness
 rejects any solution that adds, removes or modifies other files.
 """
-    return parent, prompt, direction
+    context_meta = {
+        "iteration": iteration,
+        "eb_version": eb_version,
+        "visible_solution_ids": [r["id"] for r in records],
+        "trial_seed": trial_seed,
+        "direction": direction,
+    }
+    return parent, prompt, direction, context_meta

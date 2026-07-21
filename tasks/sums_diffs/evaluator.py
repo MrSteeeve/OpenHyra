@@ -1,71 +1,88 @@
 #!/usr/bin/env python3
-"""Trusted evaluator for sums_diffs. Runs OUTSIDE the candidate's control.
+"""Trusted SimpleTES-compatible evaluator for the sum-difference task."""
 
-Usage: evaluator.py <sandbox_dir>
-Reads <sandbox_dir>/solution.json {"A": [ints]}, validates constraints, and
-recomputes C(A) = log(|A+A|/|A|) / log(|A-A|/|A|) via FFT over the indicator
-function. Prints a single JSON line: {"score": ..., "metrics": {...}} or
-{"error": "..."}. Candidate-reported scores are never trusted.
-"""
-
+import hashlib
 import json
 import math
 import sys
+from functools import reduce
+from math import gcd
 from pathlib import Path
 
-import numpy as np
-
-MAX_N = 500_000
-MAX_ABS = 1_000_000
+MIN_N = 2
+MAX_N = 512
+MIN_INT = -1_000_000
+MAX_INT = 1_000_000
 
 
 def fail(msg):
     print(json.dumps({"error": msg}))
-    sys.exit(0)
+    raise SystemExit(0)
+
+
+def canonical_values(values):
+    """Normalize translation, integer scale, and reflection symmetries."""
+    vals = sorted(values)
+    shifted = [x - vals[0] for x in vals]
+    scale = reduce(gcd, shifted[1:], 0) or 1
+    normalized = [x // scale for x in shifted]
+    reflected = [normalized[-1] - x for x in reversed(normalized)]
+    return min(normalized, reflected)
+
+
+def canonical_hash(values):
+    payload = json.dumps(canonical_values(values), separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def evaluate_values(values):
+    if not isinstance(values, list) or not values:
+        raise ValueError('solution.json must contain a non-empty list "A"')
+    normalized = []
+    for index, value in enumerate(values):
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"element {index} is not numeric") from None
+        if not math.isfinite(numeric) or abs(numeric - round(numeric)) > 1e-9:
+            raise ValueError(f"element {index} is not an integer")
+        integer = int(round(numeric))
+        if integer < MIN_INT or integer > MAX_INT:
+            raise ValueError(f"elements must be in [{MIN_INT}, {MAX_INT}]")
+        normalized.append(integer)
+    values = sorted(set(normalized))
+    n = len(values)
+    if not (MIN_N <= n <= MAX_N):
+        raise ValueError(f"|A| must be in [{MIN_N}, {MAX_N}], got {n}")
+    sumset = {a + b for a in values for b in values}
+    diffset = {a - b for a in values for b in values}
+    sums, diffs = len(sumset), len(diffset)
+    if sums <= n or diffs <= n:
+        raise ValueError("both |A+A|/|A| and |A-A|/|A| must be > 1")
+    score = math.log(sums / n) / math.log(diffs / n)
+    vals = sorted(values)
+    return score, {
+        "n": n,
+        "sums": sums,
+        "diffs": diffs,
+        "span": vals[-1] - vals[0],
+        "set_hash": canonical_hash(vals),
+    }, values
 
 
 def main():
-    sandbox = Path(sys.argv[1])
-    sol_path = sandbox / "solution.json"
-    if not sol_path.exists():
+    target = Path(sys.argv[1])
+    solution_path = target / "solution.json" if target.is_dir() else target
+    if not solution_path.exists():
         fail("solution.json not found")
     try:
-        data = json.loads(sol_path.read_text())
-    except ValueError as e:
-        fail(f"solution.json is not valid JSON: {e}")
-    A = data.get("A")
-    if not isinstance(A, list) or not A:
-        fail('solution.json must contain a non-empty list "A"')
-    if not all(isinstance(a, int) for a in A):
-        fail("all elements must be integers")
-    if len(set(A)) != len(A):
-        fail("elements must be distinct")
-    n = len(A)
-    if not (2 <= n <= MAX_N):
-        fail(f"|A| must be in [2, {MAX_N}], got {n}")
-    if any(abs(a) > MAX_ABS for a in A):
-        fail(f"|a| must be <= {MAX_ABS}")
-
-    arr = np.array(sorted(A), dtype=np.int64)
-    lo = int(arr.min())
-    L = int(arr.max()) - lo + 1
-    f = np.zeros(L)
-    f[arr - lo] = 1.0
-    size = 2 * L - 1
-    nfft = 1 << (size - 1).bit_length()
-    F = np.fft.rfft(f, nfft)
-    conv = np.fft.irfft(F * F, nfft)[:size]        # indicator conv -> A+A support
-    corr = np.fft.irfft(F * np.conj(F), nfft)[:L]  # autocorrelation -> A-A support (>=0 half)
-    sums = int((conv > 0.5).sum())
-    diffs = 2 * int((corr[1:] > 0.5).sum()) + 1
-    if diffs <= n:
-        fail("degenerate set: |A-A| <= |A|")
-    score = math.log(sums / n) / math.log(diffs / n)
-    print(json.dumps({
-        "score": round(score, 6),
-        "metrics": {"n": n, "sums": sums, "diffs": diffs,
-                    "span": int(arr.max() - arr.min())},
-    }))
+        data = json.loads(solution_path.read_text())
+        score, metrics, normalized = evaluate_values(data.get("A"))
+    except (OSError, ValueError, TypeError) as exc:
+        fail(str(exc))
+    # Preserve the full IEEE-754 double in the Experience Bank. Formatting is
+    # a presentation concern and must not alter parent selection.
+    print(json.dumps({"score": score, "metrics": metrics, "normalized_A": normalized}))
 
 
 if __name__ == "__main__":

@@ -3,11 +3,12 @@
 对腾讯混元 **Hyra**（Hunyuan Research Agent，[技术报告](https://hy.tencent.com/research/hyra)、
 [官方结果仓库](https://github.com/Tencent-Hunyuan/Hyra-results)）的开源复现。
 
-**第一阶段目标：`sums_diffs`** —— Hyra AI4Science 赛道中的和差集指数问题：构造有限整数集
+**第一阶段目标：`sums_diffs`** —— 和差集指数问题：构造有限整数集
 A，最大化 `C(A) = log(|A+A|/|A|) / log(|A−A|/|A|)`。该任务纯 CPU、评估客观确定、
-跨机器可比，是验证研究智能体循环的理想第一战场。此前公开最好结果 1.14489（SimpleTES），
-Hyra 报告 **1.15971** —— 本仓库的可信评估器已独立复算其公开 artifact，确认
-C(A) = 1.159715。
+跨机器可比，是验证研究智能体循环的理想第一战场。本仓库只采用公开的
+**SimpleTES sums_diffs v1 协议**：`2 <= |A| <= 512`、元素位于 `[-10^6,10^6]`、
+候选硬超时 180 秒，参考成绩为 1.144887。Hyra 发布的大集合 artifact 不满足该协议，
+因此不进入本项目成绩表。
 
 ## Harness 架构（对齐技术报告）
 
@@ -30,7 +31,8 @@ C(A) = 1.159715。
 - **Sandbox**（`sandbox.py`）：macOS seatbelt（`sandbox-exec`）隔离——禁网络、
   只允许写沙盒目录；退出码非零即 crash。
 - **可信评估**：候选只输出 `solution.json`（集合本身），分数由沙盒外的
-  `tasks/<name>/evaluator.py` 用 FFT 重算并校验约束——候选自报的任何数字都不被采信。
+  `tasks/<name>/evaluator.py` 精确枚举 `A+A` 和 `A-A` 并校验 SimpleTES 约束——候选自报的
+  任何数字都不被采信。
 - **完整性白名单**：除任务声明的可编辑文件与 `PROPOSAL.md` 外，任何文件增删改
   → 判 violation，不进沙盒。
 
@@ -40,8 +42,8 @@ C(A) = 1.159715。
 tasks/sums_diffs/
   task.json        方向(max)、可编辑文件、超时、评估并发、回退方向表
   TASK.md          给 agent 的任务说明与协议约束
-  evaluator.py     可信评估器（FFT 计算 |A+A|、|A−A|，校验元素约束）
-  seed_solution/   种子：Conway MSTD 集的无进位乘积构造（C≈1.0344）
+  evaluator.py     SimpleTES-compatible 精确可信评估器
+  seed_solution/   SimpleTES 官方 17 元素初始集合（C≈1.059793）
 runs/<task>/       经验库、draft、沙盒等运行时产物（不入库）
 ```
 
@@ -49,7 +51,7 @@ runs/<task>/       经验库、draft、沙盒等运行时产物（不入库）
 
 ```bash
 # 依赖：python3 + numpy；提案与分析默认用 Claude Code CLI（headless）
-python3 harness.py --task sums_diffs --init          # 种子过可信管线入库
+python3 harness.py --task sums_diffs --init          # 官方 SimpleTES seed 过可信管线入库
 python3 harness.py --task sums_diffs --iterations 5 --workers 2
 # 改用 Codex CLI + GPT/Codex 模型（--model 可省略，使用 Codex 当前默认模型）
 python3 harness.py --task sums_diffs --iterations 5 --workers 2 \

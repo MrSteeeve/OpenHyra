@@ -6,17 +6,18 @@ Construct a finite set A of distinct integers maximizing
 
 where A+A = {a+b : a,b in A} and A-A = {a-b : a,b in A}. HIGHER IS BETTER.
 For "most" sets C(A) < 1 (differences outnumber sums since addition commutes);
-sum-dominant constructions push it above 1. The best published value on this
-benchmark is 1.15971 (Hyra) over 1.14489 (SimpleTES).
+sum-dominant constructions push it above 1. The reference result under this
+exact public protocol is SimpleTES at approximately 1.144887.
 
 ## Protocol
 
 - You may ONLY modify `solver.py`. It must write `solution.json` in its own
   directory containing `{"A": [list of integers]}`.
-- Constraints (checked by a trusted evaluator you cannot see or touch):
-  distinct integers, 2 <= |A| <= 500000, |a| <= 1000000 for every element.
-- The evaluator recomputes |A+A| and |A-A| itself (FFT over the indicator
-  function). Your reported numbers are ignored — only the emitted set matters.
-- `solver.py` must finish within ~150 seconds (the sandbox kills the run at
-  200s). Use the time for search: constructions, local search, annealing, etc.
+- Constraints (checked by a trusted evaluator outside your working directory):
+  A is interpreted as a set (duplicate values are removed), 2 <= |A| <= 512
+  after deduplication, and -1000000 <= a <= 1000000.
+- The evaluator recomputes |A+A| and |A-A| by exact set enumeration. Your
+  reported numbers are ignored — only the emitted set matters.
+- `solver.py` has a hard 180-second timeout. Finish safely before the limit so
+  `solution.json` is always complete.
 - Python standard library + numpy only. No network access.
