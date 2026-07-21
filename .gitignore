@@ -1,0 +1,12 @@
+# ---- 实验成绩 / 报告产物：暂不上传 ----
+results.tsv
+*.log
+nohup.out
+eb/
+drafts/
+sandboxes/
+
+# ---- 运行时产物 ----
+__pycache__/
+.venv/
+.DS_Store
