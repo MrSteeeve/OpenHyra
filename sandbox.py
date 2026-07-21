@@ -10,11 +10,26 @@ from pathlib import Path
 
 SCORE_RE = re.compile(r"^val_bpb:\s*([0-9.]+)", re.MULTILINE)
 
+# Full diagnostic block printed by train.py — stored per-run so the Context Agent
+# can expose throughput/size tradeoffs (tokens seen, steps, MFU) to Proposal Agents.
+METRIC_KEYS = ["val_bpb", "training_seconds", "total_seconds", "peak_vram_mb",
+               "mfu_percent", "total_tokens_M", "num_steps", "num_params_M", "depth"]
+
+
+def parse_metrics(log_text):
+    metrics = {}
+    for key in METRIC_KEYS:
+        m = re.search(rf"^{key}:\s*([0-9.]+)", log_text, re.MULTILINE)
+        if m:
+            metrics[key] = float(m.group(1))
+    return metrics
+
 
 def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout_s: int = 900):
-    """Copy solution to sandbox, run solve.sh, return (score, status, log_tail).
+    """Copy solution to sandbox, run solve.sh, return (score, status, log_tail, metrics).
 
     score is val_bpb (lower is better) or None on crash/timeout.
+    metrics is the parsed summary block from train.py (empty dict on crash).
     """
     sandbox_dir = Path(sandbox_dir)
     if sandbox_dir.exists():
@@ -36,7 +51,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout
         m = SCORE_RE.search(log)
         tail = "\n".join(log.replace("\r", "\n").splitlines()[-15:])
         if m:
-            return float(m.group(1)), "ok", tail
-        return None, "crash", tail
+            return float(m.group(1)), "ok", tail, parse_metrics(log)
+        return None, "crash", tail, {}
     except subprocess.TimeoutExpired:
-        return None, "timeout", f"killed after {timeout_s}s"
+        return None, "timeout", f"killed after {timeout_s}s", {}

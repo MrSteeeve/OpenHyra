@@ -30,7 +30,7 @@ class ExperienceBank:
     def next_id(self):
         return f"sol_{len(self.records()):04d}"
 
-    def commit(self, sol_id, src_dir, score, status, description, parent, log_tail):
+    def commit(self, sol_id, src_dir, score, status, description, parent, log_tail, metrics=None):
         """Copy solution folder into the bank and append a record."""
         dst = self.solutions_dir / sol_id
         if dst.exists():
@@ -44,6 +44,7 @@ class ExperienceBank:
             "description": description,
             "path": str(dst),
             "log_tail": log_tail,
+            "metrics": metrics or {},  # parsed train.py summary (tokens, steps, MFU, ...)
             "created": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
         with open(self.records_path, "a") as f:
