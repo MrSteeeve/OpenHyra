@@ -40,7 +40,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout
     log_path = sandbox_dir / "run.log"
     try:
         with open(log_path, "w") as log_f:
-            subprocess.run(
+            proc = subprocess.run(
                 ["bash", "solve.sh"],
                 cwd=sandbox_dir,
                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(Path.home()),
@@ -50,6 +50,10 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout
             )
         log = log_path.read_text(errors="replace")
         tail = "\n".join(log.replace("\r", "\n").splitlines()[-15:])
+        # A non-zero exit is a crash even if a score line was printed first —
+        # never accept scores from a process that did not finish cleanly.
+        if proc.returncode != 0:
+            return None, "crash", tail, parse_metrics(log)
         # Prefer the machine-readable result (solution.json, as in Hyra-results);
         # fall back to grepping the log for older solution formats.
         sol_json = sandbox_dir / "solution.json"
@@ -65,4 +69,9 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout
             return float(m.group(1)), "ok", tail, parse_metrics(log)
         return None, "crash", tail, {}
     except subprocess.TimeoutExpired:
-        return None, "timeout", f"killed after {timeout_s}s", {}
+        # Surface whatever the run managed to log before being killed
+        tail = f"killed after {timeout_s}s"
+        if log_path.exists():
+            partial = log_path.read_text(errors="replace").replace("\r", "\n")
+            tail += "\n" + "\n".join(partial.splitlines()[-10:])
+        return None, "timeout", tail, {}

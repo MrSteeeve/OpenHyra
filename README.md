@@ -34,7 +34,8 @@ context_agent.py  LLM Context Agent：每轮读全库写局势分析、定下一
                   （分析存 eb/analyses/ 作为跨轮记忆；调用失败回退到方向轮换表）
 proposal_agent.py 提案（headless LLM CLI 修改 train.py）
 sandbox.py        沙盒运行 solve.sh，优先读 solution.json（对齐官方产物格式）
-harness.py        主循环（单 GPU 下退化为串行；冻结文件校验防 reward hacking）
+harness.py        主循环（当前为串行 MVP：尚未实现报告中的异步 inspiration
+                  队列与多 Proposal worker；冻结文件校验 + 预算校验防 reward hacking）
 seed_solution/    种子 solution（solve.sh + train.py + prepare.py）
 eb/ drafts/ sandboxes/   运行时产物（不入库）
 ```
@@ -93,6 +94,9 @@ python3 harness.py --status
   hack，本复现将因果注意力与冻结评估作为硬约束写入 Proposal Agent 的任务说明。
 - **solution 格式对齐官方产物**：与 Hyra-results 一致，每个 solution 是带
   `solve.sh` 入口的自包含文件夹。
+- **本地协议命名**：本仓库跑出的分数属于缩小协议
+  `nanochat-autoresearch-mps512-v1`（seq 512 / depth 4 / 0.5M token 评估 / M 系列
+  GPU），与官方 H100 协议下的 0.9015 不可直接比较，也不应混用表述。
 
 ## 改进方向
 

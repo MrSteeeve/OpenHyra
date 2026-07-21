@@ -19,11 +19,14 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, timeout_s: int = 600
     draft_dir = Path(draft_dir)
     if draft_dir.exists():
         shutil.rmtree(draft_dir)
-    shutil.copytree(parent_dir, draft_dir, ignore=shutil.ignore_patterns(".venv", "__pycache__", ".git", "run.log"))
+    # Exclude run artifacts AND the parent's PROPOSAL.md — inheriting it would
+    # mislabel a failed proposal with the parent's description.
+    shutil.copytree(parent_dir, draft_dir, ignore=shutil.ignore_patterns(
+        ".venv", "__pycache__", ".git", "run.log", "train.log", "PROPOSAL.md", "solution.json"))
 
     before = (draft_dir / "train.py").read_text()
     try:
-        subprocess.run(
+        res = subprocess.run(
             ["claude", "-p", prompt,
              "--permission-mode", "acceptEdits",
              "--allowedTools", "Read,Edit,Write"],
@@ -33,6 +36,9 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, timeout_s: int = 600
         return False, "proposal agent timed out"
     except FileNotFoundError:
         return False, "claude CLI not found on PATH"
+
+    if res.returncode != 0:
+        return False, f"proposal agent exited with code {res.returncode}"
 
     after = (draft_dir / "train.py").read_text()
     if after == before:

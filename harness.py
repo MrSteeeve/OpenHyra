@@ -32,6 +32,9 @@ def seed_bank(eb, seed_dir, score, description, log_tail, runlog=None):
     if runlog and Path(runlog).exists():
         log_text = Path(runlog).read_text(errors="replace")
         metrics = parse_metrics(log_text)
+        logged = metrics.get("val_bpb")
+        if logged is not None and abs(logged - score) > 1e-6:
+            sys.exit(f"--seed-score {score} does not match val_bpb {logged} in {runlog}")
         if not log_tail:
             log_tail = "\n".join(log_text.replace("\r", "\n").splitlines()[-15:])
     sol_id = eb.next_id()
@@ -40,6 +43,10 @@ def seed_bank(eb, seed_dir, score, description, log_tail, runlog=None):
     print(f"[eb] seeded {sol_id}: val_bpb={score} ({description})")
     return rec
 
+
+# Protocol: 300s training budget; runs reporting more than this (small tolerance
+# for the final partial step) are budget violations even if they score well.
+TRAINING_BUDGET_LIMIT_S = 315
 
 # Files the task protocol freezes: the evaluator, dataloader and entry script.
 # A proposal that touches them is a protocol violation (the reward-hacking vector
@@ -78,6 +85,11 @@ def iterate(eb, iteration):
     # keep the sandbox run.log with the solution artifact
     if (sandbox / "run.log").exists():
         shutil.copy(sandbox / "run.log", draft / "run.log")
+
+    if status == "ok" and metrics.get("training_seconds", 0) > TRAINING_BUDGET_LIMIT_S:
+        print(f"[integrity] REJECTED — training ran {metrics['training_seconds']:.0f}s > {TRAINING_BUDGET_LIMIT_S}s budget")
+        score, status = None, "violation"
+        description = f"exceeded training budget ({metrics['training_seconds']:.0f}s): {description}"
 
     rec = eb.commit(eb.next_id(), draft, score, status, description, parent["id"], log_tail, metrics)
     best = eb.best()
