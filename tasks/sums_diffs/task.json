@@ -1,0 +1,19 @@
+{
+  "name": "sums_diffs",
+  "direction": "max",
+  "metric": "C(A)",
+  "editable_files": ["solver.py"],
+  "sandbox_timeout_s": 200,
+  "eval_concurrency": 2,
+  "python": "system",
+  "reference_score": 1.159715,
+  "fallback_directions": [
+    "Refine near the current best: small perturbations of the best known set or its generating parameters. Exploitation, not exploration.",
+    "Try known MSTD (more-sums-than-differences) base sets and asymmetric variants.",
+    "Structured constructions: unions of arithmetic progressions / intervals with carefully chosen gaps.",
+    "Base expansion / product constructions with mixed base sets at different digit positions.",
+    "Randomized local search: add/remove/shift elements, keep changes that raise C(A).",
+    "Scale up: larger sets within the element-range limit, checking the solver stays in budget.",
+    "Combine the best ideas seen so far in the experience bank."
+  ]
+}

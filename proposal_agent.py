@@ -1,30 +1,31 @@
-"""Proposal Agent: consumes an inspiration context and produces a new solution folder.
+"""Proposal Agent: consumes an inspiration context and produces a new solution.
 
-The LLM backend is the Claude Code CLI in headless mode (`claude -p`), standing in
-for the Hunyuan model that powers the real Hyra. It edits train.py inside a draft
-solution folder; the harness then runs the draft in a sandbox and commits the
-result to the Experience Bank.
+The LLM backend is the Claude Code CLI in headless mode (`claude -p`), standing
+in for the model that powers the real Hyra. It edits the task's editable files
+inside a draft solution folder; the harness then runs the draft in a sandbox,
+scores it with the trusted evaluator, and commits the result to the Experience
+Bank.
 """
 
 import shutil
 import subprocess
 from pathlib import Path
 
+RUN_ARTIFACTS = [".venv", "__pycache__", ".git", "run.log", "train.log",
+                 "PROPOSAL.md", "solution.json"]
 
-def propose(parent_dir: Path, draft_dir: Path, prompt: str, timeout_s: int = 600):
-    """Copy parent solution to draft_dir, let the agent edit train.py there.
+
+def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files, timeout_s: int = 600):
+    """Copy parent solution to draft_dir, let the agent edit the editable files.
 
     Returns (ok, description).
     """
     draft_dir = Path(draft_dir)
     if draft_dir.exists():
         shutil.rmtree(draft_dir)
-    # Exclude run artifacts AND the parent's PROPOSAL.md — inheriting it would
-    # mislabel a failed proposal with the parent's description.
-    shutil.copytree(parent_dir, draft_dir, ignore=shutil.ignore_patterns(
-        ".venv", "__pycache__", ".git", "run.log", "train.log", "PROPOSAL.md", "solution.json"))
+    shutil.copytree(parent_dir, draft_dir, ignore=shutil.ignore_patterns(*RUN_ARTIFACTS))
 
-    before = (draft_dir / "train.py").read_text()
+    before = {f: (draft_dir / f).read_text() for f in editable_files if (draft_dir / f).exists()}
     try:
         res = subprocess.run(
             ["claude", "-p", prompt,
@@ -40,7 +41,7 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, timeout_s: int = 600
     if res.returncode != 0:
         return False, f"proposal agent exited with code {res.returncode}"
 
-    after = (draft_dir / "train.py").read_text()
+    after = {f: (draft_dir / f).read_text() for f in editable_files if (draft_dir / f).exists()}
     if after == before:
         return False, "proposal agent made no change"
 

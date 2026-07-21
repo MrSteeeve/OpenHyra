@@ -2,9 +2,8 @@
 results.tsv
 *.log
 nohup.out
-eb/
-drafts/
-sandboxes/
+runs/
+tasks/*/seed_solution/solution.json
 
 # ---- 运行时产物 ----
 __pycache__/
