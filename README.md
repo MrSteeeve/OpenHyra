@@ -29,11 +29,12 @@ Hyra 是一个面向"性能导向研究任务"的自主研究智能体。其 Har
        └─────────────────── │ Experience Bank  │ ◄───────────────────────┘
                             └──────────────────┘        results
 
-eb.py             经验库（solution 文件夹 + 分数 + 日志）
-context_agent.py  灵感生成（历史表 + 最优代码 + 轮换方向提示）
+eb.py             经验库（solution 文件夹 + 分数 + 日志 + 诊断指标）
+context_agent.py  LLM Context Agent：每轮读全库写局势分析、定下一步方向与 parent
+                  （分析存 eb/analyses/ 作为跨轮记忆；调用失败回退到方向轮换表）
 proposal_agent.py 提案（headless LLM CLI 修改 train.py）
-sandbox.py        沙盒运行 solve.sh 并解析 val_bpb
-harness.py        主循环（单 GPU 下退化为串行）
+sandbox.py        沙盒运行 solve.sh，优先读 solution.json（对齐官方产物格式）
+harness.py        主循环（单 GPU 下退化为串行；冻结文件校验防 reward hacking）
 seed_solution/    种子 solution（solve.sh + train.py + prepare.py）
 eb/ drafts/ sandboxes/   运行时产物（不入库）
 ```

@@ -57,7 +57,8 @@ def check_frozen(parent_dir, draft_dir):
 def iterate(eb, iteration):
     """One full Hyra loop iteration. Returns the committed record."""
     parent, prompt, direction = build_inspiration(eb, iteration)
-    print(f"[context] iteration {iteration}: direction = {direction!r}, parent = {parent['id']}")
+    short_dir = " ".join(direction.split())[:160]
+    print(f"[context] iteration {iteration}: parent = {parent['id']}, next = {short_dir}")
 
     draft = ROOT / "drafts" / f"iter_{iteration:04d}"
     ok, description = propose(Path(parent["path"]), draft, prompt)
