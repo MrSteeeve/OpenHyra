@@ -41,9 +41,22 @@ def seed_bank(eb, seed_dir, score, description, log_tail, runlog=None):
     return rec
 
 
+# Files the task protocol freezes: the evaluator, dataloader and entry script.
+# A proposal that touches them is a protocol violation (the reward-hacking vector
+# the Hyra report warns about) and is rejected without being run.
+FROZEN_FILES = ["prepare.py", "solve.sh"]
+
+
+def check_frozen(parent_dir, draft_dir):
+    changed = [f for f in FROZEN_FILES
+               if (Path(parent_dir, f).read_bytes() if Path(parent_dir, f).exists() else b"")
+               != (Path(draft_dir, f).read_bytes() if Path(draft_dir, f).exists() else b"")]
+    return changed
+
+
 def iterate(eb, iteration):
     """One full Hyra loop iteration. Returns the committed record."""
-    parent, prompt, direction, _ = build_inspiration(eb, iteration)
+    parent, prompt, direction = build_inspiration(eb, iteration)
     print(f"[context] iteration {iteration}: direction = {direction!r}, parent = {parent['id']}")
 
     draft = ROOT / "drafts" / f"iter_{iteration:04d}"
@@ -51,6 +64,12 @@ def iterate(eb, iteration):
     print(f"[proposal] {description}" if ok else f"[proposal] FAILED: {description}")
     if not ok:
         return eb.commit(eb.next_id(), draft, None, "crash", description, parent["id"], "")
+
+    violated = check_frozen(parent["path"], draft)
+    if violated:
+        msg = f"modified frozen file(s) {violated}: {description}"
+        print(f"[integrity] REJECTED — {msg}")
+        return eb.commit(eb.next_id(), draft, None, "violation", msg, parent["id"], "")
 
     sandbox = ROOT / "sandboxes" / f"iter_{iteration:04d}"
     print(f"[sandbox] running solve.sh (fixed 5-minute budget + eval) ...")
@@ -95,6 +114,10 @@ def main():
 
     if not eb.records():
         sys.exit("Experience bank is empty; seed it first with --seed.")
+
+    if args.iterations > 0 and not Path(PYTHON_BIN).exists():
+        sys.exit(f"Task environment python not found: {PYTHON_BIN}\n"
+                 f"Set OPENHYRA_AUTORESEARCH or follow the README setup guide.")
 
     start = len([r for r in eb.records() if r["parent"] is not None])
     for i in range(start, start + args.iterations):

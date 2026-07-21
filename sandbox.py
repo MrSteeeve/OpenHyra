@@ -3,6 +3,7 @@
 One GPU -> one sandbox at a time (the semaphore of the Hyra pipeline degenerates to 1).
 """
 
+import json
 import re
 import shutil
 import subprocess
@@ -25,7 +26,7 @@ def parse_metrics(log_text):
     return metrics
 
 
-def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout_s: int = 900):
+def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout_s: int = 660):
     """Copy solution to sandbox, run solve.sh, return (score, status, log_tail, metrics).
 
     score is val_bpb (lower is better) or None on crash/timeout.
@@ -48,8 +49,18 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, python_bin: str, timeout
                 timeout=timeout_s, check=False,
             )
         log = log_path.read_text(errors="replace")
-        m = SCORE_RE.search(log)
         tail = "\n".join(log.replace("\r", "\n").splitlines()[-15:])
+        # Prefer the machine-readable result (solution.json, as in Hyra-results);
+        # fall back to grepping the log for older solution formats.
+        sol_json = sandbox_dir / "solution.json"
+        if sol_json.exists():
+            try:
+                result = json.loads(sol_json.read_text())
+                if "val_bpb" in result:
+                    return float(result["val_bpb"]), "ok", tail, parse_metrics(log)
+            except (ValueError, TypeError):
+                pass
+        m = SCORE_RE.search(log)
         if m:
             return float(m.group(1)), "ok", tail, parse_metrics(log)
         return None, "crash", tail, {}

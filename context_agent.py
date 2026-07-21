@@ -43,9 +43,18 @@ def pick_direction(iteration):
 
 
 def build_inspiration(eb, iteration: int):
-    """Return (parent_record, prompt) for a Proposal Agent."""
+    """Return (parent_record, prompt, direction) for a Proposal Agent."""
     best = eb.best()
     records = eb.records()
+
+    # Parent diversity (report: inspirations should be as diverse as possible):
+    # exploitation iterations build on the best; exploration iterations cycle
+    # through the top-3 scored solutions so search is not a single greedy chain.
+    scored = sorted([r for r in records if r["score"] is not None], key=lambda r: r["score"])
+    if iteration % 2 == 0 or len(scored) < 2:
+        parent = best
+    else:
+        parent = scored[(iteration // 2) % min(3, len(scored))]
 
     # Full history WITH run diagnostics — score alone hides *why* an attempt lost
     # (e.g. a bigger model that starved itself of tokens in the fixed budget).
@@ -77,8 +86,6 @@ def build_inspiration(eb, iteration: int):
 
     direction = pick_direction(iteration)
 
-    best_code = Path(best["path"], "train.py").read_text() if best else ""
-
     prompt = f"""{TASK_DESCRIPTION}
 
 ## Experience bank (all past attempts, with run diagnostics)
@@ -89,12 +96,12 @@ feeds itself fewer tokens usually loses. Compare these columns before betting.
 
 {history}
 {failure_notes}
-## Current best solution: {best['id']} (val_bpb {best['score']:.6f})
+## Your starting point: {parent['id']} (val_bpb {parent['score']:.6f}; current best is {best['id']} @ {best['score']:.6f})
 
-Its `train.py` is the file in your working directory. Recent log tail of the best run:
+The `train.py` in your working directory is {parent['id']}'s. Log tail of its run:
 
 ```
-{best['log_tail']}
+{parent['log_tail']}
 ```
 
 ## Your assignment
@@ -107,6 +114,7 @@ in that direction. Keep the change minimal and surgical — this is one iteratio
 of an experiment loop, not a rewrite. Then write a single line describing the
 change to a new file named `PROPOSAL.md` (one short sentence, no markdown headers).
 
-Do not run the training yourself. Do not touch prepare.py or solve.sh.
+Do not run the training yourself. Do not touch prepare.py or solve.sh —
+modifying them is a protocol violation and the harness will reject the solution.
 """
-    return best, prompt, direction, best_code
+    return parent, prompt, direction

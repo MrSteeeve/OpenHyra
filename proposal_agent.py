@@ -31,6 +31,8 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, timeout_s: int = 600
         )
     except subprocess.TimeoutExpired:
         return False, "proposal agent timed out"
+    except FileNotFoundError:
+        return False, "claude CLI not found on PATH"
 
     after = (draft_dir / "train.py").read_text()
     if after == before:
