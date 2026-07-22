@@ -1,11 +1,13 @@
-# ---- 实验成绩 / 报告产物：暂不上传 ----
+# ---- 实验成绩 / 报告产物：不上传 ----
 results.tsv
 *.log
 nohup.out
 runs/
+experiments/
 tasks/*/seed_solution/solution.json
 
 # ---- 运行时产物 ----
 __pycache__/
+.pytest_cache/
 .venv/
 .DS_Store
