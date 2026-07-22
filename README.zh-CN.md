@@ -16,7 +16,7 @@
 
 $$C(A) = \frac{\log\left(|A+A| \/\ |A|\right)}{\log\left(|A-A| \/\ |A|\right)}$$
 
-其中 $ A+A = \{a+b : a,b \in A\} $ ，$ A-A = \{a-b : a,b \in A\} $。
+其中 $A+A = \{a+b : a,b \in A\}$ ，$A-A = \{a-b : a,b \in A\}$。
 
 对绝大多数集合 $C(A) < 1$（加法可交换，差通常多于和）；
 和占优（MSTD）构造能把它推到 1 以上 [4]。
