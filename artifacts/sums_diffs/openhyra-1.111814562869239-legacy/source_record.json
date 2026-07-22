@@ -1,0 +1,22 @@
+{
+  "historical_run_id": "seed_bestof4_20",
+  "historical_git_commit": "2ae8b791fed941834aa2536410107469ddbf3e14",
+  "historical_git_dirty": true,
+  "record_id": "sol_0005",
+  "parent": "sol_0004",
+  "iteration": 4,
+  "candidate_count": 4,
+  "selected_candidate_index": 2,
+  "selected_candidate_seed": 20260786782180,
+  "status": "ok",
+  "score": 1.111814562869239,
+  "metrics": {
+    "n": 405,
+    "sums": 2395,
+    "diffs": 2003,
+    "span": 1198,
+    "set_hash": "579ce595e244f06c7da990b506bdd4de6e5edf7c88b6d05c1df7f6e98c13df2d",
+    "artifact_sha256": "9099a8118c0f638d1a4c2a1edcf2e478748cc3897f3a8da9930ca1b2f7f4475c"
+  },
+  "retention_policy": "legacy winner-only; non-winning source trees unavailable"
+}

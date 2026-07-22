@@ -1,6 +1,7 @@
 # ---- 实验成绩 / 报告产物：不上传 ----
 results.tsv
 *.log
+!artifacts/**/run.log
 nohup.out
 runs/
 experiments/
