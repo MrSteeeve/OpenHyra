@@ -123,8 +123,8 @@ def _pick_score(scores, direction):
     return (max if direction == "max" else min)(scores)
 
 
-def stopping_evidence(records, *, direction, policy):
-    """Summarize completed Contexts using evaluator records, not LLM claims."""
+def _group_context_records(records):
+    """Return complete Context groups, incomplete iterations and seed scores."""
     all_grouped = {}
     baseline_scores = []
     for record in records:
@@ -152,8 +152,21 @@ def stopping_evidence(records, *, direction, policy):
             incomplete.append(iteration)
             continue
         grouped[iteration] = iteration_records
+    return grouped, sorted(incomplete), baseline_scores
+
+
+def incomplete_contexts(records):
+    """Return Context iterations whose expected candidates are not all in EB."""
+    _grouped, incomplete, _baseline_scores = _group_context_records(records)
+    return incomplete
+
+
+def stopping_evidence(records, *, direction, policy):
+    """Summarize completed Contexts using evaluator records, not LLM claims."""
+    grouped, incomplete, baseline_scores = _group_context_records(records)
 
     running_best = _pick_score(baseline_scores, direction)
+    last_meaningful_best = running_best
     last_meaningful_position = None
     context_improvements = []
     ordered = sorted(grouped)
@@ -163,13 +176,14 @@ def stopping_evidence(records, *, direction, policy):
             if record.get("status") == "ok" and record.get("score") is not None
         ]
         context_best = _pick_score(scores, direction)
-        delta = 0.0
+        incremental_gain = 0.0
+        cumulative_gain = 0.0
         meaningful = False
         if context_best is not None:
             if running_best is None:
                 meaningful = True
-                delta = math.inf
                 running_best = context_best
+                last_meaningful_best = context_best
             else:
                 improvement = (
                     context_best - running_best
@@ -177,15 +191,26 @@ def stopping_evidence(records, *, direction, policy):
                     else running_best - context_best
                 )
                 if improvement > 0:
-                    delta = improvement
+                    incremental_gain = improvement
                     running_best = context_best
-                    meaningful = improvement >= policy.meaningful_delta
+                cumulative_gain = (
+                    running_best - last_meaningful_best
+                    if direction == "max"
+                    else last_meaningful_best - running_best
+                )
+                meaningful = (
+                    cumulative_gain > 0 and
+                    cumulative_gain + 1e-15 >= policy.meaningful_delta
+                )
+                if meaningful:
+                    last_meaningful_best = running_best
         if meaningful:
             last_meaningful_position = position
         context_improvements.append({
             "iteration": iteration,
             "best_score": context_best,
-            "improvement": None if math.isinf(delta) else delta,
+            "improvement": incremental_gain,
+            "cumulative_gain": cumulative_gain,
             "meaningful": meaningful,
         })
 
@@ -221,7 +246,7 @@ def stopping_evidence(records, *, direction, policy):
     )
     return {
         "completed_contexts": completed,
-        "incomplete_contexts": sorted(incomplete),
+        "incomplete_contexts": incomplete,
         "contexts_since_meaningful_improvement": contexts_since,
         "meaningful_delta": policy.meaningful_delta,
         "recent_window": policy.recent_window,
@@ -251,6 +276,8 @@ class StopController:
             reasons.append("context_requested_continue")
         if not self.policy.enabled:
             reasons.append("agent_stop_disabled")
+        if evidence["incomplete_contexts"]:
+            reasons.append("incomplete_contexts_exist")
         if evidence["completed_contexts"] < self.policy.min_contexts_before_stop:
             reasons.append("minimum_contexts_not_met")
         if (evidence["contexts_since_meaningful_improvement"] <

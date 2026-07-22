@@ -94,16 +94,26 @@ same `run-id`.
 
 ### Guarded Agent stopping
 
-Active stopping is opt-in with `--agent-stop`; `--iterations` remains the hard
-upper bound. When enabled, Context rounds are sequential so each decision sees
-the prior round's complete EB, while the candidates inside a round still run
-concurrently. A Context `stop` is only a request. The deterministic controller
-accepts it only after, by default, at least 6 completed Contexts, 4 Contexts
+Active stopping is opt-in with `--agent-stop`; `--iterations` is the
+per-invocation upper bound. When enabled, Context rounds are sequential so each
+decision sees the prior round's complete EB, while the candidates inside a
+round still run concurrently. A Context `stop` is only a request. The
+deterministic controller accepts it only after, by default, at least 6 completed
+Contexts, 4 Contexts
 without a meaningful gain of `0.0001`, and at least 4 successful candidates in
 the latest 4 Contexts. Invalid Context JSON or a failed Context call always
 continues. Every invocation writes its termination reason and evidence to
 `termination.json`; an accepted stop also includes the raw Agent decision and
 the controller review. The file is included in exported bundles.
+
+`expected_gain` and `confidence` are recorded as Agent telemetry only; they do
+not participate in the deterministic stop review. Context input is bounded to
+80 representative EB records and 96,000 characters, preserving recent records,
+the historical best, representative failures, direction coverage and aggregate
+counts. A run with an incomplete Context fails closed on resume, and a
+`terminal=true` run must be continued under a new `--run-id`. On Ctrl+C the
+Harness cancels active CLI/solver process groups and joins all pipeline threads
+before writing terminal state and releasing the run lock.
 
 ```bash
 python3 harness.py --run-id guarded --init --workers 2 --agent-stop

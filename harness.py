@@ -14,6 +14,7 @@ from pathlib import Path
 
 from context_agent import (
     CANDIDATE_SEED_TOKEN,
+    MAX_PROPOSAL_PROMPT_CHARS,
     build_inspiration,
     finalize_analysis,
     record_stop_review,
@@ -30,7 +31,13 @@ from provenance import (
 )
 from reporting import export_bundle
 from sandbox import run_solution, trusted_artifact_dir
-from stopping import StopController, StopPolicy, stopping_evidence, write_termination
+from stopping import (
+    StopController,
+    StopPolicy,
+    incomplete_contexts,
+    stopping_evidence,
+    write_termination,
+)
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
@@ -258,13 +265,39 @@ def _next_context_iteration(records):
     return max(iterations, default=-1) + 1
 
 
+def ensure_run_resumable(task, eb):
+    """Fail closed when continuing would overwrite or skip terminal state."""
+    termination_path = task.run_dir / "termination.json"
+    if termination_path.is_file():
+        try:
+            termination = json.loads(termination_path.read_text())
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(
+                f"cannot validate existing termination record: {exc}"
+            ) from exc
+        if termination.get("terminal") is True:
+            reason = termination.get("reason", "unknown")
+            raise RuntimeError(
+                f"run {task.run_id!r} already terminated ({reason}); "
+                "start a new --run-id"
+            )
+
+    incomplete = incomplete_contexts(eb.records())
+    if incomplete:
+        labels = ", ".join(str(iteration) for iteration in incomplete)
+        raise RuntimeError(
+            f"run {task.run_id!r} contains incomplete Context(s): {labels}; "
+            "automatic replay is not implemented, so start a new --run-id"
+        )
+
+
 def _candidate_seed(context_seed, candidate_index):
     return context_seed * 1_000_003 + candidate_index
 
 
 def _candidate_prompt(prompt, candidate_index, candidate_count, seed):
     prompt = prompt.replace(CANDIDATE_SEED_TOKEN, str(seed))
-    return prompt + f"""
+    candidate_prompt = prompt + f"""
 
 ## Local candidate identity
 
@@ -273,6 +306,9 @@ same Context briefing. Produce your own concrete implementation/parameterization
 all {candidate_count} candidates are evaluated independently, and every outcome
 is committed to the Experience Bank, including failures and low scores.
 """
+    if len(candidate_prompt) > MAX_PROPOSAL_PROMPT_CHARS:
+        raise ValueError("candidate Proposal prompt exceeds character limit")
+    return candidate_prompt
 
 
 def _evaluate_candidate(item, task, print_lock):
@@ -319,8 +355,11 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
     results = [result]
     current_item = item
     repair_budget = getattr(task, "candidate_repair_attempts", 0)
+    cancel_event = getattr(task, "cancel_event", None)
 
     for repair_index in range(repair_budget):
+        if cancel_event is not None and cancel_event.is_set():
+            break
         runtime_failure = (
             not current_item.get("failure") and
             result["status"] in REPAIRABLE_STATUSES
@@ -340,7 +379,7 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
         ok, note = repair_candidate(
             current_item["draft"], repair_draft, result.get("log_tail", ""),
             task.editable_files,
-            backend=backend, model=model,
+            backend=backend, model=model, cancel_event=cancel_event,
         )
         repair_item = {
             **item,
@@ -352,7 +391,12 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
             "repair_note": note,
             "preflight_notes": [],
         }
-        if not ok:
+        if cancel_event is not None and cancel_event.is_set():
+            repair_item.update({
+                "failure": "repair cancelled by user interrupt",
+                "failure_status": "cancelled",
+            })
+        elif not ok:
             repair_item.update({
                 "failure": note,
                 "failure_status": "crash",
@@ -459,12 +503,20 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
     print_lock = threading.Lock()
     errors = queue.Queue()
     termination_request = {}
+    cancel_event = threading.Event()
+    task.cancel_event = cancel_event
     start = _next_context_iteration(eb.records())
 
     def context_producer():
         try:
             for iteration in range(start, start + iterations):
-                inflight.acquire()
+                acquired = False
+                while not cancel_event.is_set():
+                    if inflight.acquire(timeout=0.2):
+                        acquired = True
+                        break
+                if not acquired:
+                    break
                 try:
                     with active_lock:
                         reserved = tuple(active_directions.values())
@@ -481,7 +533,11 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         trial_seed=trial_seed + iteration,
                         agent_stop_enabled=stop_policy.enabled,
                         stop_evidence=evidence_at_decision,
+                        cancel_event=cancel_event,
                     )
+                    if cancel_event.is_set():
+                        inflight.release()
+                        break
                     if decision.action == "stop":
                         review = stop_controller.review(decision, eb.records())
                         review_payload = review.to_dict()
@@ -554,12 +610,15 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
             try:
                 ok, description = propose(
                     Path(parent["path"]), draft, item["prompt"], task.editable_files,
-                    backend=backend, model=model,
+                    backend=backend, model=model, cancel_event=cancel_event,
                 )
                 failure = None
                 failure_status = None
                 preflight_notes = []
-                if not ok:
+                if cancel_event.is_set():
+                    failure = "proposal cancelled by user interrupt"
+                    failure_status = "cancelled"
+                elif not ok:
                     failure, failure_status = description, "crash"
                 else:
                     violations = check_frozen(parent["path"], draft, task.editable_files)
@@ -591,12 +650,16 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     "preflight_notes": preflight_notes,
                 })
             except Exception as exc:
+                cancelled = cancel_event.is_set()
                 candidate_queue.put({
                     **item,
                     "draft": draft,
                     "description": f"proposal worker exception: {exc}",
-                    "failure": repr(exc),
-                    "failure_status": "crash",
+                    "failure": (
+                        "proposal cancelled by user interrupt"
+                        if cancelled else repr(exc)
+                    ),
+                    "failure_status": "cancelled" if cancelled else "crash",
                     "repairable": False,
                     "preflight_notes": [],
                 })
@@ -619,11 +682,15 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         item, task, backend, model, print_lock,
                     )
                 except Exception as exc:
+                    cancelled = cancel_event.is_set()
                     results = [{
                         "item": item,
                         "score": None,
-                        "status": "crash",
-                        "log_tail": repr(exc),
+                        "status": "cancelled" if cancelled else "crash",
+                        "log_tail": (
+                            "evaluation cancelled by user interrupt"
+                            if cancelled else repr(exc)
+                        ),
                         "metrics": {},
                     }]
                 parent_id = item["parent"]["id"]
@@ -669,15 +736,50 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
     producer = threading.Thread(target=context_producer, name="context-producer")
     for thread in evaluators + proposals + [producer]:
         thread.start()
-    producer.join()
-    inspiration_queue.join()
-    for thread in proposals:
-        thread.join()
+
+    interrupted = False
+
+    def request_cancel():
+        nonlocal interrupted
+        if not cancel_event.is_set():
+            with print_lock:
+                print("[cancel] interrupt received; cancelling active work and waiting for cleanup ...")
+        interrupted = True
+        cancel_event.set()
+
+    def join_threads(threads):
+        while any(thread.is_alive() for thread in threads):
+            for thread in threads:
+                if not thread.is_alive():
+                    continue
+                try:
+                    thread.join(timeout=0.2)
+                except KeyboardInterrupt:
+                    request_cancel()
+
+    def put_control(target_queue, item):
+        while True:
+            try:
+                target_queue.put(item, timeout=0.2)
+                return
+            except queue.Full:
+                continue
+            except KeyboardInterrupt:
+                request_cancel()
+
+    join_threads([producer])
+    join_threads(proposals)
     for _ in evaluators:
-        candidate_queue.put(STOP)
-    candidate_queue.join()
-    for thread in evaluators:
-        thread.join()
+        put_control(candidate_queue, STOP)
+    join_threads(evaluators)
+    if cancel_event.is_set() or interrupted:
+        return {
+            "reason": "user_interrupt",
+            "terminal": True,
+            "requested_by": "user",
+            "accepted_by": "harness",
+            "cleanup": "all pipeline threads joined before termination",
+        }
     if not errors.empty():
         stage, exc = errors.get()
         raise RuntimeError(f"pipeline failure in {stage}: {exc}")
@@ -860,6 +962,7 @@ def main():
             task.run_manifest = validate_run_manifest(recorded, current)
 
         if args.iterations:
+            ensure_run_resumable(task, eb)
             try:
                 outcome = run_pipeline(
                     task, eb, args.iterations, args.workers,

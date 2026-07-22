@@ -30,7 +30,8 @@ def prepare_draft(parent_dir: Path, draft_dir: Path):
 
 
 def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
-            timeout_s: int = 600, backend: str = "claude", model=None):
+            timeout_s: int = 600, backend: str = "claude", model=None,
+            cancel_event=None):
     """Copy parent solution to draft_dir, let the agent edit the editable files.
 
     Returns (ok, description).
@@ -45,7 +46,7 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
     try:
         res = run_agent(
             prompt, cwd=draft_dir, writable=True, timeout_s=timeout_s,
-            backend=backend, model=model,
+            backend=backend, model=model, cancel_event=cancel_event,
         )
     except subprocess.TimeoutExpired:
         return False, "proposal agent timed out"
@@ -72,7 +73,8 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
 
 
 def repair_candidate(source_dir: Path, draft_dir: Path, failure_feedback: str, editable_files,
-                     timeout_s: int = 600, backend: str = "claude", model=None):
+                     timeout_s: int = 600, backend: str = "claude", model=None,
+                     cancel_event=None):
     """Create and edit a child draft; never mutate the failed source draft."""
     source_dir = Path(source_dir)
     draft_dir = Path(draft_dir)
@@ -105,7 +107,7 @@ Do not run the solver yourself and do not edit `solution.json` or
     try:
         res = run_agent(
             prompt, cwd=draft_dir, writable=True, timeout_s=timeout_s,
-            backend=backend, model=model,
+            backend=backend, model=model, cancel_event=cancel_event,
         )
     except subprocess.TimeoutExpired:
         return False, "repair agent timed out"
