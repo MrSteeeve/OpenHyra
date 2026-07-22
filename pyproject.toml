@@ -1,0 +1,13 @@
+[project]
+name = "openhyra"
+version = "0.1.0"
+description = "Open reproduction of the Hyra research-agent harness (phase 1: SimpleTES sums_diffs)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
