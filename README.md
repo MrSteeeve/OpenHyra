@@ -32,7 +32,7 @@ ever trusted.
 | System | $C(A)$ | Within SimpleTES v1 protocol |
 |---|---|---|
 | Official seed (17-element initial construction) | 1.059793 | ✓ |
-| **OpenHyra (this repo)** | **1.111815** | ✓ ($n = 405$) |
+| **OpenHyra** | **1.111815** | ✓ ($n = 405$) |
 | SimpleTES [3] | 1.144887 | ✓ |
 | Hyra [1, 2] | 1.159715 | ✗ (published artifact has 181,131 elements) |
 
