@@ -14,7 +14,7 @@
 
 构造有限整数集 $A$，最大化和差集指数
 
-$$C(A) = \frac{\log\left(|A+A| \,/\, |A|\right)}{\log\left(|A-A| \,/\, |A|\right)}$$
+$$C(A) = \frac{\log\left(|A+A| \/\ |A|\right)}{\log\left(|A-A| \/\ |A|\right)}$$
 
 其中 $A+A = \{a+b : a,b \in A\}$，$A-A = \{a-b : a,b \in A\}$。
 
