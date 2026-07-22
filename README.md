@@ -8,7 +8,7 @@
 An open reproduction of Tencent Hunyuan's **Hyra** (Hunyuan Research Agent) harness [1],
 applied to the **sums_diffs** task: an autonomous loop in which LLM agents
 propose solvers, a sandbox runs them, a trusted evaluator scores them, and
-every outcome — success or failure — is banked as experience for the next round.
+every outcome, whether success or failure, is banked as experience for the next round.
 
 ## The task
 
