@@ -5,8 +5,9 @@
 
 **English** | [中文](README.zh-CN.md)
 
-An open reproduction of Tencent Hunyuan's **Hyra** (Hunyuan Research Agent) harness [1],
-applied to the **sums_diffs** task: an autonomous loop in which LLM agents
+An open, partial reproduction of the public architecture of Tencent Hunyuan's
+**Hyra** (Hunyuan Research Agent) harness [1], currently demonstrated on the
+**sums_diffs** task: an autonomous loop in which LLM agents
 propose solvers, a sandbox runs them, a trusted evaluator scores them, and
 every outcome, whether success or failure, is banked as experience for the next round.
 
@@ -29,18 +30,25 @@ ever trusted.
 
 ## Results
 
-| System | $C(A)$ | Within SimpleTES v1 protocol |
-|---|---|---|
-| Official seed (17-element initial construction) | 1.059793 | ✓ |
-| **OpenHyra** | **1.111815** | ✓ ($n = 405$) |
-| SimpleTES [3] | 1.144887 | ✓ |
-| Hyra [1, 2] | 1.159715 | ✗ (published artifact has 181,131 elements) |
+| System | $C(A)$ |
+|---|---:|
+| Official seed (17-element initial construction) | 1.059793 |
+| **OpenHyra legacy run** | **1.111815** ($n = 405$) |
+| SimpleTES [3] | 1.144887 |
 
-Our best set was found by a Codex-backed run (20 Context rounds × 4 candidates
-per round), starting from the official seed. It was scored by the trusted
-evaluator and independently re-verified: $n = 405$, $|A+A| = 2395$,
-$|A-A| = 2003$.
+All rows above use the declared SimpleTES v1 protocol. Hyra's published
+1.159715 artifact [1, 2] is a cross-protocol reference only: its 181,131
+elements exceed the $|A|\le512$ constraint and it is therefore not included in
+the comparison table.
 
+The OpenHyra set was found by a Codex-backed historical run (20 Context rounds
+× 4 candidates per round), scored by the trusted evaluator and independently
+re-verified: $n=405$, $|A+A|=2395$, $|A-A|=2003$. That run predates the current
+all-outcomes and immutable-repair EB semantics: it retained one winner artifact
+per Context and summaries for the other candidates. The set and standalone
+verifier are published as a clearly labelled
+[legacy artifact](artifacts/sums_diffs/openhyra-1.111814562869239-legacy/);
+the current harness has not yet been rerun for a replacement headline result.
 
 ## How it works
 
@@ -58,29 +66,43 @@ $|A-A| = 2003$.
 **Experience Bank** — every candidate's code, artifacts, logs and metrics,
 committed as independent records whether it succeeded, crashed, or scored low.
 
-**Context Agent** — an LLM that reads the full bank each round, writes a short
-situation analysis (persisted as cross-round memory), and picks the next
-experiment direction.
+**Context Agent** — an LLM that reads a structured summary of all records,
+recent logs, recent failures and the current-best implementation, writes a
+short situation analysis (persisted as cross-round memory), and picks the next
+experiment direction. It does not yet retrieve arbitrary historical source
+trees or artifacts.
 
 **Proposal Agents** — headless Claude Code or Codex CLI processes that edit the
-solver inside isolated drafts; each Context briefing fans out to several
-independent candidates, and proposal generation overlaps evaluation.
+solver inside dedicated draft directories using backend-specific permissions;
+these directories organize and validate changes but are not a uniform OpenHyra
+OS security boundary. Each Context briefing fans out to several independent
+candidates, and proposal generation overlaps evaluation.
 
-**Sandbox + trusted evaluation** — candidates run under macOS Seatbelt (no
-network, writes confined to the sandbox) and emit only `solution.json`; the
-score is recomputed outside the sandbox. An integrity whitelist rejects any
-change beyond the declared editable files, an AST preflight catches known
-crash patterns before launch, and crashed candidates get a bounded LLM repair
-loop with a full audit trail.
+**Sandbox + trusted evaluation** — candidates run under macOS Seatbelt with no
+network and writes confined to the sandbox. Most host reads remain allowed, so
+this is write-confinement rather than a confidentiality sandbox. Candidate
+`solution.json` files are accepted only as bounded, single-link regular files,
+copied into a candidate-inaccessible trusted directory, and scored there. An
+integrity whitelist rejects changes beyond the declared editable files, an AST
+preflight catches known crash patterns, and every failed/repaired attempt is
+stored as an immutable EB record linked by `repair_of`.
+
+Each run freezes code, task, evaluator, model, concurrency, limits and seed in
+`run_manifest.json`. Resume is refused if result-affecting provenance drifts,
+and a process lock prevents two harnesses from writing the same `run-id`.
 
 ## Quick start
 
 ```bash
 # Requirements: macOS, Python >= 3.10, numpy, and the Claude Code or Codex CLI
-python3 harness.py --init                      # score the official seed and bank it
-python3 harness.py --iterations 5 --workers 2  # run the autonomous loop
-python3 harness.py --status                    # inspect the experience bank
+python3 harness.py --run-id demo --init --workers 2
+python3 harness.py --run-id demo --iterations 5 --workers 2
+python3 harness.py --run-id demo --status
+python3 harness.py --run-id demo --export-bundle bundles/demo
 ```
+
+Pass the same `--backend`, `--model`, `--workers`, candidate count and trial
+seed at initialization and resume. To change them, start a new `--run-id`.
 
 ## References
 

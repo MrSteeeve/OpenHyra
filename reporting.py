@@ -1,58 +1,24 @@
 """Export compact, independently auditable experiment bundles."""
 
 import csv
-import hashlib
 import json
-import platform
 import shutil
-import subprocess
-import sys
 import time
 from pathlib import Path
 
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _command_version(command):
-    try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, timeout=10, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return (result.stdout or result.stderr).strip().splitlines()[0]
-
-
-def _git_metadata(root):
-    def git(*args):
-        result = subprocess.run(
-            ["git", *args], cwd=root, capture_output=True, text=True,
-            timeout=10, check=False,
-        )
-        return result.stdout.strip() if result.returncode == 0 else None
-
-    return {
-        "commit": git("rev-parse", "HEAD"),
-        "dirty": bool(git("status", "--porcelain")),
-    }
+from provenance import git_metadata
 
 
 SUMMARY_FIELDS = [
     "id", "parent", "iteration", "status", "description", "n", "sums",
     "diffs", "span", "score", "solver_seconds", "evaluator_seconds",
     "total_seconds", "set_hash", "artifact_sha256", "candidate_count",
-    "candidate_index", "candidate_seed", "duplicate_of", "repair_count",
+    "candidate_index", "candidate_seed", "duplicate_of", "attempt_index",
+    "repair_of", "run_manifest_sha256", "editable_file_sha256",
 ]
 
 
-def export_bundle(task, eb, destination, *, root, backend, model, workers,
-                  candidates_per_context, trial_seed, started_at):
+def export_bundle(task, eb, destination, *, root, run_manifest):
     destination = Path(destination)
     if destination.exists():
         raise FileExistsError(f"refusing to overwrite existing bundle: {destination}")
@@ -73,7 +39,9 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
         shutil.copytree(analyses, destination / "analyses")
     output_solutions = destination / "solutions"
     output_solutions.mkdir()
-    allowed = {"solver.py", "solve.sh", "solution.json", "PROPOSAL.md", "run.log"}
+    allowed = set(task.editable_files) | {
+        "solve.sh", "solution.json", "PROPOSAL.md", "run.log",
+    }
     for record in records:
         source = Path(record["path"])
         target = output_solutions / record["id"]
@@ -108,38 +76,24 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
                 "candidate_index": metadata.get("candidate_index"),
                 "candidate_seed": metadata.get("candidate_seed"),
                 "duplicate_of": metadata.get("duplicate_of"),
-                "repair_count": metadata.get("repair_count"),
+                "attempt_index": metadata.get("attempt_index"),
+                "repair_of": metadata.get("repair_of"),
+                "run_manifest_sha256": metadata.get("run_manifest_sha256"),
+                "editable_file_sha256": json.dumps(
+                    metadata.get("editable_file_sha256"), sort_keys=True,
+                ) if metadata.get("editable_file_sha256") else None,
             })
 
-    try:
-        import numpy
-        numpy_version = numpy.__version__
-    except ImportError:
-        numpy_version = None
+    snapshot_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "task": task.name,
         "protocol": task.protocol,
         "run_id": task.run_id,
-        "started_at": started_at,
-        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "trial_seed": trial_seed,
-        "backend": backend,
-        "model": model,
-        "workers": workers,
-        "eval_concurrency": task.eval_concurrency,
-        "candidate_repair_attempts": getattr(task, "candidate_repair_attempts", 0),
-        "candidates_per_context": candidates_per_context,
-        "task_config_sha256": sha256_file(task.dir / "task.json"),
-        "task_description_sha256": sha256_file(task.dir / "TASK.md"),
-        "evaluator_sha256": sha256_file(task.evaluator),
-        "git": _git_metadata(root),
-        "environment": {
-            "python": sys.version,
-            "numpy": numpy_version,
-            "platform": platform.platform(),
-            "backend_cli": _command_version([backend, "--version"]),
-        },
+        "run_manifest_sha256": run_manifest["manifest_sha256"],
+        "run": run_manifest,
+        "snapshot_at": snapshot_at,
+        "export_git": git_metadata(root),
         "record_count": len(records),
         "context_count": len({
             record.get("metadata", {}).get("iteration")
@@ -149,5 +103,8 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
     }
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    )
+    (destination / "run_manifest.json").write_text(
+        json.dumps(run_manifest, ensure_ascii=False, indent=2) + "\n"
     )
     return destination

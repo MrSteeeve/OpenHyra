@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import hashlib
 import json
 import os
 import queue
@@ -9,15 +10,21 @@ import re
 import shutil
 import sys
 import threading
-import time
 from pathlib import Path
 
 from context_agent import CANDIDATE_SEED_TOKEN, build_inspiration, finalize_analysis
 from eb import ExperienceBank
 from llm_backend import SUPPORTED_BACKENDS
 from proposal_agent import propose, repair_candidate
+from provenance import (
+    RunLock,
+    build_run_manifest,
+    load_run_manifest,
+    validate_run_manifest,
+    write_run_manifest,
+)
 from reporting import export_bundle
-from sandbox import run_solution
+from sandbox import run_solution, trusted_artifact_dir
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
@@ -55,6 +62,9 @@ class Task:
         self.max_training_seconds = cfg.get("max_training_seconds")
         self.max_memory_mb = cfg.get("max_memory_mb", 1024)
         self.max_output_mb = cfg.get("max_output_mb", 64)
+        self.max_artifact_bytes = cfg.get("max_artifact_bytes", 1024 * 1024)
+        self.evaluator_timeout_s = cfg.get("evaluator_timeout_s", 300)
+        self.evaluator_max_memory_mb = cfg.get("evaluator_max_memory_mb", 512)
         self.fallback_directions = cfg.get("fallback_directions", [])
         self.engineering_invariants = cfg.get("engineering_invariants", [])
         self.description = (self.dir / "TASK.md").read_text()
@@ -65,6 +75,7 @@ class Task:
         self.python_bin = sys.executable
         self.run_id = run_id
         self.run_dir = ROOT / "runs" / self.name / run_id
+        self.run_manifest = None
 
 
 def solution_files(directory):
@@ -203,13 +214,32 @@ def _known_file_issues(path, name):
 
 
 def _record_metadata(task, context_meta, backend, model):
-    return {
+    metadata = {
         **context_meta,
         "protocol": task.protocol,
         "run_id": task.run_id,
         "backend": backend,
         "model": model,
     }
+    manifest = getattr(task, "run_manifest", None) or {}
+    if manifest:
+        metadata.update({
+            "run_manifest_sha256": manifest.get("manifest_sha256"),
+            "source_sha256": manifest.get("source_sha256"),
+            "task_provenance": manifest.get("task"),
+        })
+    return metadata
+
+
+def _editable_hashes(directory, editable_files):
+    hashes = {}
+    for name in editable_files:
+        path = Path(directory) / name
+        hashes[name] = (
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            if path.is_file() else None
+        )
+    return hashes
 
 
 def _next_context_iteration(records):
@@ -256,9 +286,10 @@ def _evaluate_candidate(item, task, print_lock):
         score, status, log_tail, metrics = run_solution(draft, sandbox, task)
         if (sandbox / "run.log").exists():
             shutil.copy2(sandbox / "run.log", draft / "run.log")
-        snapshot = sandbox / "evaluated_solution.json"
+        trusted = trusted_artifact_dir(sandbox)
+        snapshot = trusted / "evaluated_solution.json"
         if not snapshot.exists():
-            snapshot = sandbox / "solution.snapshot.json"
+            snapshot = trusted / "solution.snapshot.json"
         if snapshot.exists():
             shutil.copy2(snapshot, draft / "solution.json")
 
@@ -275,25 +306,21 @@ def _stored_log(log_tail):
     return (log_tail or "")[-MAX_STORED_LOG_CHARS:]
 
 
-def _attempt_summary(result, attempt):
-    return {
-        "attempt": attempt,
-        "score": result["score"],
-        "status": result["status"],
-        "log_tail": _stored_log(result.get("log_tail")),
-        "metrics": result.get("metrics", {}),
-    }
-
-
 def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
-    """Evaluate once and give a runtime failure one bounded repair loop."""
+    """Return immutable initial/repair attempts, each backed by its own draft."""
+    item = {**item, "attempt_index": 0, "repair_of": None}
     result = _evaluate_candidate(item, task, print_lock)
-    attempts = [_attempt_summary(result, 0)]
-    repair_notes = []
+    results = [result]
+    current_item = item
     repair_budget = getattr(task, "candidate_repair_attempts", 0)
 
     for repair_index in range(repair_budget):
-        if item.get("failure") or result["status"] not in REPAIRABLE_STATUSES:
+        runtime_failure = (
+            not current_item.get("failure") and
+            result["status"] in REPAIRABLE_STATUSES
+        )
+        rejected_preflight = bool(current_item.get("repairable"))
+        if not (runtime_failure or rejected_preflight):
             break
         with print_lock:
             print(
@@ -301,32 +328,52 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
                 f"{item['candidate_index'] + 1}/{item['candidate_count']}: "
                 f"attempt {repair_index + 1}/{repair_budget} after {result['status']}"
             )
+        repair_draft = item["draft"].with_name(
+            f"{item['draft'].name}_repair_{repair_index + 1:02d}"
+        )
         ok, note = repair_candidate(
-            item["draft"], result.get("log_tail", ""), task.editable_files,
+            current_item["draft"], repair_draft, result.get("log_tail", ""),
+            task.editable_files,
             backend=backend, model=model,
         )
-        repair_notes.append(note)
+        repair_item = {
+            **item,
+            "draft": repair_draft,
+            "attempt_index": repair_index + 1,
+            "failure": None,
+            "failure_status": None,
+            "repairable": False,
+            "repair_note": note,
+            "preflight_notes": [],
+        }
         if not ok:
-            break
-        violations = check_frozen(
-            item["parent"]["path"], item["draft"], task.editable_files,
-        )
-        if violations:
-            result = {
-                "item": item,
-                "score": None,
-                "status": "violation",
-                "log_tail": f"repair modified non-editable file(s): {violations}",
-                "metrics": {},
-            }
+            repair_item.update({
+                "failure": note,
+                "failure_status": "crash",
+            })
         else:
-            result = _evaluate_candidate(item, task, print_lock)
-        attempts.append(_attempt_summary(result, repair_index + 1))
+            violations = check_frozen(
+                item["parent"]["path"], repair_draft, task.editable_files,
+            )
+            issues = _known_solver_issues(repair_draft, task.editable_files)
+            if violations:
+                repair_item.update({
+                    "failure": f"repair modified non-editable file(s): {violations}",
+                    "failure_status": "violation",
+                })
+            elif issues:
+                feedback = "Engineering preflight rejected the repair:\n- " + "\n- ".join(issues)
+                repair_item.update({
+                    "failure": feedback,
+                    "failure_status": "rejected",
+                    "repairable": True,
+                    "preflight_notes": [feedback],
+                })
+        result = _evaluate_candidate(repair_item, task, print_lock)
+        results.append(result)
+        current_item = repair_item
 
-    result["attempts"] = attempts
-    result["repair_notes"] = repair_notes
-    result["repair_count"] = max(0, len(attempts) - 1)
-    return result
+    return results
 
 
 def _duplicate_of(result, records):
@@ -341,7 +388,8 @@ def _duplicate_of(result, records):
     )
 
 
-def _commit_candidate_result(result, task, eb, backend, model, print_lock):
+def _commit_candidate_result(result, task, eb, backend, model, print_lock,
+                             parent_id=None, repair_of=None):
     """Commit one candidate outcome without local winner selection."""
     item = result["item"]
     iteration = item["iteration"]
@@ -352,16 +400,19 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock):
         "candidate_index": item["candidate_index"],
         "candidate_seed": item["candidate_seed"],
         "duplicate_of": _duplicate_of(result, eb.records()),
-        "attempts": result.get("attempts", []),
-        "repair_notes": result.get("repair_notes", []),
-        "repair_count": result.get("repair_count", 0),
+        "attempt_index": item.get("attempt_index", 0),
+        "repair_of": repair_of,
+        "repair_note": item.get("repair_note"),
         "preflight_notes": item.get("preflight_notes", []),
+        "editable_file_sha256": _editable_hashes(
+            item["draft"], task.editable_files,
+        ),
     })
 
     previous_best = eb.best()
     record = eb.commit(
         item["draft"], result["score"], result["status"],
-        item["description"], parent["id"], result["log_tail"],
+        item["description"], parent_id or parent["id"], result["log_tail"],
         metrics=result["metrics"], metadata=metadata,
     )
     best = eb.best()
@@ -373,7 +424,8 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock):
         best_text = f"{best['id']} @ {best['score']:.9f}" if best else "none"
         print(
             f"[eb] iter {iteration} candidate {item['candidate_index'] + 1}/"
-            f"{item['candidate_count']} -> {record['id']}: score={result['score']} "
+            f"{item['candidate_count']} attempt {item.get('attempt_index', 0)} "
+            f"-> {record['id']}: score={result['score']} "
             f"status={result['status']}, {verdict} (best: {best_text})"
         )
     return record
@@ -470,34 +522,10 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     if issues:
                         feedback = "Engineering preflight rejected the draft:\n- " + "\n- ".join(issues)
                         preflight_notes.append(feedback)
-                        repair_ok = False
-                        repair_note = "preflight repair disabled"
-                        if getattr(task, "candidate_repair_attempts", 0) > 0:
-                            with print_lock:
-                                print(
-                                    f"[preflight] iter {iteration} candidate "
-                                    f"{candidate_index + 1}/{item['candidate_count']}: "
-                                    "repairing a known runtime hazard"
-                                )
-                            repair_ok, repair_note = repair_candidate(
-                                draft, feedback, task.editable_files,
-                                backend=backend, model=model,
-                            )
-                        preflight_notes.append(repair_note)
-                        if repair_ok:
-                            violations = check_frozen(
-                                parent["path"], draft, task.editable_files,
-                            )
-                            issues = _known_solver_issues(draft, task.editable_files)
-                            if violations:
-                                issues.append(
-                                    f"repair modified non-editable file(s): {violations}"
-                                )
-                        if issues:
-                            failure = "engineering preflight failed: " + "; ".join(issues)
-                            # distinct from "violation" (frozen-file tampering):
-                            # a lint reject is benign engineering feedback
-                            failure_status = "rejected"
+                        failure = "engineering preflight failed: " + "; ".join(issues)
+                        # distinct from "violation" (frozen-file tampering):
+                        # a lint reject is benign engineering feedback
+                        failure_status = "rejected"
                 with print_lock:
                     label = description if failure is None else f"FAILED: {failure}"
                     print(
@@ -510,6 +538,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     "description": description,
                     "failure": failure,
                     "failure_status": failure_status,
+                    "repairable": failure_status == "rejected",
                     "preflight_notes": preflight_notes,
                 })
             except Exception as exc:
@@ -519,6 +548,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     "description": f"proposal worker exception: {exc}",
                     "failure": repr(exc),
                     "failure_status": "crash",
+                    "repairable": False,
                     "preflight_notes": [],
                 })
             finally:
@@ -533,26 +563,30 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
             if item is STOP:
                 candidate_queue.task_done()
                 break
-            record = None
+            records = []
             try:
                 try:
-                    result = _evaluate_candidate_with_repair(
+                    results = _evaluate_candidate_with_repair(
                         item, task, backend, model, print_lock,
                     )
                 except Exception as exc:
-                    result = {
+                    results = [{
                         "item": item,
                         "score": None,
                         "status": "crash",
                         "log_tail": repr(exc),
                         "metrics": {},
-                        "attempts": [],
-                        "repair_notes": [],
-                        "repair_count": 0,
-                    }
-                record = _commit_candidate_result(
-                    result, task, eb, backend, model, print_lock,
-                )
+                    }]
+                parent_id = item["parent"]["id"]
+                repair_of = None
+                for result in results:
+                    record = _commit_candidate_result(
+                        result, task, eb, backend, model, print_lock,
+                        parent_id=parent_id, repair_of=repair_of,
+                    )
+                    records.append(record)
+                    parent_id = record["id"]
+                    repair_of = record["id"]
             except Exception as exc:
                 errors.put((f"evaluator iter {item['iteration']}", exc))
             finally:
@@ -563,8 +597,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         item["iteration"], {"finished": 0, "result_ids": []},
                     )
                     state["finished"] += 1
-                    if record is not None:
-                        state["result_ids"].append(record["id"])
+                    state["result_ids"].extend(record["id"] for record in records)
                     if state["finished"] == item["candidate_count"]:
                         result_ids = list(state["result_ids"])
                         context_completions.pop(item["iteration"])
@@ -614,17 +647,29 @@ def init_seed(task, eb):
         task.seed_dir, seed_candidate,
         ignore=shutil.ignore_patterns("solution.json", "run.log", "__pycache__"),
     )
-    snapshot = sandbox / "evaluated_solution.json"
+    trusted = trusted_artifact_dir(sandbox)
+    snapshot = trusted / "evaluated_solution.json"
     if not snapshot.exists():
-        snapshot = sandbox / "solution.snapshot.json"
+        snapshot = trusted / "solution.snapshot.json"
     if snapshot.exists():
         shutil.copyfile(snapshot, seed_candidate / "solution.json")
     if (sandbox / "run.log").exists():
         shutil.copy2(sandbox / "run.log", seed_candidate / "run.log")
+    manifest = getattr(task, "run_manifest", None) or {}
+    seed_metadata = {
+        "protocol": task.protocol,
+        "run_id": task.run_id,
+        "run_manifest_sha256": manifest.get("manifest_sha256"),
+        "source_sha256": manifest.get("source_sha256"),
+        "task_provenance": manifest.get("task"),
+        "editable_file_sha256": _editable_hashes(
+            seed_candidate, task.editable_files,
+        ),
+    }
     record = eb.commit(
         seed_candidate, score, status, "official SimpleTES 17-element seed",
         None, log_tail, metrics,
-        metadata={"protocol": task.protocol, "run_id": task.run_id},
+        metadata=seed_metadata,
     )
     print(f"[eb] seeded {record['id']}: {task.metric}={score:.12f}")
     return record
@@ -656,7 +701,6 @@ def main():
             f"--candidates-per-context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
         )
 
-    started_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     task = Task(args.task, args.run_id)
     eb = ExperienceBank(task.run_dir / "eb", direction=task.direction)
     if args.status:
@@ -669,30 +713,56 @@ def main():
             print(f"best: {best['id']} @ {best['score']:.12f}")
         return
 
-    if args.init:
-        if eb.records():
-            sys.exit(f"run {args.run_id!r} is already initialized")
-        init_seed(task, eb)
-    if args.iterations:
-        if not eb.records():
-            sys.exit("Experience Bank is empty; use --init first")
-        run_pipeline(
-            task, eb, args.iterations, args.workers,
-            args.backend, args.model, args.trial_seed,
-            candidates_per_context=args.candidates_per_context,
-        )
-    if args.export_bundle:
-        destination = export_bundle(
-            task, eb, args.export_bundle, root=ROOT,
-            backend=args.backend, model=args.model, workers=args.workers,
-            candidates_per_context=(
-                task.candidates_per_context
-                if args.candidates_per_context is None
-                else args.candidates_per_context
-            ),
-            trial_seed=args.trial_seed, started_at=started_at,
-        )
-        print(f"[bundle] exported {destination}")
+    candidates_per_context = (
+        task.candidates_per_context
+        if args.candidates_per_context is None
+        else args.candidates_per_context
+    )
+    manifest_path = task.run_dir / "run_manifest.json"
+    lock = RunLock(task.run_dir / "run.lock")
+    try:
+        lock.acquire()
+        if args.init:
+            if eb.records():
+                sys.exit(f"run {args.run_id!r} is already initialized")
+            task.run_manifest = build_run_manifest(
+                task, ROOT, backend=args.backend, model=args.model,
+                workers=args.workers,
+                candidates_per_context=candidates_per_context,
+                trial_seed=args.trial_seed,
+            )
+            write_run_manifest(manifest_path, task.run_manifest)
+            init_seed(task, eb)
+        elif args.iterations:
+            if not eb.records():
+                sys.exit("Experience Bank is empty; use --init first")
+            recorded = load_run_manifest(manifest_path)
+            current = build_run_manifest(
+                task, ROOT, backend=args.backend, model=args.model,
+                workers=args.workers,
+                candidates_per_context=candidates_per_context,
+                trial_seed=args.trial_seed,
+            )
+            task.run_manifest = validate_run_manifest(recorded, current)
+
+        if args.iterations:
+            run_pipeline(
+                task, eb, args.iterations, args.workers,
+                args.backend, args.model, args.trial_seed,
+                candidates_per_context=candidates_per_context,
+            )
+        if args.export_bundle:
+            if task.run_manifest is None:
+                task.run_manifest = load_run_manifest(manifest_path)
+            destination = export_bundle(
+                task, eb, args.export_bundle, root=ROOT,
+                run_manifest=task.run_manifest,
+            )
+            print(f"[bundle] exported {destination}")
+    except RuntimeError as exc:
+        sys.exit(str(exc))
+    finally:
+        lock.release()
 
 
 if __name__ == "__main__":

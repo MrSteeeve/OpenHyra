@@ -1,6 +1,8 @@
 import hashlib
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -17,7 +19,14 @@ from harness import (
     run_pipeline,
 )
 from proposal_agent import prepare_draft
-from sandbox import run_solution
+from provenance import (
+    RunLock,
+    build_run_manifest,
+    load_run_manifest,
+    validate_run_manifest,
+    write_run_manifest,
+)
+from sandbox import _snapshot_artifact, run_solution, trusted_artifact_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 EVALUATOR_PATH = ROOT / "tasks" / "sums_diffs" / "evaluator.py"
@@ -88,6 +97,58 @@ class ExperienceBankTests(unittest.TestCase):
             self.assertEqual(bank.best()["score"], 19.0)
 
 
+class ProvenanceTests(unittest.TestCase):
+    def test_manifest_round_trip_and_resume_drift_rejection(self):
+        from harness import Task
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("provenance.command_version", return_value="test-cli 1.0"):
+            task = Task("sums_diffs", "provenance-test")
+            recorded = build_run_manifest(
+                task, ROOT, backend="codex", model="test-model", workers=2,
+                candidates_per_context=4, trial_seed=7,
+            )
+            path = Path(temporary) / "run_manifest.json"
+            write_run_manifest(path, recorded)
+            loaded = load_run_manifest(path)
+            current = build_run_manifest(
+                task, ROOT, backend="codex", model="test-model", workers=2,
+                candidates_per_context=4, trial_seed=7,
+            )
+            self.assertEqual(
+                validate_run_manifest(loaded, current)["manifest_sha256"],
+                recorded["manifest_sha256"],
+            )
+
+            current["search"]["workers"] = 3
+            with self.assertRaisesRegex(RuntimeError, "provenance drift"):
+                validate_run_manifest(loaded, current)
+
+            current["search"]["workers"] = 2
+            current["environment"]["backend_cli"] = "test-cli 2.0"
+            with self.assertRaisesRegex(RuntimeError, "environment"):
+                validate_run_manifest(loaded, current)
+
+    def test_manifest_checksum_tampering_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "run_manifest.json"
+            payload = {"manifest_sha256": "wrong", "task": {"name": "x"}}
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(RuntimeError, "checksum mismatch"):
+                load_run_manifest(path)
+
+    def test_only_one_process_lock_can_own_a_run(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "run.lock"
+            first, second = RunLock(path), RunLock(path)
+            first.acquire()
+            try:
+                with self.assertRaisesRegex(RuntimeError, "already owned"):
+                    second.acquire()
+            finally:
+                first.release()
+
+
 class DraftIsolationTests(unittest.TestCase):
     def test_draft_copies_code_without_run_artifacts(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -103,6 +164,87 @@ class DraftIsolationTests(unittest.TestCase):
             self.assertEqual((draft / "solver.py").read_text(), "print('parent')\n")
             self.assertFalse((draft / "solution.json").exists())
             self.assertEqual(check_frozen(parent, draft, ["solver.py"]), [])
+
+
+class ArtifactIntakeTests(unittest.TestCase):
+    def test_regular_artifact_is_copied_to_trusted_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / "solution.json"
+            artifact.write_text('{"A":[0,1,3]}')
+            snapshot, data = _snapshot_artifact(
+                artifact, root / "trusted", max_bytes=1024,
+            )
+            self.assertEqual(data, artifact.read_bytes())
+            self.assertEqual(snapshot.read_bytes(), data)
+            self.assertEqual(snapshot.stat().st_mode & 0o222, 0)
+
+    def test_symbolic_link_artifact_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outside = root / "outside.json"
+            outside.write_text('{"A":[0,1,3]}')
+            (root / "solution.json").symlink_to(outside)
+            with self.assertRaisesRegex(ValueError, "symbolic link"):
+                _snapshot_artifact(
+                    root / "solution.json", root / "trusted", max_bytes=1024,
+                )
+
+    def test_non_regular_and_multiply_linked_artifacts_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / "solution.json"
+            directory.mkdir()
+            with self.assertRaisesRegex(ValueError, "regular file"):
+                _snapshot_artifact(directory, root / "trusted-dir", max_bytes=1024)
+
+            directory.rmdir()
+            artifact = root / "solution.json"
+            artifact.write_text('{"A":[0,1,3]}')
+            os.link(artifact, root / "second-link.json")
+            with self.assertRaisesRegex(ValueError, "exactly one hard link"):
+                _snapshot_artifact(artifact, root / "trusted-link", max_bytes=1024)
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires POSIX FIFOs")
+    def test_fifo_artifact_is_rejected_without_blocking(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fifo = root / "solution.json"
+            os.mkfifo(fifo)
+            with self.assertRaisesRegex(ValueError, "regular file"):
+                _snapshot_artifact(fifo, root / "trusted", max_bytes=1024)
+
+    def test_oversized_artifact_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / "solution.json"
+            artifact.write_bytes(b"x" * 17)
+            with self.assertRaisesRegex(ValueError, "16-byte"):
+                _snapshot_artifact(artifact, root / "trusted", max_bytes=16)
+
+
+class PublishedArtifactTests(unittest.TestCase):
+    def test_legacy_winner_bundle_verifies_and_matches_manifest(self):
+        artifact = (
+            ROOT / "artifacts" / "sums_diffs" /
+            "openhyra-1.111814562869239-legacy"
+        )
+        result = subprocess.run(
+            [sys.executable, str(artifact / "verify.py")],
+            capture_output=True, text=True, check=True,
+        )
+        verdict = json.loads(result.stdout)
+        self.assertEqual(verdict["n"], 405)
+        self.assertEqual(verdict["sums"], 2395)
+        self.assertEqual(verdict["diffs"], 2003)
+        self.assertAlmostEqual(verdict["score"], 1.111814562869239, places=15)
+
+        manifest = json.loads((artifact / "manifest.json").read_text())
+        self.assertEqual(manifest["artifact_kind"], "legacy-winner-only")
+        self.assertFalse(manifest["retention"]["current_harness_rerun"])
+        for name, expected in manifest["files_sha256"].items():
+            actual = hashlib.sha256((artifact / name).read_bytes()).hexdigest()
+            self.assertEqual(actual, expected, name)
 
 
 class CandidatePipelineTests(unittest.TestCase):
@@ -260,8 +402,9 @@ class CandidatePipelineTests(unittest.TestCase):
                 (draft / editable_files[0]).write_text("print('broken')\n")
                 return True, "candidate with a repairable bug"
 
-            def fake_repair(draft, feedback, editable_files, **_kwargs):
+            def fake_repair(source, draft, feedback, editable_files, **_kwargs):
                 self.assertIn("TypeError", feedback)
+                prepare_draft(source, draft)
                 (Path(draft) / editable_files[0]).write_text("print('fixed')\n")
                 return True, "clamped progress"
 
@@ -293,15 +436,22 @@ class CandidatePipelineTests(unittest.TestCase):
                     candidates_per_context=1,
                 )
 
-            candidate = bank.records()[-1]
-            self.assertEqual(candidate["status"], "ok")
-            self.assertEqual(candidate["metadata"]["repair_count"], 1)
+            records = bank.records()
+            self.assertEqual(len(records), 3)
+            failed, repaired = records[-2:]
+            self.assertEqual(failed["status"], "crash")
+            self.assertIn("TypeError", failed["log_tail"])
+            self.assertEqual(repaired["status"], "ok")
+            self.assertEqual(repaired["parent"], failed["id"])
+            self.assertEqual(repaired["metadata"]["repair_of"], failed["id"])
+            self.assertEqual(repaired["metadata"]["attempt_index"], 1)
             self.assertEqual(
-                [attempt["status"] for attempt in candidate["metadata"]["attempts"]],
-                ["crash", "ok"],
+                (Path(failed["path"]) / "solver.py").read_text(),
+                "print('broken')\n",
             )
-            self.assertIn(
-                "TypeError", candidate["metadata"]["attempts"][0]["log_tail"],
+            self.assertEqual(
+                (Path(repaired["path"]) / "solver.py").read_text(),
+                "print('fixed')\n",
             )
             self.assertEqual(len(evaluations), 2)
 
@@ -342,8 +492,9 @@ class CandidatePipelineTests(unittest.TestCase):
                 )
                 return True, "unsafe annealing schedule"
 
-            def fake_repair(draft, feedback, editable_files, **_kwargs):
-                self.assertIn("Engineering preflight rejected", feedback)
+            def fake_repair(source, draft, feedback, editable_files, **_kwargs):
+                self.assertIn("engineering preflight failed", feedback)
+                prepare_draft(source, draft)
                 (Path(draft) / editable_files[0]).write_text(
                     "progress = min(1.0, max(0.0, elapsed / budget))\n"
                     "temperature = max(0.01, (1.0 - progress) ** 1.5)\n"
@@ -368,10 +519,17 @@ class CandidatePipelineTests(unittest.TestCase):
                     candidates_per_context=1,
                 )
 
-            candidate = bank.records()[-1]
-            self.assertEqual(candidate["status"], "ok")
-            self.assertTrue(candidate["metadata"]["preflight_notes"])
-            self.assertEqual(len(candidate["metadata"]["attempts"]), 1)
+            records = bank.records()
+            self.assertEqual(len(records), 3)
+            rejected, repaired = records[-2:]
+            self.assertEqual(rejected["status"], "rejected")
+            self.assertTrue(rejected["metadata"]["preflight_notes"])
+            self.assertEqual(repaired["status"], "ok")
+            self.assertEqual(repaired["metadata"]["repair_of"], rejected["id"])
+            self.assertIn(
+                "progress = elapsed / budget",
+                (Path(rejected["path"]) / "solver.py").read_text(),
+            )
 
 @unittest.skipUnless(sys.platform == "darwin", "requires macOS Seatbelt")
 class SandboxTests(unittest.TestCase):
@@ -409,15 +567,16 @@ class SandboxTests(unittest.TestCase):
             self.assertEqual(status, "ok")
             self.assertAlmostEqual(score, 1.0597930945472454, places=14)
             self.assertEqual(metrics["n"], 17)
-            snapshot = json.loads((root / "sandbox" / "solution.snapshot.json").read_text())
+            trusted = trusted_artifact_dir(root / "sandbox")
+            snapshot = json.loads((trusted / "solution.snapshot.json").read_text())
             self.assertEqual(snapshot["A"], [0,1,2,4,5,9,12,13,14,16,17,21,24,25,26,28,29])
-            evaluated = root / "sandbox" / "evaluated_solution.json"
+            evaluated = trusted / "evaluated_solution.json"
             self.assertEqual(
                 hashlib.sha256(evaluated.read_bytes()).hexdigest(),
                 metrics["artifact_sha256"],
             )
             self.assertEqual(
-                hashlib.sha256((root / "sandbox" / "solution.snapshot.json").read_bytes()).hexdigest(),
+                hashlib.sha256((trusted / "solution.snapshot.json").read_bytes()).hexdigest(),
                 metrics["candidate_artifact_sha256"],
             )
 

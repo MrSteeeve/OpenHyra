@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "legacy-winner-only",
+  "task": "sums_diffs",
+  "protocol": "simpletes-sums-diffs-v1",
+  "score": 1.111814562869239,
+  "metrics": {
+    "n": 405,
+    "sums": 2395,
+    "diffs": 2003,
+    "span": 1198,
+    "set_hash": "579ce595e244f06c7da990b506bdd4de6e5edf7c88b6d05c1df7f6e98c13df2d"
+  },
+  "historical_run": {
+    "run_id": "seed_bestof4_20",
+    "started_at": "2026-07-22T10:51:31+0800",
+    "finished_at": "2026-07-22T13:19:35+0800",
+    "git_commit": "2ae8b791fed941834aa2536410107469ddbf3e14",
+    "git_dirty": true,
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "backend_cli": "codex-cli 0.144.6",
+    "python": "3.12.6",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "workers": 4,
+    "eval_concurrency": 2,
+    "candidates_per_context": 4,
+    "context_rounds": 20,
+    "trial_seed": 20260722,
+    "task_config_sha256": "d0e65f326b4a2ed804ca1fbed43ba25beb9f2a3191f586920caf6d808be89c0f",
+    "task_description_sha256": "d1af80db24c04543e7f1854d5568aa005b942d37bfb72d04099d0f332376c07b",
+    "evaluator_sha256": "015e7039895dc4def4b0a2424786e412aa5fc232260a32e4fb3966be452d72ce"
+  },
+  "winner": {
+    "record_id": "sol_0005",
+    "parent": "sol_0004",
+    "iteration": 4,
+    "candidate_index_zero_based": 2,
+    "candidate_seed": 20260786782180,
+    "solver_seconds": 168.1250882500026,
+    "evaluator_seconds": 0.05062987499695737,
+    "historical_solution_sha256": "9099a8118c0f638d1a4c2a1edcf2e478748cc3897f3a8da9930ca1b2f7f4475c"
+  },
+  "retention": {
+    "policy": "historical winner-only",
+    "limitation": "one source tree per Context was retained; non-winning source trees are unavailable",
+    "current_harness_rerun": false
+  },
+  "files_sha256": {
+    "PROPOSAL.md": "894bdcb74c2d6d30b0733cfdede7da3bcb881883a34958635563055615bc5da4",
+    "README.md": "762c2bc2af0dc00643b375d927f19b06fb4a2685b2e807ba6193a9c0160430ad",
+    "run.log": "78bb6c74aea2fa74db776b179593c90fa28548e04270f927cdc96f0561c843b1",
+    "solution.json": "0085bb547ab7e07c29fd89e02fa3f7660df1ed01f03e84ab01ca8942a7a615d2",
+    "solve.sh": "1d55fad50ef1bdb24e6722782a04fa1e509268e1fa4a8e027297bd78cebcdfcc",
+    "solver.py": "97d022721f5017841bb1b96ce73e088273fdf9c4fd1e91f41200dd7a75200d9f",
+    "source_record.json": "eb62810cf3ab2046d39ca811593c8b7c12c91d8e115b55ce2bc6adf0f2842722",
+    "verification.json": "68da1ad11482af307456d9afd140be6515e8232c5b02c21b433ef56394dd8808",
+    "verify.py": "5ba0aa6a0712b83b6b1946bf1beaaf7eecbf2677d634df3a182def114fda428b"
+  }
+}

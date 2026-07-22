@@ -5,10 +5,14 @@ import json
 import os
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+DEFAULT_MAX_ARTIFACT_BYTES = 1024 * 1024
+READ_CHUNK_BYTES = 64 * 1024
 
 SANDBOX_PROFILE = """(version 1)
 (allow default)
@@ -67,6 +71,69 @@ def _limited_cmd(task, command):
     ]
 
 
+def trusted_artifact_dir(sandbox_dir):
+    """Return a parent-controlled directory outside the candidate write root."""
+    sandbox_dir = Path(sandbox_dir)
+    return sandbox_dir.parent / ".trusted_artifacts" / sandbox_dir.name
+
+
+def _read_regular_file(path, max_bytes):
+    """Read one untrusted artifact without following links or blocking on FIFOs."""
+    path = Path(path)
+    try:
+        before = os.lstat(path)
+    except FileNotFoundError as exc:
+        raise ValueError("solution.json not found") from exc
+    if stat.S_ISLNK(before.st_mode):
+        raise ValueError("solution.json must not be a symbolic link")
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise ValueError(f"could not safely open solution.json: {exc}") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("solution.json must be a regular file")
+        if info.st_nlink != 1:
+            raise ValueError("solution.json must have exactly one hard link")
+        if info.st_size > max_bytes:
+            raise ValueError(
+                f"solution.json exceeds the {max_bytes}-byte artifact limit"
+            )
+        chunks = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(fd, min(READ_CHUNK_BYTES, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        data = b"".join(chunks)
+        if len(data) > max_bytes:
+            raise ValueError(
+                f"solution.json exceeds the {max_bytes}-byte artifact limit"
+            )
+        return data
+    finally:
+        os.close(fd)
+
+
+def _snapshot_artifact(artifact, trusted_dir, max_bytes):
+    """Copy a validated candidate artifact into a fresh trusted directory."""
+    data = _read_regular_file(artifact, max_bytes)
+    trusted_dir = Path(trusted_dir)
+    if trusted_dir.exists():
+        shutil.rmtree(trusted_dir)
+    trusted_dir.mkdir(parents=True)
+    snapshot = trusted_dir / "solution.snapshot.json"
+    snapshot.write_bytes(data)
+    snapshot.chmod(0o444)
+    return snapshot, data
+
+
 def _kill_process_group(proc):
     try:
         os.killpg(proc.pid, signal.SIGKILL)
@@ -74,11 +141,22 @@ def _kill_process_group(proc):
         pass
 
 
-def _trusted_score(evaluator, snapshot_path, timeout_s=300):
+def _trusted_score(task, snapshot_path):
     started = time.perf_counter()
+    timeout_s = int(getattr(task, "evaluator_timeout_s", 300))
+    memory_mb = int(getattr(task, "evaluator_max_memory_mb", 512))
+    output_mb = int(getattr(task, "max_output_mb", 64))
+    command = [sys.executable, str(task.evaluator), str(snapshot_path)]
+    limited = [
+        sys.executable, "-c", LIMIT_WRAPPER,
+        str(memory_mb * 1024 * 1024),
+        str(output_mb * 1024 * 1024),
+        str(timeout_s + 5),
+        *command,
+    ]
     try:
         res = subprocess.run(
-            [sys.executable, str(evaluator), str(snapshot_path)],
+            limited,
             capture_output=True, text=True, timeout=timeout_s, check=False,
         )
     except subprocess.TimeoutExpired:
@@ -162,23 +240,27 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         return None, "crash", log_tail, base_metrics
 
     artifact = sandbox_dir / "solution.json"
-    if not artifact.exists():
-        return None, "crash", (log_tail + "\nsolution.json not found").strip(), base_metrics
-    snapshot = sandbox_dir / "solution.snapshot.json"
-    snapshot_bytes = artifact.read_bytes()
-    snapshot.write_bytes(snapshot_bytes)
-    snapshot.chmod(0o444)
+    trusted_dir = trusted_artifact_dir(sandbox_dir)
+    max_artifact_bytes = int(getattr(
+        task, "max_artifact_bytes", DEFAULT_MAX_ARTIFACT_BYTES,
+    ))
+    try:
+        snapshot, snapshot_bytes = _snapshot_artifact(
+            artifact, trusted_dir, max_artifact_bytes,
+        )
+    except (OSError, ValueError) as exc:
+        return None, "crash", (log_tail + f"\n{exc}").strip(), base_metrics
     candidate_artifact_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
 
     score, status, metrics, note, evaluator_seconds, normalized = _trusted_score(
-        task.evaluator, snapshot,
+        task, snapshot,
     )
     evaluated_artifact_sha256 = candidate_artifact_sha256
     if normalized is not None:
         evaluated_bytes = json.dumps(
             {"A": normalized}, separators=(",", ":"),
         ).encode()
-        evaluated = sandbox_dir / "evaluated_solution.json"
+        evaluated = trusted_dir / "evaluated_solution.json"
         evaluated.write_bytes(evaluated_bytes)
         evaluated.chmod(0o444)
         evaluated_artifact_sha256 = hashlib.sha256(evaluated_bytes).hexdigest()

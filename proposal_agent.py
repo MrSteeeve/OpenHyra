@@ -71,10 +71,15 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
     return True, description
 
 
-def repair_candidate(draft_dir: Path, failure_feedback: str, editable_files,
+def repair_candidate(source_dir: Path, draft_dir: Path, failure_feedback: str, editable_files,
                      timeout_s: int = 600, backend: str = "claude", model=None):
-    """Give one rejected or failed draft back to the proposal backend."""
+    """Create and edit a child draft; never mutate the failed source draft."""
+    source_dir = Path(source_dir)
     draft_dir = Path(draft_dir)
+    try:
+        prepare_draft(source_dir, draft_dir)
+    except OSError as exc:
+        return False, f"could not prepare immutable repair draft: {exc}"
     before = {
         name: (draft_dir / name).read_bytes()
         for name in editable_files

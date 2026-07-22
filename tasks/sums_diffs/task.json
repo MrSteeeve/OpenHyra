@@ -14,6 +14,9 @@
   ],
   "max_memory_mb": 1024,
   "max_output_mb": 64,
+  "max_artifact_bytes": 65536,
+  "evaluator_timeout_s": 30,
+  "evaluator_max_memory_mb": 512,
   "reference_score": 1.144887,
   "fallback_directions": [
     "Refine near the current best: small perturbations of the best known set or its generating parameters. Exploitation, not exploration.",
