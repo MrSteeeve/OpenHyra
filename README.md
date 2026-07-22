@@ -14,14 +14,14 @@ every outcome — success or failure — is banked as experience for the next ro
 
 Construct a finite set of integers $A$ maximizing the sum-vs-difference exponent
 
-$$C(A) = \frac{\log\left(|A+A| \,/\, |A|\right)}{\log\left(|A-A| \,/\, |A|\right)}$$
+$$C(A) = \frac{\log\left(|A+A| \/\ |A|\right)}{\log\left(|A-A| \/\ |A|\right)}$$
 
 where $A+A = \{a+b : a,b \in A\}$ and $A-A = \{a-b : a,b \in A\}$.
 
 For most sets $C(A) < 1$, since addition commutes and differences tend to
 outnumber sums; sum-dominant ("MSTD") constructions push it above 1 [4].
 
-We follow the public **SimpleTES sums_diffs v1 protocol** [3]:
+We follow the public **SimpleTES sums_diffs task requirements** [3]:
 $2 \le |A| \le 512$, elements within $[-10^6, 10^6]$, a hard 180-second
 candidate timeout, and exact enumeration of $A+A$ and $A-A$ by a trusted
 evaluator outside the sandbox. Nothing a candidate reports about itself is
@@ -34,24 +34,21 @@ ever trusted.
 | Official seed (17-element initial construction) | 1.059793 | ✓ |
 | **OpenHyra (this repo)** | **1.111815** | ✓ ($n = 405$) |
 | SimpleTES [3] | 1.144887 | ✓ |
-| Hyra [1, 2] | 1.159715 | ✗ — published artifact has 181,131 elements |
+| Hyra [1, 2] | 1.159715 | ✗ (published artifact has 181,131 elements) |
 
 Our best set was found by a Codex-backed run (20 Context rounds × 4 candidates
 per round), starting from the official seed. It was scored by the trusted
 evaluator and independently re-verified: $n = 405$, $|A+A| = 2395$,
 $|A-A| = 2003$.
 
-Hyra's published number is listed for reference only: its artifact exceeds the
-512-element bound of the protocol used here, so the two settings are not
-directly comparable.
 
 ## How it works
 
 ```
 ┌───────────────┐   inspirations   ┌────────────────┐   solution    ┌─────────┐
 │ Context Agent │ ───────────────► │ Proposal Agent │ ────────────► │ Sandbox │
-│  (LLM: reads the bank,           │  ×N workers      │             │ + trusted │
-│   writes an analysis)            │ (Claude/Codex)   │             │ evaluator │
+│  (LLM reads the bank,            │  ×N workers    │               │ + trusted │
+│   writes an analysis)            │ (Claude/Codex) │               │ evaluator │
 └──────▲────────┘                  └────────────────┘               └────┬────┘
        │                     ┌──────────────────┐                        │
        └──────────────────── │ Experience Bank  │ ◄──────────────────────┘
