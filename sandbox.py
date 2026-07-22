@@ -141,7 +141,23 @@ def _kill_process_group(proc):
         pass
 
 
-def _trusted_score(task, snapshot_path):
+def _wait_process(proc, timeout_s, cancel_event=None):
+    """Return completed, timeout, or cancelled while polling shared state."""
+    started = time.monotonic()
+    while True:
+        if cancel_event is not None and cancel_event.is_set():
+            return "cancelled"
+        remaining = timeout_s - (time.monotonic() - started)
+        if remaining <= 0:
+            return "timeout"
+        try:
+            proc.wait(timeout=min(0.2, remaining))
+            return "completed"
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def _trusted_score(task, snapshot_path, cancel_event=None):
     started = time.perf_counter()
     timeout_s = int(getattr(task, "evaluator_timeout_s", 300))
     memory_mb = int(getattr(task, "evaluator_max_memory_mb", 512))
@@ -154,19 +170,24 @@ def _trusted_score(task, snapshot_path):
         str(timeout_s + 5),
         *command,
     ]
-    try:
-        res = subprocess.run(
-            limited,
-            capture_output=True, text=True, timeout=timeout_s, check=False,
-        )
-    except subprocess.TimeoutExpired:
+    proc = subprocess.Popen(
+        limited, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, start_new_session=True,
+    )
+    state = _wait_process(proc, timeout_s, cancel_event)
+    # Trusted code should not leave descendants behind either.
+    _kill_process_group(proc)
+    stdout, stderr = proc.communicate()
+    if state == "timeout":
         return None, "crash", {}, "evaluator timed out", time.perf_counter() - started, None
+    if state == "cancelled":
+        return None, "cancelled", {}, "evaluator cancelled", time.perf_counter() - started, None
     elapsed = time.perf_counter() - started
-    line = res.stdout.strip().splitlines()[-1] if res.stdout.strip() else ""
+    line = stdout.strip().splitlines()[-1] if stdout.strip() else ""
     try:
         result = json.loads(line)
     except ValueError:
-        note = f"evaluator produced no verdict: {res.stderr.strip()[:300]}"
+        note = f"evaluator produced no verdict: {stderr.strip()[:300]}"
         return None, "crash", {}, note, elapsed, None
     if "error" in result:
         return None, "crash", {}, f"evaluator rejected solution: {result['error']}", elapsed, None
@@ -179,6 +200,11 @@ def _trusted_score(task, snapshot_path):
 def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     """Run a candidate, kill its process group, snapshot output, then score."""
     total_started = time.perf_counter()
+    cancel_event = getattr(task, "cancel_event", None)
+    if cancel_event is not None and cancel_event.is_set():
+        return None, "cancelled", "candidate cancelled before solver launch", {
+            "solver_seconds": 0.0,
+        }
     sandbox_dir = Path(sandbox_dir)
     if sandbox_dir.exists():
         shutil.rmtree(sandbox_dir)
@@ -208,7 +234,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         return None, "crash", str(exc), {}
 
     solver_started = time.perf_counter()
-    timed_out = False
+    wait_state = "completed"
     with open(log_path, "w") as log_stream:
         proc = subprocess.Popen(
             command, cwd=sandbox_dir, env=env,
@@ -216,9 +242,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
             start_new_session=True,
         )
         try:
-            proc.wait(timeout=task.timeout_s)
-        except subprocess.TimeoutExpired:
-            timed_out = True
+            wait_state = _wait_process(proc, task.timeout_s, cancel_event)
         finally:
             # Also removes descendants deliberately left behind after a normal
             # parent exit, closing the artifact mutation race before snapshot.
@@ -232,7 +256,11 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
     log_tail = "\n".join(log.replace("\r", "\n").splitlines()[-15:])
     base_metrics = {"solver_seconds": solver_seconds}
-    if timed_out:
+    if wait_state == "cancelled":
+        return None, "cancelled", (
+            f"cancelled solver process group\n{log_tail}"
+        ).strip(), base_metrics
+    if wait_state == "timeout":
         return None, "timeout", (
             f"killed process group after {task.timeout_s}s\n{log_tail}"
         ).strip(), base_metrics
@@ -253,7 +281,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     candidate_artifact_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
 
     score, status, metrics, note, evaluator_seconds, normalized = _trusted_score(
-        task, snapshot,
+        task, snapshot, cancel_event,
     )
     evaluated_artifact_sha256 = candidate_artifact_sha256
     if normalized is not None:

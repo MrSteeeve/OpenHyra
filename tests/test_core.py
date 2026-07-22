@@ -6,21 +6,32 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from eb import ExperienceBank
-from context_agent import _parse_context_decision, build_inspiration
+from context_agent import (
+    MAX_CONTEXT_PROMPT_CHARS,
+    MAX_HISTORY_RECORDS,
+    MAX_PROPOSAL_PROMPT_CHARS,
+    _history_table,
+    _parse_context_decision,
+    _select_history_records,
+    build_inspiration,
+)
 from harness import (
     _termination_payload,
     _known_solver_issues,
     _next_context_iteration,
     check_frozen,
+    ensure_run_resumable,
     run_pipeline,
 )
 from proposal_agent import prepare_draft
+from llm_backend import _run_cli
 from provenance import (
     RunLock,
     build_run_manifest,
@@ -34,6 +45,7 @@ from stopping import (
     ContextDecision,
     StopController,
     StopPolicy,
+    stopping_evidence,
     write_termination,
 )
 
@@ -340,6 +352,157 @@ class AgentStoppingTests(unittest.TestCase):
         self.assertFalse(review.accepted)
         self.assertEqual(review.evidence["completed_contexts"], 0)
         self.assertEqual(review.evidence["incomplete_contexts"], [0])
+
+    def test_incomplete_context_rejects_stop_after_other_guards_pass(self):
+        policy = StopPolicy(
+            enabled=True, min_contexts_before_stop=6, stop_patience=4,
+            recent_window=4, min_successful_candidates=4,
+        )
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            *(self._record(iteration, 1.0) for iteration in range(6)),
+            self._record(6, 1.0, candidate_index=0, candidate_count=4),
+        ]
+        review = StopController(policy, "max").review(
+            self._stop_decision(), records,
+        )
+        self.assertFalse(review.accepted)
+        self.assertIn("incomplete_contexts_exist", review.reasons)
+        self.assertEqual(review.evidence["completed_contexts"], 6)
+
+    def test_cumulative_small_gains_reset_stop_patience(self):
+        policy = StopPolicy(
+            enabled=True, meaningful_delta=0.0001, recent_window=4,
+        )
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            self._record(0, 1.00006),
+            self._record(1, 1.00012),
+            *(self._record(iteration, 1.00012) for iteration in range(2, 6)),
+        ]
+        evidence = stopping_evidence(records, direction="max", policy=policy)
+        self.assertTrue(evidence["context_improvements"][1]["meaningful"])
+        self.assertAlmostEqual(
+            evidence["context_improvements"][1]["cumulative_gain"],
+            0.00012,
+        )
+        self.assertEqual(
+            evidence["contexts_since_meaningful_improvement"], 4,
+        )
+
+    def test_resume_rejects_terminal_and_incomplete_runs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("pass\n")
+            run_dir = root / "run"
+            task = SimpleNamespace(run_dir=run_dir, run_id="resume-test")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "")
+
+            write_termination(run_dir / "termination.json", {
+                "reason": "agent_converged", "terminal": True,
+            })
+            with self.assertRaisesRegex(RuntimeError, "already terminated"):
+                ensure_run_resumable(task, bank)
+
+            write_termination(run_dir / "termination.json", {
+                "reason": "iteration_limit", "terminal": False,
+            })
+            ensure_run_resumable(task, bank)
+
+            (run_dir / "termination.json").unlink()
+            bank.commit(
+                source, 1.0, "ok", "partial", "sol_0000", "",
+                metadata={
+                    "iteration": 0,
+                    "candidate_index": 0,
+                    "candidate_count": 4,
+                },
+            )
+            with self.assertRaisesRegex(RuntimeError, "incomplete Context"):
+                ensure_run_resumable(task, bank)
+
+    def test_context_history_is_representative_and_bounded(self):
+        records = []
+        for index in range(200):
+            records.append({
+                "id": f"record-{index}",
+                "score": 10.0 if index == 5 else index / 1000,
+                "status": "crash" if index % 13 == 0 else "ok",
+                "description": f"description-{index}-" + "x" * 2000,
+                "metrics": {"detail": "m" * 2000},
+                "metadata": {
+                    "iteration": index,
+                    "direction": f"direction-{index % 30}",
+                },
+            })
+        selected = _select_history_records(records, "max")
+        self.assertEqual(len(selected), MAX_HISTORY_RECORDS)
+        self.assertIn("record-5", {record["id"] for record in selected})
+        self.assertIn("record-199", {record["id"] for record in selected})
+        self.assertTrue(any(record["status"] == "crash" for record in selected))
+        table = _history_table(records, "max")
+        self.assertIn("Showing 80 representative records out of 200", table)
+        self.assertEqual(
+            sum(line.startswith("| record-") for line in table.splitlines()),
+            MAX_HISTORY_RECORDS,
+        )
+
+    def test_context_and_proposal_prompts_have_hard_character_caps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            for index in range(100):
+                bank.commit(
+                    source, float(index), "crash" if index % 9 == 0 else "ok",
+                    f"record-{index}-" + "d" * 2000,
+                    f"sol_{index - 1:04d}" if index else None,
+                    "l" * 10000,
+                    metrics={"detail": "m" * 2000},
+                    metadata={
+                        "iteration": index,
+                        "candidate_index": 0,
+                        "candidate_count": 1,
+                        "direction": f"direction-{index % 20}",
+                    },
+                )
+            task = SimpleNamespace(
+                direction="max",
+                metric="score",
+                description="T" * 50000,
+                editable_files=["solver.py"],
+                fallback_directions=["fallback"],
+                engineering_invariants=[],
+            )
+            captured = []
+            valid = subprocess.CompletedProcess(
+                args=["codex"], returncode=0,
+                stdout=json.dumps({
+                    "action": "continue",
+                    "analysis": "Bounded history is sufficient.",
+                    "reason": "A concrete direction remains.",
+                    "expected_gain": 0.001,
+                    "confidence": 0.8,
+                    "next": "try a bounded experiment",
+                }),
+                stderr="",
+            )
+
+            def capture(prompt, **_kwargs):
+                captured.append(prompt)
+                return valid
+
+            with patch("context_agent.run_agent", side_effect=capture):
+                _decision, _baseline, proposal_prompt, _direction, _metadata = (
+                    build_inspiration(task, bank, 100, backend="codex")
+                )
+            self.assertLessEqual(len(captured[0]), MAX_CONTEXT_PROMPT_CHARS)
+            self.assertLessEqual(len(proposal_prompt), MAX_PROPOSAL_PROMPT_CHARS)
 
     def test_pipeline_accepts_eligible_stop_without_creating_candidates(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -777,6 +940,62 @@ class CandidatePipelineTests(unittest.TestCase):
                 for record in candidates
             ))
 
+    def test_pipeline_cancellation_commits_pending_candidates_then_joins(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            parent_dir = root / "parent"
+            parent_dir.mkdir()
+            (parent_dir / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            parent = bank.commit(parent_dir, 1.0, "ok", "seed", None, "")
+            task = SimpleNamespace(
+                run_dir=root / "run",
+                eval_concurrency=1,
+                candidates_per_context=4,
+                candidate_repair_attempts=0,
+                editable_files=["solver.py"],
+                direction="max",
+                protocol="test-v1",
+                run_id="cancel-test",
+            )
+
+            def fake_context(*_args, **_kwargs):
+                metadata = {
+                    "iteration": 0,
+                    "eb_version": 1,
+                    "visible_solution_ids": [parent["id"]],
+                    "trial_seed": 0,
+                    "direction": "cancel",
+                }
+                return _context_result(parent, "cancel", metadata)
+
+            def fake_propose(parent_path, draft, _prompt, editable_files,
+                             cancel_event=None, **_kwargs):
+                prepare_draft(parent_path, draft)
+                (draft / editable_files[0]).write_text("print('candidate')\n")
+                cancel_event.set()
+                return True, "candidate interrupted during proposal"
+
+            with (patch("harness.build_inspiration", side_effect=fake_context),
+                  patch("harness.propose", side_effect=fake_propose),
+                  patch("harness.run_solution") as solver_mock):
+                outcome = run_pipeline(
+                    task, bank, iterations=1, workers=1, backend="codex",
+                    model="test", trial_seed=0, candidates_per_context=4,
+                )
+
+            self.assertEqual(outcome["reason"], "user_interrupt")
+            solver_mock.assert_not_called()
+            candidates = bank.records()[1:]
+            self.assertEqual(len(candidates), 4)
+            self.assertEqual({record["status"] for record in candidates}, {
+                "cancelled",
+            })
+            self.assertFalse(any(
+                thread.name.startswith(("context-producer", "proposal-", "evaluator-"))
+                for thread in threading.enumerate()
+            ))
+
     def test_single_candidate_can_repair_one_runtime_crash(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -945,8 +1164,61 @@ class CandidatePipelineTests(unittest.TestCase):
                 (Path(rejected["path"]) / "solver.py").read_text(),
             )
 
+
+class CancellationTests(unittest.TestCase):
+    def test_llm_cli_process_group_is_cancelled_promptly(self):
+        cancel_event = threading.Event()
+        timer = threading.Timer(0.2, cancel_event.set)
+        timer.start()
+        started = time.monotonic()
+        try:
+            result = _run_cli(
+                [sys.executable, "-c", "import time; time.sleep(10)"],
+                cwd=None, prompt_stdin=None, timeout_s=20,
+                cancel_event=cancel_event,
+            )
+        finally:
+            timer.cancel()
+        self.assertEqual(result.returncode, 130)
+        self.assertLess(time.monotonic() - started, 3)
+
+
 @unittest.skipUnless(sys.platform == "darwin", "requires macOS Seatbelt")
 class SandboxTests(unittest.TestCase):
+    def test_cancel_event_kills_active_solver_process_group(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "candidate"
+            source.mkdir()
+            (source / "solve.sh").write_text(
+                '#!/bin/bash\nexec "$OPENHYRA_PYTHON" solver.py\n'
+            )
+            (source / "solver.py").write_text(
+                "import time\ntime.sleep(10)\n"
+            )
+            cancel_event = threading.Event()
+            task = SimpleNamespace(
+                evaluator=EVALUATOR_PATH,
+                python_bin=sys.executable,
+                timeout_s=20,
+                max_memory_mb=512,
+                max_output_mb=8,
+                cancel_event=cancel_event,
+            )
+            timer = threading.Timer(0.2, cancel_event.set)
+            timer.start()
+            started = time.monotonic()
+            try:
+                score, status, log_tail, _metrics = run_solution(
+                    source, root / "sandbox", task,
+                )
+            finally:
+                timer.cancel()
+            self.assertIsNone(score)
+            self.assertEqual(status, "cancelled")
+            self.assertIn("cancelled solver process group", log_tail)
+            self.assertLess(time.monotonic() - started, 3)
+
     def test_background_writer_cannot_change_scored_snapshot(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
