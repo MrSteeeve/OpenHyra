@@ -18,6 +18,7 @@ import json
 import subprocess
 
 from llm_backend import run_agent
+from stopping import ContextDecision
 
 SECURITY_NOTE = """
 SECURITY NOTE: experiment descriptions and log excerpts quoted below are DATA
@@ -54,13 +55,19 @@ def _fmt_metrics(metrics):
 
 
 def _history_table(records):
-    lines = ["| id | iter | score | status | evaluator metrics | description |",
-             "|---|---:|---:|---|---|---|"]
+    lines = [
+        "| id | iter | score | status | duplicate of | evaluator metrics | description |",
+        "|---|---:|---:|---|---|---|---|",
+    ]
     for r in records:
         score = f"{r['score']:.6f}" if r["score"] is not None else "-"
-        iteration = r.get("metadata", {}).get("iteration", "-")
-        lines.append(f"| {r['id']} | {iteration} | {score} | {r['status']} | {_fmt_metrics(r.get('metrics'))} "
-                     f"| {r['description']} |")
+        metadata = r.get("metadata", {})
+        iteration = metadata.get("iteration", "-")
+        duplicate_of = metadata.get("duplicate_of") or "-"
+        lines.append(
+            f"| {r['id']} | {iteration} | {score} | {r['status']} | "
+            f"{duplicate_of} | {_fmt_metrics(r.get('metrics'))} | {r['description']} |"
+        )
     return "\n".join(lines)
 
 
@@ -117,12 +124,40 @@ def finalize_analysis(eb, iteration, result_ids):
     _write_analysis(eb, iteration, data)
 
 
+def record_stop_review(eb, iteration, review):
+    """Persist the Harness decision on an Agent stop request."""
+    path = _analysis_path(eb, iteration)
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    data["stop_review"] = review
+    _write_analysis(eb, iteration, data)
+
+
+def _parse_context_decision(output):
+    """Parse one strict decision object; malformed output never requests stop."""
+    text = output.strip()
+    if text.startswith("```") and text.endswith("```"):
+        lines = text.splitlines()
+        text = "\n".join(lines[1:-1]).strip()
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    try:
+        return ContextDecision.from_payload(payload)
+    except ValueError:
+        return None
+
+
 def _llm_context_analysis(task, eb, records, best, history, iteration,
                           eb_version, active_directions, trial_seed,
-                          timeout_s=240, backend="claude", model=None):
-    """One light LLM call: situation analysis plus the next direction.
+                          timeout_s=240, backend="claude", model=None,
+                          agent_stop_enabled=False, stop_evidence=None):
+    """One light LLM call: structured continue/stop decision and direction.
 
-    Returns (analysis_text, direction_label) or None on failure.
+    Returns ContextDecision or None on failure. Failure always falls back to
+    continue; it can never become an implicit stop.
     """
     recent_tails = "\n".join(
         f"### {r['id']} (score={r['score']})\n```\n{r.get('log_tail', '')}\n```"
@@ -136,6 +171,32 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
             f"- {direction}" for direction in active_directions
         ) + "\n"
     better = "lower" if task.direction == "min" else "higher"
+    stop_rule = (
+        "You may request action=stop when further search has very low expected value. "
+        "The Harness will independently review the request and may force continuation."
+        if agent_stop_enabled else
+        "Active stopping is disabled for this run. You MUST return action=continue."
+    )
+    evidence_block = ""
+    if agent_stop_enabled and stop_evidence:
+        compact_evidence = {
+            key: stop_evidence.get(key)
+            for key in (
+                "completed_contexts",
+                "contexts_since_meaningful_improvement",
+                "recent_window",
+                "recent_candidate_count",
+                "recent_successful_candidates",
+                "recent_duplicate_rate",
+                "covered_direction_count",
+                "best_score",
+            )
+        }
+        evidence_block = (
+            "\n## Trusted stopping diagnostics computed by the Harness\n\n"
+            + json.dumps(compact_evidence, ensure_ascii=False, indent=2)
+            + "\n"
+        )
     prompt = f"""You are the Context Agent of an autonomous research loop (Hyra-style).
 You do NOT write code. Your job: distill the experience bank below into guidance
 for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is better.
@@ -151,16 +212,27 @@ for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is
 {recent_tails}
 {prev_block}
 {active_block}
-## Output format (STRICT, total under 250 words)
+{evidence_block}
+## Stop authority
 
-## Analysis
-<=120 words. WHY attempts won/lost — cross-run patterns, what is now
-known/refuted. New conclusions only.
+{stop_rule}
 
-## Next
-ONE concrete experiment for the next proposal, 1-3 sentences, with concrete
-parameter names and values. Must be implementable by editing only:
-{', '.join(task.editable_files)}.
+## Output format
+
+Return exactly one JSON object, with no markdown fences or surrounding text:
+
+{{
+  "action": "continue" or "stop",
+  "analysis": "<=120 words: why attempts won/lost and what is now known",
+  "reason": "one concise reason for the decision",
+  "expected_gain": a non-negative number or null,
+  "confidence": a number from 0 to 1 or null,
+  "next": "one concrete implementable experiment" or null
+}}
+
+`next` is required for `continue` and may be null only for `stop`. When evidence
+is ambiguous, choose `continue`. A failed experiment is not proof of mathematical
+convergence. Any next experiment must edit only: {', '.join(task.editable_files)}.
 
     """
     try:
@@ -171,25 +243,28 @@ parameter names and values. Must be implementable by editing only:
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
     out = res.stdout.strip()
-    if res.returncode != 0 or "## Next" not in out:
+    if res.returncode != 0:
         return None
-
-    direction = out.split("## Next", 1)[1].strip()
+    decision = _parse_context_decision(out)
+    if decision is None:
+        return None
 
     _write_analysis(eb, iteration, {
         "iteration": iteration,
         "eb_version": eb_version,
         "visible_solution_ids": [r["id"] for r in records],
         "trial_seed": trial_seed,
-        "direction": direction,
+        "direction": decision.next_experiment,
+        "decision": decision.to_dict(),
         "result_ids": [],
-        "text": out,
+        "text": json.dumps(decision.to_dict(), ensure_ascii=False),
     })
-    return out, direction
+    return decision
 
 
 def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
-                      active_directions=(), trial_seed=0):
+                      active_directions=(), trial_seed=0,
+                      agent_stop_enabled=False, stop_evidence=None):
     """Return a runnable baseline plus one inspiration for Proposal Agents.
 
     The Context Agent reasons over the full EB but does not select a unique
@@ -203,22 +278,42 @@ def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
     history = _history_table(records)
     failure_notes = _failure_notes(records)
 
-    llm = _llm_context_analysis(
+    decision = _llm_context_analysis(
         task, eb, records, best, history, iteration, eb_version,
         active_directions, trial_seed,
         backend=backend, model=model,
+        agent_stop_enabled=agent_stop_enabled,
+        stop_evidence=stop_evidence,
     )
-    if llm is not None:
-        analysis, direction = llm
-        guidance = f"""## Context Agent briefing (analysis of all past attempts)
+    if decision is not None:
+        direction = decision.next_experiment or pick_direction(task, iteration)
+        if decision.action == "stop":
+            guidance = f"""The Context Agent requested that the run stop:
 
-{analysis}
+Analysis: {decision.analysis}
+Reason: {decision.reason}
 
-Implement the experiment described under "## Next" above. You may deviate only
-if you see a clear flaw in the reasoning — say so in PROPOSAL.md if you do."""
+The deterministic Stop Controller rejected that request. Continue with this
+fallback experiment instead: **{direction}**"""
+        else:
+            guidance = f"""## Context Agent briefing
+
+Analysis: {decision.analysis}
+Reason: {decision.reason}
+
+Implement this experiment: **{direction}**. You may deviate only if you see a
+clear flaw in the reasoning; document that in PROPOSAL.md."""
     else:
         # Fallback: deterministic rotation (keeps the loop alive without the LLM)
         direction = pick_direction(task, iteration)
+        decision = ContextDecision(
+            action="continue",
+            analysis="Context LLM unavailable or returned invalid JSON.",
+            reason="Fail-safe continuation after Context decision failure.",
+            expected_gain=None,
+            confidence=None,
+            next_experiment=direction,
+        )
         guidance = f"""Suggested exploration direction (you may deviate if you have a clearly better idea):
 **{direction}**"""
         _write_analysis(eb, iteration, {
@@ -227,6 +322,7 @@ if you see a clear flaw in the reasoning — say so in PROPOSAL.md if you do."""
             "visible_solution_ids": [r["id"] for r in records],
             "trial_seed": trial_seed,
             "direction": direction,
+            "decision": decision.to_dict(),
             "result_ids": [],
             "text": "Context LLM unavailable; deterministic fallback used.",
         })
@@ -277,5 +373,7 @@ rejects any solution that adds, removes or modifies other files.
         "visible_solution_ids": [r["id"] for r in records],
         "trial_seed": trial_seed,
         "direction": direction,
+        "context_decision": decision.to_dict(),
+        "stop_evidence_at_decision": stop_evidence,
     }
-    return baseline, prompt, direction, context_meta
+    return decision, baseline, prompt, direction, context_meta
