@@ -6,6 +6,12 @@
   "protocol": "simpletes-sums-diffs-v1",
   "sandbox_timeout_s": 180,
   "eval_concurrency": 2,
+  "candidates_per_context": 4,
+  "candidate_repair_attempts": 1,
+  "engineering_invariants": [
+    "Clamp every time-derived progress/fraction to [0.0, 1.0] before fractional powers or annealing schedules; an expensive score call may cross a deadline after the loop condition was checked.",
+    "Before randrange(start, stop) or equivalent dynamic sampling, prove or guard that stop > start; unchanged/clamped parameters may otherwise make the range empty."
+  ],
   "max_memory_mb": 1024,
   "max_output_mb": 64,
   "reference_score": 1.144887,

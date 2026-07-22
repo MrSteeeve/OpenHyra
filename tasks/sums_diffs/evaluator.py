@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Trusted SimpleTES-compatible evaluator for the sum-difference task."""
+"""Trusted evaluator for the sum-difference task.
+
+Independent reimplementation of the public SimpleTES sums_diffs v1 protocol
+(set-size and element-range constraints, exact enumeration of A+A and A-A).
+No SimpleTES source code was copied or derived; only the published task rules
+were followed, so this file carries this repository's MIT license.
+"""
 
 import hashlib
 import json

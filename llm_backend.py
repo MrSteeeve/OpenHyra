@@ -41,6 +41,7 @@ def run_agent(prompt, *, cwd=None, writable=False, timeout_s=600,
     if backend == "codex":
         cmd = [
             "codex", "--ask-for-approval", "never", "exec",
+            "--ignore-user-config",
             "--ephemeral",
             "--skip-git-repo-check",
             "--color", "never",

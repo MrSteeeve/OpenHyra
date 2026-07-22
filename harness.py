@@ -1,6 +1,7 @@
 """OpenHyra: Context producer -> Proposal workers -> Evaluator workers."""
 
 import argparse
+import ast
 import json
 import os
 import queue
@@ -11,15 +12,18 @@ import threading
 import time
 from pathlib import Path
 
-from context_agent import build_inspiration, finalize_analysis
+from context_agent import CANDIDATE_SEED_TOKEN, build_inspiration, finalize_analysis
 from eb import ExperienceBank
 from llm_backend import SUPPORTED_BACKENDS
-from proposal_agent import propose
+from proposal_agent import propose, repair_candidate
 from reporting import export_bundle
 from sandbox import run_solution
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
+MIN_CANDIDATES_PER_CONTEXT = 1
+MAX_STORED_LOG_CHARS = 6000
+REPAIRABLE_STATUSES = {"crash", "timeout"}
 
 
 class Task:
@@ -40,10 +44,19 @@ class Task:
         self.editable_files = cfg["editable_files"]
         self.timeout_s = cfg.get("sandbox_timeout_s", 660)
         self.eval_concurrency = cfg.get("eval_concurrency", 1)
+        self.candidates_per_context = cfg.get(
+            "candidates_per_context", MIN_CANDIDATES_PER_CONTEXT,
+        )
+        self.candidate_repair_attempts = cfg.get("candidate_repair_attempts", 0)
+        if self.candidates_per_context < MIN_CANDIDATES_PER_CONTEXT:
+            sys.exit("task candidates_per_context must be >= 1")
+        if self.candidate_repair_attempts < 0:
+            sys.exit("task candidate_repair_attempts must be >= 0")
         self.max_training_seconds = cfg.get("max_training_seconds")
         self.max_memory_mb = cfg.get("max_memory_mb", 1024)
         self.max_output_mb = cfg.get("max_output_mb", 64)
         self.fallback_directions = cfg.get("fallback_directions", [])
+        self.engineering_invariants = cfg.get("engineering_invariants", [])
         self.description = (self.dir / "TASK.md").read_text()
         self.evaluator = self.dir / "evaluator.py"
         if not self.evaluator.exists():
@@ -76,6 +89,119 @@ def check_frozen(parent_dir, draft_dir, editable):
     ]
 
 
+def _call_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _same_expression(left, right):
+    return ast.dump(left, include_attributes=False) == ast.dump(right, include_attributes=False)
+
+
+def _guard_proves_nonempty_range(test, start, stop):
+    for node in ast.walk(test):
+        if not isinstance(node, ast.Compare) or len(node.ops) != 1 or len(node.comparators) != 1:
+            continue
+        left, operation, right = node.left, node.ops[0], node.comparators[0]
+        if (isinstance(operation, ast.Gt) and
+                _same_expression(left, stop) and _same_expression(right, start)):
+            return True
+        if (isinstance(operation, ast.Lt) and
+                _same_expression(left, start) and _same_expression(right, stop)):
+            return True
+    return False
+
+
+def _known_solver_issues(draft_dir, editable_files):
+    """Catch previously observed deterministic runtime hazards before launch.
+
+    Lints every editable Python file — the rules are generic Python hazards,
+    not task-specific ones, so this stays valid for future task plugins.
+    """
+    issues = []
+    for name in editable_files:
+        if not name.endswith(".py"):
+            continue
+        issues.extend(_known_file_issues(Path(draft_dir) / name, name))
+    return issues
+
+
+def _known_file_issues(path, name):
+    if not path.is_file():
+        return [f"{name} is missing"]
+    try:
+        tree = ast.parse(path.read_text(), filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
+        return [f"{name} cannot be parsed: {exc}"]
+
+    parents = {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
+    clamped = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if value is None or not any(
+            isinstance(child, ast.Call) and _call_name(child.func) in {"min", "max"}
+            for child in ast.walk(value)
+        ):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        clamped.update(target.id for target in targets if isinstance(target, ast.Name))
+
+    issues = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Pow):
+            continue
+        exponent = node.right.value if isinstance(node.right, ast.Constant) else None
+        base = node.left
+        if not (isinstance(exponent, float) and not exponent.is_integer()):
+            continue
+        if not (isinstance(base, ast.BinOp) and isinstance(base.op, ast.Sub) and
+                isinstance(base.right, ast.Name)):
+            continue
+        variable = base.right.id
+        if ("progress" in variable.lower() or "fraction" in variable.lower()) and variable not in clamped:
+            issues.append(
+                f"{name} line {node.lineno}: fractional power of (constant - {variable}) "
+                "without clamping the time-derived value to [0, 1]"
+            )
+
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and _call_name(node.func) == "randrange" and
+                len(node.args) >= 2):
+            continue
+        start, stop = node.args[0], node.args[1]
+        if (isinstance(start, ast.Constant) and isinstance(stop, ast.Constant) and
+                isinstance(start.value, int) and isinstance(stop.value, int) and
+                stop.value > start.value):
+            continue
+        guarded = False
+        ancestor = parents.get(node)
+        while ancestor is not None:
+            if isinstance(ancestor, (ast.If, ast.While)):
+                in_body = any(
+                    child is node or any(descendant is node for descendant in ast.walk(child))
+                    for child in ancestor.body
+                )
+                if in_body and _guard_proves_nonempty_range(ancestor.test, start, stop):
+                    guarded = True
+                    break
+            ancestor = parents.get(ancestor)
+        if not guarded:
+            issues.append(
+                f"{name} line {node.lineno}: dynamic randrange(start, stop) lacks an explicit "
+                "enclosing guard proving stop > start"
+            )
+    return issues
+
+
 def _record_metadata(task, context_meta, backend, model):
     return {
         **context_meta,
@@ -86,19 +212,47 @@ def _record_metadata(task, context_meta, backend, model):
     }
 
 
-def _evaluate_and_commit(item, task, eb, backend, model, print_lock):
+def _next_context_iteration(records):
+    """Count Context rounds independently from the number of EB records."""
+    iterations = [
+        record.get("metadata", {}).get("iteration")
+        for record in records
+    ]
+    iterations = [iteration for iteration in iterations if isinstance(iteration, int)]
+    return max(iterations, default=-1) + 1
+
+
+def _candidate_seed(context_seed, candidate_index):
+    return context_seed * 1_000_003 + candidate_index
+
+
+def _candidate_prompt(prompt, candidate_index, candidate_count, seed):
+    prompt = prompt.replace(CANDIDATE_SEED_TOKEN, str(seed))
+    return prompt + f"""
+
+## Local candidate identity
+
+This is candidate {candidate_index + 1} of {candidate_count} generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all {candidate_count} candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+"""
+
+
+def _evaluate_candidate(item, task, print_lock):
     iteration = item["iteration"]
-    parent = item["parent"]
+    candidate_index = item["candidate_index"]
     draft = item["draft"]
-    description = item["description"]
-    metadata = _record_metadata(task, item["context_meta"], backend, model)
 
     if item.get("failure"):
         score, status, log_tail, metrics = None, item["failure_status"], item["failure"], {}
     else:
-        sandbox = task.run_dir / "sandboxes" / f"iter_{iteration:04d}"
+        sandbox = task.run_dir / "sandboxes" / f"iter_{iteration:04d}" / f"cand_{candidate_index:02d}"
         with print_lock:
-            print(f"[sandbox] iter {iteration}: running candidate + trusted evaluator ...")
+            print(
+                f"[sandbox] iter {iteration} candidate {candidate_index + 1}/"
+                f"{item['candidate_count']}: running candidate + trusted evaluator ..."
+            )
         score, status, log_tail, metrics = run_solution(draft, sandbox, task)
         if (sandbox / "run.log").exists():
             shutil.copy2(sandbox / "run.log", draft / "run.log")
@@ -108,37 +262,141 @@ def _evaluate_and_commit(item, task, eb, backend, model, print_lock):
         if snapshot.exists():
             shutil.copy2(snapshot, draft / "solution.json")
 
+    return {
+        "item": item,
+        "score": score,
+        "status": status,
+        "log_tail": log_tail,
+        "metrics": metrics,
+    }
+
+
+def _stored_log(log_tail):
+    return (log_tail or "")[-MAX_STORED_LOG_CHARS:]
+
+
+def _attempt_summary(result, attempt):
+    return {
+        "attempt": attempt,
+        "score": result["score"],
+        "status": result["status"],
+        "log_tail": _stored_log(result.get("log_tail")),
+        "metrics": result.get("metrics", {}),
+    }
+
+
+def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
+    """Evaluate once and give a runtime failure one bounded repair loop."""
+    result = _evaluate_candidate(item, task, print_lock)
+    attempts = [_attempt_summary(result, 0)]
+    repair_notes = []
+    repair_budget = getattr(task, "candidate_repair_attempts", 0)
+
+    for repair_index in range(repair_budget):
+        if item.get("failure") or result["status"] not in REPAIRABLE_STATUSES:
+            break
+        with print_lock:
+            print(
+                f"[repair] iter {item['iteration']} candidate "
+                f"{item['candidate_index'] + 1}/{item['candidate_count']}: "
+                f"attempt {repair_index + 1}/{repair_budget} after {result['status']}"
+            )
+        ok, note = repair_candidate(
+            item["draft"], result.get("log_tail", ""), task.editable_files,
+            backend=backend, model=model,
+        )
+        repair_notes.append(note)
+        if not ok:
+            break
+        violations = check_frozen(
+            item["parent"]["path"], item["draft"], task.editable_files,
+        )
+        if violations:
+            result = {
+                "item": item,
+                "score": None,
+                "status": "violation",
+                "log_tail": f"repair modified non-editable file(s): {violations}",
+                "metrics": {},
+            }
+        else:
+            result = _evaluate_candidate(item, task, print_lock)
+        attempts.append(_attempt_summary(result, repair_index + 1))
+
+    result["attempts"] = attempts
+    result["repair_notes"] = repair_notes
+    result["repair_count"] = max(0, len(attempts) - 1)
+    return result
+
+
+def _duplicate_of(result, records):
+    """Return the first evaluator-equivalent EB record, if one exists."""
+    set_hash = result.get("metrics", {}).get("set_hash")
+    if result["status"] != "ok" or not set_hash:
+        return None
+    return next(
+        (record["id"] for record in records
+         if record.get("metrics", {}).get("set_hash") == set_hash),
+        None,
+    )
+
+
+def _commit_candidate_result(result, task, eb, backend, model, print_lock):
+    """Commit one candidate outcome without local winner selection."""
+    item = result["item"]
+    iteration = item["iteration"]
+    parent = item["parent"]
+    metadata = _record_metadata(task, item["context_meta"], backend, model)
+    metadata.update({
+        "candidate_count": item["candidate_count"],
+        "candidate_index": item["candidate_index"],
+        "candidate_seed": item["candidate_seed"],
+        "duplicate_of": _duplicate_of(result, eb.records()),
+        "attempts": result.get("attempts", []),
+        "repair_notes": result.get("repair_notes", []),
+        "repair_count": result.get("repair_count", 0),
+        "preflight_notes": item.get("preflight_notes", []),
+    })
+
     previous_best = eb.best()
     record = eb.commit(
-        draft, score, status, description, parent["id"], log_tail,
-        metrics=metrics, metadata=metadata,
+        item["draft"], result["score"], result["status"],
+        item["description"], parent["id"], result["log_tail"],
+        metrics=result["metrics"], metadata=metadata,
     )
-    finalize_analysis(eb, iteration, record["id"])
     best = eb.best()
     improved = eb.is_improvement(
-        score, previous_best["score"] if previous_best else None,
+        result["score"], previous_best["score"] if previous_best else None,
     )
     with print_lock:
         verdict = "IMPROVED" if improved else "best unchanged"
         best_text = f"{best['id']} @ {best['score']:.9f}" if best else "none"
         print(
-            f"[eb] iter {iteration} -> {record['id']}: score={score} "
-            f"status={status}, {verdict} (best: {best_text})"
+            f"[eb] iter {iteration} candidate {item['candidate_index'] + 1}/"
+            f"{item['candidate_count']} -> {record['id']}: score={result['score']} "
+            f"status={result['status']}, {verdict} (best: {best_text})"
         )
     return record
 
 
-def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
+def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
+                 candidates_per_context=None):
     """Run a bounded three-stage asynchronous producer-consumer pipeline."""
-    inspiration_queue = queue.Queue(maxsize=max(1, workers))
+    if candidates_per_context is None:
+        candidates_per_context = task.candidates_per_context
+    if candidates_per_context < MIN_CANDIDATES_PER_CONTEXT:
+        raise ValueError(
+            f"candidates_per_context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
+        )
+    inspiration_queue = queue.Queue(maxsize=max(1, workers * candidates_per_context))
     candidate_queue = queue.Queue(maxsize=max(1, workers + task.eval_concurrency))
-    max_inflight = max(1, workers + task.eval_concurrency)
-    inflight = threading.Semaphore(max_inflight)
+    context_window = max(1, workers + task.eval_concurrency)
+    inflight = threading.Semaphore(context_window)
     active_directions = {}
     active_lock = threading.Lock()
     print_lock = threading.Lock()
     errors = queue.Queue()
-    start = len([record for record in eb.records() if record["parent"] is not None])
+    start = _next_context_iteration(eb.records())
 
     def context_producer():
         try:
@@ -147,7 +405,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                 try:
                     with active_lock:
                         reserved = tuple(active_directions.values())
-                    parent, prompt, direction, context_meta = build_inspiration(
+                    baseline, prompt, direction, context_meta = build_inspiration(
                         task, eb, iteration, backend=backend, model=model,
                         active_directions=reserved,
                         trial_seed=trial_seed + iteration,
@@ -158,14 +416,21 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                         short = " ".join(direction.split())[:180]
                         print(
                             f"[context] iter {iteration}: EB v{context_meta['eb_version']}, "
-                            f"parent={parent['id']}, next={short}"
+                            f"baseline={baseline['id']}, next={short}"
                         )
-                    inspiration_queue.put({
-                        "iteration": iteration,
-                        "parent": parent,
-                        "prompt": prompt,
-                        "context_meta": context_meta,
-                    })
+                    for candidate_index in range(candidates_per_context):
+                        seed = _candidate_seed(context_meta["trial_seed"], candidate_index)
+                        inspiration_queue.put({
+                            "iteration": iteration,
+                            "parent": baseline,
+                            "prompt": _candidate_prompt(
+                                prompt, candidate_index, candidates_per_context, seed,
+                            ),
+                            "context_meta": context_meta,
+                            "candidate_index": candidate_index,
+                            "candidate_count": candidates_per_context,
+                            "candidate_seed": seed,
+                        })
                 except Exception:
                     inflight.release()
                     raise
@@ -182,8 +447,9 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                 inspiration_queue.task_done()
                 break
             iteration = item["iteration"]
+            candidate_index = item["candidate_index"]
             parent = item["parent"]
-            draft = task.run_dir / "drafts" / f"iter_{iteration:04d}"
+            draft = task.run_dir / "drafts" / f"iter_{iteration:04d}" / f"cand_{candidate_index:02d}"
             try:
                 ok, description = propose(
                     Path(parent["path"]), draft, item["prompt"], task.editable_files,
@@ -191,6 +457,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                 )
                 failure = None
                 failure_status = None
+                preflight_notes = []
                 if not ok:
                     failure, failure_status = description, "crash"
                 else:
@@ -198,15 +465,52 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                     if violations:
                         failure = f"modified non-editable file(s): {violations}"
                         failure_status = "violation"
+                if failure is None:
+                    issues = _known_solver_issues(draft, task.editable_files)
+                    if issues:
+                        feedback = "Engineering preflight rejected the draft:\n- " + "\n- ".join(issues)
+                        preflight_notes.append(feedback)
+                        repair_ok = False
+                        repair_note = "preflight repair disabled"
+                        if getattr(task, "candidate_repair_attempts", 0) > 0:
+                            with print_lock:
+                                print(
+                                    f"[preflight] iter {iteration} candidate "
+                                    f"{candidate_index + 1}/{item['candidate_count']}: "
+                                    "repairing a known runtime hazard"
+                                )
+                            repair_ok, repair_note = repair_candidate(
+                                draft, feedback, task.editable_files,
+                                backend=backend, model=model,
+                            )
+                        preflight_notes.append(repair_note)
+                        if repair_ok:
+                            violations = check_frozen(
+                                parent["path"], draft, task.editable_files,
+                            )
+                            issues = _known_solver_issues(draft, task.editable_files)
+                            if violations:
+                                issues.append(
+                                    f"repair modified non-editable file(s): {violations}"
+                                )
+                        if issues:
+                            failure = "engineering preflight failed: " + "; ".join(issues)
+                            # distinct from "violation" (frozen-file tampering):
+                            # a lint reject is benign engineering feedback
+                            failure_status = "rejected"
                 with print_lock:
-                    label = description if ok else f"FAILED: {description}"
-                    print(f"[proposal] iter {iteration}: {label}")
+                    label = description if failure is None else f"FAILED: {failure}"
+                    print(
+                        f"[proposal] iter {iteration} candidate {candidate_index + 1}/"
+                        f"{item['candidate_count']}: {label}"
+                    )
                 candidate_queue.put({
                     **item,
                     "draft": draft,
                     "description": description,
                     "failure": failure,
                     "failure_status": failure_status,
+                    "preflight_notes": preflight_notes,
                 })
             except Exception as exc:
                 candidate_queue.put({
@@ -215,9 +519,13 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
                     "description": f"proposal worker exception: {exc}",
                     "failure": repr(exc),
                     "failure_status": "crash",
+                    "preflight_notes": [],
                 })
             finally:
                 inspiration_queue.task_done()
+
+    context_completions = {}
+    completion_lock = threading.Lock()
 
     def evaluator_worker():
         while True:
@@ -225,14 +533,47 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed):
             if item is STOP:
                 candidate_queue.task_done()
                 break
+            record = None
             try:
-                _evaluate_and_commit(item, task, eb, backend, model, print_lock)
+                try:
+                    result = _evaluate_candidate_with_repair(
+                        item, task, backend, model, print_lock,
+                    )
+                except Exception as exc:
+                    result = {
+                        "item": item,
+                        "score": None,
+                        "status": "crash",
+                        "log_tail": repr(exc),
+                        "metrics": {},
+                        "attempts": [],
+                        "repair_notes": [],
+                        "repair_count": 0,
+                    }
+                record = _commit_candidate_result(
+                    result, task, eb, backend, model, print_lock,
+                )
             except Exception as exc:
                 errors.put((f"evaluator iter {item['iteration']}", exc))
             finally:
-                with active_lock:
-                    active_directions.pop(item["iteration"], None)
-                inflight.release()
+                context_finished = False
+                result_ids = None
+                with completion_lock:
+                    state = context_completions.setdefault(
+                        item["iteration"], {"finished": 0, "result_ids": []},
+                    )
+                    state["finished"] += 1
+                    if record is not None:
+                        state["result_ids"].append(record["id"])
+                    if state["finished"] == item["candidate_count"]:
+                        result_ids = list(state["result_ids"])
+                        context_completions.pop(item["iteration"])
+                        context_finished = True
+                if context_finished:
+                    finalize_analysis(eb, item["iteration"], result_ids)
+                    with active_lock:
+                        active_directions.pop(item["iteration"], None)
+                    inflight.release()
                 candidate_queue.task_done()
 
     evaluators = [
@@ -296,6 +637,10 @@ def main():
     parser.add_argument("--init", action="store_true")
     parser.add_argument("--iterations", type=int, default=0)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument(
+        "--candidates-per-context", type=int,
+        help="independent candidates per Context; every outcome is committed",
+    )
     parser.add_argument("--backend", choices=SUPPORTED_BACKENDS,
                         default=os.environ.get("OPENHYRA_BACKEND", "claude"))
     parser.add_argument("--model", default=os.environ.get("OPENHYRA_MODEL"))
@@ -303,8 +648,13 @@ def main():
     parser.add_argument("--export-bundle")
     parser.add_argument("--status", action="store_true")
     args = parser.parse_args()
-    if args.iterations < 0 or args.workers < 1:
-        parser.error("--iterations must be >= 0 and --workers must be >= 1")
+    if (args.iterations < 0 or args.workers < 1 or
+            (args.candidates_per_context is not None and
+             args.candidates_per_context < MIN_CANDIDATES_PER_CONTEXT)):
+        parser.error(
+            "--iterations must be >= 0; --workers must be >= 1; "
+            f"--candidates-per-context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
+        )
 
     started_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     task = Task(args.task, args.run_id)
@@ -329,11 +679,17 @@ def main():
         run_pipeline(
             task, eb, args.iterations, args.workers,
             args.backend, args.model, args.trial_seed,
+            candidates_per_context=args.candidates_per_context,
         )
     if args.export_bundle:
         destination = export_bundle(
             task, eb, args.export_bundle, root=ROOT,
             backend=args.backend, model=args.model, workers=args.workers,
+            candidates_per_context=(
+                task.candidates_per_context
+                if args.candidates_per_context is None
+                else args.candidates_per_context
+            ),
             trial_seed=args.trial_seed, started_at=started_at,
         )
         print(f"[bundle] exported {destination}")

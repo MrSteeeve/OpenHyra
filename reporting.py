@@ -46,12 +46,13 @@ def _git_metadata(root):
 SUMMARY_FIELDS = [
     "id", "parent", "iteration", "status", "description", "n", "sums",
     "diffs", "span", "score", "solver_seconds", "evaluator_seconds",
-    "total_seconds", "set_hash", "artifact_sha256",
+    "total_seconds", "set_hash", "artifact_sha256", "candidate_count",
+    "candidate_index", "candidate_seed", "duplicate_of", "repair_count",
 ]
 
 
 def export_bundle(task, eb, destination, *, root, backend, model, workers,
-                  trial_seed, started_at):
+                  candidates_per_context, trial_seed, started_at):
     destination = Path(destination)
     if destination.exists():
         raise FileExistsError(f"refusing to overwrite existing bundle: {destination}")
@@ -103,6 +104,11 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
                 "total_seconds": metrics.get("total_seconds"),
                 "set_hash": metrics.get("set_hash"),
                 "artifact_sha256": metrics.get("artifact_sha256"),
+                "candidate_count": metadata.get("candidate_count"),
+                "candidate_index": metadata.get("candidate_index"),
+                "candidate_seed": metadata.get("candidate_seed"),
+                "duplicate_of": metadata.get("duplicate_of"),
+                "repair_count": metadata.get("repair_count"),
             })
 
     try:
@@ -111,7 +117,7 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
     except ImportError:
         numpy_version = None
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "task": task.name,
         "protocol": task.protocol,
         "run_id": task.run_id,
@@ -122,6 +128,8 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
         "model": model,
         "workers": workers,
         "eval_concurrency": task.eval_concurrency,
+        "candidate_repair_attempts": getattr(task, "candidate_repair_attempts", 0),
+        "candidates_per_context": candidates_per_context,
         "task_config_sha256": sha256_file(task.dir / "task.json"),
         "task_description_sha256": sha256_file(task.dir / "TASK.md"),
         "evaluator_sha256": sha256_file(task.evaluator),
@@ -133,6 +141,11 @@ def export_bundle(task, eb, destination, *, root, backend, model, workers,
             "backend_cli": _command_version([backend, "--version"]),
         },
         "record_count": len(records),
+        "context_count": len({
+            record.get("metadata", {}).get("iteration")
+            for record in records
+            if isinstance(record.get("metadata", {}).get("iteration"), int)
+        }),
     }
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"

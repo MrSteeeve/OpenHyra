@@ -69,7 +69,7 @@ class ExperienceBank:
                 "id": sol_id,
                 "parent": parent,
                 "score": score,
-                "status": status,  # "ok" | "crash" | "timeout" | "violation"
+                "status": status,  # "ok" | "crash" | "timeout" | "violation" | "rejected" (preflight lint)
                 "description": description,
                 "path": str(dst),
                 "log_tail": log_tail,
