@@ -12,7 +12,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from eb import ExperienceBank
+from context_agent import _parse_context_decision, build_inspiration
 from harness import (
+    _termination_payload,
     _known_solver_issues,
     _next_context_iteration,
     check_frozen,
@@ -27,12 +29,34 @@ from provenance import (
     write_run_manifest,
 )
 from sandbox import _snapshot_artifact, run_solution, trusted_artifact_dir
+from reporting import export_bundle
+from stopping import (
+    ContextDecision,
+    StopController,
+    StopPolicy,
+    write_termination,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 EVALUATOR_PATH = ROOT / "tasks" / "sums_diffs" / "evaluator.py"
 SPEC = importlib.util.spec_from_file_location("sums_diffs_evaluator", EVALUATOR_PATH)
 EVALUATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(EVALUATOR)
+
+
+def _context_result(parent, direction, metadata):
+    decision = ContextDecision(
+        action="continue",
+        analysis="Continue testing the next concrete direction.",
+        reason="Useful experiments remain.",
+        expected_gain=0.001,
+        confidence=0.8,
+        next_experiment=direction,
+    )
+    return (
+        decision, parent, "seed=__OPENHYRA_CANDIDATE_SEED__",
+        direction, metadata,
+    )
 
 
 class EvaluatorTests(unittest.TestCase):
@@ -107,6 +131,7 @@ class ProvenanceTests(unittest.TestCase):
             recorded = build_run_manifest(
                 task, ROOT, backend="codex", model="test-model", workers=2,
                 candidates_per_context=4, trial_seed=7,
+                stopping_policy={"enabled": True, "stop_patience": 4},
             )
             path = Path(temporary) / "run_manifest.json"
             write_run_manifest(path, recorded)
@@ -114,6 +139,7 @@ class ProvenanceTests(unittest.TestCase):
             current = build_run_manifest(
                 task, ROOT, backend="codex", model="test-model", workers=2,
                 candidates_per_context=4, trial_seed=7,
+                stopping_policy={"enabled": True, "stop_patience": 4},
             )
             self.assertEqual(
                 validate_run_manifest(loaded, current)["manifest_sha256"],
@@ -127,6 +153,11 @@ class ProvenanceTests(unittest.TestCase):
             current["search"]["workers"] = 2
             current["environment"]["backend_cli"] = "test-cli 2.0"
             with self.assertRaisesRegex(RuntimeError, "environment"):
+                validate_run_manifest(loaded, current)
+
+            current["environment"]["backend_cli"] = "test-cli 1.0"
+            current["stopping_policy"]["stop_patience"] = 5
+            with self.assertRaisesRegex(RuntimeError, "stopping_policy"):
                 validate_run_manifest(loaded, current)
 
     def test_manifest_checksum_tampering_is_rejected(self):
@@ -147,6 +178,386 @@ class ProvenanceTests(unittest.TestCase):
                     second.acquire()
             finally:
                 first.release()
+
+
+class AgentStoppingTests(unittest.TestCase):
+    @staticmethod
+    def _record(iteration, score, *, status="ok", candidate_index=0,
+                candidate_count=1, duplicate_of=None):
+        return {
+            "id": f"record-{iteration}-{candidate_index}",
+            "score": score,
+            "status": status,
+            "metadata": {
+                "iteration": iteration,
+                "candidate_index": candidate_index,
+                "candidate_count": candidate_count,
+                "duplicate_of": duplicate_of,
+                "direction": f"direction-{iteration}",
+            },
+        }
+
+    @staticmethod
+    def _stop_decision():
+        return ContextDecision(
+            action="stop",
+            analysis="Recent valid candidates have converged.",
+            reason="Expected marginal gain is low.",
+            expected_gain=0.00001,
+            confidence=0.9,
+            next_experiment=None,
+        )
+
+    def test_context_decision_parser_is_fail_safe(self):
+        parsed = _parse_context_decision(json.dumps({
+            "action": "stop",
+            "analysis": "Search appears locally exhausted.",
+            "reason": "No meaningful recent gain.",
+            "expected_gain": 0.00001,
+            "confidence": 0.91,
+            "next": None,
+        }))
+        self.assertEqual(parsed.action, "stop")
+        self.assertIsNone(_parse_context_decision("not JSON"))
+        self.assertIsNone(_parse_context_decision(json.dumps({
+            "action": "stop",
+            "analysis": "Stop but also proposes more work.",
+            "reason": "This is internally inconsistent.",
+            "expected_gain": 0.0,
+            "confidence": 0.9,
+            "next": "another experiment",
+        })))
+        self.assertIsNone(_parse_context_decision(json.dumps({
+            "action": "continue",
+            "analysis": "Keep going.",
+            "reason": "Missing a concrete next experiment.",
+            "expected_gain": 0.1,
+            "confidence": 0.5,
+            "next": None,
+        })))
+        self.assertIsNone(_parse_context_decision(json.dumps({
+            "action": "stop",
+            "analysis": "Invalid expected gain.",
+            "reason": "Negative gains are invalid input.",
+            "expected_gain": -1,
+            "confidence": 0.5,
+            "next": None,
+        })))
+
+    def test_invalid_context_output_becomes_continue_decision(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "seed log")
+            task = SimpleNamespace(
+                direction="max",
+                metric="score",
+                description="Test task.",
+                editable_files=["solver.py"],
+                fallback_directions=["deterministic fallback"],
+                engineering_invariants=[],
+            )
+            invalid = subprocess.CompletedProcess(
+                args=["codex"], returncode=0, stdout="not JSON", stderr="",
+            )
+            with patch("context_agent.run_agent", return_value=invalid):
+                decision, _baseline, _prompt, direction, metadata = build_inspiration(
+                    task, bank, 0, backend="codex", model="test",
+                    agent_stop_enabled=True,
+                )
+            self.assertEqual(decision.action, "continue")
+            self.assertEqual(direction, "deterministic fallback")
+            self.assertEqual(metadata["context_decision"]["action"], "continue")
+
+    def test_stop_request_is_rejected_before_minimum_contexts(self):
+        policy = StopPolicy(enabled=True, min_contexts_before_stop=6)
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            self._record(0, 1.01),
+            self._record(1, 1.01),
+        ]
+        review = StopController(policy, "max").review(
+            self._stop_decision(), records,
+        )
+        self.assertFalse(review.accepted)
+        self.assertIn("minimum_contexts_not_met", review.reasons)
+
+    def test_stop_request_is_rejected_when_recent_candidates_failed(self):
+        policy = StopPolicy(
+            enabled=True, min_contexts_before_stop=6, stop_patience=4,
+            recent_window=4, min_successful_candidates=4,
+        )
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            self._record(0, 1.01),
+            self._record(1, 1.01),
+            *(
+                self._record(iteration, None, status="crash")
+                for iteration in range(2, 6)
+            ),
+        ]
+        review = StopController(policy, "max").review(
+            self._stop_decision(), records,
+        )
+        self.assertFalse(review.accepted)
+        self.assertIn("insufficient_successful_candidates", review.reasons)
+
+    def test_stop_request_is_accepted_only_after_deterministic_guards(self):
+        policy = StopPolicy(
+            enabled=True, min_contexts_before_stop=6, stop_patience=4,
+            meaningful_delta=0.0001, recent_window=4,
+            min_successful_candidates=4,
+        )
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            self._record(0, 1.01),
+            *(self._record(iteration, 1.01) for iteration in range(1, 6)),
+        ]
+        review = StopController(policy, "max").review(
+            self._stop_decision(), records,
+        )
+        self.assertTrue(review.accepted)
+        self.assertEqual(
+            review.evidence["contexts_since_meaningful_improvement"], 5,
+        )
+        self.assertEqual(review.evidence["recent_successful_candidates"], 4)
+
+    def test_incomplete_context_does_not_satisfy_stop_guards(self):
+        policy = StopPolicy(
+            enabled=True, min_contexts_before_stop=1, stop_patience=0,
+            min_successful_candidates=0,
+        )
+        records = [
+            {"id": "seed", "score": 1.0, "status": "ok", "metadata": {}},
+            self._record(0, 1.0, candidate_index=0, candidate_count=4),
+        ]
+        review = StopController(policy, "max").review(
+            self._stop_decision(), records,
+        )
+        self.assertFalse(review.accepted)
+        self.assertEqual(review.evidence["completed_contexts"], 0)
+        self.assertEqual(review.evidence["incomplete_contexts"], [0])
+
+    def test_pipeline_accepts_eligible_stop_without_creating_candidates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('baseline')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "")
+            for iteration in range(6):
+                bank.commit(
+                    source, 1.01, "ok", f"context {iteration}", "sol_0000", "",
+                    metadata={
+                        "iteration": iteration,
+                        "candidate_index": 0,
+                        "candidate_count": 1,
+                        "direction": f"direction-{iteration}",
+                    },
+                )
+            task = SimpleNamespace(
+                run_dir=root / "run",
+                eval_concurrency=2,
+                candidates_per_context=4,
+                candidate_repair_attempts=0,
+                editable_files=["solver.py"],
+                direction="max",
+                protocol="test-v1",
+                run_id="guarded-stop",
+            )
+            decision = self._stop_decision()
+
+            def fake_context(*_args, **_kwargs):
+                parent = bank.best()
+                metadata = {
+                    "iteration": 6,
+                    "eb_version": 7,
+                    "visible_solution_ids": [record["id"] for record in bank.records()],
+                    "trial_seed": 6,
+                    "direction": "fallback",
+                    "context_decision": decision.to_dict(),
+                }
+                return decision, parent, "unused", "fallback", metadata
+
+            policy = StopPolicy(
+                enabled=True, min_contexts_before_stop=6, stop_patience=4,
+                recent_window=4, min_successful_candidates=4,
+            )
+            with (patch("harness.build_inspiration", side_effect=fake_context),
+                  patch("harness.propose") as propose_mock):
+                outcome = run_pipeline(
+                    task, bank, iterations=3, workers=2, backend="codex",
+                    model="test", trial_seed=0, stop_policy=policy,
+                )
+
+            self.assertEqual(outcome["reason"], "agent_converged")
+            self.assertTrue(outcome["stop_review"]["accepted"])
+            propose_mock.assert_not_called()
+            self.assertEqual(len(bank.records()), 7)
+
+            payload = _termination_payload(task, bank, policy, outcome, 3)
+            termination = write_termination(root / "termination.json", payload)
+            self.assertEqual(termination["accepted_by"], "stop_controller")
+            self.assertEqual(termination["completed_contexts"], 6)
+            self.assertEqual(termination["candidate_attempts"], 6)
+
+    def test_pipeline_rejects_early_stop_and_runs_candidate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            parent = bank.commit(source, 1.0, "ok", "seed", None, "")
+            task = SimpleNamespace(
+                run_dir=root / "run",
+                eval_concurrency=1,
+                candidates_per_context=1,
+                candidate_repair_attempts=0,
+                editable_files=["solver.py"],
+                direction="max",
+                protocol="test-v1",
+                run_id="rejected-stop",
+            )
+            decision = self._stop_decision()
+
+            def fake_context(*_args, **_kwargs):
+                metadata = {
+                    "iteration": 0,
+                    "eb_version": 1,
+                    "visible_solution_ids": [parent["id"]],
+                    "trial_seed": 1,
+                    "direction": "fallback",
+                    "context_decision": decision.to_dict(),
+                }
+                return decision, parent, "fallback", "fallback", metadata
+
+            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
+                prepare_draft(parent_path, draft)
+                (draft / editable_files[0]).write_text("print('candidate')\n")
+                return True, "continued after rejected stop"
+
+            def fake_run_solution(_draft, sandbox, _task):
+                Path(sandbox).mkdir(parents=True)
+                return 1.0, "ok", "ok", {"set_hash": "same"}
+
+            policy = StopPolicy(enabled=True, min_contexts_before_stop=6)
+            with (patch("harness.build_inspiration", side_effect=fake_context),
+                  patch("harness.propose", side_effect=fake_propose),
+                  patch("harness.run_solution", side_effect=fake_run_solution)):
+                outcome = run_pipeline(
+                    task, bank, iterations=1, workers=1, backend="codex",
+                    model="test", trial_seed=0, stop_policy=policy,
+                )
+
+            self.assertEqual(outcome["reason"], "iteration_limit")
+            candidate = bank.records()[-1]
+            self.assertEqual(candidate["status"], "ok")
+            review = candidate["metadata"]["stop_review"]
+            self.assertFalse(review["accepted"])
+            self.assertIn("minimum_contexts_not_met", review["reasons"])
+            self.assertEqual(
+                candidate["metadata"]["effective_context_decision"]["action"],
+                "continue",
+            )
+
+    def test_agent_stop_mode_waits_for_prior_context_to_finish(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "")
+            task = SimpleNamespace(
+                run_dir=root / "run",
+                eval_concurrency=1,
+                candidates_per_context=1,
+                candidate_repair_attempts=0,
+                editable_files=["solver.py"],
+                direction="max",
+                protocol="test-v1",
+                run_id="sequential-context",
+            )
+            observed_versions = []
+
+            def fake_context(_task, _eb, iteration, **_kwargs):
+                records = bank.records()
+                observed_versions.append(len(records))
+                parent = bank.best()
+                metadata = {
+                    "iteration": iteration,
+                    "eb_version": len(records),
+                    "visible_solution_ids": [record["id"] for record in records],
+                    "trial_seed": iteration,
+                    "direction": f"direction-{iteration}",
+                }
+                return _context_result(parent, f"direction-{iteration}", metadata)
+
+            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
+                prepare_draft(parent_path, draft)
+                (draft / editable_files[0]).write_text("print('candidate')\n")
+                return True, "sequential candidate"
+
+            def fake_run_solution(_draft, sandbox, _task):
+                iteration = int(Path(sandbox).parent.name.split("_")[1])
+                Path(sandbox).mkdir(parents=True)
+                return 1.01 + iteration * 0.01, "ok", "ok", {
+                    "set_hash": f"set-{iteration}",
+                }
+
+            policy = StopPolicy(enabled=True, min_contexts_before_stop=6)
+            with (patch("harness.build_inspiration", side_effect=fake_context),
+                  patch("harness.propose", side_effect=fake_propose),
+                  patch("harness.run_solution", side_effect=fake_run_solution)):
+                run_pipeline(
+                    task, bank, iterations=2, workers=2, backend="codex",
+                    model="test", trial_seed=0, stop_policy=policy,
+                )
+
+            self.assertEqual(observed_versions, [1, 2])
+            self.assertEqual(len(bank.records()), 3)
+
+
+class ReportingTests(unittest.TestCase):
+    def test_export_includes_hashed_termination_record(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "")
+            run_dir = root / "run"
+            termination = write_termination(run_dir / "termination.json", {
+                "reason": "agent_converged",
+                "terminal": True,
+            })
+            task = SimpleNamespace(
+                name="test",
+                protocol="test-v1",
+                run_id="reporting",
+                editable_files=["solver.py"],
+                run_dir=run_dir,
+            )
+            destination = root / "bundle"
+            export_bundle(
+                task, bank, destination, root=ROOT,
+                run_manifest={"manifest_sha256": "test-manifest"},
+            )
+            exported = json.loads((destination / "termination.json").read_text())
+            manifest = json.loads((destination / "manifest.json").read_text())
+            self.assertEqual(exported, termination)
+            self.assertEqual(
+                manifest["termination_sha256"],
+                hashlib.sha256(
+                    (destination / "termination.json").read_bytes()
+                ).hexdigest(),
+            )
 
 
 class DraftIsolationTests(unittest.TestCase):
@@ -309,13 +720,14 @@ class CandidatePipelineTests(unittest.TestCase):
             )
 
             def fake_context(*_args, **_kwargs):
-                return parent, "seed=__OPENHYRA_CANDIDATE_SEED__", "vary", {
+                metadata = {
                     "iteration": 0,
                     "eb_version": 1,
                     "visible_solution_ids": [parent["id"]],
                     "trial_seed": 9,
                     "direction": "vary",
                 }
+                return _context_result(parent, "vary", metadata)
 
             def fake_propose(parent_path, draft, prompt, editable_files, **_kwargs):
                 prepare_draft(parent_path, draft)
@@ -389,13 +801,14 @@ class CandidatePipelineTests(unittest.TestCase):
             )
 
             def fake_context(*_args, **_kwargs):
-                return parent, "seed=__OPENHYRA_CANDIDATE_SEED__", "repair", {
+                metadata = {
                     "iteration": 0,
                     "eb_version": 1,
                     "visible_solution_ids": [parent["id"]],
                     "trial_seed": 3,
                     "direction": "repair",
                 }
+                return _context_result(parent, "repair", metadata)
 
             def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
                 prepare_draft(parent_path, draft)
@@ -476,13 +889,14 @@ class CandidatePipelineTests(unittest.TestCase):
             )
 
             def fake_context(*_args, **_kwargs):
-                return parent, "seed=__OPENHYRA_CANDIDATE_SEED__", "preflight", {
+                metadata = {
                     "iteration": 0,
                     "eb_version": 1,
                     "visible_solution_ids": [parent["id"]],
                     "trial_seed": 4,
                     "direction": "preflight",
                 }
+                return _context_result(parent, "preflight", metadata)
 
             def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
                 prepare_draft(parent_path, draft)

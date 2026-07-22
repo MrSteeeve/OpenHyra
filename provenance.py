@@ -19,6 +19,7 @@ SOURCE_FILES = (
     "provenance.py",
     "reporting.py",
     "sandbox.py",
+    "stopping.py",
 )
 
 
@@ -69,7 +70,8 @@ def git_metadata(root):
 
 
 def build_run_manifest(task, root, *, backend, model, workers,
-                       candidates_per_context, trial_seed):
+                       candidates_per_context, trial_seed,
+                       stopping_policy=None):
     root = Path(root)
     payload = {
         "schema_version": RUN_MANIFEST_SCHEMA,
@@ -103,6 +105,7 @@ def build_run_manifest(task, root, *, backend, model, workers,
             "evaluator_timeout_s": task.evaluator_timeout_s,
             "evaluator_max_memory_mb": task.evaluator_max_memory_mb,
         },
+        "stopping_policy": stopping_policy or {},
         "git": git_metadata(root),
         "environment": {
             "python": sys.version,
@@ -141,7 +144,9 @@ def load_run_manifest(path):
 def validate_run_manifest(recorded, current):
     """Reject resume when any result-affecting source or setting drifted."""
     mismatches = []
-    for field in ("task", "source_sha256", "search", "limits", "environment"):
+    for field in (
+            "task", "source_sha256", "search", "limits",
+            "stopping_policy", "environment"):
         if recorded.get(field) != current.get(field):
             mismatches.append(field)
     if mismatches:

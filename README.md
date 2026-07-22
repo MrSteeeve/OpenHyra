@@ -87,9 +87,33 @@ integrity whitelist rejects changes beyond the declared editable files, an AST
 preflight catches known crash patterns, and every failed/repaired attempt is
 stored as an immutable EB record linked by `repair_of`.
 
-Each run freezes code, task, evaluator, model, concurrency, limits and seed in
-`run_manifest.json`. Resume is refused if result-affecting provenance drifts,
-and a process lock prevents two harnesses from writing the same `run-id`.
+Each run freezes code, task, evaluator, model, concurrency, limits, seed and
+stopping policy in `run_manifest.json`. Resume is refused if result-affecting
+provenance drifts, and a process lock prevents two harnesses from writing the
+same `run-id`.
+
+### Guarded Agent stopping
+
+Active stopping is opt-in with `--agent-stop`; `--iterations` remains the hard
+upper bound. When enabled, Context rounds are sequential so each decision sees
+the prior round's complete EB, while the candidates inside a round still run
+concurrently. A Context `stop` is only a request. The deterministic controller
+accepts it only after, by default, at least 6 completed Contexts, 4 Contexts
+without a meaningful gain of `0.0001`, and at least 4 successful candidates in
+the latest 4 Contexts. Invalid Context JSON or a failed Context call always
+continues. Every invocation writes its termination reason and evidence to
+`termination.json`; an accepted stop also includes the raw Agent decision and
+the controller review. The file is included in exported bundles.
+
+```bash
+python3 harness.py --run-id guarded --init --workers 2 --agent-stop
+python3 harness.py --run-id guarded --iterations 20 --workers 2 --agent-stop
+```
+
+The guards can be configured with `--min-contexts-before-stop`,
+`--stop-patience`, `--stop-min-delta`, `--stop-recent-window`, and
+`--stop-min-successful-candidates`. Use identical values when initializing and
+resuming a run.
 
 ## Quick start
 
@@ -102,7 +126,8 @@ python3 harness.py --run-id demo --export-bundle bundles/demo
 ```
 
 Pass the same `--backend`, `--model`, `--workers`, candidate count and trial
-seed at initialization and resume. To change them, start a new `--run-id`.
+seed and stopping options at initialization and resume. To change them, start a
+new `--run-id`.
 
 ## References
 

@@ -12,7 +12,12 @@ import sys
 import threading
 from pathlib import Path
 
-from context_agent import CANDIDATE_SEED_TOKEN, build_inspiration, finalize_analysis
+from context_agent import (
+    CANDIDATE_SEED_TOKEN,
+    build_inspiration,
+    finalize_analysis,
+    record_stop_review,
+)
 from eb import ExperienceBank
 from llm_backend import SUPPORTED_BACKENDS
 from proposal_agent import propose, repair_candidate
@@ -25,6 +30,7 @@ from provenance import (
 )
 from reporting import export_bundle
 from sandbox import run_solution, trusted_artifact_dir
+from stopping import StopController, StopPolicy, stopping_evidence, write_termination
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
@@ -432,7 +438,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
 
 
 def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
-                 candidates_per_context=None):
+                 candidates_per_context=None, stop_policy=None):
     """Run a bounded three-stage asynchronous producer-consumer pipeline."""
     if candidates_per_context is None:
         candidates_per_context = task.candidates_per_context
@@ -440,14 +446,19 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
         raise ValueError(
             f"candidates_per_context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
         )
+    stop_policy = stop_policy or StopPolicy()
+    stop_controller = StopController(stop_policy, task.direction)
     inspiration_queue = queue.Queue(maxsize=max(1, workers * candidates_per_context))
     candidate_queue = queue.Queue(maxsize=max(1, workers + task.eval_concurrency))
-    context_window = max(1, workers + task.eval_concurrency)
+    # Agent stop decisions must observe all results from the prior Context.
+    # Candidate generation/evaluation inside that Context remains concurrent.
+    context_window = 1 if stop_policy.enabled else max(1, workers + task.eval_concurrency)
     inflight = threading.Semaphore(context_window)
     active_directions = {}
     active_lock = threading.Lock()
     print_lock = threading.Lock()
     errors = queue.Queue()
+    termination_request = {}
     start = _next_context_iteration(eb.records())
 
     def context_producer():
@@ -457,11 +468,49 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                 try:
                     with active_lock:
                         reserved = tuple(active_directions.values())
-                    baseline, prompt, direction, context_meta = build_inspiration(
+                    evidence_at_decision = (
+                        stopping_evidence(
+                            eb.records(), direction=task.direction,
+                            policy=stop_policy,
+                        )
+                        if stop_policy.enabled else None
+                    )
+                    decision, baseline, prompt, direction, context_meta = build_inspiration(
                         task, eb, iteration, backend=backend, model=model,
                         active_directions=reserved,
                         trial_seed=trial_seed + iteration,
+                        agent_stop_enabled=stop_policy.enabled,
+                        stop_evidence=evidence_at_decision,
                     )
+                    if decision.action == "stop":
+                        review = stop_controller.review(decision, eb.records())
+                        review_payload = review.to_dict()
+                        record_stop_review(eb, iteration, review_payload)
+                        context_meta["stop_review"] = review_payload
+                        with print_lock:
+                            verdict = "accepted" if review.accepted else "rejected"
+                            reasons = ", ".join(review.reasons) or "all guards passed"
+                            print(
+                                f"[stop] iter {iteration}: Agent request {verdict} "
+                                f"({reasons})"
+                            )
+                        if review.accepted:
+                            termination_request.update({
+                                "reason": "agent_converged",
+                                "terminal": True,
+                                "requested_by": "context_agent",
+                                "accepted_by": "stop_controller",
+                                "context_decision": decision.to_dict(),
+                                "stop_review": review_payload,
+                            })
+                            inflight.release()
+                            break
+                        context_meta["effective_context_decision"] = (
+                            decision.forced_continue(
+                                direction,
+                                "Stop request rejected by deterministic evidence guards.",
+                            ).to_dict()
+                        )
                     with active_lock:
                         active_directions[iteration] = direction
                     with print_lock:
@@ -632,6 +681,42 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
     if not errors.empty():
         stage, exc = errors.get()
         raise RuntimeError(f"pipeline failure in {stage}: {exc}")
+    if termination_request:
+        return termination_request
+    return {
+        "reason": "iteration_limit",
+        "terminal": False,
+        "requested_by": "harness",
+        "accepted_by": "harness",
+    }
+
+
+def _termination_payload(task, eb, stop_policy, outcome, requested_iterations):
+    records = eb.records()
+    evidence = (
+        outcome.get("stop_review", {}).get("evidence")
+        or stopping_evidence(records, direction=task.direction, policy=stop_policy)
+    )
+    best = eb.best()
+    candidate_attempts = sum(
+        isinstance(record.get("metadata", {}).get("iteration"), int)
+        for record in records
+    )
+    payload = {
+        **outcome,
+        "run_id": task.run_id,
+        "requested_iterations": requested_iterations,
+        "completed_contexts": evidence["completed_contexts"],
+        "candidate_attempts": candidate_attempts,
+        "best_id": best["id"] if best else None,
+        "best_score": best["score"] if best else None,
+        "contexts_since_meaningful_improvement": evidence[
+            "contexts_since_meaningful_improvement"
+        ],
+        "stopping_policy": stop_policy.to_dict(),
+        "evidence": evidence,
+    }
+    return payload
 
 
 def init_seed(task, eb):
@@ -690,6 +775,15 @@ def main():
                         default=os.environ.get("OPENHYRA_BACKEND", "claude"))
     parser.add_argument("--model", default=os.environ.get("OPENHYRA_MODEL"))
     parser.add_argument("--trial-seed", type=int, default=0)
+    parser.add_argument(
+        "--agent-stop", action="store_true",
+        help="allow Context to request stopping, subject to deterministic guards",
+    )
+    parser.add_argument("--min-contexts-before-stop", type=int, default=6)
+    parser.add_argument("--stop-patience", type=int, default=4)
+    parser.add_argument("--stop-min-delta", type=float, default=0.0001)
+    parser.add_argument("--stop-recent-window", type=int, default=4)
+    parser.add_argument("--stop-min-successful-candidates", type=int, default=4)
     parser.add_argument("--export-bundle")
     parser.add_argument("--status", action="store_true")
     args = parser.parse_args()
@@ -702,6 +796,17 @@ def main():
         )
 
     task = Task(args.task, args.run_id)
+    try:
+        stop_policy = StopPolicy(
+            enabled=args.agent_stop,
+            min_contexts_before_stop=args.min_contexts_before_stop,
+            stop_patience=args.stop_patience,
+            meaningful_delta=args.stop_min_delta,
+            recent_window=args.stop_recent_window,
+            min_successful_candidates=args.stop_min_successful_candidates,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     eb = ExperienceBank(task.run_dir / "eb", direction=task.direction)
     if args.status:
         for record in eb.records():
@@ -711,6 +816,13 @@ def main():
         best = eb.best()
         if best:
             print(f"best: {best['id']} @ {best['score']:.12f}")
+        termination_path = task.run_dir / "termination.json"
+        if termination_path.is_file():
+            termination = json.loads(termination_path.read_text())
+            print(
+                f"last termination: {termination.get('reason')} "
+                f"(terminal={termination.get('terminal')})"
+            )
         return
 
     candidates_per_context = (
@@ -730,6 +842,7 @@ def main():
                 workers=args.workers,
                 candidates_per_context=candidates_per_context,
                 trial_seed=args.trial_seed,
+                stopping_policy=stop_policy.to_dict(),
             )
             write_run_manifest(manifest_path, task.run_manifest)
             init_seed(task, eb)
@@ -742,14 +855,52 @@ def main():
                 workers=args.workers,
                 candidates_per_context=candidates_per_context,
                 trial_seed=args.trial_seed,
+                stopping_policy=stop_policy.to_dict(),
             )
             task.run_manifest = validate_run_manifest(recorded, current)
 
         if args.iterations:
-            run_pipeline(
-                task, eb, args.iterations, args.workers,
-                args.backend, args.model, args.trial_seed,
-                candidates_per_context=candidates_per_context,
+            try:
+                outcome = run_pipeline(
+                    task, eb, args.iterations, args.workers,
+                    args.backend, args.model, args.trial_seed,
+                    candidates_per_context=candidates_per_context,
+                    stop_policy=stop_policy,
+                )
+            except KeyboardInterrupt:
+                outcome = {
+                    "reason": "user_interrupt",
+                    "terminal": True,
+                    "requested_by": "user",
+                    "accepted_by": "harness",
+                }
+                write_termination(
+                    task.run_dir / "termination.json",
+                    _termination_payload(
+                        task, eb, stop_policy, outcome, args.iterations,
+                    ),
+                )
+                raise
+            except Exception as exc:
+                outcome = {
+                    "reason": "pipeline_error",
+                    "terminal": True,
+                    "requested_by": "harness",
+                    "accepted_by": "harness",
+                    "error": repr(exc),
+                }
+                write_termination(
+                    task.run_dir / "termination.json",
+                    _termination_payload(
+                        task, eb, stop_policy, outcome, args.iterations,
+                    ),
+                )
+                raise
+            write_termination(
+                task.run_dir / "termination.json",
+                _termination_payload(
+                    task, eb, stop_policy, outcome, args.iterations,
+                ),
             )
         if args.export_bundle:
             if task.run_manifest is None:

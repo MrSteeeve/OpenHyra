@@ -6,7 +6,7 @@ import shutil
 import time
 from pathlib import Path
 
-from provenance import git_metadata
+from provenance import git_metadata, sha256_file
 
 
 SUMMARY_FIELDS = [
@@ -37,6 +37,9 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
     analyses = eb.root / "analyses"
     if analyses.exists():
         shutil.copytree(analyses, destination / "analyses")
+    termination = task.run_dir / "termination.json"
+    if termination.is_file():
+        shutil.copy2(termination, destination / "termination.json")
     output_solutions = destination / "solutions"
     output_solutions.mkdir()
     allowed = set(task.editable_files) | {
@@ -94,6 +97,9 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
         "run": run_manifest,
         "snapshot_at": snapshot_at,
         "export_git": git_metadata(root),
+        "termination_sha256": (
+            sha256_file(termination) if termination.is_file() else None
+        ),
         "record_count": len(records),
         "context_count": len({
             record.get("metadata", {}).get("iteration")
