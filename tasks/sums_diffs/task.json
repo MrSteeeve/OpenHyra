@@ -3,28 +3,53 @@
   "direction": "max",
   "metric": "C(A)",
   "editable_files": ["solver.py"],
-  "protocol": "simpletes-sums-diffs-v1",
+  "protocol": "sums-diffs",
   "sandbox_timeout_s": 180,
   "eval_concurrency": 2,
   "candidates_per_context": 4,
   "candidate_repair_attempts": 1,
+  "research_revision_attempts": 1,
+  "formalization": {
+    "module": "formalization.py",
+    "spec_dir": "formal_spec",
+    "toolchain": "leanprover/lean4:v4.26.0",
+    "mathlib_revision": "2df2f0150c275ad53cb3c90f7c98ec15a56a1a67",
+    "command_prefix": ["lake", "env", "lean"],
+    "allowed_axioms": [
+      "Classical.choice",
+      "Quot.sound",
+      "propext"
+    ],
+    "required_claim_templates": [
+      "universal_upper_bound",
+      "approximating_family",
+      "supremum_eq",
+      "nonattainment"
+    ]
+  },
   "engineering_invariants": [
     "Clamp every time-derived progress/fraction to [0.0, 1.0] before fractional powers or annealing schedules; an expensive score call may cross a deadline after the loop condition was checked.",
-    "Before randrange(start, stop) or equivalent dynamic sampling, prove or guard that stop > start; unchanged/clamped parameters may otherwise make the range empty."
+    "Before randrange(start, stop) or equivalent dynamic sampling, prove or guard that stop > start; unchanged/clamped parameters may otherwise make the range empty.",
+    "Never encode a conjectured theoretical limit as a finite candidate score; research narrative remains unverified unless the trusted evaluator emits a bounded or formal verdict.",
+    "A formal proof term may target only a typed claim with a normalized rational target; candidate text, theorem names, imports, status, and axioms are never trusted.",
+    "When a trusted obligation is refuted, preserve the minimal counterexample and revise the construction or claim instead of hiding the failed obligation."
   ],
   "max_memory_mb": 1024,
   "max_output_mb": 64,
-  "max_artifact_bytes": 65536,
+  "max_artifact_bytes": 4194304,
   "evaluator_timeout_s": 30,
   "evaluator_max_memory_mb": 512,
-  "reference_score": 1.144887,
   "fallback_directions": [
     "Refine near the current best: small perturbations of the best known set or its generating parameters. Exploitation, not exploration.",
     "Try known MSTD (more-sums-than-differences) base sets and asymmetric variants.",
     "Structured constructions: unions of arithmetic progressions / intervals with carefully chosen gaps.",
     "Base expansion / product constructions with mixed base sets at different digit positions.",
+    "Search for a small modular sum-difference gadget, record a standalone trusted modular_sum_diff certificate, and state any broader claim separately as unverified.",
+    "Use repeated digit products to infer a carry/borrow recurrence or finite-state model, then state the smallest exact experiment that could refute it.",
+    "Test whether a promising local gadget composes through rows, columns, products, or CRT; separate the finite observation from the claimed parameterized family.",
+    "Adversarially test the strongest unverified research claim in the Experience Bank and preserve a minimal counterexample or bounded certificate.",
     "Randomized local search: add/remove/shift elements, keep changes that raise C(A).",
-    "Use the remaining capacity up to 512 elements while preserving sum dominance.",
+    "Scale promising constructions while preserving sum dominance and keeping exact verification within the evaluator budgets.",
     "Combine the best ideas seen so far in the experience bank."
   ]
 }

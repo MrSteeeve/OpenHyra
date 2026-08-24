@@ -10,9 +10,12 @@ import time
 from pathlib import Path
 
 RUN_MANIFEST_SCHEMA = 1
+EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 SOURCE_FILES = (
+    "auditing.py",
     "context_agent.py",
     "eb.py",
+    "external_formal_runner.py",
     "harness.py",
     "llm_backend.py",
     "proposal_agent.py",
@@ -36,6 +39,69 @@ def sha256_json(payload):
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _stage_config(task, stage):
+    evaluation = getattr(task, "evaluation", {}) or {}
+    config = evaluation.get(f"{stage}_stage")
+    return dict(config) if isinstance(config, dict) else None
+
+
+def evaluation_suite_id(task, stage, config=None):
+    config = _stage_config(task, stage) if config is None else config
+    configured = config.get("suite_id") if isinstance(config, dict) else None
+    if configured is not None:
+        if (
+            not isinstance(configured, str)
+            or not configured.strip()
+            or len(configured) > 256
+        ):
+            raise ValueError(
+                f"evaluation.{stage}_stage.suite_id must be bounded text"
+            )
+        return configured
+    return f"{task.name}.{stage}.v1"
+
+
+def derive_search_seed(task, trial_seed):
+    """Derive one run-level CRN seed shared by every search candidate."""
+    material = {
+        "domain": EVALUATION_REQUEST_SCHEMA,
+        "stage": "search",
+        "task": task.name,
+        "protocol": task.protocol,
+        "suite_id": evaluation_suite_id(task, "search"),
+        "trial_seed": trial_seed,
+    }
+    return int(sha256_json(material)[:16], 16) & ((1 << 63) - 1)
+
+
+def build_evaluation_request(task, stage, seed):
+    if stage not in {"search", "audit"}:
+        raise ValueError("evaluation stage must be search or audit")
+    config = _stage_config(task, stage)
+    if config is None:
+        return None
+    if (
+        isinstance(seed, bool)
+        or not isinstance(seed, int)
+        or not 0 <= seed <= (1 << 63) - 1
+    ):
+        raise ValueError("evaluation seed must be a 63-bit non-negative integer")
+    return {
+        "schema": EVALUATION_REQUEST_SCHEMA,
+        "stage": stage,
+        "task": task.name,
+        "protocol": task.protocol,
+        "seed": seed,
+        "suite_id": evaluation_suite_id(task, stage, config),
+        # suite_id is promoted to the envelope; top_k is a harness-only
+        # selection control and must never become trusted evaluator input.
+        "config": {
+            key: value for key, value in config.items()
+            if key not in {"suite_id", "top_k"}
+        },
+    }
 
 
 def _command_output(command, cwd=None):
@@ -73,6 +139,32 @@ def build_run_manifest(task, root, *, backend, model, workers,
                        candidates_per_context, trial_seed,
                        stopping_policy=None):
     root = Path(root)
+    task_support_sha256 = {}
+    for path in sorted(task.dir.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(task.dir)
+        if (
+            "seed_solution" in relative.parts
+            or "__pycache__" in relative.parts
+            or relative.as_posix() in {
+                "task.json", "TASK.md", "evaluator.py",
+            }
+        ):
+            continue
+        task_support_sha256[relative.as_posix()] = sha256_file(path)
+    seed_solution_sha256 = {
+        path.relative_to(task.seed_dir).as_posix(): sha256_file(path)
+        for path in sorted(task.seed_dir.rglob("*"))
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+    search_config = _stage_config(task, "search")
+    search_request = (
+        build_evaluation_request(
+            task, "search", derive_search_seed(task, trial_seed),
+        )
+        if search_config is not None else None
+    )
     payload = {
         "schema_version": RUN_MANIFEST_SCHEMA,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -83,6 +175,12 @@ def build_run_manifest(task, root, *, backend, model, workers,
             "config_sha256": sha256_file(task.dir / "task.json"),
             "description_sha256": sha256_file(task.dir / "TASK.md"),
             "evaluator_sha256": sha256_file(task.evaluator),
+            "support_sha256": task_support_sha256,
+            "seed_solution_sha256": seed_solution_sha256,
+            "formalization": {
+                "config": getattr(task, "formalization", {}),
+                "runner": getattr(task, "formal_runner_identity", None),
+            },
         },
         "source_sha256": {
             name: sha256_file(root / name)
@@ -95,7 +193,21 @@ def build_run_manifest(task, root, *, backend, model, workers,
             "eval_concurrency": task.eval_concurrency,
             "candidates_per_context": candidates_per_context,
             "candidate_repair_attempts": task.candidate_repair_attempts,
+            "research_revision_attempts": getattr(
+                task, "research_revision_attempts", 0,
+            ),
             "trial_seed": trial_seed,
+            "evaluation_request": search_request,
+        },
+        "evaluation": {
+            "search_request_sha256": (
+                sha256_json(search_request) if search_request is not None else None
+            ),
+            "audit_stage": _stage_config(task, "audit"),
+            "audit_seed_strategy": (
+                "secrets.randbits(63)-after-top-k-freeze"
+                if _stage_config(task, "audit") is not None else None
+            ),
         },
         "limits": {
             "candidate_timeout_s": task.timeout_s,
@@ -146,7 +258,7 @@ def validate_run_manifest(recorded, current):
     mismatches = []
     for field in (
             "task", "source_sha256", "search", "limits",
-            "stopping_policy", "environment"):
+            "evaluation", "stopping_policy", "environment"):
         if recorded.get(field) != current.get(field):
             mismatches.append(field)
     if mismatches:
