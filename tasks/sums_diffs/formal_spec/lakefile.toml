@@ -1,0 +1,11 @@
+name = "openhyra-sum-diff-formal"
+version = "0.1.0"
+defaultTargets = ["OpenHyraSumDiff"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "2df2f0150c275ad53cb3c90f7c98ec15a56a1a67"
+
+[[lean_lib]]
+name = "OpenHyraSumDiff"

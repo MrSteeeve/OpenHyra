@@ -15,6 +15,9 @@ class ContextDecision:
     expected_gain: float | None
     confidence: float | None
     next_experiment: str | None
+    phase: str = "numeric"
+    target_claim_id: str | None = None
+    success_criterion: str | None = None
 
     @classmethod
     def from_payload(cls, payload):
@@ -55,6 +58,33 @@ class ContextDecision:
             raise ValueError("A continue decision requires a next experiment")
         if action == "stop" and next_experiment is not None:
             raise ValueError("A stop decision requires next=null")
+        phase = payload.get("phase", "numeric")
+        if phase not in {
+            "numeric",
+            "construct",
+            "falsify",
+            "formalize",
+            "repair_formalization",
+        }:
+            raise ValueError("Context phase is not supported")
+        target_claim_id = payload.get("target_claim_id")
+        if target_claim_id is not None and (
+            not isinstance(target_claim_id, str)
+            or not target_claim_id.strip()
+            or len(target_claim_id) > 64
+        ):
+            raise ValueError(
+                "Context target_claim_id must be bounded text or null"
+            )
+        success_criterion = payload.get("success_criterion")
+        if success_criterion is not None and (
+            not isinstance(success_criterion, str)
+            or not success_criterion.strip()
+            or len(success_criterion) > 500
+        ):
+            raise ValueError(
+                "Context success_criterion must be bounded text or null"
+            )
         return cls(
             action=action,
             analysis=analysis.strip(),
@@ -62,6 +92,13 @@ class ContextDecision:
             expected_gain=expected_gain,
             confidence=confidence,
             next_experiment=next_experiment.strip() if next_experiment else None,
+            phase=phase,
+            target_claim_id=(
+                target_claim_id.strip() if target_claim_id else None
+            ),
+            success_criterion=(
+                success_criterion.strip() if success_criterion else None
+            ),
         )
 
     def to_dict(self):
@@ -161,7 +198,13 @@ def incomplete_contexts(records):
     return incomplete
 
 
-def stopping_evidence(records, *, direction, policy):
+def stopping_evidence(
+    records,
+    *,
+    direction,
+    policy,
+    required_formal_claims=(),
+):
     """Summarize completed Contexts using evaluator records, not LLM claims."""
     grouped, incomplete, baseline_scores = _group_context_records(records)
 
@@ -244,6 +287,42 @@ def stopping_evidence(records, *, direction, policy):
         completed - last_meaningful_position
         if last_meaningful_position is not None else completed
     )
+    required_formal_claims = tuple(sorted(set(required_formal_claims)))
+    formal_complete_records = []
+    formal_targets = {}
+    for record in records:
+        metrics = record.get("metrics", {})
+        if metrics.get("formalization_status") != "verified":
+            continue
+        refutation_counts = [
+            metrics.get(field)
+            for field in (
+                "refuted_claim_count",
+                "refuted_obligation_count",
+                "refuted_certificate_count",
+            )
+        ]
+        if not all(
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and value == 0
+            for value in refutation_counts
+        ):
+            continue
+        grouped_targets = {}
+        for item in metrics.get("formal_checked_targets", []):
+            target = item.get("target")
+            template = item.get("template")
+            if not isinstance(target, dict) or not isinstance(template, str):
+                continue
+            key = json.dumps(target, sort_keys=True, separators=(",", ":"))
+            grouped_targets.setdefault(key, set()).add(template)
+        for target_key, templates in grouped_targets.items():
+            if set(required_formal_claims).issubset(templates):
+                formal_complete_records.append(record["id"])
+                formal_targets[record["id"]] = json.loads(target_key)
+                break
+
     return {
         "completed_contexts": completed,
         "incomplete_contexts": incomplete,
@@ -257,19 +336,30 @@ def stopping_evidence(records, *, direction, policy):
         "covered_direction_count": len(directions),
         "best_score": running_best,
         "context_improvements": context_improvements,
+        "required_formal_claim_templates": list(required_formal_claims),
+        "formal_complete_records": formal_complete_records,
+        "formal_complete_targets": formal_targets,
+        "proof_complete": (
+            bool(formal_complete_records)
+            if required_formal_claims else True
+        ),
     }
 
 
 class StopController:
     """Treat an Agent stop as a request gated by deterministic evidence."""
 
-    def __init__(self, policy, direction):
+    def __init__(self, policy, direction, required_formal_claims=()):
         self.policy = policy
         self.direction = direction
+        self.required_formal_claims = tuple(required_formal_claims)
 
     def review(self, decision, records):
         evidence = stopping_evidence(
-            records, direction=self.direction, policy=self.policy,
+            records,
+            direction=self.direction,
+            policy=self.policy,
+            required_formal_claims=self.required_formal_claims,
         )
         reasons = []
         if decision.action != "stop":
@@ -286,6 +376,8 @@ class StopController:
         if (evidence["recent_successful_candidates"] <
                 self.policy.min_successful_candidates):
             reasons.append("insufficient_successful_candidates")
+        if not evidence["proof_complete"]:
+            reasons.append("required_formal_claims_not_complete")
         accepted = decision.action == "stop" and not reasons
         return StopReview(accepted, tuple(reasons), evidence)
 

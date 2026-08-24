@@ -36,30 +36,36 @@ def _run_cli(cmd, *, cwd, prompt_stdin, timeout_s, cancel_event):
     )
     started = time.monotonic()
     pending_input = prompt_stdin
-    while True:
-        if cancel_event is not None and cancel_event.is_set():
-            _kill_process_group(proc)
-            stdout, stderr = proc.communicate()
-            return subprocess.CompletedProcess(
-                cmd, 130, stdout, (stderr + "\nagent call cancelled").strip(),
-            )
-        remaining = timeout_s - (time.monotonic() - started)
-        if remaining <= 0:
-            _kill_process_group(proc)
-            stdout, stderr = proc.communicate()
-            raise subprocess.TimeoutExpired(
-                cmd, timeout_s, output=stdout, stderr=stderr,
-            )
-        try:
-            stdout, stderr = proc.communicate(
-                input=pending_input, timeout=min(0.2, remaining),
-            )
-            return subprocess.CompletedProcess(
-                cmd, proc.returncode, stdout, stderr,
-            )
-        except subprocess.TimeoutExpired:
-            # Popen caches the partially written input; retries must pass None.
-            pending_input = None
+    try:
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                _kill_process_group(proc)
+                stdout, stderr = proc.communicate()
+                return subprocess.CompletedProcess(
+                    cmd, 130, stdout, (stderr + "\nagent call cancelled").strip(),
+                )
+            remaining = timeout_s - (time.monotonic() - started)
+            if remaining <= 0:
+                _kill_process_group(proc)
+                stdout, stderr = proc.communicate()
+                raise subprocess.TimeoutExpired(
+                    cmd, timeout_s, output=stdout, stderr=stderr,
+                )
+            try:
+                stdout, stderr = proc.communicate(
+                    input=pending_input, timeout=min(0.2, remaining),
+                )
+                return subprocess.CompletedProcess(
+                    cmd, proc.returncode, stdout, stderr,
+                )
+            except subprocess.TimeoutExpired:
+                # Popen caches the partially written input; retries must pass None.
+                pending_input = None
+    finally:
+        # A CLI may exit successfully after spawning a detached writer that
+        # kept no stdio pipe open. Always clear the whole session before the
+        # Harness inspects or executes the edited draft.
+        _kill_process_group(proc)
 
 
 def run_agent(prompt, *, cwd=None, writable=False, timeout_s=600,

@@ -3,6 +3,7 @@
 import argparse
 import ast
 import hashlib
+import importlib.util
 import json
 import os
 import queue
@@ -19,9 +20,15 @@ from context_agent import (
     finalize_analysis,
     record_stop_review,
 )
+from auditing import run_final_audit
 from eb import ExperienceBank
+from external_formal_runner import build_external_formal_runner
 from llm_backend import SUPPORTED_BACKENDS
-from proposal_agent import propose, repair_candidate
+from proposal_agent import (
+    propose,
+    repair_candidate,
+    revise_research_candidate,
+)
 from provenance import (
     RunLock,
     build_run_manifest,
@@ -30,7 +37,13 @@ from provenance import (
     write_run_manifest,
 )
 from reporting import export_bundle
-from sandbox import run_solution, trusted_artifact_dir
+from sandbox import (
+    read_regular_file,
+    run_solution,
+    snapshot_source_tree,
+    source_tree_hash,
+    trusted_artifact_dir,
+)
 from stopping import (
     StopController,
     StopPolicy,
@@ -61,6 +74,16 @@ class Task:
         self.protocol = cfg["protocol"]
         self.direction = cfg["direction"]
         self.metric = cfg.get("metric", "score")
+        self.seed_description = cfg.get(
+            "seed_description", f"official {self.name} seed",
+        )
+        if (
+            not isinstance(self.seed_description, str)
+            or not self.seed_description.strip()
+            or len(self.seed_description) > 256
+        ):
+            sys.exit("task seed_description must be bounded non-empty text")
+        self.seed_description = self.seed_description.strip()
         self.editable_files = cfg["editable_files"]
         self.timeout_s = cfg.get("sandbox_timeout_s", 660)
         self.eval_concurrency = cfg.get("eval_concurrency", 1)
@@ -68,10 +91,68 @@ class Task:
             "candidates_per_context", MIN_CANDIDATES_PER_CONTEXT,
         )
         self.candidate_repair_attempts = cfg.get("candidate_repair_attempts", 0)
+        self.research_revision_attempts = cfg.get(
+            "research_revision_attempts", 0,
+        )
+        phases = cfg.get("allowed_context_phases")
+        if phases is not None and (
+            not isinstance(phases, list)
+            or not phases
+            or any(
+                not isinstance(phase, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", phase)
+                for phase in phases
+            )
+            or len(set(phases)) != len(phases)
+        ):
+            sys.exit(
+                "task allowed_context_phases must be a non-empty list of "
+                "unique bounded strings"
+            )
+        self.allowed_context_phases = tuple(phases) if phases else None
+        instructions = cfg.get("candidate_instructions")
+        if instructions is not None and not (
+            isinstance(instructions, str)
+            or (
+                isinstance(instructions, list)
+                and all(isinstance(item, str) for item in instructions)
+            )
+        ):
+            sys.exit(
+                "task candidate_instructions must be text or a list of text"
+            )
+        self.candidate_instructions = instructions
+        evaluation = cfg.get("evaluation", {})
+        if not isinstance(evaluation, dict):
+            sys.exit("task evaluation must be an object")
+        unknown_evaluation = set(evaluation) - {"search_stage", "audit_stage"}
+        if unknown_evaluation:
+            sys.exit(
+                "task evaluation contains unsupported stage(s): "
+                + ", ".join(sorted(unknown_evaluation))
+            )
+        for stage in ("search_stage", "audit_stage"):
+            value = evaluation.get(stage)
+            if value is not None and not isinstance(value, dict):
+                sys.exit(f"task evaluation.{stage} must be an object")
+        audit_stage = evaluation.get("audit_stage")
+        if audit_stage is not None:
+            top_k = audit_stage.get("top_k")
+            if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
+                sys.exit("task evaluation.audit_stage.top_k must be >= 1")
+            audit_direction = audit_stage.get("direction", self.direction)
+            if audit_direction not in {"min", "max"}:
+                sys.exit(
+                    "task evaluation.audit_stage.direction must be min or max"
+                )
+        self.evaluation = evaluation
+        self.search_evaluation_request = None
         if self.candidates_per_context < MIN_CANDIDATES_PER_CONTEXT:
             sys.exit("task candidates_per_context must be >= 1")
         if self.candidate_repair_attempts < 0:
             sys.exit("task candidate_repair_attempts must be >= 0")
+        if self.research_revision_attempts < 0:
+            sys.exit("task research_revision_attempts must be >= 0")
         self.max_training_seconds = cfg.get("max_training_seconds")
         self.max_memory_mb = cfg.get("max_memory_mb", 1024)
         self.max_output_mb = cfg.get("max_output_mb", 64)
@@ -80,6 +161,71 @@ class Task:
         self.evaluator_max_memory_mb = cfg.get("evaluator_max_memory_mb", 512)
         self.fallback_directions = cfg.get("fallback_directions", [])
         self.engineering_invariants = cfg.get("engineering_invariants", [])
+        formalization = cfg.get("formalization", {})
+        self.formalization = formalization
+        self.required_formal_claims = tuple(
+            formalization.get("required_claim_templates", [])
+        )
+        self.formal_runner = None
+        self.formal_runner_identity = None
+        self.verify_formalization = None
+        self.validate_formalization_request = None
+        self.build_formalization_wrapper = None
+        self.build_formalization_audit = None
+        self.formal_spec_files = {}
+        self.formal_spec_sha256 = None
+        formalizer_name = formalization.get("module")
+        if formalizer_name:
+            formalizer_path = self.dir / formalizer_name
+            if not formalizer_path.is_file():
+                sys.exit(
+                    f"Task {name!r} formalization module is missing: "
+                    f"{formalizer_name}"
+                )
+            module_name = (
+                "openhyra_task_"
+                + re.sub(r"[^A-Za-z0-9_]", "_", name)
+                + "_formalization"
+            )
+            module_spec = importlib.util.spec_from_file_location(
+                module_name, formalizer_path,
+            )
+            module = importlib.util.module_from_spec(module_spec)
+            sys.modules[module_name] = module
+            module_spec.loader.exec_module(module)
+            self.verify_formalization = module.verify_formalization_request
+            self.validate_formalization_request = getattr(
+                module, "validate_formalization_request", None
+            )
+            self.build_formalization_wrapper = getattr(
+                module, "build_formalization_wrapper", None
+            )
+            self.build_formalization_audit = getattr(
+                module, "build_formalization_audit", None
+            )
+        spec_dir_name = formalization.get("spec_dir")
+        if spec_dir_name:
+            spec_dir = self.dir / spec_dir_name
+            if not spec_dir.is_dir():
+                sys.exit(
+                    f"Task {name!r} formalization spec is missing: "
+                    f"{spec_dir_name}"
+                )
+            for path in sorted(spec_dir.rglob("*")):
+                if path.is_file():
+                    relative = path.relative_to(spec_dir).as_posix()
+                    self.formal_spec_files[relative] = path.read_bytes()
+            spec_hashes = {
+                name: hashlib.sha256(data).hexdigest()
+                for name, data in sorted(self.formal_spec_files.items())
+            }
+            self.formal_spec_sha256 = hashlib.sha256(
+                json.dumps(
+                    spec_hashes,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
         self.description = (self.dir / "TASK.md").read_text()
         self.evaluator = self.dir / "evaluator.py"
         if not self.evaluator.exists():
@@ -99,7 +245,7 @@ def solution_files(directory):
             relative = str(path.relative_to(directory))
             if relative not in {
                 "run.log", "train.log", "solution.json",
-                "solution.snapshot.json", "PROPOSAL.md",
+                "solution.snapshot.json", "evidence.json", "PROPOSAL.md",
             }:
                 output[relative] = path.read_bytes()
     return output
@@ -111,6 +257,180 @@ def check_frozen(parent_dir, draft_dir, editable):
         relative for relative in sorted(set(before) | set(after))
         if relative not in editable and before.get(relative) != after.get(relative)
     ]
+
+
+def _remove_generated_path(path):
+    """Remove one reserved harness-generated path without following links."""
+    path = Path(path)
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _copy_generated_file(source, destination):
+    """Replace an untrusted destination with one trusted regular-file copy."""
+    source = Path(source)
+    data = read_regular_file(
+        source, 64 * 1024 * 1024, label=f"generated file {source.name}",
+    )
+    _remove_generated_path(destination)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+
+
+def _source_limit_bytes(task):
+    return int(
+        getattr(task, "max_source_bytes", 0)
+        or int(getattr(task, "max_output_mb", 64)) * 1024 * 1024
+    )
+
+
+def _validate_hashed_file(path, expected_hash, *, label, max_bytes):
+    """Fail closed unless one regular file matches its trusted digest."""
+    data = read_regular_file(path, max_bytes, label=label)
+    actual_hash = hashlib.sha256(data).hexdigest()
+    if actual_hash != expected_hash:
+        raise RuntimeError(
+            f"{label} hash mismatch: expected {expected_hash}, got {actual_hash}"
+        )
+    return data
+
+
+def _assemble_commit_snapshot(source_dir, sandbox, task, metrics):
+    """Build one parent-controlled directory used for both validation and EB."""
+    sandbox = Path(sandbox)
+    trusted = trusted_artifact_dir(sandbox)
+    commit_dir = trusted / "commit"
+    _remove_generated_path(commit_dir)
+
+    trusted_source = trusted / "source"
+    if trusted_source.is_dir():
+        shutil.copytree(trusted_source, commit_dir)
+    elif Path(source_dir).exists():
+        snapshot_source_tree(
+            source_dir, commit_dir, _source_limit_bytes(task),
+        )
+    else:
+        commit_dir.mkdir(parents=True)
+    # EB records are future Proposal baselines. Restore owner write permission
+    # only on configured editable files in this parent-controlled copy; the
+    # sealed execution source remains read-only.
+    for name in getattr(task, "editable_files", ()):
+        editable = commit_dir / name
+        if editable.is_file() and not editable.is_symlink():
+            editable.chmod(editable.stat().st_mode | 0o200)
+
+    source_hash, _source_files = source_tree_hash(
+        commit_dir, _source_limit_bytes(task),
+    )
+    expected_source_hash = metrics.get("source_snapshot_sha256")
+    if expected_source_hash and source_hash != expected_source_hash:
+        raise RuntimeError(
+            "sealed source hash no longer matches the evaluated source"
+        )
+    metrics.setdefault("source_snapshot_sha256", source_hash)
+
+    artifact = trusted / "evaluated_solution.json"
+    if not artifact.exists():
+        artifact = trusted / "solution.snapshot.json"
+    expected_artifact_hash = metrics.get("artifact_sha256")
+    if expected_artifact_hash:
+        _validate_hashed_file(
+            artifact, expected_artifact_hash,
+            label="trusted solution.json",
+            max_bytes=int(getattr(task, "max_artifact_bytes", 1024 * 1024)),
+        )
+        _copy_generated_file(artifact, commit_dir / "solution.json")
+    elif artifact.exists() or artifact.is_symlink():
+        raise RuntimeError("trusted solution artifact is missing its hash")
+
+    evidence = trusted / "evidence.json"
+    expected_evidence_hash = metrics.get("evidence_sha256")
+    if expected_evidence_hash:
+        _validate_hashed_file(
+            evidence, expected_evidence_hash,
+            label="trusted evidence.json",
+            max_bytes=int(getattr(task, "max_output_mb", 64)) * 1024 * 1024,
+        )
+        _copy_generated_file(evidence, commit_dir / "evidence.json")
+    elif evidence.exists() or evidence.is_symlink():
+        raise RuntimeError("trusted evidence artifact is missing its hash")
+
+    log_path = sandbox / "run.log"
+    if log_path.exists() or log_path.is_symlink():
+        _copy_generated_file(log_path, commit_dir / "run.log")
+
+    if expected_artifact_hash:
+        _validate_hashed_file(
+            commit_dir / "solution.json", expected_artifact_hash,
+            label="commit solution.json",
+            max_bytes=int(getattr(task, "max_artifact_bytes", 1024 * 1024)),
+        )
+    if expected_evidence_hash:
+        _validate_hashed_file(
+            commit_dir / "evidence.json", expected_evidence_hash,
+            label="commit evidence.json",
+            max_bytes=int(getattr(task, "max_output_mb", 64)) * 1024 * 1024,
+        )
+    return commit_dir
+
+
+def _seal_candidate_source(source_dir, destination, task):
+    """Capture exactly one proposal state before any validation or execution."""
+    destination = Path(destination)
+    _remove_generated_path(destination)
+    if not Path(source_dir).exists():
+        destination.mkdir(parents=True)
+        return source_tree_hash(
+            destination, _source_limit_bytes(task),
+        )[0]
+    source_hash, _source_files = snapshot_source_tree(
+        source_dir, destination, _source_limit_bytes(task),
+    )
+    return source_hash
+
+
+def _controlled_failure_result(item, task, exc, *, cancelled=False):
+    """Represent intake failure without copying any rejected candidate bytes."""
+    attempt_index = item.get("attempt_index", 0)
+    name = f"cand_{item['candidate_index']:02d}"
+    if attempt_index:
+        kind = item.get("attempt_kind", "repair")
+        name += f"_{kind}_{attempt_index:02d}"
+    commit_dir = (
+        task.run_dir / "rejected_sources"
+        / f"iter_{item['iteration']:04d}" / name
+    )
+    _remove_generated_path(commit_dir)
+    commit_dir.mkdir(parents=True)
+    source_hash = source_tree_hash(
+        commit_dir, _source_limit_bytes(task),
+    )[0]
+    status = "cancelled" if cancelled else "crash"
+    note = (
+        "evaluation cancelled by user interrupt"
+        if cancelled else f"candidate intake failed closed: {exc!r}"
+    )
+    failed_item = {
+        **item,
+        "commit_dir": commit_dir,
+        "failure": note,
+        "failure_status": status,
+        "repairable": False,
+    }
+    return {
+        "item": failed_item,
+        "score": None,
+        "status": status,
+        "log_tail": note,
+        "metrics": {"source_snapshot_sha256": source_hash},
+    }
 
 
 def _call_name(node):
@@ -267,6 +587,13 @@ def _next_context_iteration(records):
 
 def ensure_run_resumable(task, eb):
     """Fail closed when continuing would overwrite or skip terminal state."""
+    if (
+        (task.run_dir / "final_audit.json").exists()
+        or (task.run_dir / "final_audit_artifacts").exists()
+    ):
+        raise RuntimeError(
+            f"run {task.run_id!r} has entered final audit; start a new --run-id"
+        )
     termination_path = task.run_dir / "termination.json"
     if termination_path.is_file():
         try:
@@ -312,28 +639,66 @@ is committed to the Experience Bank, including failures and low scores.
 
 
 def _evaluate_candidate(item, task, print_lock):
+    item = dict(item)
     iteration = item["iteration"]
     candidate_index = item["candidate_index"]
     draft = item["draft"]
+    attempt_index = item.get("attempt_index", 0)
+    sandbox_name = f"cand_{candidate_index:02d}"
+    if attempt_index:
+        kind = item.get("attempt_kind", "repair")
+        sandbox_name += f"_{kind}_{attempt_index:02d}"
+    sandbox = (
+        task.run_dir / "sandboxes" / f"iter_{iteration:04d}" / sandbox_name
+    )
+    sealed = (
+        task.run_dir / "sealed_sources" / f"iter_{iteration:04d}" / sandbox_name
+    )
+    source_snapshot_sha256 = _seal_candidate_source(
+        draft, sealed, task,
+    )
 
     if item.get("failure"):
-        score, status, log_tail, metrics = None, item["failure_status"], item["failure"], {}
+        score, status, log_tail, metrics = (
+            None,
+            item["failure_status"],
+            item["failure"],
+            {"source_snapshot_sha256": source_snapshot_sha256},
+        )
     else:
-        sandbox = task.run_dir / "sandboxes" / f"iter_{iteration:04d}" / f"cand_{candidate_index:02d}"
-        with print_lock:
-            print(
-                f"[sandbox] iter {iteration} candidate {candidate_index + 1}/"
-                f"{item['candidate_count']}: running candidate + trusted evaluator ..."
+        violations = check_frozen(
+            item["parent"]["path"], sealed, task.editable_files,
+        )
+        issues = _known_solver_issues(sealed, task.editable_files)
+        if violations:
+            score, status, log_tail, metrics = (
+                None,
+                "violation",
+                f"sealed proposal modified non-editable file(s): {violations}",
+                {"source_snapshot_sha256": source_snapshot_sha256},
             )
-        score, status, log_tail, metrics = run_solution(draft, sandbox, task)
-        if (sandbox / "run.log").exists():
-            shutil.copy2(sandbox / "run.log", draft / "run.log")
-        trusted = trusted_artifact_dir(sandbox)
-        snapshot = trusted / "evaluated_solution.json"
-        if not snapshot.exists():
-            snapshot = trusted / "solution.snapshot.json"
-        if snapshot.exists():
-            shutil.copy2(snapshot, draft / "solution.json")
+        elif issues:
+            score, status, log_tail, metrics = (
+                None,
+                "rejected",
+                "sealed proposal failed engineering preflight: "
+                + "; ".join(issues),
+                {"source_snapshot_sha256": source_snapshot_sha256},
+            )
+        else:
+            with print_lock:
+                print(
+                    f"[sandbox] iter {iteration} candidate "
+                    f"{candidate_index + 1}/{item['candidate_count']}: "
+                    "running candidate + trusted evaluator ..."
+                )
+            score, status, log_tail, metrics = run_solution(
+                sealed, sandbox, task,
+            )
+    commit_dir = _assemble_commit_snapshot(
+        sealed, sandbox, task, metrics,
+    )
+    item["commit_dir"] = commit_dir
 
     return {
         "item": item,
@@ -350,12 +715,23 @@ def _stored_log(log_tail):
 
 def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
     """Return immutable initial/repair attempts, each backed by its own draft."""
-    item = {**item, "attempt_index": 0, "repair_of": None}
-    result = _evaluate_candidate(item, task, print_lock)
-    results = [result]
-    current_item = item
-    repair_budget = getattr(task, "candidate_repair_attempts", 0)
+    item = {
+        **item,
+        "attempt_index": 0,
+        "attempt_kind": "initial",
+        "repair_of": None,
+    }
     cancel_event = getattr(task, "cancel_event", None)
+    try:
+        result = _evaluate_candidate(item, task, print_lock)
+    except Exception as exc:
+        result = _controlled_failure_result(
+            item, task, exc,
+            cancelled=cancel_event is not None and cancel_event.is_set(),
+        )
+    results = [result]
+    current_item = result["item"]
+    repair_budget = getattr(task, "candidate_repair_attempts", 0)
 
     for repair_index in range(repair_budget):
         if cancel_event is not None and cancel_event.is_set():
@@ -377,7 +753,9 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
             f"{item['draft'].name}_repair_{repair_index + 1:02d}"
         )
         ok, note = repair_candidate(
-            current_item["draft"], repair_draft, result.get("log_tail", ""),
+            current_item["commit_dir"],
+            repair_draft,
+            result.get("log_tail", ""),
             task.editable_files,
             backend=backend, model=model, cancel_event=cancel_event,
         )
@@ -385,6 +763,7 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
             **item,
             "draft": repair_draft,
             "attempt_index": repair_index + 1,
+            "attempt_kind": "runtime_repair",
             "failure": None,
             "failure_status": None,
             "repairable": False,
@@ -419,21 +798,162 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
                     "repairable": True,
                     "preflight_notes": [feedback],
                 })
-        result = _evaluate_candidate(repair_item, task, print_lock)
+        try:
+            result = _evaluate_candidate(repair_item, task, print_lock)
+        except Exception as exc:
+            result = _controlled_failure_result(
+                repair_item, task, exc,
+                cancelled=cancel_event is not None and cancel_event.is_set(),
+            )
         results.append(result)
-        current_item = repair_item
+        current_item = result["item"]
+
+    research_budget = getattr(task, "research_revision_attempts", 0)
+    for revision_index in range(research_budget):
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        metrics = result.get("metrics", {})
+        formal_status = metrics.get("formalization_status")
+        needs_revision = (
+            metrics.get("refuted_obligation_count", 0) > 0
+            or metrics.get("refuted_claim_count", 0) > 0
+            or metrics.get("refuted_certificate_count", 0) > 0
+            or formal_status in {"rejected", "infrastructure_error"}
+        )
+        if not needs_revision:
+            break
+        evidence_path = current_item.get("commit_dir", Path()) / "evidence.json"
+        try:
+            evidence_feedback = read_regular_file(
+                evidence_path,
+                int(getattr(task, "max_output_mb", 64)) * 1024 * 1024,
+                label="trusted research evidence",
+            ).decode("utf-8", errors="replace")
+        except (OSError, ValueError):
+            evidence_feedback = json.dumps(
+                {
+                    "formalization_status": formal_status,
+                    "refuted_obligation_count": metrics.get(
+                        "refuted_obligation_count", 0,
+                    ),
+                    "refuted_claim_count": metrics.get(
+                        "refuted_claim_count", 0,
+                    ),
+                    "refuted_certificate_count": metrics.get(
+                        "refuted_certificate_count", 0,
+                    ),
+                },
+                sort_keys=True,
+            )
+        with print_lock:
+            print(
+                f"[research-revision] iter {item['iteration']} candidate "
+                f"{item['candidate_index'] + 1}/{item['candidate_count']}: "
+                f"attempt {revision_index + 1}/{research_budget}"
+            )
+        revision_draft = item["draft"].with_name(
+            f"{item['draft'].name}_research_{revision_index + 1:02d}"
+        )
+        ok, note = revise_research_candidate(
+            current_item["commit_dir"],
+            revision_draft,
+            evidence_feedback,
+            task.editable_files,
+            backend=backend,
+            model=model,
+            cancel_event=cancel_event,
+        )
+        revision_item = {
+            **item,
+            "draft": revision_draft,
+            "attempt_index": len(results),
+            "attempt_kind": "research_revision",
+            "failure": None,
+            "failure_status": None,
+            "repairable": False,
+            "repair_note": note,
+            "preflight_notes": [],
+        }
+        if cancel_event is not None and cancel_event.is_set():
+            revision_item.update({
+                "failure": "research revision cancelled by user interrupt",
+                "failure_status": "cancelled",
+            })
+        elif not ok:
+            revision_item.update({
+                "failure": note,
+                "failure_status": "crash",
+            })
+        else:
+            violations = check_frozen(
+                item["parent"]["path"],
+                revision_draft,
+                task.editable_files,
+            )
+            issues = _known_solver_issues(
+                revision_draft, task.editable_files,
+            )
+            if violations:
+                revision_item.update({
+                    "failure": (
+                        "research revision modified non-editable file(s): "
+                        f"{violations}"
+                    ),
+                    "failure_status": "violation",
+                })
+            elif issues:
+                feedback = (
+                    "Engineering preflight rejected the research revision:\n- "
+                    + "\n- ".join(issues)
+                )
+                revision_item.update({
+                    "failure": feedback,
+                    "failure_status": "rejected",
+                    "repairable": True,
+                    "preflight_notes": [feedback],
+                })
+        try:
+            result = _evaluate_candidate(
+                revision_item, task, print_lock,
+            )
+        except Exception as exc:
+            result = _controlled_failure_result(
+                revision_item,
+                task,
+                exc,
+                cancelled=(
+                    cancel_event is not None and cancel_event.is_set()
+                ),
+            )
+        results.append(result)
+        current_item = result["item"]
 
     return results
 
 
 def _duplicate_of(result, records):
-    """Return the first evaluator-equivalent EB record, if one exists."""
+    """Return the first fully equivalent numeric+research record."""
+    candidate_hash = result.get("metrics", {}).get("candidate_hash")
+    if result["status"] != "ok" or not candidate_hash:
+        return None
+    return next(
+        (record["id"] for record in records
+         if record.get("metrics", {}).get("candidate_hash") == candidate_hash),
+        None,
+    )
+
+
+def _numeric_duplicate_of(result, records):
+    """Return the first record with the same normalized finite set."""
     set_hash = result.get("metrics", {}).get("set_hash")
     if result["status"] != "ok" or not set_hash:
         return None
     return next(
-        (record["id"] for record in records
-         if record.get("metrics", {}).get("set_hash") == set_hash),
+        (
+            record["id"]
+            for record in records
+            if record.get("metrics", {}).get("set_hash") == set_hash
+        ),
         None,
     )
 
@@ -442,26 +962,59 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
                              parent_id=None, repair_of=None):
     """Commit one candidate outcome without local winner selection."""
     item = result["item"]
+    commit_dir = item.get("commit_dir")
+    if commit_dir is None:
+        raise RuntimeError("candidate has no parent-controlled commit snapshot")
     iteration = item["iteration"]
     parent = item["parent"]
+    if not result.get("metrics", {}).get("evidence_sha256"):
+        # evidence.json is reserved for trusted evaluator output. A Proposal
+        # Agent may not smuggle an evidence file into a failed/unscored record.
+        _remove_generated_path(commit_dir / "evidence.json")
+    metrics = result.get("metrics", {})
+    expected_source_hash = metrics.get("source_snapshot_sha256")
+    if expected_source_hash:
+        actual_source_hash, _source_files = source_tree_hash(
+            commit_dir, _source_limit_bytes(task),
+        )
+        if actual_source_hash != expected_source_hash:
+            raise RuntimeError(
+                "commit source no longer matches its sealed snapshot hash"
+            )
+    if metrics.get("artifact_sha256"):
+        _validate_hashed_file(
+            commit_dir / "solution.json", metrics["artifact_sha256"],
+            label="commit solution.json",
+            max_bytes=int(getattr(task, "max_artifact_bytes", 1024 * 1024)),
+        )
+    if metrics.get("evidence_sha256"):
+        _validate_hashed_file(
+            commit_dir / "evidence.json", metrics["evidence_sha256"],
+            label="commit evidence.json",
+            max_bytes=int(getattr(task, "max_output_mb", 64)) * 1024 * 1024,
+        )
     metadata = _record_metadata(task, item["context_meta"], backend, model)
     metadata.update({
         "candidate_count": item["candidate_count"],
         "candidate_index": item["candidate_index"],
         "candidate_seed": item["candidate_seed"],
         "duplicate_of": _duplicate_of(result, eb.records()),
+        "numeric_duplicate_of": _numeric_duplicate_of(
+            result, eb.records(),
+        ),
         "attempt_index": item.get("attempt_index", 0),
+        "attempt_kind": item.get("attempt_kind", "initial"),
         "repair_of": repair_of,
         "repair_note": item.get("repair_note"),
         "preflight_notes": item.get("preflight_notes", []),
         "editable_file_sha256": _editable_hashes(
-            item["draft"], task.editable_files,
+            commit_dir, task.editable_files,
         ),
     })
 
     previous_best = eb.best()
     record = eb.commit(
-        item["draft"], result["score"], result["status"],
+        commit_dir, result["score"], result["status"],
         item["description"], parent_id or parent["id"], result["log_tail"],
         metrics=result["metrics"], metadata=metadata,
     )
@@ -491,7 +1044,13 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
             f"candidates_per_context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
         )
     stop_policy = stop_policy or StopPolicy()
-    stop_controller = StopController(stop_policy, task.direction)
+    stop_controller = StopController(
+        stop_policy,
+        task.direction,
+        required_formal_claims=getattr(
+            task, "required_formal_claims", (),
+        ),
+    )
     inspiration_queue = queue.Queue(maxsize=max(1, workers * candidates_per_context))
     candidate_queue = queue.Queue(maxsize=max(1, workers + task.eval_concurrency))
     # Agent stop decisions must observe all results from the prior Context.
@@ -524,6 +1083,9 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         stopping_evidence(
                             eb.records(), direction=task.direction,
                             policy=stop_policy,
+                            required_formal_claims=getattr(
+                                task, "required_formal_claims", (),
+                            ),
                         )
                         if stop_policy.enabled else None
                     )
@@ -683,16 +1245,11 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     )
                 except Exception as exc:
                     cancelled = cancel_event.is_set()
-                    results = [{
-                        "item": item,
-                        "score": None,
-                        "status": "cancelled" if cancelled else "crash",
-                        "log_tail": (
-                            "evaluation cancelled by user interrupt"
-                            if cancelled else repr(exc)
-                        ),
-                        "metrics": {},
-                    }]
+                    results = [
+                        _controlled_failure_result(
+                            item, task, exc, cancelled=cancelled,
+                        )
+                    ]
                 parent_id = item["parent"]["id"]
                 repair_of = None
                 for result in results:
@@ -797,7 +1354,14 @@ def _termination_payload(task, eb, stop_policy, outcome, requested_iterations):
     records = eb.records()
     evidence = (
         outcome.get("stop_review", {}).get("evidence")
-        or stopping_evidence(records, direction=task.direction, policy=stop_policy)
+        or stopping_evidence(
+            records,
+            direction=task.direction,
+            policy=stop_policy,
+            required_formal_claims=getattr(
+                task, "required_formal_claims", (),
+            ),
+        )
     )
     best = eb.best()
     candidate_attempts = sum(
@@ -823,25 +1387,25 @@ def _termination_payload(task, eb, stop_policy, outcome, requested_iterations):
 
 def init_seed(task, eb):
     sandbox = task.run_dir / "sandboxes" / "seed"
-    print(f"[seed] validating official SimpleTES seed under {task.protocol} ...")
+    print(f"[seed] validating {task.seed_description} under {task.protocol} ...")
     score, status, log_tail, metrics = run_solution(task.seed_dir, sandbox, task)
     if status != "ok":
         sys.exit(f"Seed run failed ({status}):\n{log_tail}")
-    seed_candidate = task.run_dir / "drafts" / "seed"
-    if seed_candidate.exists():
-        shutil.rmtree(seed_candidate)
-    shutil.copytree(
-        task.seed_dir, seed_candidate,
-        ignore=shutil.ignore_patterns("solution.json", "run.log", "__pycache__"),
+    seed_candidate = _assemble_commit_snapshot(
+        task.seed_dir, sandbox, task, metrics,
     )
-    trusted = trusted_artifact_dir(sandbox)
-    snapshot = trusted / "evaluated_solution.json"
-    if not snapshot.exists():
-        snapshot = trusted / "solution.snapshot.json"
-    if snapshot.exists():
-        shutil.copyfile(snapshot, seed_candidate / "solution.json")
-    if (sandbox / "run.log").exists():
-        shutil.copy2(sandbox / "run.log", seed_candidate / "run.log")
+    if metrics.get("artifact_sha256"):
+        _validate_hashed_file(
+            seed_candidate / "solution.json", metrics["artifact_sha256"],
+            label="seed solution.json",
+            max_bytes=int(getattr(task, "max_artifact_bytes", 1024 * 1024)),
+        )
+    if metrics.get("evidence_sha256"):
+        _validate_hashed_file(
+            seed_candidate / "evidence.json", metrics["evidence_sha256"],
+            label="seed evidence.json",
+            max_bytes=int(getattr(task, "max_output_mb", 64)) * 1024 * 1024,
+        )
     manifest = getattr(task, "run_manifest", None) or {}
     seed_metadata = {
         "protocol": task.protocol,
@@ -854,12 +1418,33 @@ def init_seed(task, eb):
         ),
     }
     record = eb.commit(
-        seed_candidate, score, status, "official SimpleTES 17-element seed",
+        seed_candidate, score, status, task.seed_description,
         None, log_tail, metrics,
         metadata=seed_metadata,
     )
     print(f"[eb] seeded {record['id']}: {task.metric}={score:.12f}")
     return record
+
+
+def _validate_manifest_for_final_audit(task, manifest_path):
+    """Rebuild current provenance using the search settings frozen at init."""
+    recorded = load_run_manifest(manifest_path)
+    search = recorded.get("search", {})
+    required = {
+        "backend", "workers", "candidates_per_context", "trial_seed",
+    }
+    if not required.issubset(search):
+        raise RuntimeError("run manifest lacks frozen search settings")
+    current = build_run_manifest(
+        task, ROOT,
+        backend=search["backend"],
+        model=search.get("model"),
+        workers=search["workers"],
+        candidates_per_context=search["candidates_per_context"],
+        trial_seed=search["trial_seed"],
+        stopping_policy=recorded.get("stopping_policy", {}),
+    )
+    return validate_run_manifest(recorded, current)
 
 
 def main():
@@ -886,8 +1471,19 @@ def main():
     parser.add_argument("--stop-min-delta", type=float, default=0.0001)
     parser.add_argument("--stop-recent-window", type=int, default=4)
     parser.add_argument("--stop-min-successful-candidates", type=int, default=4)
+    parser.add_argument(
+        "--formal-runner",
+        help=(
+            "absolute path to a trusted isolated formal-runner executable; "
+            "its hash is frozen in run provenance"
+        ),
+    )
     parser.add_argument("--export-bundle")
     parser.add_argument("--status", action="store_true")
+    parser.add_argument(
+        "--final-audit", action="store_true",
+        help="freeze search Top-K and run the configured one-shot private audit",
+    )
     args = parser.parse_args()
     if (args.iterations < 0 or args.workers < 1 or
             (args.candidates_per_context is not None and
@@ -896,8 +1492,25 @@ def main():
             "--iterations must be >= 0; --workers must be >= 1; "
             f"--candidates-per-context must be >= {MIN_CANDIDATES_PER_CONTEXT}"
         )
+    if args.final_audit and (args.init or args.iterations or args.status):
+        parser.error(
+            "--final-audit is a separate one-shot action and cannot be "
+            "combined with --init, --iterations, or --status"
+        )
 
     task = Task(args.task, args.run_id)
+    if args.formal_runner:
+        if not callable(task.verify_formalization):
+            parser.error(
+                f"task {task.name!r} has no configured formal proof gate"
+            )
+        try:
+            (
+                task.formal_runner,
+                task.formal_runner_identity,
+            ) = build_external_formal_runner(args.formal_runner)
+        except ValueError as exc:
+            parser.error(str(exc))
     try:
         stop_policy = StopPolicy(
             enabled=args.agent_stop,
@@ -947,6 +1560,9 @@ def main():
                 stopping_policy=stop_policy.to_dict(),
             )
             write_run_manifest(manifest_path, task.run_manifest)
+            task.search_evaluation_request = task.run_manifest.get(
+                "search", {}
+            ).get("evaluation_request")
             init_seed(task, eb)
         elif args.iterations:
             if not eb.records():
@@ -960,6 +1576,9 @@ def main():
                 stopping_policy=stop_policy.to_dict(),
             )
             task.run_manifest = validate_run_manifest(recorded, current)
+            task.search_evaluation_request = task.run_manifest.get(
+                "search", {}
+            ).get("evaluation_request")
 
         if args.iterations:
             ensure_run_resumable(task, eb)
@@ -1005,6 +1624,21 @@ def main():
                     task, eb, stop_policy, outcome, args.iterations,
                 ),
             )
+        if args.final_audit:
+            if not eb.records():
+                sys.exit("Experience Bank is empty; use --init first")
+            task.run_manifest = _validate_manifest_for_final_audit(
+                task, manifest_path,
+            )
+            report = run_final_audit(task, eb, task.run_manifest)
+            winner = report.get("winner")
+            if winner:
+                print(
+                    f"[audit] complete: winner={winner['id']} "
+                    f"score={winner['score']}"
+                )
+            else:
+                print("[audit] failed: no successful private candidate")
         if args.export_bundle:
             if task.run_manifest is None:
                 task.run_manifest = load_run_manifest(manifest_path)

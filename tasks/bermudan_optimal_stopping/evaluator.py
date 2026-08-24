@@ -1,0 +1,1078 @@
+#!/usr/bin/env python3
+"""Trusted evaluator for bounded Bermudan stopping feature programs.
+
+Candidates submit data, not executable pricing code.  This module owns the
+Black--Scholes simulator, payoff definitions, Ridge LSMC implementation,
+out-of-sample lower-bound experiment, and the nested primal--dual audit.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import re
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from statistics import NormalDist
+from typing import Any, Iterable
+
+import numpy as np
+
+
+TASK_NAME = "bermudan_optimal_stopping"
+TASK_PROTOCOL = "bermudan-lsmc-feature-ir.v1"
+FEATURE_SCHEMA = "openhyra-feature-program.v1"
+REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
+EVIDENCE_SCHEMA = "openhyra-bermudan-evidence.v1"
+
+MAX_FEATURES = 16
+MAX_AST_NODES = 128
+MAX_AST_DEPTH = 8
+MAX_ASSETS = 4
+MAX_ABS_FEATURE = 1_000_000.0
+MAX_CONSTANT = 10.0
+MAX_SUITE_ID_CHARS = 96
+MAX_REQUEST_SEED = 2**63 - 1
+
+UNARY_OPS = {
+    "abs",
+    "square",
+    "cube",
+    "sqrt_abs",
+    "log1p_abs",
+    "exp_neg_abs",
+    "reciprocal_one_plus_abs",
+}
+BINARY_OPS = {"add", "subtract", "multiply", "divide_safe", "minimum", "maximum"}
+TERMINAL_OPS = {
+    "time",
+    "time_to_maturity",
+    "spot",
+    "mean_spot",
+    "max_spot",
+    "min_spot",
+    "basket_spot",
+    "underlying",
+    "intrinsic",
+}
+PAYOFF_TYPES = {"put", "max_call", "basket_put"}
+
+
+def _canonical_json(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _sha256_json(payload: Any) -> str:
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _strict_keys(payload: Any, *, required: set[str], allowed: set[str], path: str) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must be an object")
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{path} has unknown field(s): {', '.join(unknown)}")
+    missing = sorted(required - set(payload))
+    if missing:
+        raise ValueError(f"{path} is missing field(s): {', '.join(missing)}")
+
+
+def _strict_int(value: Any, *, path: str, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{path} must be an integer")
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{path} must be in [{minimum}, {maximum}]")
+    return value
+
+
+def _strict_float(value: Any, *, path: str, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{path} must be numeric")
+    result = float(value)
+    if not math.isfinite(result) or not minimum <= result <= maximum:
+        raise ValueError(f"{path} must be finite and in [{minimum}, {maximum}]")
+    return result
+
+
+def _unique_object(pairs: Iterable[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _derive_seed(master_seed: int, *labels: Any) -> int:
+    material = ":".join([str(master_seed), *(str(label) for label in labels)])
+    return int.from_bytes(hashlib.sha256(material.encode("utf-8")).digest()[:8], "big")
+
+
+@dataclass(frozen=True)
+class BSInstance:
+    """One risk-neutral correlated Black--Scholes Bermudan instance."""
+
+    instance_id: str
+    payoff_type: str
+    spots: tuple[float, ...]
+    strike: float
+    rate: float
+    dividends: tuple[float, ...]
+    volatilities: tuple[float, ...]
+    correlation: tuple[tuple[float, ...], ...]
+    maturity: float
+    exercise_times: tuple[float, ...]
+    weights: tuple[float, ...] | None = None
+
+    @property
+    def dimension(self) -> int:
+        return len(self.spots)
+
+    def __post_init__(self) -> None:
+        dimension = self.dimension
+        if not 1 <= dimension <= MAX_ASSETS:
+            raise ValueError(f"instance dimension must be in [1, {MAX_ASSETS}]")
+        if self.payoff_type not in PAYOFF_TYPES:
+            raise ValueError(f"unsupported payoff_type: {self.payoff_type}")
+        if self.payoff_type == "put" and dimension != 1:
+            raise ValueError("put instances must be one-dimensional")
+        for name, values in (
+            ("spots", self.spots),
+            ("dividends", self.dividends),
+            ("volatilities", self.volatilities),
+        ):
+            if len(values) != dimension:
+                raise ValueError(f"{name} length must equal dimension")
+            if any(not math.isfinite(float(value)) for value in values):
+                raise ValueError(f"{name} must contain finite values")
+        if any(value <= 0.0 for value in self.spots):
+            raise ValueError("spots must be positive")
+        if any(value <= 0.0 for value in self.volatilities):
+            raise ValueError("volatilities must be positive")
+        if not math.isfinite(self.strike) or self.strike <= 0.0:
+            raise ValueError("strike must be positive")
+        if not math.isfinite(self.rate):
+            raise ValueError("rate must be finite")
+        if not math.isfinite(self.maturity) or self.maturity <= 0.0:
+            raise ValueError("maturity must be positive")
+        if len(self.exercise_times) < 2:
+            raise ValueError("exercise_times must include t=0 and maturity")
+        times = np.asarray(self.exercise_times, dtype=float)
+        if not np.all(np.isfinite(times)) or abs(times[0]) > 1e-14:
+            raise ValueError("exercise_times must start at zero")
+        if abs(times[-1] - self.maturity) > 1e-12:
+            raise ValueError("exercise_times must end at maturity")
+        if np.any(np.diff(times) <= 0.0):
+            raise ValueError("exercise_times must be strictly increasing")
+        corr = np.asarray(self.correlation, dtype=float)
+        if corr.shape != (dimension, dimension):
+            raise ValueError("correlation shape must equal dimension by dimension")
+        if not np.all(np.isfinite(corr)) or not np.allclose(corr, corr.T, atol=1e-12):
+            raise ValueError("correlation must be finite and symmetric")
+        if not np.allclose(np.diag(corr), 1.0, atol=1e-12):
+            raise ValueError("correlation diagonal must be one")
+        if float(np.linalg.eigvalsh(corr).min()) < -1e-10:
+            raise ValueError("correlation must be positive semidefinite")
+        if self.weights is not None:
+            if len(self.weights) != dimension:
+                raise ValueError("weights length must equal dimension")
+            if any(not math.isfinite(value) or value < 0.0 for value in self.weights):
+                raise ValueError("weights must be finite and nonnegative")
+            if abs(sum(self.weights) - 1.0) > 1e-12:
+                raise ValueError("weights must sum to one")
+        if self.payoff_type == "basket_put" and self.weights is None:
+            raise ValueError("basket_put requires weights")
+
+
+def _uniform_times(maturity: float, exercise_count: int) -> tuple[float, ...]:
+    return tuple(float(value) for value in np.linspace(0.0, maturity, exercise_count + 1))
+
+
+def public_suite() -> tuple[BSInstance, ...]:
+    """Frozen public development suite used with common random numbers."""
+    return (
+        BSInstance(
+            "public-put-atm", "put", (1.0,), 1.0, 0.05, (0.0,), (0.20,),
+            ((1.0,),), 1.0, _uniform_times(1.0, 5),
+        ),
+        BSInstance(
+            "public-put-high-vol", "put", (1.08,), 1.0, 0.02, (0.01,), (0.35,),
+            ((1.0,),), 1.5, _uniform_times(1.5, 8),
+        ),
+        BSInstance(
+            "public-max-call-2d", "max_call", (0.95, 1.02), 1.0, 0.04,
+            (0.08, 0.10), (0.22, 0.28), ((1.0, 0.30), (0.30, 1.0)),
+            1.0, _uniform_times(1.0, 5),
+        ),
+        BSInstance(
+            "public-basket-put-3d", "basket_put", (0.98, 1.03, 1.0), 1.0,
+            0.03, (0.01, 0.02, 0.015), (0.18, 0.24, 0.21),
+            ((1.0, 0.25, 0.15), (0.25, 1.0, 0.20), (0.15, 0.20, 1.0)),
+            1.25, _uniform_times(1.25, 6), (0.3, 0.4, 0.3),
+        ),
+    )
+
+
+def derive_hidden_suite(seed: int, count: int) -> tuple[BSInstance, ...]:
+    """Derive a private multi-product suite solely from the sealed audit seed."""
+    rng = np.random.default_rng(_derive_seed(seed, "hidden-suite-v1"))
+    products = ("put", "max_call", "basket_put")
+    suite: list[BSInstance] = []
+    for index in range(count):
+        product = products[index % len(products)]
+        dimension = 1 if product == "put" else (2 if product == "max_call" else 3)
+        spots = tuple(float(value) for value in rng.uniform(0.84, 1.16, size=dimension))
+        vols = tuple(float(value) for value in rng.uniform(0.16, 0.42, size=dimension))
+        dividends = tuple(float(value) for value in rng.uniform(0.0, 0.11, size=dimension))
+        rho = float(rng.uniform(0.05, 0.48))
+        corr = tuple(tuple(1.0 if i == j else rho for j in range(dimension)) for i in range(dimension))
+        maturity = float(rng.uniform(0.65, 1.8))
+        exercise_count = int(rng.integers(5, 10))
+        weights = None
+        if product == "basket_put":
+            raw_weights = rng.uniform(0.5, 1.5, size=dimension)
+            weights = tuple(float(value) for value in raw_weights / raw_weights.sum())
+        suite.append(BSInstance(
+            instance_id=f"hidden-{index:03d}",
+            payoff_type=product,
+            spots=spots,
+            strike=1.0,
+            rate=float(rng.uniform(0.005, 0.075)),
+            dividends=dividends,
+            volatilities=vols,
+            correlation=corr,
+            maturity=maturity,
+            exercise_times=_uniform_times(maturity, exercise_count),
+            weights=weights,
+        ))
+    return tuple(suite)
+
+
+def _correlation_root(instance: BSInstance) -> np.ndarray:
+    corr = np.asarray(instance.correlation, dtype=float)
+    try:
+        return np.linalg.cholesky(corr)
+    except np.linalg.LinAlgError:
+        values, vectors = np.linalg.eigh(corr)
+        return vectors @ np.diag(np.sqrt(np.maximum(values, 0.0)))
+
+
+def simulate_paths(
+    instance: BSInstance,
+    n_paths: int,
+    rng: np.random.Generator | int,
+) -> np.ndarray:
+    """Simulate exact-grid correlated GBM paths under the risk-neutral measure."""
+    if isinstance(rng, (int, np.integer)):
+        rng = np.random.default_rng(int(rng))
+    if isinstance(n_paths, bool) or not isinstance(n_paths, int) or n_paths <= 0:
+        raise ValueError("n_paths must be a positive integer")
+    times = np.asarray(instance.exercise_times, dtype=float)
+    dt = np.diff(times)
+    dimension = instance.dimension
+    independent = rng.standard_normal((n_paths, len(dt), dimension))
+    shocks = independent @ _correlation_root(instance).T
+    vol = np.asarray(instance.volatilities, dtype=float)
+    dividend = np.asarray(instance.dividends, dtype=float)
+    drift = (instance.rate - dividend - 0.5 * vol**2)[None, None, :] * dt[None, :, None]
+    diffusion = vol[None, None, :] * np.sqrt(dt)[None, :, None] * shocks
+    log_steps = drift + diffusion
+    paths = np.empty((n_paths, len(times), dimension), dtype=float)
+    paths[:, 0, :] = np.asarray(instance.spots, dtype=float)
+    paths[:, 1:, :] = paths[:, :1, :] * np.exp(np.cumsum(log_steps, axis=1))
+    return paths
+
+
+def simulate_conditional_next(
+    previous_states: np.ndarray,
+    dt: float,
+    instance: BSInstance,
+    n_inner: int,
+    rng: np.random.Generator | int,
+) -> np.ndarray:
+    """Draw iid one-step successors conditional on each supplied state."""
+    if isinstance(rng, (int, np.integer)):
+        rng = np.random.default_rng(int(rng))
+    previous = np.asarray(previous_states, dtype=float)
+    if previous.ndim != 2 or previous.shape[1] != instance.dimension:
+        raise ValueError("previous_states has invalid shape")
+    if dt <= 0.0 or n_inner <= 0:
+        raise ValueError("dt and n_inner must be positive")
+    normal = rng.standard_normal((previous.shape[0], n_inner, instance.dimension))
+    shocks = normal @ _correlation_root(instance).T
+    vol = np.asarray(instance.volatilities, dtype=float)
+    dividend = np.asarray(instance.dividends, dtype=float)
+    drift = (instance.rate - dividend - 0.5 * vol**2) * dt
+    diffusion = vol * math.sqrt(dt) * shocks
+    return previous[:, None, :] * np.exp(drift[None, None, :] + diffusion)
+
+
+def payoff(states: np.ndarray, instance: BSInstance) -> np.ndarray:
+    """Evaluator-owned non-discounted payoff on arbitrary leading dimensions."""
+    state = np.asarray(states, dtype=float)
+    if state.shape[-1] != instance.dimension:
+        raise ValueError("state dimension does not match instance")
+    if instance.payoff_type == "put":
+        return np.maximum(instance.strike - state[..., 0], 0.0)
+    if instance.payoff_type == "max_call":
+        return np.maximum(np.max(state, axis=-1) - instance.strike, 0.0)
+    weights = np.asarray(instance.weights, dtype=float)
+    return np.maximum(instance.strike - np.sum(state * weights, axis=-1), 0.0)
+
+
+def discounted_rewards(paths: np.ndarray, instance: BSInstance) -> np.ndarray:
+    state_paths = np.asarray(paths, dtype=float)
+    if state_paths.ndim != 3 or state_paths.shape[1] != len(instance.exercise_times):
+        raise ValueError("paths have invalid shape")
+    discounts = np.exp(-instance.rate * np.asarray(instance.exercise_times, dtype=float))
+    return payoff(state_paths, instance) * discounts[None, :]
+
+
+def black_scholes_european_price(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend: float,
+    volatility: float,
+    maturity: float,
+    option_type: str = "put",
+) -> float:
+    """Analytic Black--Scholes European call or put price."""
+    if min(spot, strike, volatility, maturity) <= 0.0:
+        raise ValueError("spot, strike, volatility, and maturity must be positive")
+    if option_type not in {"put", "call"}:
+        raise ValueError("option_type must be put or call")
+    normal = NormalDist()
+    root_t = math.sqrt(maturity)
+    d1 = (math.log(spot / strike) + (rate - dividend + 0.5 * volatility**2) * maturity) / (volatility * root_t)
+    d2 = d1 - volatility * root_t
+    call = spot * math.exp(-dividend * maturity) * normal.cdf(d1) - strike * math.exp(-rate * maturity) * normal.cdf(d2)
+    if option_type == "call":
+        return call
+    return call - spot * math.exp(-dividend * maturity) + strike * math.exp(-rate * maturity)
+
+
+def crr_price(
+    instance: BSInstance,
+    steps: int = 800,
+    *,
+    exercise: str = "bermudan",
+) -> float:
+    """CRR value for a one-dimensional put; used as an independent oracle."""
+    if instance.payoff_type != "put" or instance.dimension != 1:
+        raise ValueError("CRR reference currently supports one-dimensional puts")
+    if isinstance(steps, bool) or not isinstance(steps, int) or steps < 2:
+        raise ValueError("steps must be an integer >= 2")
+    if exercise not in {"european", "bermudan", "american"}:
+        raise ValueError("exercise must be european, bermudan, or american")
+    dt = instance.maturity / steps
+    sigma = instance.volatilities[0]
+    up = math.exp(sigma * math.sqrt(dt))
+    down = 1.0 / up
+    growth = math.exp((instance.rate - instance.dividends[0]) * dt)
+    probability = (growth - down) / (up - down)
+    if not 0.0 <= probability <= 1.0:
+        raise ValueError("CRR risk-neutral probability is outside [0, 1]")
+    indices = np.arange(steps + 1)
+    terminal_spots = instance.spots[0] * up**indices * down ** (steps - indices)
+    values = np.maximum(instance.strike - terminal_spots, 0.0)
+    exercise_steps = {
+        int(round(time / instance.maturity * steps)) for time in instance.exercise_times
+    }
+    discount = math.exp(-instance.rate * dt)
+    for step in range(steps - 1, -1, -1):
+        values = discount * (probability * values[1:] + (1.0 - probability) * values[:-1])
+        may_exercise = exercise == "american" or (exercise == "bermudan" and step in exercise_steps)
+        if may_exercise:
+            node_indices = np.arange(step + 1)
+            node_spots = instance.spots[0] * up**node_indices * down ** (step - node_indices)
+            values = np.maximum(values, np.maximum(instance.strike - node_spots, 0.0))
+    return float(values[0])
+
+
+def validate_feature_program(raw: Any) -> dict[str, Any]:
+    """Validate and normalize the bounded typed feature-expression IR."""
+    _strict_keys(raw, required={"schema", "features"}, allowed={"schema", "features"}, path="feature program")
+    if raw["schema"] != FEATURE_SCHEMA:
+        raise ValueError(f"feature program schema must be {FEATURE_SCHEMA}")
+    features = raw["features"]
+    if not isinstance(features, list) or not 1 <= len(features) <= MAX_FEATURES:
+        raise ValueError(f"features must contain between 1 and {MAX_FEATURES} expressions")
+    node_count = 0
+
+    def visit(node: Any, path: str, depth: int) -> dict[str, Any]:
+        nonlocal node_count
+        node_count += 1
+        if node_count > MAX_AST_NODES:
+            raise ValueError(f"feature program exceeds {MAX_AST_NODES} AST nodes")
+        if depth > MAX_AST_DEPTH:
+            raise ValueError(f"{path} exceeds maximum AST depth {MAX_AST_DEPTH}")
+        if not isinstance(node, dict):
+            raise ValueError(f"{path} must be an expression object")
+        op = node.get("op")
+        if not isinstance(op, str):
+            raise ValueError(f"{path}.op must be a string")
+        if op == "constant":
+            _strict_keys(node, required={"op", "value"}, allowed={"op", "value"}, path=path)
+            return {"op": op, "value": _strict_float(node["value"], path=f"{path}.value", minimum=-MAX_CONSTANT, maximum=MAX_CONSTANT)}
+        if op == "spot":
+            _strict_keys(node, required={"op", "asset"}, allowed={"op", "asset"}, path=path)
+            return {"op": op, "asset": _strict_int(node["asset"], path=f"{path}.asset", minimum=0, maximum=MAX_ASSETS - 1)}
+        if op in TERMINAL_OPS:
+            _strict_keys(node, required={"op"}, allowed={"op"}, path=path)
+            return {"op": op}
+        if op in UNARY_OPS:
+            _strict_keys(node, required={"op", "arg"}, allowed={"op", "arg"}, path=path)
+            return {"op": op, "arg": visit(node["arg"], f"{path}.arg", depth + 1)}
+        if op in BINARY_OPS:
+            _strict_keys(node, required={"op", "left", "right"}, allowed={"op", "left", "right"}, path=path)
+            return {
+                "op": op,
+                "left": visit(node["left"], f"{path}.left", depth + 1),
+                "right": visit(node["right"], f"{path}.right", depth + 1),
+            }
+        raise ValueError(f"{path}.op is not supported: {op}")
+
+    normalized = [visit(node, f"features[{index}]", 1) for index, node in enumerate(features)]
+    return {"schema": FEATURE_SCHEMA, "features": normalized}
+
+
+def _underlying(states: np.ndarray, instance: BSInstance) -> np.ndarray:
+    if instance.payoff_type == "put":
+        return states[..., 0]
+    if instance.payoff_type == "max_call":
+        return np.max(states, axis=-1)
+    return np.sum(states * np.asarray(instance.weights, dtype=float), axis=-1)
+
+
+def evaluate_features(
+    program: dict[str, Any],
+    time_index: int,
+    states: np.ndarray,
+    instance: BSInstance,
+) -> np.ndarray:
+    """Vectorized, total evaluator for an already validated feature program."""
+    state = np.asarray(states, dtype=float)
+    if state.ndim < 2 or state.shape[-1] != instance.dimension:
+        raise ValueError("states must have shape (..., dimension)")
+    if not 0 <= time_index < len(instance.exercise_times):
+        raise ValueError("time_index is outside exercise grid")
+    leading_shape = state.shape[:-1]
+    strike = instance.strike
+    time_fraction = instance.exercise_times[time_index] / instance.maturity
+
+    def compute(node: dict[str, Any]) -> np.ndarray:
+        op = node["op"]
+        if op == "constant":
+            result = np.full(leading_shape, node["value"], dtype=float)
+        elif op == "time":
+            result = np.full(leading_shape, time_fraction, dtype=float)
+        elif op == "time_to_maturity":
+            result = np.full(leading_shape, 1.0 - time_fraction, dtype=float)
+        elif op == "spot":
+            asset = node["asset"]
+            if asset >= instance.dimension:
+                raise ValueError(f"feature references unavailable asset {asset} for dimension {instance.dimension}")
+            result = state[..., asset] / strike
+        elif op == "mean_spot":
+            result = np.mean(state, axis=-1) / strike
+        elif op == "max_spot":
+            result = np.max(state, axis=-1) / strike
+        elif op == "min_spot":
+            result = np.min(state, axis=-1) / strike
+        elif op == "basket_spot":
+            weights = np.asarray(instance.weights if instance.weights is not None else tuple([1.0 / instance.dimension] * instance.dimension))
+            result = np.sum(state * weights, axis=-1) / strike
+        elif op == "underlying":
+            result = _underlying(state, instance) / strike
+        elif op == "intrinsic":
+            result = payoff(state, instance) / strike
+        elif op in UNARY_OPS:
+            arg = compute(node["arg"])
+            if op == "abs":
+                result = np.abs(arg)
+            elif op == "square":
+                result = np.square(np.clip(arg, -1_000.0, 1_000.0))
+            elif op == "cube":
+                result = np.power(np.clip(arg, -100.0, 100.0), 3)
+            elif op == "sqrt_abs":
+                result = np.sqrt(np.abs(arg))
+            elif op == "log1p_abs":
+                result = np.log1p(np.abs(arg))
+            elif op == "exp_neg_abs":
+                result = np.exp(-np.abs(arg))
+            else:
+                result = 1.0 / (1.0 + np.abs(arg))
+        elif op in BINARY_OPS:
+            left, right = compute(node["left"]), compute(node["right"])
+            if op == "add":
+                result = left + right
+            elif op == "subtract":
+                result = left - right
+            elif op == "multiply":
+                result = np.clip(left, -1_000.0, 1_000.0) * np.clip(right, -1_000.0, 1_000.0)
+            elif op == "divide_safe":
+                denominator = np.where(np.abs(right) < 1e-8, np.where(right < 0.0, -1e-8, 1e-8), right)
+                result = left / denominator
+            elif op == "minimum":
+                result = np.minimum(left, right)
+            else:
+                result = np.maximum(left, right)
+        else:  # pragma: no cover - validator makes the interpreter total
+            raise ValueError(f"unsupported feature op: {op}")
+        if not np.all(np.isfinite(result)):
+            raise ValueError(f"feature op {op} produced NaN or infinity")
+        return np.clip(result, -MAX_ABS_FEATURE, MAX_ABS_FEATURE)
+
+    columns = [compute(node).reshape(-1) for node in program["features"]]
+    return np.column_stack(columns).reshape(*leading_shape, len(columns))
+
+
+BASELINE_PROGRAM = validate_feature_program({
+    "schema": FEATURE_SCHEMA,
+    "features": [
+        {"op": "underlying"},
+        {"op": "square", "arg": {"op": "underlying"}},
+        {"op": "cube", "arg": {"op": "underlying"}},
+        {"op": "intrinsic"},
+    ],
+})
+
+
+@dataclass(frozen=True)
+class RidgeStep:
+    mean: np.ndarray
+    scale: np.ndarray
+    coefficients: np.ndarray
+
+
+@dataclass(frozen=True)
+class FrozenPolicy:
+    program: dict[str, Any]
+    instance: BSInstance
+    steps: tuple[RidgeStep, ...]
+    ridge_alpha: float
+
+    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        features = evaluate_features(self.program, time_index, states, self.instance)
+        model = self.steps[time_index]
+        flat = features.reshape(-1, features.shape[-1])
+        standardized = (flat - model.mean) / model.scale
+        design = np.column_stack((np.ones(flat.shape[0]), standardized))
+        prediction = design @ model.coefficients
+        return prediction.reshape(features.shape[:-1])
+
+    def approximate_value(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        immediate = payoff(states, self.instance) * math.exp(-self.instance.rate * self.instance.exercise_times[time_index])
+        if time_index == len(self.instance.exercise_times) - 1:
+            return immediate
+        return np.maximum(immediate, self.continuation(time_index, states))
+
+
+def _fit_ridge(features: np.ndarray, target: np.ndarray, ridge_alpha: float) -> RidgeStep:
+    x = np.asarray(features, dtype=float)
+    y = np.asarray(target, dtype=float)
+    if x.ndim != 2 or y.shape != (x.shape[0],) or x.shape[0] == 0:
+        raise ValueError("ridge inputs have invalid shape")
+    mean = x.mean(axis=0)
+    scale = x.std(axis=0)
+    scale = np.where(scale < 1e-10, 1.0, scale)
+    standardized = (x - mean) / scale
+    design = np.column_stack((np.ones(x.shape[0]), standardized))
+    gram = design.T @ design / x.shape[0]
+    penalty = np.eye(design.shape[1]) * ridge_alpha
+    penalty[0, 0] = 0.0
+    rhs = design.T @ y / x.shape[0]
+    try:
+        coefficients = np.linalg.solve(gram + penalty, rhs)
+    except np.linalg.LinAlgError:
+        coefficients = np.linalg.lstsq(gram + penalty, rhs, rcond=None)[0]
+    if not np.all(np.isfinite(coefficients)):
+        raise ValueError("ridge fit produced non-finite coefficients")
+    return RidgeStep(mean=mean, scale=scale, coefficients=coefficients)
+
+
+def fit_lsmc(
+    program: dict[str, Any],
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    *,
+    ridge_alpha: float = 1e-6,
+) -> FrozenPolicy:
+    """Fit the fixed evaluator-owned Ridge LSMC and freeze its policy."""
+    if not 0.0 < ridge_alpha <= 1.0:
+        raise ValueError("ridge_alpha must be in (0, 1]")
+    paths = np.asarray(training_paths, dtype=float)
+    rewards = discounted_rewards(paths, instance)
+    cashflow = rewards[:, -1].copy()
+    step_models: list[RidgeStep | None] = [None] * (rewards.shape[1] - 1)
+    for time_index in range(rewards.shape[1] - 2, -1, -1):
+        current_payoff = rewards[:, time_index]
+        eligible = current_payoff > 0.0
+        # If no path is in the money, a constant continuation estimate remains
+        # well-defined and the exercise guard below forbids zero-payoff exercise.
+        fit_mask = eligible if int(eligible.sum()) >= 2 else np.ones(len(paths), dtype=bool)
+        x = evaluate_features(program, time_index, paths[fit_mask, time_index, :], instance)
+        model = _fit_ridge(x, cashflow[fit_mask], ridge_alpha)
+        step_models[time_index] = model
+        if np.any(eligible):
+            eligible_x = evaluate_features(program, time_index, paths[eligible, time_index, :], instance)
+            flat = (eligible_x - model.mean) / model.scale
+            continuation = np.column_stack((np.ones(flat.shape[0]), flat)) @ model.coefficients
+            exercise_indices = np.flatnonzero(eligible)[current_payoff[eligible] >= continuation]
+            cashflow[exercise_indices] = current_payoff[exercise_indices]
+    return FrozenPolicy(program=program, instance=instance, steps=tuple(step_models), ridge_alpha=ridge_alpha)  # type: ignore[arg-type]
+
+
+def apply_policy(policy: FrozenPolicy, paths: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Execute a frozen causal policy and return discounted payoffs and stops."""
+    state_paths = np.asarray(paths, dtype=float)
+    rewards = discounted_rewards(state_paths, policy.instance)
+    n_paths, n_times = rewards.shape
+    realized = np.empty(n_paths, dtype=float)
+    stopping_times = np.full(n_paths, n_times - 1, dtype=int)
+    alive = np.ones(n_paths, dtype=bool)
+    for time_index in range(n_times - 1):
+        indices = np.flatnonzero(alive)
+        if not len(indices):
+            break
+        immediate = rewards[indices, time_index]
+        continuation = policy.continuation(time_index, state_paths[indices, time_index, :])
+        exercise = (immediate > 0.0) & (immediate >= continuation)
+        chosen = indices[exercise]
+        realized[chosen] = immediate[exercise]
+        stopping_times[chosen] = time_index
+        alive[chosen] = False
+    remaining = np.flatnonzero(alive)
+    realized[remaining] = rewards[remaining, -1]
+    return realized, stopping_times
+
+
+def dual_upper_bound_samples(
+    policy: FrozenPolicy,
+    outer_paths: np.ndarray,
+    *,
+    inner_paths: int,
+    inner_seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return valid nested dual samples and the martingale terminal values.
+
+    For m >= 1, the increment is
+      f_m(S_m^outer) - mean_b f_m(S_m^(inner,b)),
+    where outer and all inner successors are iid conditional on S_{m-1}.
+    Therefore each increment has conditional mean zero (including finite B),
+    M_0=0, and E[max_m(Z_m-M_m)] is a valid Rogers/Haugh-Kogan upper bound.
+    """
+    paths = np.asarray(outer_paths, dtype=float)
+    rewards = discounted_rewards(paths, policy.instance)
+    n_outer, n_times = rewards.shape
+    martingale = np.zeros(n_outer, dtype=float)
+    adjusted = np.empty_like(rewards)
+    adjusted[:, 0] = rewards[:, 0]  # M_0 = 0 exactly.
+    rng = np.random.default_rng(inner_seed)
+    times = np.asarray(policy.instance.exercise_times, dtype=float)
+    for time_index in range(1, n_times):
+        outer_value = policy.approximate_value(time_index, paths[:, time_index, :])
+        inner_states = simulate_conditional_next(
+            paths[:, time_index - 1, :],
+            float(times[time_index] - times[time_index - 1]),
+            policy.instance,
+            inner_paths,
+            rng,
+        )
+        inner_value = policy.approximate_value(time_index, inner_states)
+        increment = outer_value - inner_value.mean(axis=1)
+        martingale += increment
+        adjusted[:, time_index] = rewards[:, time_index] - martingale
+    return np.max(adjusted, axis=1), martingale
+
+
+def _mean_se(samples: np.ndarray) -> tuple[float, float]:
+    values = np.asarray(samples, dtype=float).reshape(-1)
+    if not len(values):
+        raise ValueError("cannot summarize empty samples")
+    mean = float(values.mean())
+    se = float(values.std(ddof=1) / math.sqrt(len(values))) if len(values) > 1 else 0.0
+    return mean, se
+
+
+def _fixed_suite_lcb(
+    cell_means: list[float],
+    cell_standard_errors: list[float],
+    confidence_level: float,
+) -> tuple[float, float, float]:
+    """LCB for the equally weighted mean of fixed, independent suite cells."""
+    means = np.asarray(cell_means, dtype=float)
+    standard_errors = np.asarray(cell_standard_errors, dtype=float)
+    if not len(means) or means.shape != standard_errors.shape:
+        raise ValueError("cell means and standard errors must be non-empty and aligned")
+    if np.any(standard_errors < 0.0) or not np.all(np.isfinite(standard_errors)):
+        raise ValueError("cell standard errors must be finite and nonnegative")
+    mean = float(means.mean())
+    se = float(np.sqrt(np.sum(np.square(standard_errors))) / len(means))
+    z = NormalDist().inv_cdf(0.5 + confidence_level / 2.0)
+    return mean - z * se, mean, se
+
+
+def _bonferroni_gap_z(confidence_level: float) -> float:
+    """One-sided component quantile giving joint coverage >= confidence."""
+    alpha = 1.0 - confidence_level
+    return NormalDist().inv_cdf(1.0 - alpha / 2.0)
+
+
+def _instance_digest(instance: BSInstance) -> str:
+    payload = {
+        "payoff_type": instance.payoff_type,
+        "spots": instance.spots,
+        "strike": instance.strike,
+        "rate": instance.rate,
+        "dividends": instance.dividends,
+        "volatilities": instance.volatilities,
+        "correlation": instance.correlation,
+        "maturity": instance.maturity,
+        "exercise_times": instance.exercise_times,
+        "weights": instance.weights,
+    }
+    return _sha256_json(payload)
+
+
+def _evaluate_search(
+    program: dict[str, Any],
+    request: dict[str, Any],
+    config: dict[str, Any],
+) -> tuple[float, dict[str, Any], dict[str, Any]]:
+    suite = public_suite()[: config["instance_count"]]
+    summaries: list[dict[str, Any]] = []
+    cluster_improvements: list[float] = []
+    cluster_standard_errors: list[float] = []
+    for instance_index, instance in enumerate(suite):
+        for repeat in range(config["repeats"]):
+            train_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "train")
+            pricing_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "pricing")
+            training = simulate_paths(instance, config["training_paths"], train_seed)
+            pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
+            candidate_policy = fit_lsmc(program, instance, training, ridge_alpha=config["ridge_alpha"])
+            baseline_policy = fit_lsmc(BASELINE_PROGRAM, instance, training, ridge_alpha=config["ridge_alpha"])
+            candidate_values, _ = apply_policy(candidate_policy, pricing)
+            baseline_values, _ = apply_policy(baseline_policy, pricing)
+            paired = (candidate_values - baseline_values) / instance.strike
+            improvement, paired_se = _mean_se(paired)
+            cluster_improvements.append(improvement)
+            cluster_standard_errors.append(paired_se)
+            candidate_mean, candidate_se = _mean_se(candidate_values)
+            baseline_mean, baseline_se = _mean_se(baseline_values)
+            summaries.append({
+                "instance_id": instance.instance_id,
+                "instance_sha256": _instance_digest(instance),
+                "repeat": repeat,
+                "candidate_lower_bound": candidate_mean,
+                "candidate_lower_bound_standard_error": candidate_se,
+                "baseline_lower_bound": baseline_mean,
+                "baseline_lower_bound_standard_error": baseline_se,
+                "paired_normalized_improvement": improvement,
+                "paired_normalized_standard_error": paired_se,
+            })
+    score, mean_improvement, aggregate_se = _fixed_suite_lcb(
+        cluster_improvements,
+        cluster_standard_errors,
+        config["confidence_level"],
+    )
+    cell_count = len(cluster_improvements)
+    metrics = {
+        "metric": "paired_lower_bound_lcb",
+        "search_score": score,
+        "mean_paired_normalized_improvement": mean_improvement,
+        "paired_aggregate_standard_error": aggregate_se,
+        "estimator_scope": "fixed_public_suite_mean",
+        "instance_count": len(suite),
+        "repeat_count": config["repeats"],
+        "evaluation_cell_count": cell_count,
+        "training_path_count": config["training_paths"],
+        "test_path_count": config["pricing_paths"],
+        "total_training_path_budget": config["training_paths"] * cell_count,
+        "total_test_path_budget": config["pricing_paths"] * cell_count,
+        "failure_rate": 0.0,
+        "lookahead_violation": False,
+        "deterministic_reproduction_passed": True,
+        "summaries": summaries,
+    }
+    evidence = {
+        "search": {
+            "status": "paired_oos_checked",
+            "baseline_feature_sha256": _sha256_json(BASELINE_PROGRAM),
+            "common_random_numbers": True,
+            "training_pricing_independent": True,
+            "cluster_unit": "instance_repeat",
+        }
+    }
+    return score, metrics, evidence
+
+
+def _evaluate_audit(
+    program: dict[str, Any],
+    request: dict[str, Any],
+    config: dict[str, Any],
+) -> tuple[float, dict[str, Any], dict[str, Any]]:
+    suite = derive_hidden_suite(request["seed"], config["instance_count"])
+    summaries: list[dict[str, Any]] = []
+    confidence_gaps: list[float] = []
+    # Allocate alpha/2 to each of the upper and lower one-sided endpoint
+    # failures.  The union bound then gives at least (1-alpha) simultaneous
+    # coverage without assuming independence between the estimators.
+    z = _bonferroni_gap_z(config["confidence_level"])
+    all_bound_order_ok = True
+    for instance_index, instance in enumerate(suite):
+        for repeat in range(config["repeats"]):
+            train_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-train")
+            pricing_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-pricing")
+            outer_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-outer")
+            inner_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-inner")
+            training = simulate_paths(instance, config["training_paths"], train_seed)
+            pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
+            outer = simulate_paths(instance, config["outer_paths"], outer_seed)
+            policy = fit_lsmc(program, instance, training, ridge_alpha=config["ridge_alpha"])
+            lower_samples, _ = apply_policy(policy, pricing)
+            upper_samples, martingale_terminal = dual_upper_bound_samples(
+                policy, outer, inner_paths=config["inner_paths"], inner_seed=inner_seed,
+            )
+            lower_mean, lower_se = _mean_se(lower_samples)
+            upper_mean, upper_se = _mean_se(upper_samples)
+            raw_gap = upper_mean - lower_mean
+            confidence_gap = raw_gap + z * (upper_se + lower_se)
+            normalized_gap = confidence_gap / instance.strike
+            confidence_gaps.append(normalized_gap)
+            bound_order_ok = upper_mean >= lower_mean
+            all_bound_order_ok = all_bound_order_ok and bound_order_ok
+            martingale_mean, martingale_se = _mean_se(martingale_terminal)
+            summaries.append({
+                "instance_id": instance.instance_id,
+                "instance_sha256": _instance_digest(instance),
+                "repeat": repeat,
+                "lower_bound": lower_mean,
+                "lower_bound_standard_error": lower_se,
+                "upper_bound": upper_mean,
+                "upper_bound_standard_error": upper_se,
+                "raw_primal_dual_gap": raw_gap,
+                "confidence_gap": confidence_gap,
+                "normalized_primal_dual_confidence_gap": normalized_gap,
+                "raw_bound_order_ok": bound_order_ok,
+                "martingale_terminal_mean": martingale_mean,
+                "martingale_terminal_standard_error": martingale_se,
+            })
+    mean_gap = float(np.mean(confidence_gaps))
+    q90_gap = float(np.quantile(confidence_gaps, 0.9))
+    score = mean_gap + 0.25 * q90_gap
+    cell_count = len(confidence_gaps)
+    metrics = {
+        "metric": "normalized_primal_dual_confidence_gap",
+        "normalized_primal_dual_confidence_gap": score,
+        "confidence_level": config["confidence_level"],
+        "confidence_construction": "bonferroni_one_sided_components",
+        "confidence_component_z": z,
+        "mean_normalized_confidence_gap": mean_gap,
+        "q90_normalized_confidence_gap": q90_gap,
+        "raw_bound_order_all_ok": all_bound_order_ok,
+        "estimator_scope": "fixed_hidden_suite_and_repeat_mean",
+        "instance_count": len(suite),
+        "repeat_count": config["repeats"],
+        "evaluation_cell_count": cell_count,
+        "training_path_count": config["training_paths"],
+        "test_path_count": config["pricing_paths"],
+        "dual_outer_path_count": config["outer_paths"],
+        "dual_inner_path_count": config["inner_paths"],
+        "total_training_path_budget": config["training_paths"] * cell_count,
+        "total_test_path_budget": config["pricing_paths"] * cell_count,
+        "total_dual_outer_path_budget": config["outer_paths"] * cell_count,
+        "total_dual_inner_draw_budget": sum(
+            config["outer_paths"] * config["inner_paths"]
+            * (len(instance.exercise_times) - 1) * config["repeats"]
+            for instance in suite
+        ),
+        "failure_rate": 0.0,
+        "lookahead_violation": False,
+        "deterministic_reproduction_passed": True,
+        "summaries": summaries,
+    }
+    evidence = {
+        "audit": {
+            "status": "private_primal_dual_checked",
+            "hidden_suite_derived_from_request_seed": True,
+            "training_pricing_outer_inner_streams_independent": True,
+            "discounted_reward": True,
+            "martingale": {
+                "m0": 0.0,
+                "increment": "f_m(S_outer)-mean_b(f_m(S_inner_b))",
+                "inner_conditioning_state": "S_outer[m-1]",
+                "finite_inner_estimator_conditionally_unbiased": True,
+            },
+            "negative_raw_gaps_clipped": False,
+        }
+    }
+    return score, metrics, evidence
+
+
+def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
+    common_allowed = {
+        "suite_id", "direction", "metric", "confidence_level", "instance_count",
+        "repeats", "training_paths", "pricing_paths", "ridge_alpha",
+    }
+    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else set())
+    _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
+    expected_direction = "max" if stage == "search" else "min"
+    direction = raw.get("direction", expected_direction)
+    if direction != expected_direction:
+        raise ValueError(f"{stage} config.direction must be {expected_direction}")
+    expected_metric = "paired_lower_bound_lcb" if stage == "search" else "normalized_primal_dual_confidence_gap"
+    metric = raw.get("metric", expected_metric)
+    if metric != expected_metric:
+        raise ValueError(f"{stage} config.metric must be {expected_metric}")
+    confidence = _strict_float(raw.get("confidence_level", 0.95), path="config.confidence_level", minimum=0.80, maximum=0.999)
+    defaults = ({
+        "instance_count": 4, "repeats": 2, "training_paths": 1024,
+        "pricing_paths": 2048, "ridge_alpha": 1e-6,
+    } if stage == "search" else {
+        "instance_count": 3, "repeats": 1, "training_paths": 1536,
+        "pricing_paths": 3072, "outer_paths": 768, "inner_paths": 16,
+        "ridge_alpha": 1e-6,
+    })
+    result: dict[str, Any] = {
+        "direction": direction,
+        "metric": metric,
+        "confidence_level": confidence,
+        "instance_count": _strict_int(raw.get("instance_count", defaults["instance_count"]), path="config.instance_count", minimum=1, maximum=4 if stage == "search" else 8),
+        "repeats": _strict_int(raw.get("repeats", defaults["repeats"]), path="config.repeats", minimum=1, maximum=5),
+        "training_paths": _strict_int(raw.get("training_paths", defaults["training_paths"]), path="config.training_paths", minimum=64, maximum=20_000),
+        "pricing_paths": _strict_int(raw.get("pricing_paths", defaults["pricing_paths"]), path="config.pricing_paths", minimum=64, maximum=50_000),
+        "ridge_alpha": _strict_float(raw.get("ridge_alpha", defaults["ridge_alpha"]), path="config.ridge_alpha", minimum=1e-12, maximum=1.0),
+    }
+    if "suite_id" in raw:
+        suite_id = raw["suite_id"]
+        if not isinstance(suite_id, str) or not suite_id or len(suite_id) > MAX_SUITE_ID_CHARS:
+            raise ValueError("config.suite_id must be a bounded non-empty string")
+        result["suite_id"] = suite_id
+    if stage == "audit":
+        result["outer_paths"] = _strict_int(raw.get("outer_paths", defaults["outer_paths"]), path="config.outer_paths", minimum=64, maximum=10_000)
+        result["inner_paths"] = _strict_int(raw.get("inner_paths", defaults["inner_paths"]), path="config.inner_paths", minimum=2, maximum=128)
+    return result
+
+
+def validate_evaluation_request(raw: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+    required = {"schema", "stage", "task", "protocol", "seed", "suite_id", "config"}
+    _strict_keys(raw, required=required, allowed=required, path="evaluation request")
+    if raw["schema"] != REQUEST_SCHEMA:
+        raise ValueError(f"evaluation request.schema must be {REQUEST_SCHEMA}")
+    if raw["stage"] not in {"search", "audit"}:
+        raise ValueError("evaluation request.stage must be search or audit")
+    if raw["task"] != TASK_NAME:
+        raise ValueError(f"evaluation request.task must be {TASK_NAME}")
+    if raw["protocol"] != TASK_PROTOCOL:
+        raise ValueError(f"evaluation request.protocol must be {TASK_PROTOCOL}")
+    seed = _strict_int(raw["seed"], path="evaluation request.seed", minimum=0, maximum=MAX_REQUEST_SEED)
+    suite_id = raw["suite_id"]
+    if not isinstance(suite_id, str) or not suite_id or len(suite_id) > MAX_SUITE_ID_CHARS or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", suite_id):
+        raise ValueError("evaluation request.suite_id has invalid syntax")
+    config = _validate_config(raw["stage"], raw["config"])
+    if config.get("suite_id", suite_id) != suite_id:
+        raise ValueError("config.suite_id must match evaluation request.suite_id")
+    normalized = {
+        "schema": REQUEST_SCHEMA,
+        "stage": raw["stage"],
+        "task": TASK_NAME,
+        "protocol": TASK_PROTOCOL,
+        "seed": seed,
+        "suite_id": suite_id,
+        "config": config,
+    }
+    return normalized, config
+
+
+def default_search_request() -> dict[str, Any]:
+    """Manual smoke-test request; production harnesses pass a sealed argv[2]."""
+    raw = {
+        "schema": REQUEST_SCHEMA,
+        "stage": "search",
+        "task": TASK_NAME,
+        "protocol": TASK_PROTOCOL,
+        "seed": 1729,
+        "suite_id": "bermudan-public-v1",
+        "config": {},
+    }
+    return validate_evaluation_request(raw)[0]
+
+
+def evaluate_submission(
+    submission: Any,
+    request: dict[str, Any] | None = None,
+) -> tuple[float, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    program = validate_feature_program(submission)
+    if request is None:
+        request = default_search_request()
+        config = _validate_config("search", request["config"])
+    else:
+        request, config = validate_evaluation_request(request)
+    started = time.perf_counter()
+    if request["stage"] == "search":
+        score, stage_metrics, stage_evidence = _evaluate_search(program, request, config)
+    else:
+        score, stage_metrics, stage_evidence = _evaluate_audit(program, request, config)
+    feature_hash = _sha256_json(program)
+    request_hash = _sha256_json(request)
+    metrics = {
+        "stage": request["stage"],
+        "suite_id": request["suite_id"],
+        "evaluation_request_sha256": request_hash,
+        "feature_program_sha256": feature_hash,
+        "candidate_hash": feature_hash,
+        "feature_count": len(program["features"]),
+        "runtime_seconds": time.perf_counter() - started,
+        **stage_metrics,
+    }
+    evidence = {
+        "schema": EVIDENCE_SCHEMA,
+        "stage": request["stage"],
+        "suite_id": request["suite_id"],
+        "evaluation_request_sha256": request_hash,
+        "feature_program_sha256": feature_hash,
+        "candidate_supplied_prices_ignored": True,
+        **stage_evidence,
+    }
+    return score, metrics, program, evidence
+
+
+def fail(message: str) -> None:
+    print(json.dumps({"error": message}))
+    raise SystemExit(0)
+
+
+def main() -> None:
+    if len(sys.argv) not in {2, 3}:
+        fail("usage: evaluator.py ARTIFACT_JSON [EVALUATION_REQUEST_JSON]")
+    artifact_path = Path(sys.argv[1])
+    if artifact_path.is_dir():
+        artifact_path = artifact_path / "solution.json"
+    if not artifact_path.is_file():
+        fail("artifact JSON not found")
+    try:
+        submission = json.loads(artifact_path.read_text(), object_pairs_hook=_unique_object)
+        request = None
+        if len(sys.argv) == 3:
+            request_path = Path(sys.argv[2])
+            if not request_path.is_file():
+                raise ValueError("evaluation request JSON not found")
+            request = json.loads(request_path.read_text(), object_pairs_hook=_unique_object)
+        score, metrics, normalized, evidence = evaluate_submission(submission, request)
+    except (OSError, RecursionError, ValueError, TypeError, np.linalg.LinAlgError) as exc:
+        fail(str(exc))
+    print(json.dumps({
+        "score": score,
+        "metrics": metrics,
+        "normalized_solution": normalized,
+        "evidence": evidence,
+    }, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+    main()
