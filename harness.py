@@ -52,6 +52,11 @@ from stopping import (
     write_termination,
 )
 
+try:
+    from harness_v5 import V5Bridge
+except ImportError:
+    V5Bridge = None
+
 ROOT = Path(__file__).resolve().parent
 STOP = object()
 MIN_CANDIDATES_PER_CONTEXT = 1
@@ -959,7 +964,7 @@ def _numeric_duplicate_of(result, records):
 
 
 def _commit_candidate_result(result, task, eb, backend, model, print_lock,
-                             parent_id=None, repair_of=None):
+                             parent_id=None, repair_of=None, v5_bridge=None):
     """Commit one candidate outcome without local winner selection."""
     item = result["item"]
     commit_dir = item.get("commit_dir")
@@ -1018,6 +1023,17 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
         item["description"], parent_id or parent["id"], result["log_tail"],
         metrics=result["metrics"], metadata=metadata,
     )
+    if v5_bridge is not None:
+        v5_island = metadata.get("island_epoch_id", "island_00_epoch_00")
+        v5_bridge.on_candidate_evaluated(
+            record_id=record["id"],
+            island_epoch_id=v5_island,
+            score=result["score"],
+            status=result["status"],
+            description=item["description"],
+            parent_ids=[parent_id] if parent_id else [],
+            metrics=result.get("metrics", {}),
+        )
     best = eb.best()
     improved = eb.is_improvement(
         result["score"], previous_best["score"] if previous_best else None,
@@ -1035,7 +1051,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
 
 
 def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
-                 candidates_per_context=None, stop_policy=None):
+                 candidates_per_context=None, stop_policy=None, v5_bridge=None):
     """Run a bounded three-stage asynchronous producer-consumer pipeline."""
     if candidates_per_context is None:
         candidates_per_context = task.candidates_per_context
@@ -1129,6 +1145,9 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                                 "Stop request rejected by deterministic evidence guards.",
                             ).to_dict()
                         )
+                    if v5_bridge is not None:
+                        island_epoch_id = v5_bridge.pick_island(iteration)
+                        context_meta["island_epoch_id"] = island_epoch_id
                     with active_lock:
                         active_directions[iteration] = direction
                     with print_lock:
@@ -1256,6 +1275,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     record = _commit_candidate_result(
                         result, task, eb, backend, model, print_lock,
                         parent_id=parent_id, repair_of=repair_of,
+                        v5_bridge=v5_bridge,
                     )
                     records.append(record)
                     parent_id = record["id"]
@@ -1277,6 +1297,8 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         context_finished = True
                 if context_finished:
                     finalize_analysis(eb, item["iteration"], result_ids)
+                    if v5_bridge is not None:
+                        v5_bridge.on_context_complete(item["iteration"])
                     with active_lock:
                         active_directions.pop(item["iteration"], None)
                     inflight.release()
@@ -1480,6 +1502,8 @@ def main():
     )
     parser.add_argument("--export-bundle")
     parser.add_argument("--status", action="store_true")
+    parser.add_argument("--v5", action="store_true",
+                        help="enable v5 island scheduling and structured retrieval")
     parser.add_argument(
         "--final-audit", action="store_true",
         help="freeze search Top-K and run the configured one-shot private audit",
@@ -1523,6 +1547,11 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     eb = ExperienceBank(task.run_dir / "eb", direction=task.direction)
+    v5_bridge = None
+    if getattr(args, 'v5', False):
+        if V5Bridge is None:
+            sys.exit("--v5 requires harness_v5 module")
+        v5_bridge = V5Bridge(task.run_dir)
     if args.status:
         for record in eb.records():
             score = f"{record['score']:.12f}" if record["score"] is not None else "-"
@@ -1564,6 +1593,13 @@ def main():
                 "search", {}
             ).get("evaluation_request")
             init_seed(task, eb)
+            if v5_bridge is not None:
+                seed = eb.records()[0]
+                v5_bridge.initialize(
+                    [seed["id"]],
+                    frozen_baseline_score=seed["score"],
+                    base_proposal_seed=args.trial_seed,
+                )
         elif args.iterations:
             if not eb.records():
                 sys.exit("Experience Bank is empty; use --init first")
@@ -1579,6 +1615,14 @@ def main():
             task.search_evaluation_request = task.run_manifest.get(
                 "search", {}
             ).get("evaluation_request")
+            if v5_bridge is not None:
+                seeds = [r["id"] for r in eb.records() if r.get("metadata", {}).get("iteration") is None]
+                best = eb.best()
+                v5_bridge.initialize(
+                    seeds or [eb.records()[0]["id"]],
+                    frozen_baseline_score=best["score"] if best else None,
+                    base_proposal_seed=args.trial_seed,
+                )
 
         if args.iterations:
             ensure_run_resumable(task, eb)
@@ -1588,6 +1632,7 @@ def main():
                     args.backend, args.model, args.trial_seed,
                     candidates_per_context=candidates_per_context,
                     stop_policy=stop_policy,
+                    v5_bridge=v5_bridge,
                 )
             except KeyboardInterrupt:
                 outcome = {
@@ -1618,6 +1663,8 @@ def main():
                     ),
                 )
                 raise
+            if v5_bridge is not None:
+                v5_bridge.save_state()
             write_termination(
                 task.run_dir / "termination.json",
                 _termination_payload(
