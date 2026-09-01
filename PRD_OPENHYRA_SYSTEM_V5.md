@@ -182,6 +182,7 @@ v5 必须实现：
 3. 类比引导的混合算法是否优于等参数、等计算和等编辑幅度的控制候选？
 4. 独立种群岛是否减少搜索坍缩，并提高有效行为区域覆盖？
 5. 不同 Context 证据包的大小和构成如何影响搜索收益与 token 成本？
+6. EB 累积的异构算法实验数据中，是否存在基于合约特征（moneyness、volatility、维度等）的条件性算法优势模式？该模式能否提升搜索资源分配效率？
 
 ### 3.3 操作性定义
 
@@ -519,6 +520,15 @@ v1 不在 per-instance artifact 目录中接受 `training_meta.json`。训练时
 
 在目标候选执行前，`relation_mapping`、`predicted_effect`、`falsifier` 和 `matched_control` 必须冻结。执行后不得回写修改原假设，只能追加 `AnalogyResult`。
 
+### 6.6.1 Analogy 的轻量与完整两层
+
+完整 `AnalogyHypothesis`（含 matched control）是高质量因果证据，但每个假设需要 guided + control 两个候选 slot，且 invalid control 比例可能达 20-30%。在候选数量有限的阶段，两层并行：
+
+- **轻量 inspiration tracking（P1 即可用）：** Proposal Agent 在 `AlgorithmBundle` 中记录 `inspiration_ids` 和 `generation_operator`，Context Agent 在 `ExperimentPlan` 中记录 `implementation_intent`。这提供弱归因但不消耗额外候选 slot，样本量大。
+- **完整 AnalogyHypothesis + matched control（P3 启用）：** 只对 Context Agent 有高信心且能产出具体 `relation_mapping` 的迁移假设使用。预期每 run 中 analogy 实验占比不超过 30%。
+
+轻量 tracking 的数据可以回溯性地识别"哪些 inspiration 来源与候选成功相关"，为 P3 选择值得做完整 matched-control 验证的假设提供信号。
+
 ### 6.7 `AnalogyResult`
 
 ```json
@@ -725,6 +735,8 @@ ExperimentEvent commit
 
 因此 v1 基础行为向量至少为 32 维，而不是仅使用 4-8 个最终分数做相关性判断。敏感度、资源和解释信号作为附加字段，不进入第一版 behavior cell key。
 
+v1 的 probe suite 使用固定的八个开发实例。为防止候选系统性地向这些实例过拟合，每个 major phase 结束后 evaluator 应扩展 probe suite（增加新实例），旧实例保留但在行为分析中降权。此外，probe suite 中保留至少两个 held-out 实例不用于 BehaviorProfile 反馈，仅用于验证 profile 的外推稳定性。
+
 ### 8.4 VaR/CVaR 与尾部指标
 
 所有风险统计以预先定义的 loss 为对象。v1 使用：
@@ -741,6 +753,7 @@ loss(path) = -(
 - 所有候选使用相同 public probe paths；
 - 报告有效路径数和 bootstrap 或重复随机流下的不确定性；
 - VaR/CVaR 只描述策略尾部行为，不证明算法内部机制。
+- 当 frozen baseline 在特定实例上的绝对表现低于预设阈值时，该实例的 VaR/CVaR 计算需标注 `baseline_weak`，分析时分层报告，避免 baseline 弱势掩盖候选差异。
 
 ### 8.5 行为扰动
 
@@ -911,25 +924,25 @@ v1 使用可复现的轮次调度，不使用墙钟四小时：
 - 若最优分数并列，优先选择更早产生、代码更短的候选；
 - reset 和 seed 选择写入 ledger。
 
+以上超参数（4 岛、10 rounds/review、淘汰一半）是初始默认值，不是经验证的最优设计。选择依据：4 岛 × ~50 candidates/island ≈ 200 total，匹配当前单次 run 的预算规模；10 rounds 给每岛约 10 次独立探索后再做淘汰判断；淘汰一半是 FunSearch 原始方案的简化。这些参数必须在 P-1 replay 中做敏感性分析，P2 实现时冻结到 run manifest。H4（种群多样性）的结论需报告对这些超参数的敏感性。
+
 该机制首先作为 FunSearch-style baseline 使用。只有实验表明其他调度显著更好，才能增加 UCB 或 MAP-Elites 变体。
 
 ### 10.5 行为单元
 
-行为单元位于岛内，但 cell key 与 island id 无关。v1 使用四个量化 descriptor：
+行为单元位于岛内，但 cell key 与 island id 无关。v1 使用两个量化 descriptor：
 
 1. aggregate public improvement bucket；
-2. OTM robustness bucket；
-3. tail loss CVaR bucket；
-4. exercise aggressiveness bucket。
+2. tail loss CVaR bucket。
 
 ```text
 behavior_cell_key = (
   performance_bucket,
-  otm_robustness_bucket,
-  tail_risk_bucket,
-  exercise_rate_bucket
+  tail_risk_bucket
 )
 ```
+
+v1 限制为 2D 的原因：当前实验规模（~200 candidates/run）下，4D cell key 会导致大多数 cell 为空或单例，多样性维护在极度稀疏的 cell 空间中没有实际效果。当候选数量稳定超过 500 后，可扩展到 3-4 维（增加 OTM robustness 和 exercise aggressiveness）。cell key 的维度是实验参数，不是固定设计。
 
 bucket 边界在一次 run 开始前冻结并写入 run manifest。不得根据本次 run 的最终结果事后调整边界。
 
@@ -1083,6 +1096,8 @@ LLM 调用：0。
 输入：Stage 1、MechanismCard、目标 parent、候选 source、反例。
 
 输出：0-2 个 `AnalogyHypothesis`，或说明当前证据不足以做类比并选择普通 mutation/ablation。
+
+**默认路径是 fallback 到普通 mutation/ablation。** Analogy 是例外，不是常规操作。只有当 Stage 2 能产出足够具体的 `relation_mapping`（明确的 source_role、target_role 和非空的 shared_relation）时，才输出 AnalogyHypothesis。如果 LLM 只能写出 vague 的映射关系（如 "both use normalization"），必须 fallback。
 
 要求：明确 non-correspondence、falsifier 和 matched control。
 
@@ -1293,6 +1308,8 @@ continuation(state, time)
 
 **H5：置信度校准。** Context Agent 对 analogy 成功概率的预测在 held-out interventions 上具有可测的 calibration，而不只是排序能力。
 
+**H6：条件性算法优势。** EB 累积的异构算法实验数据中存在基于合约特征（moneyness、volatility、维度等）的可提取条件性优势模式，且基于该模式的搜索资源分配优于均匀分配。
+
 ### 15.2 零假设与可接受负结果
 
 - H1 的零假设：`TransferGain <= 0`；
@@ -1300,6 +1317,7 @@ continuation(state, time)
 - H3 的零假设：复杂表征不优于简单标签/分数；
 - H4 的零假设：岛模型只增加复杂度，不增加有效覆盖；
 - H5 的零假设：LLM confidence 不可校准。
+- H6 的零假设：不存在可稳定提取的条件性优势模式，或基于该模式的分配不优于均匀分配。
 
 任何零结果都必须完整报告，不以更换指标、切片或阈值规避。
 
@@ -1314,6 +1332,14 @@ continuation(state, time)
 | E | B | BehaviorProfile + MechanismCard | 完整可干预 Analogy |
 
 可选工程消融不替代以上五组主实验。
+
+**实验优先级。** 如果资源只允许部分 arm，按以下顺序执行：
+
+1. **B vs A**（最先）：验证 FunSearch-style 岛模型本身是否优于现有单阶段搜索。如果 B 不优于 A，后续 arm 的基础设施增益无法归因。
+2. **E vs B**（主比较）：验证完整 analogy 框架相对 FunSearch baseline 的增益。
+3. **D vs B 和 C vs B**（消融）：分离 BehaviorProfile 和语义标签各自的贡献。
+
+若只能跑两组，跑 B 和 E。
 
 ### 15.4 预算匹配
 
@@ -1339,6 +1365,7 @@ continuation(state, time)
 4. `positive_transfer_rate` 与 `negative_transfer_rate`；
 5. `behavior_coverage`：访问过的非空行为单元比例；
 6. `analogy_calibration_error`：预测成功概率与实际成功率的偏差。
+7. `conditional_advantage_auc`：基于合约特征的条件性算法分配策略相对均匀分配的 normalized best-so-far AUC 差异。
 
 次要指标：
 
@@ -1391,6 +1418,17 @@ private audit 不承担 analogy 训练或选择功能，只做最终外部验收
 
 若估计需要超过 50 runs/组才能检测预设最小实际效应，则停止确认性实验，报告当前资源下不具可辨识性，不降低效应阈值追求显著性。
 
+### 15.8.1 计算预算估算
+
+进入确认性实验前，必须报告：
+
+- 单次 run 的预计 wall-clock 小时数（含 LLM 调用等待）；
+- 单次 run 的 LLM API token 成本；
+- 全部 arm 的总 wall-clock 和 API 成本；
+- 在当前硬件（单机 / 多机）下的并行度和完成时间。
+
+若总成本超过预算，按 §15.3 的实验优先级削减 arm 数量，不降低单 arm 的 run 数量。
+
 分析要求：
 
 - paired 设计优先；
@@ -1406,6 +1444,10 @@ private audit 不承担 analogy 训练或选择功能，只做最终外部验收
 如果 H1-H5 获得支持，可以声称：
 
 > 在固定百慕大最优停时问题族、指定算法协议和匹配预算下，显式行为表征与可证伪的跨算法干预类比提高了 OpenHyra 的搜索效率或迁移质量。
+
+如果 H6 获得支持，可以额外声称：
+
+> 在同一问题族内，异构算法的条件性优势模式可从实验数据中稳定提取，且基于该模式的搜索资源分配优于均匀分配。
 
 不能直接声称：
 
@@ -1528,6 +1570,17 @@ Transformer 扩展的额外停止线：在 Markov 百慕大任务上若无明确
 ---
 
 ## 18. 迁移与实施阶段
+
+### 18.0 最小可发表路径
+
+完整 P-1 → P4 路径需要 15-20 周。如果时间或资源不允许走完全部阶段，以下最小路径可以产出一个 bounded 但可发表的结果：
+
+1. **P-1**（1-2 周）：replay BehaviorProfile，验证 schema 可行性。
+2. **P0 + P1 partial**（3-4 周）：统一工件基础设施，让 Feature IR baseline、MLP 和至少一种 hybrid 共存于同一 evaluator 管道。
+3. **条件性算法优势分析**（1-2 周）：用已有 EB 数据和新增的 BehaviorProfile per-instance metrics，回答 §3.2 次问题 6——提取基于合约特征的算法优势模式。这不需要完整的 Analogy Graph 或独立种群岛。
+4. **简化 A/B 对比**（2-3 周）：只跑 B vs A（FunSearch-style 岛 vs 现有单阶段），或 E vs B（完整 analogy vs FunSearch baseline），用少于 5 组的 arm 获得初步搜索效率结论。
+
+该路径产出的 claim 范围更窄（不包含完整的 H1-H5 验证），但足以支撑一篇有 empirical finding 的论文。完整 P3-P4 路径在时间允许时继续执行。
 
 ### P-1：离线 Replay 与测量可行性（1-2 周）
 
@@ -1721,6 +1774,8 @@ P5 每个协议单独形成设计与安全评审，不作为 v5 主实施计划�
 | matched control 无效 | 高 | invalid control >30% | 收紧 operator、自动预算检查、停止线 |
 | Transformer 变成无意义扩张 | 中 | Markov任务无序列增益 | 延后到非 Markov/path-dependent benchmark |
 | schema 过度复杂 | 中 | 大量记录无法完整生成 | 分层对象、最小 required fields、P-1 验证 |
+| LLM 代码生成能力不足 | 高 | compound_edit 率 >50% 或 build success rate <60% | 简化 ExperimentPlan 的 intervention 粒度，增加 repair 预算，或 fallback 到模板化生成 |
+| probe suite 统计过拟合 | 中 | public probe 提升但 held-out instance 无改善 | 每 major phase 扩展 probe suite，保留 held-out 实例，分层报告 |
 
 ---
 
@@ -1791,4 +1846,7 @@ P5 每个协议单独形成设计与安全评审，不作为 v5 主实施计划�
 - [ ] 是否认可 private audit 零回流；
 - [ ] 是否认可 P-1 replay 是进入系统改造前的必要门槛；
 - [ ] 是否认可系统实验以搜索效率和 TransferGain 为主，而不是单个最高分；
-- [ ] 是否认可不从本任务直接外推基础模型通用科学类比能力。
+- [ ] 是否认可不从本任务直接外推基础模型通用科学类比能力；
+- [ ] 是否认可 v1 behavior cell key 限制为 2D，待规模扩展后再增维；
+- [ ] 是否认可 Analogy 分为轻量 tracking（P1）和完整 matched control（P3）两层；
+- [ ] 是否认可最小可发表路径（§18.0）作为资源不足时的 fallback 计划。

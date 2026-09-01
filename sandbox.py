@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_MAX_ARTIFACT_BYTES = 1024 * 1024
@@ -38,6 +39,646 @@ SANDBOX_PROFILE = """(version 1)
 (allow file-write* (literal "/dev/null"))
 (deny file-read* (literal "{evaluator}"))
 """
+
+
+# This profile is deliberately separate from ``SANDBOX_PROFILE``.  The latter
+# is a compatibility boundary for existing candidates; training candidates are
+# arbitrary code and need a default-deny confidentiality boundary instead.
+TRAINING_SANDBOX_LOG_BYTES = 64 * 1024
+TRAINING_SANDBOX_DEFAULT_MEMORY_BYTES = 1024 * 1024 * 1024
+TRAINING_SANDBOX_DEFAULT_FILE_SIZE_BYTES = 64 * 1024 * 1024
+TRAINING_SANDBOX_DEFAULT_TOTAL_OUTPUT_BYTES = 64 * 1024 * 1024
+TRAINING_SANDBOX_DEFAULT_OUTPUT_ENTRIES = 256
+TRAINING_SANDBOX_DEVICE_READS = (
+    Path("/dev/null"),
+    Path("/dev/random"),
+    Path("/dev/urandom"),
+)
+TRAINING_SANDBOX_DYLD_METADATA_ROOTS = (
+    Path("/System/Cryptexes"),
+    Path("/System/Volumes/Preboot/Cryptexes"),
+)
+TRAINING_SANDBOX_FORBIDDEN_BROAD_ROOTS = tuple(Path(value) for value in (
+    "/Applications", "/Library", "/Network", "/System", "/Users",
+    "/Volumes", "/cores", "/dev", "/etc", "/home", "/opt",
+    "/private", "/private/tmp", "/private/var", "/sbin", "/tmp",
+    "/usr", "/usr/local", "/var",
+))
+
+
+@dataclass(frozen=True)
+class TrainingSandboxPaths:
+    """Canonical, non-overlapping roots exposed to one training process."""
+
+    source_dir: Path
+    input_dir: Path
+    output_dir: Path
+    tmp_dir: Path
+    runtime_roots: tuple
+
+
+def _resolved_directory(path, label):
+    """Resolve one allowlist root and reject a link used as that root."""
+    try:
+        raw = Path(path)
+    except TypeError as exc:
+        raise ValueError(f"{label} must be a filesystem path") from exc
+    try:
+        raw_info = os.lstat(raw)
+    except FileNotFoundError as exc:
+        raise ValueError(f"{label} does not exist") from exc
+    except OSError as exc:
+        raise ValueError(f"could not inspect {label}: {exc}") from exc
+    if stat.S_ISLNK(raw_info.st_mode):
+        raise ValueError(f"{label} must not be a symbolic link")
+    try:
+        resolved = raw.resolve(strict=True)
+        resolved_info = os.lstat(resolved)
+    except (FileNotFoundError, OSError) as exc:
+        raise ValueError(f"could not resolve {label}: {exc}") from exc
+    if stat.S_ISLNK(resolved_info.st_mode):
+        raise ValueError(f"{label} must not be a symbolic link")
+    if not stat.S_ISDIR(resolved_info.st_mode):
+        raise ValueError(f"{label} must be a directory")
+    return resolved
+
+
+def _forbidden_training_root(path):
+    """Return the protected root contained by an overly broad allowlist."""
+    if path in TRAINING_SANDBOX_FORBIDDEN_BROAD_ROOTS:
+        return path
+    protected = {Path("/")}
+    for candidate in (Path.home(), Path(__file__).resolve().parent):
+        try:
+            protected.add(candidate.resolve(strict=True))
+        except OSError:
+            protected.add(candidate.resolve())
+    for target in protected:
+        if path == target or path in target.parents:
+            return target
+    return None
+
+
+def _paths_overlap(first, second):
+    return (
+        first == second
+        or first in second.parents
+        or second in first.parents
+    )
+
+
+def _reject_unsafe_training_tree(root, label):
+    """Reject links and special files in sealed source or instance input."""
+    for current, directories, filenames in os.walk(
+            root, topdown=True, followlinks=False):
+        current = Path(current)
+        for name in (*directories, *filenames):
+            path = current / name
+            info = os.lstat(path)
+            relative = path.relative_to(root).as_posix()
+            if stat.S_ISLNK(info.st_mode):
+                raise ValueError(
+                    f"{label} entry {relative} must not be a symbolic link"
+                )
+            if name in directories and not stat.S_ISDIR(info.st_mode):
+                raise ValueError(
+                    f"{label} entry {relative} must be a real directory"
+                )
+            if name in filenames and not stat.S_ISREG(info.st_mode):
+                raise ValueError(
+                    f"{label} entry {relative} must be a regular file"
+                )
+            if name in filenames and info.st_nlink != 1:
+                raise ValueError(
+                    f"{label} entry {relative} must have exactly one hard link"
+                )
+
+
+def validate_training_sandbox_paths(
+        source_dir, input_dir, output_dir, tmp_dir, runtime_roots):
+    """Validate and canonicalize every training sandbox allowlist root.
+
+    Broad roots and overlapping roots are rejected because either turns a
+    seemingly narrow Seatbelt exception into access to unrelated host data.
+    The writable roots must already exist so the validated inode cannot be
+    replaced by an implicitly-created symlink during setup.
+    """
+    try:
+        runtime_roots = tuple(runtime_roots)
+    except TypeError as exc:
+        raise ValueError("runtime_roots must be a non-empty iterable") from exc
+    if not runtime_roots:
+        raise ValueError("runtime_roots must contain an explicit runtime root")
+
+    named = [
+        ("source_dir", _resolved_directory(source_dir, "source_dir")),
+        ("input_dir", _resolved_directory(input_dir, "input_dir")),
+        ("output_dir", _resolved_directory(output_dir, "output_dir")),
+        ("tmp_dir", _resolved_directory(tmp_dir, "tmp_dir")),
+    ]
+    for index, root in enumerate(runtime_roots):
+        named.append((
+            f"runtime_roots[{index}]",
+            _resolved_directory(root, f"runtime_roots[{index}]"),
+        ))
+
+    for label, root in named:
+        forbidden = _forbidden_training_root(root)
+        if forbidden is not None:
+            raise ValueError(
+                f"{label} is an overly broad allowlist root containing "
+                f"protected path {forbidden}"
+            )
+    for index, (first_label, first) in enumerate(named):
+        for second_label, second in named[index + 1:]:
+            if _paths_overlap(first, second):
+                raise ValueError(
+                    "training sandbox roots must not overlap: "
+                    f"{first_label} and {second_label}"
+                )
+
+    _reject_unsafe_training_tree(named[0][1], "source_dir")
+    _reject_unsafe_training_tree(named[1][1], "input_dir")
+
+    return TrainingSandboxPaths(
+        source_dir=named[0][1],
+        input_dir=named[1][1],
+        output_dir=named[2][1],
+        tmp_dir=named[3][1],
+        runtime_roots=tuple(root for _label, root in named[4:]),
+    )
+
+
+def _seatbelt_path_clause(operation, roots):
+    conditions = []
+    for root in roots:
+        escaped = _seatbelt_escape(root)
+        conditions.extend((
+            f'    (literal "{escaped}")',
+            f'    (subpath "{escaped}")',
+        ))
+    return "\n".join((f"(allow {operation}", *conditions, ")"))
+
+
+def _training_sandbox_profile(paths):
+    readable = (
+        paths.source_dir,
+        paths.input_dir,
+        paths.output_dir,
+        paths.tmp_dir,
+        *paths.runtime_roots,
+    )
+    executable = (paths.source_dir, *paths.runtime_roots)
+    writable = (paths.output_dir, paths.tmp_dir)
+
+    # Parent-directory metadata is needed to traverse to an allowed root.  It
+    # is granted only for literal ancestors, never as a broad subtree read.
+    ancestors = {Path("/")}
+    for root in (*readable, *writable, *TRAINING_SANDBOX_DEVICE_READS):
+        ancestors.update(root.parents)
+    metadata_literals = "\n".join(
+        f'    (literal "{_seatbelt_escape(path)}")'
+        for path in sorted(ancestors, key=str)
+    )
+    return "\n".join((
+        "(version 1)",
+        "(deny default)",
+        "(deny network*)",
+        "(allow process-fork)",
+        "(allow signal (target self))",
+        # Bootstrap/syscall mediation is required for dyld to start a process;
+        # file and network operations remain governed by the rules below.
+        "(allow mach-bootstrap)",
+        "(allow syscall*)",
+        # Keep descendants in the session/process group owned by the parent.
+        "(deny syscall-unix (syscall-number SYS_setsid SYS_setpgid))",
+        "(allow sysctl-read)",
+        "(allow file-read-metadata",
+        metadata_literals,
+        *(f'    (subpath "{_seatbelt_escape(path)}")'
+          for path in TRAINING_SANDBOX_DYLD_METADATA_ROOTS),
+        ")",
+        # dyld opens the root directory as an openat anchor during process
+        # startup.  This leaks only the top-level directory names; it grants no
+        # descendant file data.  Removing it prevents the trusted wrapper and
+        # candidate runtime from starting on macOS.
+        '(allow file-read-data (literal "/"))',
+        _seatbelt_path_clause("file-read*", readable),
+        "(allow file-read*",
+        *(f'    (literal "{_seatbelt_escape(path)}")'
+          for path in TRAINING_SANDBOX_DEVICE_READS),
+        ")",
+        _seatbelt_path_clause("process-exec", executable),
+        _seatbelt_path_clause("file-write*", writable),
+        '(allow file-write* (literal "/dev/null"))',
+        "",
+    ))
+
+
+def build_training_sandbox_profile(
+        source_dir, input_dir, output_dir, tmp_dir, runtime_roots):
+    """Build the macOS default-deny profile for one training invocation."""
+    paths = validate_training_sandbox_paths(
+        source_dir, input_dir, output_dir, tmp_dir, runtime_roots,
+    )
+    return _training_sandbox_profile(paths)
+
+
+def training_sandbox_environment(tmp_dir, runtime_roots):
+    """Return a fixed environment without host credentials or user config."""
+    tmp_dir = _resolved_directory(tmp_dir, "tmp_dir")
+    runtime_roots = tuple(
+        _resolved_directory(root, f"runtime_roots[{index}]")
+        for index, root in enumerate(runtime_roots)
+    )
+    path_entries = []
+    for root in runtime_roots:
+        candidates = [root] if root.name in {"bin", "sbin"} else [
+            root / "bin", root / "sbin",
+        ]
+        for candidate in candidates:
+            if candidate.is_dir() and candidate not in path_entries:
+                path_entries.append(candidate)
+    return {
+        "PATH": os.pathsep.join(str(path) for path in path_entries),
+        "HOME": str(tmp_dir),
+        "TMPDIR": str(tmp_dir),
+        "TMP": str(tmp_dir),
+        "TEMP": str(tmp_dir),
+        "PYTHONHASHSEED": "0",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "TZ": "UTC",
+        **NUMERIC_THREAD_ENV,
+    }
+
+
+TRAINING_LIMIT_WRAPPER = r"""
+import os, resource, sys
+limits = [
+    (resource.RLIMIT_FSIZE, int(sys.argv[2]), "file-size"),
+    (resource.RLIMIT_CPU, int(sys.argv[3]), "cpu-time"),
+]
+# macOS exposes RLIMIT_AS but rejects finite values after the Python runtime
+# has mapped its shared-cache address space.  The trusted parent therefore
+# enforces aggregate process-group RSS there (and on every platform as a
+# defense in depth); kernels with a working RLIMIT_AS get both controls.
+if sys.platform != "darwin":
+    limits.insert(0, (resource.RLIMIT_AS, int(sys.argv[1]), "address-space"))
+for key, value, label in limits:
+    try:
+        _soft, hard = resource.getrlimit(key)
+        target = value if hard == resource.RLIM_INFINITY else min(value, hard)
+        resource.setrlimit(key, (target, target))
+        applied, _hard = resource.getrlimit(key)
+        if applied == resource.RLIM_INFINITY or applied > value:
+            raise RuntimeError("limit was not applied")
+    except Exception as exc:
+        print("training sandbox could not apply %s limit: %s" % (label, exc),
+              file=sys.stderr)
+        raise SystemExit(126)
+os.chdir(sys.argv[4])
+os.execv(sys.argv[5], sys.argv[5:])
+"""
+
+
+def _positive_limit(value, label, *, integer=False):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a positive number")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{label} must be a positive finite number")
+    return int(math.ceil(value)) if integer else value
+
+
+def _training_limited_cmd(
+        command, *, source_dir, cpu_seconds, memory_bytes, file_size_bytes):
+    command = _normalize_training_command(command)
+    cpu_seconds = _positive_limit(cpu_seconds, "cpu_seconds", integer=True)
+    memory_bytes = _positive_limit(memory_bytes, "memory_bytes", integer=True)
+    file_size_bytes = _positive_limit(
+        file_size_bytes, "file_size_bytes", integer=True,
+    )
+    return [
+        sys.executable,
+        "-I",
+        "-S",
+        "-c",
+        TRAINING_LIMIT_WRAPPER,
+        str(memory_bytes),
+        str(file_size_bytes),
+        str(cpu_seconds),
+        str(source_dir),
+        *command,
+    ]
+
+
+def _normalize_training_command(command):
+    if not isinstance(command, (list, tuple)) or not command:
+        raise ValueError("training command must be a non-empty list")
+    if any(
+        not isinstance(item, (str, os.PathLike)) or "\0" in os.fspath(item)
+        for item in command
+    ):
+        raise ValueError("training command entries must be NUL-free paths/text")
+    return [os.fspath(item) for item in command]
+
+
+def _training_sandboxed_cmd(paths, command, *, externally_isolated):
+    if sys.platform == "darwin":
+        profile = _training_sandbox_profile(paths)
+        return ["/usr/bin/sandbox-exec", "-p", profile, *command], "seatbelt"
+    if externally_isolated is not True:
+        raise RuntimeError(
+            "training sandbox fails closed without macOS Seatbelt; pass "
+            "externally_isolated=True only after placing the process in an "
+            "external container/VM with equivalent read, write, and network "
+            "isolation"
+        )
+    return list(command), "external"
+
+
+def _read_log_tail(stream, max_bytes=TRAINING_SANDBOX_LOG_BYTES):
+    stream.flush()
+    size = os.fstat(stream.fileno()).st_size
+    stream.seek(max(0, size - max_bytes))
+    data = stream.read(max_bytes)
+    return data.decode("utf-8", errors="replace")
+
+
+def _process_group_rss_bytes(process_group):
+    """Return aggregate resident bytes for a process group via trusted ps."""
+    try:
+        result = subprocess.run(
+            ["/bin/ps", "-axo", "pgid=,rss="],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=0.2,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"could not inspect training memory: {exc}") from exc
+    if result.returncode != 0:
+        raise RuntimeError(
+            "could not inspect training memory: "
+            + result.stderr.strip()[:300]
+        )
+    total_kib = 0
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        try:
+            pgid, rss_kib = (int(field) for field in fields)
+        except ValueError:
+            continue
+        if pgid == process_group:
+            total_kib += max(0, rss_kib)
+    return total_kib * 1024
+
+
+def _training_tree_usage(roots, *, entry_limit, byte_limit):
+    """Measure writable trees without following candidate-created links.
+
+    The limits are checked while walking so a candidate cannot force the
+    trusted monitor to retain or traverse an unbounded directory listing.
+    Directories count as entries because millions of empty directories are as
+    effective a denial of service as millions of empty files.
+    """
+    entries = 0
+    total_bytes = 0
+    pending = list(roots)
+    while pending:
+        directory = pending.pop()
+        try:
+            iterator = os.scandir(directory)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise RuntimeError(
+                f"could not inspect training writable tree: {exc}"
+            ) from exc
+        with iterator:
+            for entry in iterator:
+                try:
+                    info = entry.stat(follow_symlinks=False)
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"could not inspect training output entry: {exc}"
+                    ) from exc
+                entries += 1
+                total_bytes += max(0, info.st_size)
+                if entries > entry_limit or total_bytes > byte_limit:
+                    return entries, total_bytes
+                if stat.S_ISDIR(info.st_mode):
+                    pending.append(Path(entry.path))
+    return entries, total_bytes
+
+
+def _wait_training_process(
+        proc, timeout_s, memory_bytes, writable_roots,
+        max_output_entries, max_total_output_bytes, cancel_event=None):
+    """Poll wall time, cancellation, RSS, and aggregate writable output."""
+    started = time.monotonic()
+    usage = {
+        "peak_memory_bytes": 0,
+        "peak_writable_entries": 0,
+        "peak_writable_bytes": 0,
+    }
+    while True:
+        if cancel_event is not None and cancel_event.is_set():
+            return "cancelled", "", usage
+        remaining = timeout_s - (time.monotonic() - started)
+        if remaining <= 0:
+            return "timeout", "", usage
+        try:
+            rss_bytes = _process_group_rss_bytes(proc.pid)
+        except RuntimeError as exc:
+            return "monitor_error", str(exc), usage
+        usage["peak_memory_bytes"] = max(
+            usage["peak_memory_bytes"], rss_bytes,
+        )
+        if rss_bytes > memory_bytes:
+            return "memory_limit", (
+                "training process group exceeded memory limit "
+                f"({rss_bytes} > {memory_bytes} bytes)"
+            ), usage
+        try:
+            entries, output_bytes = _training_tree_usage(
+                writable_roots,
+                entry_limit=max_output_entries,
+                byte_limit=max_total_output_bytes,
+            )
+        except RuntimeError as exc:
+            return "monitor_error", str(exc), usage
+        usage["peak_writable_entries"] = max(
+            usage["peak_writable_entries"], entries,
+        )
+        usage["peak_writable_bytes"] = max(
+            usage["peak_writable_bytes"], output_bytes,
+        )
+        if entries > max_output_entries or output_bytes > max_total_output_bytes:
+            return "output_limit", (
+                "training writable trees exceeded aggregate limit "
+                f"({entries} entries, {output_bytes} bytes)"
+            ), usage
+        if proc.poll() is not None:
+            return "completed", "", usage
+        try:
+            proc.wait(timeout=min(0.1, remaining))
+            # Re-enter the loop once after exit so final writable-tree usage is
+            # checked before a successful status can be returned.
+            continue
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def run_training_sandbox(
+        command, *, source_dir, input_dir, output_dir, tmp_dir,
+        runtime_roots, timeout_s=60, cpu_seconds=None,
+        memory_bytes=TRAINING_SANDBOX_DEFAULT_MEMORY_BYTES,
+        file_size_bytes=TRAINING_SANDBOX_DEFAULT_FILE_SIZE_BYTES,
+        max_total_output_bytes=TRAINING_SANDBOX_DEFAULT_TOTAL_OUTPUT_BYTES,
+        max_output_entries=TRAINING_SANDBOX_DEFAULT_OUTPUT_ENTRIES,
+        externally_isolated=False, cancel_event=None):
+    """Run arbitrary candidate training code inside a hermetic boundary.
+
+    This API does not evaluate or import candidate output.  It only runs one
+    per-instance training command and returns process-level status; a trusted
+    caller remains responsible for validating and freezing exported weights.
+    """
+    paths = validate_training_sandbox_paths(
+        source_dir, input_dir, output_dir, tmp_dir, runtime_roots,
+    )
+    for label, root in (
+        ("output_dir", paths.output_dir), ("tmp_dir", paths.tmp_dir),
+    ):
+        if any(root.iterdir()):
+            raise ValueError(
+                f"{label} must be empty for each training invocation"
+            )
+    timeout_s = _positive_limit(timeout_s, "timeout_s")
+    command = _normalize_training_command(command)
+    if cpu_seconds is None:
+        cpu_seconds = max(1, int(math.ceil(timeout_s)))
+    max_total_output_bytes = _positive_limit(
+        max_total_output_bytes, "max_total_output_bytes", integer=True,
+    )
+    max_output_entries = _positive_limit(
+        max_output_entries, "max_output_entries", integer=True,
+    )
+    # The first process must be the isolation boundary itself.  Starting the
+    # Python limit wrapper from candidate cwd before Seatbelt would let a
+    # candidate shadow imports such as ``resource.py`` and execute outside the
+    # sandbox.  The isolated wrapper imports trusted stdlib with -I/-S, applies
+    # inherited limits, then chdirs to the candidate source only for exec.
+    limited = _training_limited_cmd(
+        command,
+        source_dir=paths.source_dir,
+        cpu_seconds=cpu_seconds,
+        memory_bytes=memory_bytes,
+        file_size_bytes=file_size_bytes,
+    )
+    sandboxed, isolation = _training_sandboxed_cmd(
+        paths, limited, externally_isolated=externally_isolated,
+    )
+    env = training_sandbox_environment(paths.tmp_dir, paths.runtime_roots)
+    log_path = paths.tmp_dir / ".openhyra-training.log"
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        log_fd = os.open(log_path, flags, 0o600)
+    except OSError as exc:
+        raise ValueError(f"could not create private training log: {exc}") from exc
+
+    started = time.monotonic()
+    state = "completed"
+    state_note = ""
+    usage = {
+        "peak_memory_bytes": 0,
+        "peak_writable_entries": 0,
+        "peak_writable_bytes": 0,
+    }
+    proc = None
+    log_tail = ""
+    try:
+        with os.fdopen(log_fd, "w+b", buffering=0) as log_stream:
+            try:
+                proc = subprocess.Popen(
+                    sandboxed,
+                    cwd=paths.tmp_dir,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log_stream,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                return {
+                    "status": "crash",
+                    "returncode": None,
+                    "log_tail": f"could not start training sandbox: {exc}",
+                    "wall_seconds": time.monotonic() - started,
+                    "isolation": isolation,
+                    **usage,
+                    "output_entries": 0,
+                    "output_bytes": 0,
+                }
+            try:
+                state, state_note, usage = _wait_training_process(
+                    proc,
+                    timeout_s,
+                    int(memory_bytes),
+                    (paths.output_dir, paths.tmp_dir),
+                    int(max_output_entries),
+                    int(max_total_output_bytes),
+                    cancel_event,
+                )
+            finally:
+                # Kill descendants even after a successful parent exit.  This
+                # closes the output-mutation race before trusted collection.
+                _kill_process_group(proc)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    _kill_process_group(proc)
+            log_tail = _read_log_tail(log_stream)
+            output_entries, output_bytes = _training_tree_usage(
+                (paths.output_dir,),
+                entry_limit=int(max_output_entries),
+                byte_limit=int(max_total_output_bytes),
+            )
+    finally:
+        try:
+            log_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    if state_note:
+        log_tail = (log_tail + "\n" + state_note).strip()
+    if state == "timeout":
+        status = "timeout"
+    elif state == "cancelled":
+        status = "cancelled"
+    elif state in {"memory_limit", "output_limit", "monitor_error"}:
+        status = "resource_limit"
+    else:
+        status = "ok" if proc.returncode == 0 else "crash"
+    return {
+        "status": status,
+        "returncode": proc.returncode,
+        "log_tail": log_tail,
+        "wall_seconds": time.monotonic() - started,
+        "isolation": isolation,
+        **usage,
+        "output_entries": output_entries,
+        "output_bytes": output_bytes,
+    }
 
 
 def _seatbelt_escape(path):
