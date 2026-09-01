@@ -1,0 +1,20 @@
+{
+  "iteration": 12,
+  "eb_version": 10,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009"
+  ],
+  "trial_seed": 4012,
+  "direction": "Run a 160-second, 32-replica annealing search over \\(A=S\\triangle E\\), where \\(S\\subseteq[0,m]\\) is reflection-symmetric about \\(m/2\\), `m ∈ [24,160]`, and `|E| ≤ 8` contains asymmetric exception points. Use 60% symmetric-pair mask mutations, 30% exception add/remove/move mutations, 10% `m±1..4` mutations, exact scoring, deterministic seed `4010`, and atomic strict-improvement checkpoints.",
+  "result_id": "sol_0015",
+  "text": "## Analysis\n\nThe dense-core/fringe run produced \\(n=31\\), \\(114\\) sums, and \\(105\\) differences, yet scored below the unstructured incumbent. Combined with the failed exhaustive endpoint-fringe sweep, this now refutes dense intervals with independently optimized fringes as the main route forward: extra core elements create too many sums and differences proportionally. The persistent \\(n=17\\) ceiling instead suggests searching near sets whose sum and difference collision structures are initially balanced, then introducing controlled asymmetry. A nearly symmetric construction provides that neutral baseline while sharply restricting the search geometry.\n\n## Next\n\nRun a 160-second, 32-replica annealing search over \\(A=S\\triangle E\\), where \\(S\\subseteq[0,m]\\) is reflection-symmetric about \\(m/2\\), `m ∈ [24,160]`, and `|E| ≤ 8` contains asymmetric exception points. Use 60% symmetric-pair mask mutations, 30% exception add/remove/move mutations, 10% `m±1..4` mutations, exact scoring, deterministic seed `4010`, and atomic strict-improvement checkpoints.\n\n## Parent\n\nsol_0001"
+}

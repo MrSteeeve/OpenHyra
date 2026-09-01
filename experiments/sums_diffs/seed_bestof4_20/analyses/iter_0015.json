@@ -1,0 +1,26 @@
+{
+  "iteration": 15,
+  "eb_version": 16,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015"
+  ],
+  "trial_seed": 20260737,
+  "direction": "Run deterministic beam search over row masks: for widths `w ∈ {4,5,6,7,8}`, build `R=40..120` rows from both ends, retain the best `B=20000` partial constructions keyed by exact boundary sum/difference bitset signatures, then join compatible left/right beams and repeat the best core periodically up to `|A|≤512`. Stop at 165 seconds and preserve `sol_0005` as fallback.",
+  "result_id": "sol_0016",
+  "text": "## Analysis\n`sol_0015` closes the previously identified coverage gap: exhaustive normalized subsets of `[0,20]`, their carry-free products, and one-point deletions still cannot beat `sol_0005`. Thus neither undiscovered small MSTD templates nor straightforward tensor amplification explain the 1.144887 reference. Together with the repeated failures of free-form annealing and genetic searches, the evidence points to a highly coordinated long-range construction. The incumbent’s near-periodic interior and exceptional endpoints suggest the missing gains lie in jointly optimized fringe sequences, where isolated mutations are misleading and stochastic methods lose the necessary intermediate states.\n\n## Next\nRun deterministic beam search over row masks: for widths `w ∈ {4,5,6,7,8}`, build `R=40..120` rows from both ends, retain the best `B=20000` partial constructions keyed by exact boundary sum/difference bitset signatures, then join compatible left/right beams and repeat the best core periodically up to `|A|≤512`. Stop at 165 seconds and preserve `sol_0005` as fallback.\n\n## Parent\nsol_0005"
+}

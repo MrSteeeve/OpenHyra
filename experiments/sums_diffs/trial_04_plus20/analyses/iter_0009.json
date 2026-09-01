@@ -1,0 +1,17 @@
+{
+  "iteration": 9,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 4009,
+  "direction": "Run 155-second parallel tempering on sorted gap vectors: represent \\(A\\) by `n=17` gaps in `[1,8]`, use 32 replicas, and mutate one gap or transfer `±1..3` between two gaps while preserving the span range `[25,80]`. Seed one replica from `sol_0001`, initialize the others randomly, score exactly, use seed `4007`, and atomically checkpoint every strict improvement.",
+  "result_id": "sol_0011",
+  "text": "## Analysis\n\nThe completed width-10 fringe sweep finished quickly and never beat the seed, so shallow fringes around a solid interval core are now genuinely refuted, not merely undersampled. Across tabu, beam, tempering, and evolution, `sol_0001` remains a robust local optimum; changing optimizers without changing coordinates has produced only ties or regressions. The next search should abandon both single-element coordinates and dense interval cores, using correlated moves that reshape the set’s entire spacing pattern.\n\n## Next\n\nRun 155-second parallel tempering on sorted gap vectors: represent \\(A\\) by `n=17` gaps in `[1,8]`, use 32 replicas, and mutate one gap or transfer `±1..3` between two gaps while preserving the span range `[25,80]`. Seed one replica from `sol_0001`, initialize the others randomly, score exactly, use seed `4007`, and atomically checkpoint every strict improvement.\n\n## Parent\n\nsol_0001"
+}

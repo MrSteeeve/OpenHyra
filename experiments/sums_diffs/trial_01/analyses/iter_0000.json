@@ -1,0 +1,11 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 1,
+  "direction": "Starting from the seed, run simulated annealing over distinct normalized sets with `n_choices=[16,17,18,19,20,24,32]`, `restarts=64`, `steps_per_restart=20000`, and mutations consisting of one-element replacement, ±1/±2 shifts, insertion, and deletion; score every candidate by exact \\(C(A)\\), retain the global best, and stop at `time_limit=170` seconds.",
+  "result_id": "sol_0001",
+  "text": "## Analysis\n\nThe 17-element seed is sum-dominant: 59 sums versus 55 differences, but its normalized growth rates yield only \\(C=1.059793\\), far below the 1.144887 reference. Thus mere sum-dominance is insufficient; the search must improve the logarithmic ratio, potentially by changing cardinality rather than only maximizing \\(|A+A|-|A-A|\\). With only one evaluated run, no mutation strategy or larger construction has been refuted. Exact enumeration is cheap at \\(n\\le512\\), so the remaining runtime should be spent on objective-directed search.\n\n## Next\n\nStarting from the seed, run simulated annealing over distinct normalized sets with `n_choices=[16,17,18,19,20,24,32]`, `restarts=64`, `steps_per_restart=20000`, and mutations consisting of one-element replacement, ±1/±2 shifts, insertion, and deletion; score every candidate by exact \\(C(A)\\), retain the global best, and stop at `time_limit=170` seconds.\n\n## Parent\n\nsol_0000"
+}

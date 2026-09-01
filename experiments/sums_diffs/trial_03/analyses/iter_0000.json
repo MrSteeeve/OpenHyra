@@ -1,0 +1,11 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 3,
+  "direction": "Starting from the seed, run simulated annealing over distinct normalized sets with `N_MIN=12`, `N_MAX=40`, coordinate range `0..96`, using replace/add/delete mutations with probabilities `0.70/0.15/0.15`, `T0=0.01`, `COOLING=0.99995`, and 32 random restarts. Save every strict incumbent and stop search at `TIME_LIMIT=165` seconds.",
+  "result_id": "sol_0001",
+  "text": "## Analysis\nOnly one attempt exists, so no cross-run pattern is established. It validates the evaluator path and gives a feasible baseline, but the 17-element, span-29 seed reaches only 1.059793—well below the stated 1.144887 reference—so “official SimpleTES seed” is evidently an initializer, not the reference construction. No mutation strategy, larger cardinality, or wider span has yet been tested; thus none is refuted. Since scoring uses exact cardinalities and ignores reported metrics, search should optimize recomputed C directly while preserving the best set continuously.\n\n## Next\nStarting from the seed, run simulated annealing over distinct normalized sets with `N_MIN=12`, `N_MAX=40`, coordinate range `0..96`, using replace/add/delete mutations with probabilities `0.70/0.15/0.15`, `T0=0.01`, `COOLING=0.99995`, and 32 random restarts. Save every strict incumbent and stop search at `TIME_LIMIT=165` seconds.\n\n## Parent\nsol_0000"
+}

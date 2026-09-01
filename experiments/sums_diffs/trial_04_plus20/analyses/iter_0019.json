@@ -1,0 +1,27 @@
+{
+  "iteration": 19,
+  "eb_version": 17,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016"
+  ],
+  "trial_seed": 4019,
+  "direction": "Search periodic lifts \\(A=\\{r+mk:r\\in R,\\ 0\\le k<K\\}\\): deterministically anneal masks \\(R\\subseteq[0,m-1]\\) for `m ∈ {31,47,63,79,95,127}` and `K ∈ {2,3,4,6,8}`, enforcing `32 <= |R|*K <= 512`. Score the resulting integer set exactly, use seed `4017`, preserve `sol_0012` immediately as fallback, checkpoint strict improvements atomically, and stop at 155 seconds.",
+  "result_id": "sol_0019",
+  "text": "## Analysis\n\n`sol_0016` exhaustively tested linear projections and found no improvement, refuting projection slope as the missing leverage. Direct coordinate annealing, symmetry constraints, interval fringes, digit products, and small-set neighborhood searches repeatedly return either the 17-point basin or the tensor parent. The productive feature remains large structured support, but gains now require a different collision mechanism rather than another embedding or subset optimizer. Periodic quotient structure is untested and can force many cross-block differences to share residue classes while boundary carries distinguish sums.\n\n## Next\n\nSearch periodic lifts \\(A=\\{r+mk:r\\in R,\\ 0\\le k<K\\}\\): deterministically anneal masks \\(R\\subseteq[0,m-1]\\) for `m ∈ {31,47,63,79,95,127}` and `K ∈ {2,3,4,6,8}`, enforcing `32 <= |R|*K <= 512`. Score the resulting integer set exactly, use seed `4017`, preserve `sol_0012` immediately as fallback, checkpoint strict improvements atomically, and stop at 155 seconds.\n\n## Parent\n\nsol_0012"
+}

@@ -1,0 +1,12 @@
+{
+  "iteration": 2,
+  "eb_version": 2,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001"
+  ],
+  "trial_seed": 4002,
+  "direction": "Search the structured family \\(A=L\\cup[k,m-k]\\cup(m-R)\\) for `m=30..160`, `k=8..24`, with `L,R ⊆ [0,k-1]`, using a 165-second evolutionary search: population 256, elite 32, tournament size 4, uniform crossover, and fringe-bit mutation probability 0.08. Retain `sol_0001` as the initial checkpoint and score every candidate exactly.",
+  "result_id": "sol_0003",
+  "text": "## Analysis\n\nThe prescribed annealing improved 1.059793 to 1.073430, confirming that exact-score local mutation can strengthen sum dominance, but it recovered only a small fraction of the gap to 1.144887. Despite allowing sizes 12–40, its best remained at n=17, so unconstrained add/delete mutations provided no demonstrated benefit. The 67-sum/61-difference endpoint suggests the main limitation is structural: arbitrary sparse-set mutations rarely coordinate the many additive collisions needed for a large exponent.\n\n## Next\n\nSearch the structured family \\(A=L\\cup[k,m-k]\\cup(m-R)\\) for `m=30..160`, `k=8..24`, with `L,R ⊆ [0,k-1]`, using a 165-second evolutionary search: population 256, elite 32, tournament size 4, uniform crossover, and fringe-bit mutation probability 0.08. Retain `sol_0001` as the initial checkpoint and score every candidate exactly.\n\n## Parent\n\nsol_0001"
+}

@@ -1,0 +1,33 @@
+{
+  "iteration": 22,
+  "eb_version": 23,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016",
+    "sol_0017",
+    "sol_0018",
+    "sol_0019",
+    "sol_0020",
+    "sol_0021",
+    "sol_0022"
+  ],
+  "trial_seed": 5022,
+  "direction": "Starting from the exact sol_0012 set, exhaustively test nonlinear digit maps \\(f_{q,c}(x,y)=x+qy+cxy\\) on its underlying occupied tensor cells for `q=20..80` and `c=-8..8`, deduplicate, retain `2<=n<=512`, and exactly score every image; then spend the remaining 150 seconds annealing `q`, `c`, and 1–3 cell toggles around the best image, atomically checkpointing improvements.",
+  "result_id": "sol_0023",
+  "text": "## Analysis\n\nThe only durable advance is the 277-point tensor-derived incumbent; all fixed-17 local searches plateaued at 1.073430, while interval, affine-copy, symmetric-core, periodic-lift, projection, and deletion variants failed to improve 1.079441. This indicates useful gains come from controlled collisions in a high-dimensional digital construction, not ordinary coordinate tweaks. Projection sweeps refute simple linear re-embedding, but nonlinear carry patterns remain largely unexplored. Recent crashes provide no mathematical evidence.\n\n## Next\n\nStarting from the exact sol_0012 set, exhaustively test nonlinear digit maps \\(f_{q,c}(x,y)=x+qy+cxy\\) on its underlying occupied tensor cells for `q=20..80` and `c=-8..8`, deduplicate, retain `2<=n<=512`, and exactly score every image; then spend the remaining 150 seconds annealing `q`, `c`, and 1–3 cell toggles around the best image, atomically checkpointing improvements.\n\n## Parent\n\nsol_0012"
+}

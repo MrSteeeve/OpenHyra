@@ -1,0 +1,10 @@
+{
+  "schema": "openhyra-feature-program.v1",
+  "features": [
+    {"op": "underlying"},
+    {"op": "square", "arg": {"op": "underlying"}},
+    {"op": "cube", "arg": {"op": "underlying"}},
+    {"op": "intrinsic"},
+    {"op": "exp_neg_abs", "arg": {"op": "subtract", "left": {"op": "underlying"}, "right": {"op": "constant", "value": 1}}}
+  ]
+}

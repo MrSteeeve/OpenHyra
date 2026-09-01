@@ -1,0 +1,18 @@
+{
+  "iteration": 7,
+  "eb_version": 8,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007"
+  ],
+  "trial_seed": 20260729,
+  "direction": "Anneal \\(A=L\\cup[k,N-k]\\cup(N-R)\\), with `N=300..510`, `k=20..100`, and independent masks `L,R ⊆ [0,k-1]`; use exact-score bit flips, swaps, and `N,k` mutations for 170 seconds, retaining the current best as fallback.",
+  "result_id": "sol_0008",
+  "text": "## Analysis\n\n`sol_0007` implemented the proposed periodic multi-mask core and still reproduced `sol_0005`, so periodicity, complementary core masks, and mutable end rows are now jointly saturated. The plateau across three increasingly flexible searches indicates the row-mask representation itself is the bottleneck, not insufficient annealing depth. Since the best gains came from structured long sets but additional periodic freedom failed, the next lineage should switch to a fringe-pair construction: a dense interval core with independently optimized sparse left and reflected right fringes. This directly controls the missing extreme sums and differences, the mechanism that row templates only approximate.\n\n## Next\n\nAnneal \\(A=L\\cup[k,N-k]\\cup(N-R)\\), with `N=300..510`, `k=20..100`, and independent masks `L,R ⊆ [0,k-1]`; use exact-score bit flips, swaps, and `N,k` mutations for 170 seconds, retaining the current best as fallback.\n\n## Parent\n\nsol_0005"
+}

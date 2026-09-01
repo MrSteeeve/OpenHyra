@@ -1,0 +1,13 @@
+{
+  "iteration": 5,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 4005,
+  "direction": "Run a 155-second cross-entropy search on inclusion masks over `[0,63]`: sample 2048 masks per generation with Bernoulli probabilities, keep the best 64 by exact \\(C\\), update probabilities with smoothing `alpha=0.20`, and inject `sol_0001` plus 128 mutations of each elite. Enforce `12 <= n <= 40`, restart probabilities after 25 stagnant generations, and atomically checkpoint every improvement.",
+  "result_id": "sol_0007",
+  "text": "## Analysis\n\nTabu exactly reproduced `sol_0001`, showing the incumbent is a strict or very sticky one-replacement basin; exhaustive local choice and short random kicks add no value there. Together with annealing, this refutes spending another run on fixed-\\(n\\), single-coordinate refinement. The consistent \\(n=17\\), span-33 outcome supports density, but does not establish that 17 is optimal; escaping likely requires coordinated membership changes while retaining collision structure. A distributional search over whole set masks is materially different and can learn correlated dense regions without committing to a prescribed interval-plus-fringe form.\n\n## Next\n\nRun a 155-second cross-entropy search on inclusion masks over `[0,63]`: sample 2048 masks per generation with Bernoulli probabilities, keep the best 64 by exact \\(C\\), update probabilities with smoothing `alpha=0.20`, and inject `sol_0001` plus 128 mutations of each elite. Enforce `12 <= n <= 40`, restart probabilities after 25 stagnant generations, and atomically checkpoint every improvement.\n\n## Parent\n\nsol_0001"
+}

@@ -1,0 +1,31 @@
+{
+  "iteration": 1,
+  "eb_version": 5,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004"
+  ],
+  "trial_seed": 1730,
+  "direction": "Edit only feature_program.json to contain underlying, square(underlying), cube(underlying), intrinsic, and exp_neg_abs(subtract(underlying,constant(1))) as exactly five features.",
+  "decision": {
+    "action": "continue",
+    "analysis": "The baseline exactly reproduced zero, while all four augmented submissions were duplicates and scored -0.000378336. Thus the broad 16-feature bundle reliably hurt this fixed Ridge policy, but its duplicated evaluations provide no feature-level attribution. The likely issue is excess correlated regressors or one harmful transform, not evidence that every nonlinear extension fails. The next experiment should be a strict ablation: retain the four baseline features and add only one bounded, contract-agnostic localization feature around unit moneyness. This isolates whether boundary-local information helps without the conditioning and regularization burden of the full bundle.",
+    "reason": "Only one distinct augmentation has failed, so a controlled single-feature ablation remains unexplored.",
+    "expected_gain": 0.0001,
+    "confidence": 0.25,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "Evaluator returns status=ok and paired_lower_bound_lcb greater than 0.",
+    "next": "Edit only feature_program.json to contain underlying, square(underlying), cube(underlying), intrinsic, and exp_neg_abs(subtract(underlying,constant(1))) as exactly five features."
+  },
+  "result_ids": [
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"The baseline exactly reproduced zero, while all four augmented submissions were duplicates and scored -0.000378336. Thus the broad 16-feature bundle reliably hurt this fixed Ridge policy, but its duplicated evaluations provide no feature-level attribution. The likely issue is excess correlated regressors or one harmful transform, not evidence that every nonlinear extension fails. The next experiment should be a strict ablation: retain the four baseline features and add only one bounded, contract-agnostic localization feature around unit moneyness. This isolates whether boundary-local information helps without the conditioning and regularization burden of the full bundle.\", \"reason\": \"Only one distinct augmentation has failed, so a controlled single-feature ablation remains unexplored.\", \"expected_gain\": 0.0001, \"confidence\": 0.25, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"Evaluator returns status=ok and paired_lower_bound_lcb greater than 0.\", \"next\": \"Edit only feature_program.json to contain underlying, square(underlying), cube(underlying), intrinsic, and exp_neg_abs(subtract(underlying,constant(1))) as exactly five features.\"}"
+}

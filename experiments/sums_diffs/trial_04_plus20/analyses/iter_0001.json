@@ -1,0 +1,12 @@
+{
+  "iteration": 1,
+  "eb_version": 2,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001"
+  ],
+  "trial_seed": 4001,
+  "direction": "Run a 155-second iterated tabu search from `sol_0001` at fixed `n=17`: exhaustively score every one-element replacement with `x in [0,64]`, take the best non-tabu move, and after 20 non-improving moves apply a random two-element replacement. Canonicalize each candidate by translation and gcd, use tabu tenure 50, deterministic seed 5, and checkpoint every improvement.",
+  "result_id": "sol_0002",
+  "text": "## Analysis\n\nThe annealing run improved C from 1.059793 to 1.073430, so structural mutation is validated, but broad restarts still leave a large gap to 1.144887. The winning set remained at n=17 and compressed to span 33 despite searching `[0,127]`, indicating that dense, collision-rich configurations are more promising than large-span exploration. Its sums and differences both increased, but sums gained proportionally more; future search should optimize exact C directly near this basin. The fixed linear cooling and restart budget likely prevented thorough local refinement.\n\n## Next\n\nRun a 155-second iterated tabu search from `sol_0001` at fixed `n=17`: exhaustively score every one-element replacement with `x in [0,64]`, take the best non-tabu move, and after 20 non-improving moves apply a random two-element replacement. Canonicalize each candidate by translation and gcd, use tabu tenure 50, deterministic seed 5, and checkpoint every improvement.\n\n## Parent\n\nsol_0001"
+}

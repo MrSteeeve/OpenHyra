@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-13T17:23:31+0800",
+  "run_id": "bermudan-live-20260813",
+  "task": {
+    "name": "bermudan_optimal_stopping",
+    "protocol": "bermudan-lsmc-feature-ir.v1",
+    "config_sha256": "072fa53d592a4a9bb49d08c657d0b898ef3c136e53552c6f970f2fa082f85cec",
+    "description_sha256": "5604e93fa9645d95ea5be6f8d1390c1228746715971076b6a5b8afef51e47f33",
+    "evaluator_sha256": "a3f257fae27cff7dbdd564c418c795eea7d2a2e9b94fd0d008d5b24251c689c5",
+    "support_sha256": {},
+    "seed_solution_sha256": {
+      "feature_program.json": "253d0c656103918622cd1e7e6d9c8e4c38a3dfcd21dd352c4ba4857ff36052f8",
+      "solve.sh": "a224d7e9db4af1d161c5862080afb7c1cfd24729e0b2cb3d4333c9c07049eeeb"
+    },
+    "formalization": {
+      "config": {},
+      "runner": null
+    }
+  },
+  "source_sha256": {
+    "auditing.py": "f0bcad5b1674a4a5c2488e53391381980a53e0a808c883fedb6a06f364e19377",
+    "context_agent.py": "827d1fd035aa9855f0d1ee0a8cb49081b1c2251a3dad0e7b925d41376074e71c",
+    "eb.py": "24a9ecd9f464d1508166e68b915c335b77921d1414d5d1bca93e2cef943292f4",
+    "external_formal_runner.py": "c5e153df79419eaefc19f7bf5c6a3fbf9c797e4f9a98704f3c1d098ab78b4d39",
+    "harness.py": "e97360b58f163535c802c030aac83008c3351258f53300dfe4d3a627ad2b8f91",
+    "llm_backend.py": "b1deed861744db7c92e79de5ba17bae7dd2c84e0b9008ff513cc7689ea313647",
+    "proposal_agent.py": "e12226d587e4657314dd63faeceef62d69abd5148fd15adac91b2a21544c7f2a",
+    "provenance.py": "f413b10e86580b6ab7ef6d36625c58c1979a23cdba69dcc7329f95eb751ab51e",
+    "reporting.py": "5635d8d57bcb34421a38ad9bfaaaaa0bb3ce5367d180d3b7cd37a7d80287e97a",
+    "sandbox.py": "e097af40615b95c17a19440ef765ec636f91faa90ba64e8a8e49f9ababbd8a15",
+    "stopping.py": "520222a9b85de8d8de403afaaf63b5d9c88e1fbff1dff2c4c5272cca0800f056"
+  },
+  "search": {
+    "backend": "codex",
+    "model": null,
+    "workers": 2,
+    "eval_concurrency": 1,
+    "candidates_per_context": 4,
+    "candidate_repair_attempts": 1,
+    "research_revision_attempts": 0,
+    "trial_seed": 1729,
+    "evaluation_request": {
+      "schema": "openhyra-evaluation-request.v1",
+      "stage": "search",
+      "task": "bermudan_optimal_stopping",
+      "protocol": "bermudan-lsmc-feature-ir.v1",
+      "seed": 8080945822716988079,
+      "suite_id": "bermudan-public-v1",
+      "config": {
+        "direction": "max",
+        "metric": "paired_lower_bound_lcb",
+        "confidence_level": 0.95,
+        "instance_count": 4,
+        "repeats": 2,
+        "training_paths": 1024,
+        "pricing_paths": 2048,
+        "ridge_alpha": 1e-06
+      }
+    }
+  },
+  "evaluation": {
+    "search_request_sha256": "df41ca2006fff1fcfeacd7b9b7ec6bcdc2db540042a33e980d13706d9ef1b08c",
+    "audit_stage": {
+      "suite_id": "bermudan-hidden-v1",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 1e-06
+    },
+    "audit_seed_strategy": "secrets.randbits(63)-after-top-k-freeze"
+  },
+  "limits": {
+    "candidate_timeout_s": 10,
+    "max_memory_mb": 512,
+    "max_output_mb": 8,
+    "max_artifact_bytes": 65536,
+    "evaluator_timeout_s": 120,
+    "evaluator_max_memory_mb": 2048
+  },
+  "stopping_policy": {
+    "enabled": false,
+    "min_contexts_before_stop": 6,
+    "stop_patience": 4,
+    "meaningful_delta": 0.0001,
+    "recent_window": 4,
+    "min_successful_candidates": 4
+  },
+  "git": {
+    "commit": "4616deb371c701e60f62cc02abf51fa178b6bfaa",
+    "dirty": true,
+    "dirty_state_sha256": "14071ae2df822f7c6a57be130fa484b5efd93b5ba11957cfba2806dafe3d16e0"
+  },
+  "environment": {
+    "python": "3.12.6 (v3.12.6:a4a2d2b0d85, Sep  6 2024, 16:08:03) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "backend_cli": "codex-cli 0.146.0"
+  },
+  "initial_invocation": [
+    "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+    "harness.py",
+    "--task",
+    "bermudan_optimal_stopping",
+    "--run-id",
+    "bermudan-live-20260813",
+    "--init",
+    "--backend",
+    "codex",
+    "--workers",
+    "2",
+    "--trial-seed",
+    "1729"
+  ],
+  "manifest_sha256": "8a0440805bdb92c2d438e18ec48f0ad2b21bfbb2b2e08fe7822561cd2bc9827f"
+}

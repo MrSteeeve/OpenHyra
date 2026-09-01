@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "task": "sums_diffs",
+  "protocol": "simpletes-sums-diffs-v1",
+  "run_id": "seed_bestof4_20",
+  "started_at": "2026-07-22T10:51:31+0800",
+  "finished_at": "2026-07-22T13:19:35+0800",
+  "trial_seed": 20260722,
+  "backend": "codex",
+  "model": "gpt-5.6-sol",
+  "workers": 4,
+  "eval_concurrency": 2,
+  "max_inflight": 1,
+  "candidates_per_context": 4,
+  "task_config_sha256": "d0e65f326b4a2ed804ca1fbed43ba25beb9f2a3191f586920caf6d808be89c0f",
+  "task_description_sha256": "d1af80db24c04543e7f1854d5568aa005b942d37bfb72d04099d0f332376c07b",
+  "evaluator_sha256": "015e7039895dc4def4b0a2424786e412aa5fc232260a32e4fb3966be452d72ce",
+  "git": {
+    "commit": "2ae8b791fed941834aa2536410107469ddbf3e14",
+    "dirty": true
+  },
+  "environment": {
+    "python": "3.12.6 (v3.12.6:a4a2d2b0d85, Sep  6 2024, 16:08:03) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "numpy": "2.4.0",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "backend_cli": "codex-cli 0.144.6"
+  },
+  "record_count": 21
+}

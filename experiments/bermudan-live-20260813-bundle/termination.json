@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-13T17:28:15+0800",
+  "reason": "final_audit_complete",
+  "terminal": true,
+  "requested_by": "user",
+  "accepted_by": "harness",
+  "search_termination": {
+    "schema_version": 1,
+    "created_at": "2026-08-13T17:28:05+0800",
+    "reason": "iteration_limit",
+    "terminal": false,
+    "requested_by": "harness",
+    "accepted_by": "harness",
+    "run_id": "bermudan-live-20260813",
+    "requested_iterations": 1,
+    "completed_contexts": 2,
+    "candidate_attempts": 8,
+    "best_id": "sol_0000",
+    "best_score": 0.0,
+    "contexts_since_meaningful_improvement": 2,
+    "stopping_policy": {
+      "enabled": false,
+      "min_contexts_before_stop": 6,
+      "stop_patience": 4,
+      "meaningful_delta": 0.0001,
+      "recent_window": 4,
+      "min_successful_candidates": 4
+    },
+    "evidence": {
+      "completed_contexts": 2,
+      "incomplete_contexts": [],
+      "contexts_since_meaningful_improvement": 2,
+      "meaningful_delta": 0.0001,
+      "recent_window": 4,
+      "recent_candidate_count": 8,
+      "recent_successful_candidates": 8,
+      "recent_duplicate_candidates": 6,
+      "recent_duplicate_rate": 0.75,
+      "covered_direction_count": 2,
+      "best_score": 0.0,
+      "context_improvements": [
+        {
+          "iteration": 0,
+          "best_score": -0.00037833640860122366,
+          "improvement": 0.0,
+          "cumulative_gain": 0.0,
+          "meaningful": false
+        },
+        {
+          "iteration": 1,
+          "best_score": -0.00019661663388005268,
+          "improvement": 0.0,
+          "cumulative_gain": 0.0,
+          "meaningful": false
+        }
+      ],
+      "required_formal_claim_templates": [],
+      "formal_complete_records": [],
+      "formal_complete_targets": {},
+      "proof_complete": true
+    }
+  },
+  "prior_termination_reason": "iteration_limit",
+  "final_audit_status": "complete",
+  "final_audit_payload_sha256": "741859a8795b90f35c7ff74e63116d912c2ca38ac486042e637dd655c4f7741e",
+  "final_audit_file_sha256": "38863f1d84aa5b8593f9e45e5426b5a01725fcc883276c882551693f369c4e65",
+  "audit_seed_commitment": "d7eb200f4bd76f9bacf84bf0a946faf7674999a0aaf5d76fc2c78c762e311d93",
+  "freeze_manifest_sha256": "a08776caa8171e8406a8c68bd3f53c840666906acad55cc89c14f823e06f2fba",
+  "audit_winner_id": "sol_0000",
+  "audit_winner_score": 0.13355376016421436
+}

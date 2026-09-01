@@ -1,0 +1,15 @@
+{
+  "iteration": 7,
+  "eb_version": 5,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004"
+  ],
+  "trial_seed": 4007,
+  "direction": "Run a fixed-\\(n=17\\) exhaustive 2-for-2 exchange search from `sol_0001`: for every removed pair, test every inserted pair from `[0,96]` using bitset cardinalities, retain the best 32 distinct candidates, and repeat for up to 155 seconds. Permit score-neutral moves with unseen canonical sets to traverse plateaus, use seed `4005`, and atomically checkpoint every strict improvement.",
+  "result_id": "sol_0008",
+  "text": "## Analysis\n\nTabu and destroy–repair beam search both returned exactly `sol_0001`, so the incumbent is robust beyond ordinary one-coordinate moves; greedy reconstruction after removing up to five elements still falls back into the same basin. The evolutionary run regressed to the original seed, showing that mask crossover destroys useful arithmetic collision structure faster than selection can recover it. What remains untested is exhaustive simultaneous exchange: a beneficial pair replacement may require passing through candidates whose individual insertions look worse and are therefore pruned by the beam.\n\n## Next\n\nRun a fixed-\\(n=17\\) exhaustive 2-for-2 exchange search from `sol_0001`: for every removed pair, test every inserted pair from `[0,96]` using bitset cardinalities, retain the best 32 distinct candidates, and repeat for up to 155 seconds. Permit score-neutral moves with unseen canonical sets to traverse plateaus, use seed `4005`, and atomically checkpoint every strict improvement.\n\n## Parent\n\nsol_0001"
+}

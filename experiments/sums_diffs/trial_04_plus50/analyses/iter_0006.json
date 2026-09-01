@@ -1,0 +1,14 @@
+{
+  "iteration": 6,
+  "eb_version": 4,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003"
+  ],
+  "trial_seed": 4006,
+  "direction": "Exhaustively enumerate all endpoint-containing fringe pairs `L,R ⊆ [0,9]` for sets `A=L ∪ [10,m-10] ∪ (m-R)`, sweeping `m=20..160`; precompute fringe sum/difference bitmasks and derive exact cardinalities efficiently. Initialize and atomically checkpoint `sol_0001`, stopping at 165 seconds if enumeration is incomplete.",
+  "result_id": "sol_0006",
+  "text": "## Analysis\n\nThe structured evolutionary run regressed to `sol_0000`, so it neither validated the fringe family nor reliably preserved the requested `sol_0001` checkpoint. Together with tabu’s exact tie, the evidence now shows that stochastic selection and single-coordinate neighborhoods are both ineffective here; however, structured interval-plus-fringe constructions remain unrefuted because only one heuristic sampled them. The next useful test should remove mutation luck and evaluate a complete, tractable fringe space while guaranteeing incumbent retention.\n\n## Next\n\nExhaustively enumerate all endpoint-containing fringe pairs `L,R ⊆ [0,9]` for sets `A=L ∪ [10,m-10] ∪ (m-R)`, sweeping `m=20..160`; precompute fringe sum/difference bitmasks and derive exact cardinalities efficiently. Initialize and atomically checkpoint `sol_0001`, stopping at 165 seconds if enumeration is incomplete.\n\n## Parent\n\nsol_0001"
+}

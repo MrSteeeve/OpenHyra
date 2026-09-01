@@ -1,0 +1,24 @@
+{
+  "iteration": 13,
+  "eb_version": 14,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013"
+  ],
+  "trial_seed": 20260735,
+  "direction": "Run a deterministic island genetic search over normalized sets \\(A\\subset[0,120]\\), with \\(8\\le n\\le40\\): 16 islands, population 128, tournament selection, union/intersection and aligned-cut crossover, plus 1–4 add/delete/swap mutations; migrate elites every 200 generations for 170 seconds. Score exactly, retain diverse elites by `(n, sums, diffs)`, and emit `sol_0005` unless improved.",
+  "result_id": "sol_0014",
+  "text": "## Analysis\n`sol_0013` directly tested the previously proposed dense-middle construction and failed, so guaranteed full intervals with independently annealed fringes are not the missing ingredient at the tested scale. Together with `sol_0001`–`sol_0003`, the evidence suggests local annealing rapidly converges to representation-specific basins; adding fringe, radix, carry, or hierarchy flexibility does not provide useful escape. The reference gap likely requires discovering a qualitatively different small template before scaling, rather than further optimizing the 405-element periodic parent.\n\n## Next\nRun a deterministic island genetic search over normalized sets \\(A\\subset[0,120]\\), with \\(8\\le n\\le40\\): 16 islands, population 128, tournament selection, union/intersection and aligned-cut crossover, plus 1–4 add/delete/swap mutations; migrate elites every 200 generations for 170 seconds. Score exactly, retain diverse elites by `(n, sums, diffs)`, and emit `sol_0005` unless improved.\n\n## Parent\nsol_0005"
+}

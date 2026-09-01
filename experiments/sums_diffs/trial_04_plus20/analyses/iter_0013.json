@@ -1,0 +1,21 @@
+{
+  "iteration": 13,
+  "eb_version": 11,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010"
+  ],
+  "trial_seed": 4013,
+  "direction": "Enumerate carry-interacting digit products \\(A=A_1+qB\\), where \\(A_1\\) is the exact `sol_0001` set, `q=2..40`, and `B` ranges over every mask in `[0,15]` with `2<=|B|<=12`; deduplicate and score each resulting set exactly. Immediately write and verify the `sol_0001` fallback, atomically checkpoint improvements, and stop at 165 seconds.",
+  "result_id": "sol_0013",
+  "text": "## Analysis\n\nThe complete three-interval sweep found nothing above even the original seed, so normalized unions of three dense intervals in `[0,48]` are refuted. More importantly, `sol_0010` returned `sol_0000` despite claiming to checkpoint `sol_0001`; incumbent preservation remains unreliable and must be verified from the actual hard-coded list. Generic local methods repeatedly converge to `sol_0001`, while dense-core variants underperform, pointing toward structured digit constructions with controlled sum/difference collisions.\n\n## Next\n\nEnumerate carry-interacting digit products \\(A=A_1+qB\\), where \\(A_1\\) is the exact `sol_0001` set, `q=2..40`, and `B` ranges over every mask in `[0,15]` with `2<=|B|<=12`; deduplicate and score each resulting set exactly. Immediately write and verify the `sol_0001` fallback, atomically checkpoint improvements, and stop at 165 seconds.\n\n## Parent\n\nsol_0001"
+}

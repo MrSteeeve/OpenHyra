@@ -1,0 +1,25 @@
+{
+  "iteration": 14,
+  "eb_version": 15,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014"
+  ],
+  "trial_seed": 20260736,
+  "direction": "Exhaustively enumerate every normalized set \\(A\\subseteq[0,20]\\) with \\(0,20\\in A\\) and \\(6\\le|A|\\le18\\), computing exact bitset sum/difference counts. Retain the Pareto frontier by `(n, sums, diffs)`, then test carry-free mixed-radix products and one-coordinate deletions up to 512 elements; use radix `2*span+1`, stop at 165 seconds, and emit the incumbent unless improved.",
+  "result_id": "sol_0015",
+  "text": "## Analysis\n`sol_0014` refutes the proposed normalized-set island GA: even broad crossover, migration, and diversity retention could not surpass the periodic parent. Across nine distinct encodings, stochastic population and annealing methods repeatedly return the same incumbent, so additional heuristic flexibility is unlikely to matter. The unresolved weakness is lack of certified coverage: no run systematically enumerated small affine-normalized templates. A complete small-domain Pareto census can determine whether promising seeds are being missed before any scaling construction is attempted.\n\n## Next\nExhaustively enumerate every normalized set \\(A\\subseteq[0,20]\\) with \\(0,20\\in A\\) and \\(6\\le|A|\\le18\\), computing exact bitset sum/difference counts. Retain the Pareto frontier by `(n, sums, diffs)`, then test carry-free mixed-radix products and one-coordinate deletions up to 512 elements; use radix `2*span+1`, stop at 165 seconds, and emit the incumbent unless improved.\n\n## Parent\nsol_0005"
+}

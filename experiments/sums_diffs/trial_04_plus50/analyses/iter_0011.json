@@ -1,0 +1,19 @@
+{
+  "iteration": 11,
+  "eb_version": 9,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008"
+  ],
+  "trial_seed": 4011,
+  "direction": "Form the carry-free tensor square \\(T=\\{a+67b:a,b\\in A_1\\}\\) of `sol_0001` (289 points), then run 155-second simulated annealing over subsets of \\(T\\), toggling 1–4 points per move with \\(64\\le n\\le289\\). Use 24 replicas, temperatures `1e-5..0.02`, seed `4008`, exact bitset scoring, replica swaps every 200 moves, and atomic strict-improvement checkpoints.",
+  "result_id": "sol_0012",
+  "text": "## Analysis\n\nExhaustive 2-for-2 exchange also returned `sol_0001`, strengthening the conclusion that the 17-point incumbent is a deep local optimum, not merely resistant to single-coordinate or greedy repair moves. Neutral plateau traversal did not unlock a better basin. The endpoint-fringe sweep’s regression further refutes that restricted low-width fringe parameterization. Across tabu, tempering, cross-entropy, beam, and evolutionary searches, the persistent failure is overcommitment to small sets and nearby coordinate representations; a larger, collision-preserving construction is now needed.\n\n## Next\n\nForm the carry-free tensor square \\(T=\\{a+67b:a,b\\in A_1\\}\\) of `sol_0001` (289 points), then run 155-second simulated annealing over subsets of \\(T\\), toggling 1–4 points per move with \\(64\\le n\\le289\\). Use 24 replicas, temperatures `1e-5..0.02`, seed `4008`, exact bitset scoring, replica swaps every 200 moves, and atomic strict-improvement checkpoints.\n\n## Parent\n\nsol_0001"
+}

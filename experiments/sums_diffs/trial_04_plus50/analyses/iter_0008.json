@@ -1,0 +1,16 @@
+{
+  "iteration": 8,
+  "eb_version": 6,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005"
+  ],
+  "trial_seed": 4008,
+  "direction": "Run a 160-second simulated-annealing search over sets \\(A=L\\cup[w,m-w]\\cup(m-R)\\), with `w ∈ [12,40]`, `m ∈ [2*w,240]`, and independent fringe masks `L,R ⊆ [0,w-1]`. Mutate 1–4 fringe bits 80% of the time and `(w,m)` 20%, maintain 32 replicas, score by exact enumeration, seed with `sol_0001` encoded when possible, and atomically checkpoint every strict improvement.",
+  "result_id": "sol_0009",
+  "text": "## Analysis\n\nFour materially different searches all returned the same \\(n=17\\) incumbent or regressed to the seed. This refutes the idea that temperature schedules, tabu memory, crossover, or 3–5-element destruction alone can escape the current basin. The repeated failure across size-changing searches also suggests unstructured coordinates are the wrong representation, not that \\(n=17\\) is optimal. Progress now requires searching a construction family where a dense core automatically suppresses differences while asymmetric fringes create excess sums.\n\n## Next\n\nRun a 160-second simulated-annealing search over sets \\(A=L\\cup[w,m-w]\\cup(m-R)\\), with `w ∈ [12,40]`, `m ∈ [2*w,240]`, and independent fringe masks `L,R ⊆ [0,w-1]`. Mutate 1–4 fringe bits 80% of the time and `(w,m)` 20%, maintain 32 replicas, score by exact enumeration, seed with `sol_0001` encoded when possible, and atomically checkpoint every strict improvement.\n\n## Parent\n\nsol_0001"
+}

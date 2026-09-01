@@ -1,0 +1,24 @@
+{
+  "iteration": 16,
+  "eb_version": 14,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013"
+  ],
+  "trial_seed": 4016,
+  "direction": "Starting from the exact `sol_0012` set, run a deterministic marginal-deletion beam search from `n=277` down to `n=32`, maintaining exact sum/difference multiplicities, beam width `16`, and retaining the best distinct children by exact \\(C(A)\\) at every size. Use the remaining time for single-swap repair over coordinates `[0,2244]`, checkpoint every strict improvement atomically, and stop at 165 seconds.",
+  "result_id": "sol_0018",
+  "text": "## Analysis\n\nThe carry-interacting digit sweep underperformed both `sol_0001` and `sol_0012`, refuting small-base products with a tiny second digit set as the missing mechanism. Across runs, large structured subsets remain the only lineage that improved the frontier: `sol_0012` reached 1.07944, while fixed-size local search repeatedly stalled at 1.07343. Its 277-point support is therefore likely overcomplete; systematic compression may reveal a stronger embedded subset that toggle-based annealing rarely reaches.\n\n## Next\n\nStarting from the exact `sol_0012` set, run a deterministic marginal-deletion beam search from `n=277` down to `n=32`, maintaining exact sum/difference multiplicities, beam width `16`, and retaining the best distinct children by exact \\(C(A)\\) at every size. Use the remaining time for single-swap repair over coordinates `[0,2244]`, checkpoint every strict improvement atomically, and stop at 165 seconds.\n\n## Parent\n\nsol_0012"
+}

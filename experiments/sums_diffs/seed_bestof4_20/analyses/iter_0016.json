@@ -1,0 +1,27 @@
+{
+  "iteration": 16,
+  "eb_version": 17,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016"
+  ],
+  "trial_seed": 20260738,
+  "direction": "Represent `sol_0005` as width-4 rows and perform deterministic block coordinate ascent: exhaust all `2^16` masks for each contiguous 4-row block within the first and last 24 rows, using exact bitset scoring, alternating left/right sweeps and offsets `0..3` until no improvement or 165 seconds. Preserve the incumbent as fallback.",
+  "result_id": "sol_0017",
+  "text": "## Analysis\nThe 20,000-state bidirectional beam failed despite directly targeting coordinated fringes, so beam width alone is not the bottleneck. Its pruning criterion likely discarded partial masks whose advantage appears only after several adjacent rows are completed; exact boundary signatures do not make partial score a reliable dominance rule. Across runs, the stable periodic core remains valuable, while stochastic, evolutionary, product, and incremental-extension searches have all failed. The remaining tractable gap is deterministic multi-row neighborhood optimization around the incumbent, capable of crossing barriers that require simultaneous changes.\n\n## Next\nRepresent `sol_0005` as width-4 rows and perform deterministic block coordinate ascent: exhaust all `2^16` masks for each contiguous 4-row block within the first and last 24 rows, using exact bitset scoring, alternating left/right sweeps and offsets `0..3` until no improvement or 165 seconds. Preserve the incumbent as fallback.\n\n## Parent\nsol_0005"
+}

@@ -1,0 +1,11 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 20260722,
+  "direction": "Implement simulated annealing over subsets of `[0,80]`, initialized from the normalized `sol_0000`; run 32 restarts for 170 seconds, using add/delete/swap moves, temperature `T=0.02*(1-t/170)`, and enforce `8 <= n <= 40`, emitting the highest exact C(A) found.",
+  "result_id": "sol_0001",
+  "text": "## Analysis\nThe sole run is valid but far below the 1.144887 reference. Its dense, symmetric-looking 17-point pattern achieves only a small raw advantage (59 sums versus 55 differences), and the logarithmic normalization reduces this to 1.059793. No mutation strategy has yet been tested, so nothing about nearby improvements is refuted. Pure affine transformations or collision-free digit products of this seed cannot improve C(A), since they preserve the relevant cardinalities or exponent ratio.\n\n## Next\nImplement simulated annealing over subsets of `[0,80]`, initialized from the normalized `sol_0000`; run 32 restarts for 170 seconds, using add/delete/swap moves, temperature `T=0.02*(1-t/170)`, and enforce `8 <= n <= 40`, emitting the highest exact C(A) found.\n\n## Parent\nsol_0000"
+}

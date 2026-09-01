@@ -1,0 +1,23 @@
+{
+  "iteration": 15,
+  "eb_version": 13,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012"
+  ],
+  "trial_seed": 4015,
+  "direction": "Decode `sol_0012` as supported pairs `(a,b)` with `z=a+67b`; exhaustively score projections `A_{u,v}={u*a+v*b}` for coprime `1<=u,v<=48`. Starting from the best projection, use the remaining 150-second budget for deterministic simulated annealing over the full 289-cell support, toggling 1–3 cells with `64<=|A|<=289`, seed `4012`, exact scoring, and atomic checkpoints.",
+  "result_id": "sol_0016",
+  "text": "## Analysis\n\n`sol_0012` is the first clear gain beyond the 17-point basin: selective pruning of a carry-free tensor square raised the exponent from 1.073430 to 1.079441. This confirms that large structured supports are productive, but the modest gain suggests subset selection alone cannot overcome the tensor product’s inherited collision ratios. The next leverage point is therefore the encoding map: controlled carries may merge differences more aggressively than sums while retaining the favorable sparse tensor support.\n\n## Next\n\nDecode `sol_0012` as supported pairs `(a,b)` with `z=a+67b`; exhaustively score projections `A_{u,v}={u*a+v*b}` for coprime `1<=u,v<=48`. Starting from the best projection, use the remaining 150-second budget for deterministic simulated annealing over the full 289-cell support, toggling 1–3 cells with `64<=|A|<=289`, seed `4012`, exact scoring, and atomic checkpoints.\n\n## Parent\n\nsol_0012"
+}

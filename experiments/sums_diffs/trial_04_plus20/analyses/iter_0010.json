@@ -1,0 +1,18 @@
+{
+  "iteration": 10,
+  "eb_version": 8,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007"
+  ],
+  "trial_seed": 4010,
+  "direction": "Exhaustively enumerate every normalized union of three nonempty integer intervals \\(A=[0,b_1]\\cup[a_2,b_2]\\cup[a_3,b_3]\\subseteq[0,48]\\), using integer bitsets for exact sum/difference cardinalities. Initialize `solution.json` with hard-coded `sol_0001`, checkpoint strict improvements atomically, and stop at 165 seconds.",
+  "result_id": "sol_0010",
+  "text": "## Analysis\n\n`sol_0006` completed in only 15 seconds yet returned the original seed, so the fully dense-middle, width-10 fringe family is now effectively refuted rather than merely undersampled. `sol_0007` again converged exactly to `sol_0001`; together with tabu, beam search, tempering, and cross-entropy, this shows the incumbent is a broad attractor for generic stochastic or local searches. Progress now requires a deterministic search over a materially different structural family. Also, `sol_0006` failed to retain the designated parent, so future solvers must hard-code and immediately checkpoint `sol_0001`.\n\n## Next\n\nExhaustively enumerate every normalized union of three nonempty integer intervals \\(A=[0,b_1]\\cup[a_2,b_2]\\cup[a_3,b_3]\\subseteq[0,48]\\), using integer bitsets for exact sum/difference cardinalities. Initialize `solution.json` with hard-coded `sol_0001`, checkpoint strict improvements atomically, and stop at 165 seconds.\n\n## Parent\n\nsol_0001"
+}

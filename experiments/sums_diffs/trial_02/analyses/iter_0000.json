@@ -1,0 +1,11 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 2,
+  "direction": "Run simulated annealing from the current seed with `MAX_SPAN=64`, `RESTARTS=32`, `TIME_LIMIT=165`, and mutations chosen equally among add, delete, and swap; accept by exact \\(C(A)\\) with temperature cooling from `T0=0.02` to `TMIN=1e-5`, and always emit the global best.",
+  "result_id": "sol_0001",
+  "text": "## Analysis\n\nThe lone run is valid and mildly sum-dominant: 59 sums versus 55 differences at \\(n=17\\), yielding 1.059793. It is well below 1.144887, so the provided “SimpleTES seed” is only a starting point, not the reference construction itself. Translation, reflection, or nonzero scaling cannot change the score; improvement must come from membership changes. With 17 points in span 29, the promising search space is nearby dense subsets, including variable-size add/delete moves rather than coordinate rescaling.\n\n## Next\n\nRun simulated annealing from the current seed with `MAX_SPAN=64`, `RESTARTS=32`, `TIME_LIMIT=165`, and mutations chosen equally among add, delete, and swap; accept by exact \\(C(A)\\) with temperature cooling from `T0=0.02` to `TMIN=1e-5`, and always emit the global best.\n\n## Parent\n\nsol_0000"
+}

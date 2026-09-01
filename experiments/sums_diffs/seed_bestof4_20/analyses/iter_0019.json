@@ -1,0 +1,30 @@
+{
+  "iteration": 19,
+  "eb_version": 20,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016",
+    "sol_0017",
+    "sol_0018",
+    "sol_0019"
+  ],
+  "trial_seed": 20260741,
+  "direction": "Run an exact-score beam search over piecewise-periodic constructions with `modulus=5..8`, `segments=3`, `segment_rows=12..48`, and independently chosen nonempty residue masks; retain `beam_width=2000` after each segment, then greedily coordinate-polish `boundary_rows=8` and all two segment junctions until `time_limit=165`. Include the incumbent as mandatory fallback.",
+  "result_id": "sol_0020",
+  "text": "## Analysis\n\nThe exhaustive modulus-5-to-12 census closes the structural gap identified previously: no uniform periodic residue core in that range, even with twelve optimized boundary rows per side, beats the width-4 incumbent. Combined with failures of phase transitions, block ascent, arbitrary grids, and stochastic multi-level masks, the evidence points to the repeated core itself—not insufficient fringe search—as the limiting factor. Further endpoint polishing or single-mask modulus sweeps are unlikely to help. A remaining unrefuted family is a genuinely heterogeneous core comprising several long periodic segments with different masks.\n\n## Next\n\nRun an exact-score beam search over piecewise-periodic constructions with `modulus=5..8`, `segments=3`, `segment_rows=12..48`, and independently chosen nonempty residue masks; retain `beam_width=2000` after each segment, then greedily coordinate-polish `boundary_rows=8` and all two segment junctions until `time_limit=165`. Include the incumbent as mandatory fallback.\n\n## Parent\n\nsol_0005"
+}

@@ -1,0 +1,12 @@
+{
+  "iteration": 1,
+  "eb_version": 2,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001"
+  ],
+  "trial_seed": 20260723,
+  "direction": "Run 4 annealing restarts for 170 seconds on subsets of `[0,120]`, seeded from `sol_0001` plus random perturbations, enforcing `12 <= n <= 64`. Use exact-score acceptance with `T=0.015*(1-t/170)+0.0002` and compound symmetric-difference moves flipping `k∈{1,2,3,4,6,8}` positions, selecting `k>1` with probability 0.45; always emit the best set found.",
+  "result_id": "sol_0002",
+  "text": "## Analysis\nThe annealer improved the seed only marginally (1.059793→1.062099), despite nearly exhausting the timeout. The winner retains conspicuous translated blocks, suggesting useful additive structure, but single-element add/delete/swap moves trapped the search behind multi-bit barriers. Thirty-two restarts also left only about five seconds per trajectory, limiting refinement. Thus small-subset search on `[0,80]` is not refuted, but short independent runs and purely local moves are. The best lineage is `sol_0001`.\n\n## Next\nRun 4 annealing restarts for 170 seconds on subsets of `[0,120]`, seeded from `sol_0001` plus random perturbations, enforcing `12 <= n <= 64`. Use exact-score acceptance with `T=0.015*(1-t/170)+0.0002` and compound symmetric-difference moves flipping `k∈{1,2,3,4,6,8}` positions, selecting `k>1` with probability 0.45; always emit the best set found.\n\n## Parent\nsol_0001"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "openhyra-feature-program.v1",
+  "features": [
+    {"op": "underlying"},
+    {"op": "square", "arg": {"op": "underlying"}},
+    {"op": "cube", "arg": {"op": "underlying"}},
+    {"op": "intrinsic"},
+    {"op": "time"},
+    {"op": "time_to_maturity"},
+    {"op": "square", "arg": {"op": "intrinsic"}},
+    {"op": "sqrt_abs", "arg": {"op": "intrinsic"}},
+    {"op": "exp_neg_abs", "arg": {"op": "intrinsic"}},
+    {"op": "multiply", "left": {"op": "intrinsic"}, "right": {"op": "time_to_maturity"}},
+    {"op": "multiply", "left": {"op": "underlying"}, "right": {"op": "time"}},
+    {"op": "multiply", "left": {"op": "square", "arg": {"op": "underlying"}}, "right": {"op": "time_to_maturity"}},
+    {"op": "subtract", "left": {"op": "underlying"}, "right": {"op": "constant", "value": 1}},
+    {"op": "abs", "arg": {"op": "subtract", "left": {"op": "underlying"}, "right": {"op": "constant", "value": 1}}},
+    {"op": "square", "arg": {"op": "subtract", "left": {"op": "underlying"}, "right": {"op": "constant", "value": 1}}},
+    {"op": "exp_neg_abs", "arg": {"op": "subtract", "left": {"op": "underlying"}, "right": {"op": "constant", "value": 1}}}
+  ]
+}

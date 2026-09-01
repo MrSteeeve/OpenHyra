@@ -1,0 +1,13 @@
+{
+  "iteration": 2,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 20260724,
+  "direction": "Search sets `A={12r+b : (r,b) selected}` with `0<=r<R`, `0<=b<12`, using `R∈[3,40]`, `2<=|B_r|<=10`, and mutations that copy, delete, shift, or replace entire row masks; run 12 simulated-annealing restarts for 170 seconds, seeded by the row masks of `sol_0001`, and retain the exact-score best with `|A|<=512`.",
+  "result_id": "sol_0003",
+  "text": "## Analysis\n\nThe prescribed compound-move search on `[0,120]` exactly reproduced `sol_0001`, so broader coordinates, four long trajectories, and multi-bit flips did not overcome the basin; generic subset annealing is now strongly disfavored. The winner has a sharper structure: four translated copies of `{0,1,2,4,5}` at offsets `0,12,24,36`, plus `{9,21,33}`. This near-Cartesian block pattern suggests searching a low-dimensional union-of-translates family, where coordinated changes preserve additive collisions, rather than flipping unrelated integers.\n\n## Next\n\nSearch sets `A={12r+b : (r,b) selected}` with `0<=r<R`, `0<=b<12`, using `R∈[3,40]`, `2<=|B_r|<=10`, and mutations that copy, delete, shift, or replace entire row masks; run 12 simulated-annealing restarts for 170 seconds, seeded by the row masks of `sol_0001`, and retain the exact-score best with `|A|<=512`.\n\n## Parent\n\nsol_0001"
+}

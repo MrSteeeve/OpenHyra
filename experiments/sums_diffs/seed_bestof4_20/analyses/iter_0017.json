@@ -1,0 +1,28 @@
+{
+  "iteration": 17,
+  "eb_version": 18,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016",
+    "sol_0017"
+  ],
+  "trial_seed": 20260739,
+  "direction": "Search piecewise-periodic width-4 constructions with `rows=80..128`, one change point `t`, and independently chosen nonempty core masks `m1,m2 in 1..15`; exhaust `(rows,t,m1,m2)` and optimize the first/last `boundary_rows=8` by deterministic coordinate sweeps over whole-row masks. Score exactly, enforce `n<=512`, stop at 165 seconds, and retain the incumbent fallback.",
+  "result_id": "sol_0018",
+  "text": "## Analysis\nExhausting every 16-bit four-row fringe block found no improvement and finished quickly, establishing that the incumbent is locally optimal under all contiguous changes of that scale. Combined with failed fringe beams and stochastic boundary searches, this refutes the premise that better endpoint masks alone are sufficient. The repeated width-4 core itself is now the likely bottleneck: improvement probably requires a coordinated phase or residue-pattern transition spanning many interior rows, while retaining optimized endcaps.\n\n## Next\nSearch piecewise-periodic width-4 constructions with `rows=80..128`, one change point `t`, and independently chosen nonempty core masks `m1,m2 in 1..15`; exhaust `(rows,t,m1,m2)` and optimize the first/last `boundary_rows=8` by deterministic coordinate sweeps over whole-row masks. Score exactly, enforce `n<=512`, stop at 165 seconds, and retain the incumbent fallback.\n\n## Parent\nsol_0005"
+}

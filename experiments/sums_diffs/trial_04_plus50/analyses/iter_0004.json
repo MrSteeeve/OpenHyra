@@ -1,0 +1,12 @@
+{
+  "iteration": 4,
+  "eb_version": 2,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001"
+  ],
+  "trial_seed": 4004,
+  "direction": "Run a 155-second parallel-tempering search with 24 replicas, geometrically spaced temperatures from `0.0001` to `0.05`, `12 <= n <= 32`, and coordinates in `[0,160]`. Use exact scoring, replica swaps every 200 proposals, and mutations comprising single replacement 35%, replacing 2–4 elements 40%, shifting or reflecting a random subset 15%, and add/delete 10%; canonicalize by translation and gcd and checkpoint every improvement.",
+  "result_id": "sol_0005",
+  "text": "## Analysis\n\nThe 160-second annealing run improved the exponent by 0.013637, with sums increasing from 59 to 67 while differences rose only from 55 to 61. However, it finished at the original size \\(n=17\\), suggesting its add/delete moves did not discover a superior size regime. The remaining 0.071457 gap to the reference indicates that short independent restarts and mostly single-element mutations are insufficient; coordinated moves and sustained exchange between exploratory and exploitative searches are now justified.\n\n## Next\n\nRun a 155-second parallel-tempering search with 24 replicas, geometrically spaced temperatures from `0.0001` to `0.05`, `12 <= n <= 32`, and coordinates in `[0,160]`. Use exact scoring, replica swaps every 200 proposals, and mutations comprising single replacement 35%, replacing 2–4 elements 40%, shifting or reflecting a random subset 15%, and add/delete 10%; canonicalize by translation and gcd and checkpoint every improvement.\n\n## Parent\n\nsol_0001"
+}

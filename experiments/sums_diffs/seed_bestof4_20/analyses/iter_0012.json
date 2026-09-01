@@ -1,0 +1,23 @@
+{
+  "iteration": 12,
+  "eb_version": 13,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012"
+  ],
+  "trial_seed": 20260734,
+  "direction": "Search sets \\(A=L\\cup[k,m-k]\\cup(m-R)\\) for \\(m\\in\\{80,120,160,240\\}\\), \\(k\\in\\{12,16,24,32\\}\\), with independent \\(k\\)-bit masks \\(L,R\\), using 32 deterministic annealing restarts, single/paired flips and fringe-block swaps for 170 seconds. Score exactly and emit `sol_0005` unless improved.",
+  "result_id": "sol_0013",
+  "text": "## Analysis\n\n`sol_0012` refutes the proposed three-level conditional-mask family: 12,843 generations produced no improvement, so neither carry-free grids nor hierarchical digit conditioning escapes the `sol_0005` basin. Across eight consecutive failures, increasingly flexible periodic, modular, and radix representations add search complexity without improving structure. The remaining promising gap is classical dense-interval MSTD geometry, where independently optimized asymmetric fringes determine missing sums and differences; no run has directly parameterized a guaranteed full middle interval with two free fringes.\n\n## Next\n\nSearch sets \\(A=L\\cup[k,m-k]\\cup(m-R)\\) for \\(m\\in\\{80,120,160,240\\}\\), \\(k\\in\\{12,16,24,32\\}\\), with independent \\(k\\)-bit masks \\(L,R\\), using 32 deterministic annealing restarts, single/paired flips and fringe-block swaps for 170 seconds. Score exactly and emit `sol_0005` unless improved.\n\n## Parent\n\nsol_0005"
+}

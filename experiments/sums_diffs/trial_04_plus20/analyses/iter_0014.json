@@ -1,0 +1,22 @@
+{
+  "iteration": 14,
+  "eb_version": 12,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011"
+  ],
+  "trial_seed": 4014,
+  "direction": "Exhaustively score unions of two affine incumbent copies,\n\\(A=rA_1\\cup(t+sA_1)\\), for `r,s ∈ {1,…,20}` and `t ∈ [-512,512]`, including reflected second copies via `s ∈ {-20,…,-1}`. Canonicalize, deduplicate, exact-score with bitsets, immediately checkpoint the verified `sol_0001` fallback, and stop at 165 seconds.",
+  "result_id": "sol_0014",
+  "text": "## Analysis\n\nThe three-interval family and bounded gap-vector tempering produced no improvement. More importantly, both runs emitted `sol_0000` despite claiming a `sol_0001` fallback, so implementation descriptions are unreliable unless the fallback’s exact metrics are verified. Generic fixed-size searches repeatedly return `sol_0001`, while dense-core and interval models underperform; the next search should use a distinct algebraic construction and enforce a startup assertion of `n=17, sums=67, diffs=61`.\n\n## Next\n\nExhaustively score unions of two affine incumbent copies,\n\\(A=rA_1\\cup(t+sA_1)\\), for `r,s ∈ {1,…,20}` and `t ∈ [-512,512]`, including reflected second copies via `s ∈ {-20,…,-1}`. Canonicalize, deduplicate, exact-score with bitsets, immediately checkpoint the verified `sol_0001` fallback, and stop at 165 seconds.\n\n## Parent\n\nsol_0001"
+}

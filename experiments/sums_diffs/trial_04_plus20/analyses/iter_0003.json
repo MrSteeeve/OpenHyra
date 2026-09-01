@@ -1,0 +1,12 @@
+{
+  "iteration": 3,
+  "eb_version": 2,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001"
+  ],
+  "trial_seed": 4003,
+  "direction": "Run a 155-second large-neighborhood beam search from `sol_0001` at `n=17`: repeatedly remove `r∈{3,4,5}` random elements, then reconstruct using beam width 64, testing every insertion from `[0,96]` and retaining candidates by exact C(A). Use 24 independent destroy-repair chains, deterministic seed 6, canonicalize by translation and gcd, and checkpoint every improvement.",
+  "result_id": "sol_0004",
+  "text": "## Analysis\n\nThe annealing run improved the score by increasing sums from 59 to 67 while differences rose only from 55 to 61. Thus progress came from favorable relative growth, not simply minimizing differences. However, 32 restarts and 160 seconds gained only 0.0136, indicating that diffuse single-element mutations over `[0,127]` are inefficient and likely trapped near shallow local optima. Larger coordinated replacements remain untested.\n\n## Next\n\nRun a 155-second large-neighborhood beam search from `sol_0001` at `n=17`: repeatedly remove `r∈{3,4,5}` random elements, then reconstruct using beam width 64, testing every insertion from `[0,96]` and retaining candidates by exact C(A). Use 24 independent destroy-repair chains, deterministic seed 6, canonicalize by translation and gcd, and checkpoint every improvement.\n\n## Parent\n\nsol_0001"
+}

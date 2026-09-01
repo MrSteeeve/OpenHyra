@@ -1,0 +1,83 @@
+{
+  "schema": "openhyra-experiment-config.v1",
+  "experiment_name": "bermudan_v5_iclr",
+  "task": "bermudan_optimal_stopping",
+  "hypotheses": [
+    {
+      "id": "H1",
+      "name": "search_beats_baseline",
+      "description": "Agent-guided search finds policies that outperform the frozen Ridge LSMC baseline on aggregate score",
+      "success_criterion": "best_score > frozen_baseline_score after 20 context rounds",
+      "priority": 1
+    },
+    {
+      "id": "H2",
+      "name": "diversity_helps",
+      "description": "Maintaining behavioral diversity via islands produces better final solutions than single-population search",
+      "success_criterion": "4-island run best_score > 1-island run best_score (paired comparison over 3 seeds)",
+      "priority": 2
+    },
+    {
+      "id": "H3",
+      "name": "behavior_profiling_guides",
+      "description": "BehaviorProfile-informed context retrieval improves search efficiency vs chronological retrieval",
+      "success_criterion": "v5 retrieval reaches same score in fewer context rounds than v4 retrieval",
+      "priority": 3
+    },
+    {
+      "id": "H4",
+      "name": "mechanism_cards_reduce_regression",
+      "description": "MechanismCard-based failure memory reduces repeated failure modes",
+      "success_criterion": "failure_mode_repeat_rate < 0.3 with cards vs > 0.5 without",
+      "priority": 4
+    },
+    {
+      "id": "H5",
+      "name": "analogy_transfer_works",
+      "description": "Cross-algorithm transfer via matched control shows positive effect size",
+      "success_criterion": "mean effect_size > 0.01 across analogy experiments with p < 0.05",
+      "priority": 5
+    },
+    {
+      "id": "H6",
+      "name": "conditional_algorithm_advantage",
+      "description": "Different algorithm families show conditional advantages on specific instance slices",
+      "success_criterion": "at least 2 algorithms each dominate on a non-trivial instance slice (>10% of instances)",
+      "priority": 1
+    }
+  ],
+  "run_configurations": [
+    {
+      "name": "baseline_v5_full",
+      "description": "Full v5 pipeline with 4 islands, behavior profiling, mechanism cards",
+      "flags": "--v5 --iterations 30 --workers 2 --candidates-per-context 2 --agent-stop --trial-seed {seed}",
+      "hypotheses_tested": ["H1", "H2", "H3", "H4", "H6"]
+    },
+    {
+      "name": "ablation_single_island",
+      "description": "Single island ablation for H2",
+      "flags": "--v5 --iterations 30 --workers 2 --candidates-per-context 2 --agent-stop --trial-seed {seed}",
+      "custom": {"num_islands": 1},
+      "hypotheses_tested": ["H2"]
+    },
+    {
+      "name": "ablation_no_v5",
+      "description": "No v5 features (original pipeline) for H3 comparison",
+      "flags": "--iterations 30 --workers 2 --candidates-per-context 2 --agent-stop --trial-seed {seed}",
+      "hypotheses_tested": ["H3"]
+    },
+    {
+      "name": "analogy_transfer",
+      "description": "Dedicated analogy transfer experiments for H5",
+      "flags": "--v5 --iterations 40 --workers 2 --candidates-per-context 2 --agent-stop --trial-seed {seed}",
+      "hypotheses_tested": ["H5"]
+    }
+  ],
+  "seeds": [42, 123, 7],
+  "compute_budget": {
+    "estimated_llm_calls_per_run": 180,
+    "estimated_hours_per_run": 4,
+    "total_runs": 12,
+    "total_estimated_hours": 48
+  }
+}

@@ -1,0 +1,1 @@
+Implemented the quadratic tensor projection experiment in `solver.py`: - Exhaustive `q=32..80`, `c,d,e=-6..6` sweep - Exact bitset sum/difference scoring - Top-32 seeded annealing with seed `5033` - Immediate atomic `sol_0023` fallback - 150-second deadline - Syntax and whitespace validation passed Did not run the solver or create `PROPOSAL.md`; only `solver.py` was modified.

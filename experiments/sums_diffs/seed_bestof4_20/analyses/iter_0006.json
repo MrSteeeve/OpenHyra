@@ -1,0 +1,17 @@
+{
+  "iteration": 6,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 20260728,
+  "direction": "Anneal sets \\(A=\\bigcup_{r=0}^{R-1}(rW+M_{r\\bmod P})\\) with `W=4..10`, `P=2..8`, and `R=30..120`, plus independently mutable first/last `K=0..8` masks. Use exact scoring and mask bit-flips, phase copy/swap, and `W,P,R,K` mutations; retain `sol_0005` as a fallback and stop at 170 seconds.",
+  "result_id": "sol_0007",
+  "text": "## Analysis\n\n`sol_0006` directly tested the prior recommendation—8–24 independently mutable boundary rows—and exactly reproduced `sol_0005`. This refutes deeper endcap optimization as the next source of improvement. Across `sol_0003–6`, gains came from repeated row structure, while increasing size and boundary freedom quickly saturated. The homogeneous central mask is now the likely bottleneck: it restricts mesoscopic sum collisions to a single row type. The next search should introduce a periodic multi-mask core, allowing complementary row types throughout the construction rather than only near its ends.\n\n## Next\n\nAnneal sets \\(A=\\bigcup_{r=0}^{R-1}(rW+M_{r\\bmod P})\\) with `W=4..10`, `P=2..8`, and `R=30..120`, plus independently mutable first/last `K=0..8` masks. Use exact scoring and mask bit-flips, phase copy/swap, and `W,P,R,K` mutations; retain `sol_0005` as a fallback and stop at 170 seconds.\n\n## Parent\n\nsol_0005"
+}

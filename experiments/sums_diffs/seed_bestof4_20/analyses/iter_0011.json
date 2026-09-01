@@ -1,0 +1,22 @@
+{
+  "iteration": 11,
+  "eb_version": 12,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011"
+  ],
+  "trial_seed": 20260733,
+  "direction": "Run deterministic evolutionary search over three-level sets \\(A=\\{x+q y+q^2 z:x\\in X_y,\\ y\\in Y_z,\\ z\\in Z\\}\\), with \\(q\\in\\{12,16,20,24\\}\\), 12–28 mutable conditional masks, and \\(128\\le |A|\\le512\\). Use population 48, elitism 8, mask crossover plus bit-flip/row-copy mutations for 170 seconds, exact scoring, and retain `sol_0005` as fallback.",
+  "result_id": "sol_0012",
+  "text": "## Analysis\n\n`sol_0011` closes the remaining wider modular-residue gap: widths 9–40 with mutable fringes still converge to `sol_0005`. Together with four earlier failures, this strongly refutes periodic-core refinement as the next productive direction. Exact-score annealing also appears representation-trapped; successful jumps have come only from changing the construction family. The unexplored opportunity is nonperiodic hierarchical digit structure with controlled carries between multiple scales, rather than a single modulus or carry-free Cartesian product.\n\n## Next\n\nRun deterministic evolutionary search over three-level sets \\(A=\\{x+q y+q^2 z:x\\in X_y,\\ y\\in Y_z,\\ z\\in Z\\}\\), with \\(q\\in\\{12,16,20,24\\}\\), 12–28 mutable conditional masks, and \\(128\\le |A|\\le512\\). Use population 48, elitism 8, mask crossover plus bit-flip/row-copy mutations for 170 seconds, exact scoring, and retain `sol_0005` as fallback.\n\n## Parent\n\nsol_0005"
+}

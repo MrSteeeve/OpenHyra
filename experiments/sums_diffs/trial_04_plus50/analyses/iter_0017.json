@@ -1,0 +1,26 @@
+{
+  "iteration": 17,
+  "eb_version": 16,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015"
+  ],
+  "trial_seed": 4017,
+  "direction": "Repair and execute the two-affine-copy sweep using the exact `sol_0001` set: enumerate \\(r\\in[1,20]\\), \\(s\\in[-20,-1]\\cup[1,20]\\), and \\(t\\in[-512,512]\\) for \\(A=rA_1\\cup(t+sA_1)\\). Exact-score every deduplicated union, checkpoint the directly verified fallback before enumeration, use no brittle expected-metric assertion, and stop at 165 seconds.",
+  "result_id": "sol_0017",
+  "text": "## Analysis\n\n`sol_0012` is the strongest new result, showing that structured high-cardinality tensor supports outperform all local searches around the 17-point incumbent, though they still trail `sol_0001` overall. The affine-copy hypothesis remains completely untested: `sol_0014` crashed before enumeration because its alleged incumbent was actually `sol_0000`. This reinforces that descriptions and hard-coded metric assertions are unsafe; every fallback must be scored directly and written before search begins.\n\n## Next\n\nRepair and execute the two-affine-copy sweep using the exact `sol_0001` set: enumerate \\(r\\in[1,20]\\), \\(s\\in[-20,-1]\\cup[1,20]\\), and \\(t\\in[-512,512]\\) for \\(A=rA_1\\cup(t+sA_1)\\). Exact-score every deduplicated union, checkpoint the directly verified fallback before enumeration, use no brittle expected-metric assertion, and stop at 165 seconds.\n\n## Parent\n\nsol_0001"
+}

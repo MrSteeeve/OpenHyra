@@ -1,0 +1,14 @@
+{
+  "iteration": 3,
+  "eb_version": 4,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003"
+  ],
+  "trial_seed": 20260725,
+  "direction": "For 170 seconds, anneal templated sets with period `W∈[8,24]`, row count `R∈[3,60]`, independent masks `L`, `M`, `U`, and construction `A=L ∪ ⋃_{r=1}^{R-2}(rW+M) ∪ ((R-1)W+U)`. Seed from `sol_0003`; mutate `W`, `R`, or 1–3 bits in a mask, occasionally copying bits between masks, and retain the exact-score best with `2≤|A|≤512`.",
+  "result_id": "sol_0004",
+  "text": "## Analysis\n\n`sol_0003` validates structured row-mask search, improving the score by 0.02436 while generic annealing stagnated. Its normalized form is five width-12 rows: endpoint masks `{0,1,3,4,5,8}` and `{0,1,3,4,5}`, surrounding three identical interior masks `{0,1,4,5,8}`. Thus the gain comes from a periodic core with asymmetric boundary corrections, not arbitrary row variation. The next search should explicitly optimize this lower-dimensional “endcaps + repeated core” family and vary the period; unrestricted row mutations likely waste most evaluations rediscovering coherence.\n\n## Next\n\nFor 170 seconds, anneal templated sets with period `W∈[8,24]`, row count `R∈[3,60]`, independent masks `L`, `M`, `U`, and construction `A=L ∪ ⋃_{r=1}^{R-2}(rW+M) ∪ ((R-1)W+U)`. Seed from `sol_0003`; mutate `W`, `R`, or 1–3 bits in a mask, occasionally copying bits between masks, and retain the exact-score best with `2≤|A|≤512`.\n\n## Parent\nsol_0003"
+}

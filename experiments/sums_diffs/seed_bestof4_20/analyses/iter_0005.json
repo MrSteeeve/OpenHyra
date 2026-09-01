@@ -1,0 +1,16 @@
+{
+  "iteration": 5,
+  "eb_version": 6,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005"
+  ],
+  "trial_seed": 20260727,
+  "direction": "Starting from `sol_0005`, anneal `A=⋃(rW+M_r)` with `W∈[3,8]`, `R∈[50,140]`, and independently mutable masks in the first and last `K∈[8,24]` rows, retaining one repeated central mask. Use bit flips, row-mask copies/swaps, and `W,R,K` mutations, exact scoring, `|A|≤512`, and a 170-second cutoff.",
+  "result_id": "sol_0006",
+  "text": "## Analysis\n\n`sol_0005` validates boundary layering but shows sharply diminishing returns: adding independent end masks and growing from 244 to 405 elements improved C by only 0.00115. Thus shallow endcaps are no longer the main bottleneck, and spending nearly the full size budget on a homogeneous core is inefficient. Generic unstructured annealing remains refuted by `sol_0001–2`; structured row unions are essential. The next leverage is mesoscopic structure: boundary patterns should extend far enough to interact with one another and with the core, rather than being limited to eight rows.\n\n## Next\n\nStarting from `sol_0005`, anneal `A=⋃(rW+M_r)` with `W∈[3,8]`, `R∈[50,140]`, and independently mutable masks in the first and last `K∈[8,24]` rows, retaining one repeated central mask. Use bit flips, row-mask copies/swaps, and `W,R,K` mutations, exact scoring, `|A|≤512`, and a 170-second cutoff.\n\n## Parent\n\nsol_0005"
+}

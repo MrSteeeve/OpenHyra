@@ -1,0 +1,1 @@
+{"features":[{"op":"underlying"},{"arg":{"op":"underlying"},"op":"square"},{"arg":{"op":"underlying"},"op":"cube"},{"op":"intrinsic"}],"schema":"openhyra-feature-program.v1"}

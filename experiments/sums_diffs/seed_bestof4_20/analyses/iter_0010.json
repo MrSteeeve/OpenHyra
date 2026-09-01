@@ -1,0 +1,21 @@
+{
+  "iteration": 10,
+  "eb_version": 11,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010"
+  ],
+  "trial_seed": 20260732,
+  "direction": "Anneal sets \\(A=\\{qm+r:0\\le m<L,\\ r\\in R\\}\\) with independently mutable left/right fringe rows, using \\(q\\in[9,40]\\), \\(R\\subseteq[0,q-1]\\), and \\(L=\\lfloor(480/|R|)\\rfloor\\), capped at 512 elements. Allocate 170 seconds across deterministic restarts and retain `sol_0005` as fallback.",
+  "result_id": "sol_0011",
+  "text": "## Analysis\n\n`sol_0010` directly tested the proposed controlled-carry mechanism and found no improvement, so overlapping two-digit products are not sufficient in the explored regime. Five consecutive failures across periodic, fringe, grid, and carry-based representations indicate that large exact-score annealing is repeatedly trapped at the same width-4 construction. The strongest gain came from changing the structural family (`sol_0003` to `sol_0004`), not refining a fixed family. Wider one-dimensional periodic residue patterns remain insufficiently explored: prior periodic searches used widths only 3–8, while the 2D grid experiment was carry-free and therefore does not cover ordinary modular interval constructions.\n\n## Next\n\nAnneal sets \\(A=\\{qm+r:0\\le m<L,\\ r\\in R\\}\\) with independently mutable left/right fringe rows, using \\(q\\in[9,40]\\), \\(R\\subseteq[0,q-1]\\), and \\(L=\\lfloor(480/|R|)\\rfloor\\), capped at 512 elements. Allocate 170 seconds across deterministic restarts and retain `sol_0005` as fallback.\n\n## Parent\n\nsol_0005"
+}

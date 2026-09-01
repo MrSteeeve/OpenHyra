@@ -1,0 +1,32 @@
+{
+  "iteration": 21,
+  "eb_version": 22,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016",
+    "sol_0017",
+    "sol_0018",
+    "sol_0019",
+    "sol_0020",
+    "sol_0021"
+  ],
+  "trial_seed": 5021,
+  "direction": "Use the remaining capacity up to 512 elements while preserving sum dominance.",
+  "result_id": "sol_0022",
+  "text": "Context LLM unavailable; deterministic fallback used."
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "protocol": "simpletes-sums-diffs-v1",
+  "final_evaluator_sha256": "015e7039895dc4def4b0a2424786e412aa5fc232260a32e4fb3966be452d72ce",
+  "scored_records_checked": 46,
+  "scored_records_matched": 46,
+  "strict_feedback": {
+    "iterations": [22, 50],
+    "each_previous_result_visible": true,
+    "analysis_result_links_complete": true,
+    "eb_versions": [23, 51]
+  },
+  "continuation": {
+    "iterations": 50,
+    "status_counts": {
+      "ok": 44,
+      "crash": 6,
+      "timeout": 0,
+      "violation": 0
+    },
+    "distinct_valid_canonical_hashes": 11
+  },
+  "best": {
+    "id": "sol_0036",
+    "iteration": 35,
+    "score": 1.0946069773879967,
+    "n": 66,
+    "sums": 265,
+    "diffs": 235,
+    "span": 158,
+    "set_hash": "2bc478af5f16d4c38b117028f1e094cd6fb4691499cd2429b8199cb579c9bc63",
+    "artifact_sha256": "d461ad316ef0efe7b2b6671d9121d38a116755c8be90682e5ddf6c0c7c1c6a0e",
+    "artifact_hash_matches_record": true
+  }
+}

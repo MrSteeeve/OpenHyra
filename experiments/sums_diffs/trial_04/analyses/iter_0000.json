@@ -1,0 +1,11 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 4,
+  "direction": "Implement a 160-second simulated-annealing search initialized from `sol_0000`, using sets with `12 <= n <= 40` inside `[0,127]`; mutations should replace one element (70%), add one (15%), or delete one (15%), scoring every candidate by exact C(A). Use 32 random restarts, temperature `T=0.02*(1-t/160)`, and always emit the best valid set found.",
+  "result_id": "sol_0001",
+  "text": "## Analysis\n\nOnly one valid run exists, so no cross-run pattern is established. The 17-element seed is mildly sum-dominant (59 sums versus 55 differences) but reaches only 1.059793, far below the 1.144887 reference; reproducing or affinely transforming it cannot improve C(A), because translation and nonzero scaling preserve both cardinalities. The next gain must therefore come from structural mutations. Exact enumeration is cheap for sets of this size, making a broad stochastic search more valuable than preserving the seed rigidly.\n\n## Next\n\nImplement a 160-second simulated-annealing search initialized from `sol_0000`, using sets with `12 <= n <= 40` inside `[0,127]`; mutations should replace one element (70%), add one (15%), or delete one (15%), scoring every candidate by exact C(A). Use 32 random restarts, temperature `T=0.02*(1-t/160)`, and always emit the best valid set found.\n\n## Parent\n\nsol_0000"
+}

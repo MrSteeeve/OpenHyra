@@ -1,0 +1,29 @@
+{
+  "iteration": 18,
+  "eb_version": 19,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012",
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016",
+    "sol_0017",
+    "sol_0018"
+  ],
+  "trial_seed": 20260740,
+  "direction": "Exhaust every nonempty residue mask for `modulus=5..12` and every feasible `rows=40..floor(512/popcount(mask))`, constructing `A={modulus*r+j}`; retain the top 64 exact-score candidates, then coordinate-optimize `boundary_rows=12` at both ends over all row masks until convergence or `time_limit=165`. Always emit the incumbent if no candidate improves it.",
+  "result_id": "sol_0019",
+  "text": "## Analysis\n\nThe exhaustive two-phase width-4 search failed, so neither a single interior phase transition nor eight-row endpoint polishing escapes the incumbent basin. Together with the four-row block census, this establishes broader local optimality for width-4 constructions, not merely fringe optimality. However, other moduli were explored mainly by annealing, genetic search, or restricted mask families; no run systematically enumerated all periodic residue masks. The remaining plausible structural gap is therefore a different core modulus whose best mask occupies a narrow basin missed by stochastic searches.\n\n## Next\n\nExhaust every nonempty residue mask for `modulus=5..12` and every feasible `rows=40..floor(512/popcount(mask))`, constructing `A={modulus*r+j}`; retain the top 64 exact-score candidates, then coordinate-optimize `boundary_rows=12` at both ends over all row masks until convergence or `time_limit=165`. Always emit the incumbent if no candidate improves it.\n\n## Parent\n\nsol_0005"
+}

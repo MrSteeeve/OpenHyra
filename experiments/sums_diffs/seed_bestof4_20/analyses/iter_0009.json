@@ -1,0 +1,20 @@
+{
+  "iteration": 9,
+  "eb_version": 10,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009"
+  ],
+  "trial_seed": 20260731,
+  "direction": "Search two-digit constructions \\(A=\\{x+B y:x\\in X,y\\in Y\\}\\) with \\(|X|,|Y|\\in[8,24]\\), \\(B\\in[8,80]\\), and \\(|A|\\le512\\). Anneal `X`, `Y`, and `B` using exact integer-set scoring for 170 seconds, allowing intentional digit collisions, while retaining `sol_0005` as fallback.",
+  "result_id": "sol_0010",
+  "text": "## Analysis\n\n`sol_0009` shows that removing carries entirely does not help: arbitrary 2D subsets still could not beat the one-dimensional parent. Carry-free Cartesian structure cannot intrinsically amplify an exponent, since product constructions multiply sumset and difference-set sizes and therefore inherit a weighted average of their factors’ exponents. The repeated fallback across four substantially different searches also suggests local annealing around large binary representations is ineffective. The remaining promising mechanism is controlled carry: overlapping digit blocks can merge disproportionately many differences while preserving sums, a regime not tested by either short-interval or carry-free searches.\n\n## Next\n\nSearch two-digit constructions \\(A=\\{x+B y:x\\in X,y\\in Y\\}\\) with \\(|X|,|Y|\\in[8,24]\\), \\(B\\in[8,80]\\), and \\(|A|\\le512\\). Anneal `X`, `Y`, and `B` using exact integer-set scoring for 170 seconds, allowing intentional digit collisions, while retaining `sol_0005` as fallback.\n\n## Parent\n\nsol_0005"
+}

@@ -1,0 +1,15 @@
+{
+  "iteration": 4,
+  "eb_version": 5,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004"
+  ],
+  "trial_seed": 20260726,
+  "direction": "Anneal `A=⋃(rW+M_r)` with `W∈[8,20]`, `R∈[40,100]`, boundary depth `K∈[2,8]`, independent masks for the first/last `K` rows, and one repeated interior mask; seed from `sol_0004`, mutate mask bits plus `W,R,K`, and preserve the best exact score under `|A|≤512`.",
+  "result_id": "sol_0005",
+  "text": "## Analysis\n\n`sol_0004` confirms that scaling the periodic-core construction is substantially more valuable than generic subset search: increasing from 24 to 244 elements raised C by 0.02421. Its 716-span set has a long four-elements-per-12 core, so interior density is highly stable; remaining leverage is concentrated at the boundaries. The single-mask endcaps are now the likely bottleneck: sums and differences involving several near-boundary rows are coupled, and one exceptional row cannot optimize those interactions independently. The 512-element allowance leaves room for richer boundary layers without sacrificing core length.\n\n## Next\n\nAnneal `A=⋃(rW+M_r)` with `W∈[8,20]`, `R∈[40,100]`, boundary depth `K∈[2,8]`, independent masks for the first/last `K` rows, and one repeated interior mask; seed from `sol_0004`, mutate mask bits plus `W,R,K`, and preserve the best exact score under `|A|≤512`.\n\n## Parent\nsol_0004"
+}

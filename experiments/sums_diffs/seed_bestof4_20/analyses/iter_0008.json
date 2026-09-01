@@ -1,0 +1,19 @@
+{
+  "iteration": 8,
+  "eb_version": 9,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008"
+  ],
+  "trial_seed": 20260730,
+  "direction": "Anneal arbitrary binary subsets \\(S\\subseteq[0,31]\\times[0,15]\\), emitting \\(A=\\{x+1000y:(x,y)\\in S\\}\\); use bit flips, swaps, rectangle toggles, and row/column-copy moves for 170 seconds, scoring coordinate-pair sum/difference sets exactly and retaining `sol_0005` as fallback.",
+  "result_id": "sol_0009",
+  "text": "## Analysis\n\n`sol_0008` directly tested the proposed dense-core/sparse-fringe family and again returned the unchanged parent. Together with `sol_0006`–`0007`, this refutes both boundary flexibility and one-dimensional periodic structure as likely routes past 1.111815. The common limitation is the carry-heavy embedding of row masks into a short integer interval, which collapses distinct coordinate sums and differences. A carry-free multidimensional embedding offers a genuinely different search space while retaining exact, fast scoring and the 512-element budget.\n\n## Next\n\nAnneal arbitrary binary subsets \\(S\\subseteq[0,31]\\times[0,15]\\), emitting \\(A=\\{x+1000y:(x,y)\\in S\\}\\); use bit flips, swaps, rectangle toggles, and row/column-copy moves for 170 seconds, scoring coordinate-pair sum/difference sets exactly and retaining `sol_0005` as fallback.\n\n## Parent\n\nsol_0005"
+}

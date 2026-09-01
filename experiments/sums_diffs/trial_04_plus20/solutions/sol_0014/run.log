@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/williamqian/GitHub/OpenHyra/runs/sums_diffs/trial_04/sandboxes/iter_0014/solver.py", line 116, in <module>
+    main()
+  File "/Users/williamqian/GitHub/OpenHyra/runs/sums_diffs/trial_04/sandboxes/iter_0014/solver.py", line 56, in main
+    assert initial_metrics == (17, 67, 61), initial_metrics
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (17, 59, 55)
