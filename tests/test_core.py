@@ -481,6 +481,37 @@ class ProvenanceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "stopping_policy"):
                 validate_run_manifest(loaded, current)
 
+    def test_v5_config_provenance_drift_rejected(self):
+        from harness import Task
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("provenance.command_version", return_value="test-cli 1.0"):
+            task = Task("sums_diffs", "provenance-v5-test")
+            recorded = build_run_manifest(
+                task, ROOT, backend="codex", model="test-model", workers=2,
+                candidates_per_context=4, trial_seed=7,
+                v5_config={"enabled": True, "num_islands": 4},
+            )
+            path = Path(temporary) / "run_manifest.json"
+            write_run_manifest(path, recorded)
+            loaded = load_run_manifest(path)
+            self.assertEqual(loaded["v5"], {"enabled": True, "num_islands": 4})
+
+            current = build_run_manifest(
+                task, ROOT, backend="codex", model="test-model", workers=2,
+                candidates_per_context=4, trial_seed=7,
+                v5_config={"enabled": True, "num_islands": 8},
+            )
+            with self.assertRaisesRegex(RuntimeError, "v5"):
+                validate_run_manifest(loaded, current)
+
+            current_no_v5 = build_run_manifest(
+                task, ROOT, backend="codex", model="test-model", workers=2,
+                candidates_per_context=4, trial_seed=7,
+            )
+            with self.assertRaisesRegex(RuntimeError, "v5"):
+                validate_run_manifest(loaded, current_no_v5)
+
     def test_manifest_checksum_tampering_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "run_manifest.json"
