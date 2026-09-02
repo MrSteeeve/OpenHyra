@@ -16,6 +16,7 @@ from pathlib import Path
 from context_agent import (
     CANDIDATE_SEED_TOKEN,
     MAX_PROPOSAL_PROMPT_CHARS,
+    PROPOSAL_IDENTITY_RESERVE_CHARS,
     build_inspiration,
     finalize_analysis,
     record_stop_review,
@@ -54,15 +55,18 @@ from stopping import (
 
 try:
     from harness_v5 import V5Bridge, adapt_bermudan_metrics, get_metrics_adapter
+    from schemas_v5 import ExperimentPlan
 except ImportError:
     V5Bridge = None
     adapt_bermudan_metrics = None
+    ExperimentPlan = None
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
 MIN_CANDIDATES_PER_CONTEXT = 1
 MAX_STORED_LOG_CHARS = 6000
 REPAIRABLE_STATUSES = {"crash", "timeout"}
+V5_PACKET_TRUNCATION_MARKER = "\n\n[V5 packet clipped to fit the prompt budget]"
 
 
 class Task:
@@ -964,6 +968,137 @@ def _numeric_duplicate_of(result, records):
     )
 
 
+def _build_v5_prompt_section(v5_context):
+    """Render the V5 Context packet for Context and Proposal prompts."""
+    sections = []
+    portfolio_text = v5_context.get("portfolio_text", "")
+    if portfolio_text:
+        sections.append(f"## V5 Portfolio Context\n\n{portfolio_text}")
+    analysis_text = v5_context.get("analysis_text", "")
+    if analysis_text:
+        sections.append(f"## V5 Island Analysis\n\n{analysis_text}")
+    return "\n\n".join(sections)
+
+
+def _clip_v5_packet(text, limit):
+    """Keep a packet inside the caller's remaining prompt budget."""
+    text = str(text or "")
+    limit = max(0, int(limit))
+    if len(text) <= limit:
+        return text
+    if limit <= len(V5_PACKET_TRUNCATION_MARKER):
+        return text[:limit]
+    return (
+        text[: limit - len(V5_PACKET_TRUNCATION_MARKER)].rstrip()
+        + V5_PACKET_TRUNCATION_MARKER
+    )
+
+
+def _inject_v5_context(prompt, v5_section, max_total_chars=None):
+    """Insert V5 Context material immediately before the assignment marker."""
+    if not v5_section:
+        return prompt
+    if max_total_chars is not None:
+        available = max(0, int(max_total_chars) - len(prompt) - 2)
+        v5_section = _clip_v5_packet(v5_section, available)
+        if not v5_section:
+            return prompt
+    marker = "## Your assignment"
+    insertion = f"{v5_section.rstrip()}\n\n"
+    marker_index = prompt.find(marker)
+    if marker_index < 0:
+        return f"{prompt.rstrip()}\n\n{v5_section.rstrip()}"
+    return prompt[:marker_index] + insertion + prompt[marker_index:]
+
+
+def _inject_v5_proposal(prompt, proposal_text, max_total_chars=None):
+    """Insert the V5 Proposal packet immediately before candidate identity."""
+    if not proposal_text:
+        return prompt
+    marker = "## Local candidate identity"
+    section_prefix = "## V5 Proposal Context\n\n"
+    proposal_text = str(proposal_text)
+    if max_total_chars is not None:
+        available = max(
+            0,
+            int(max_total_chars) - len(prompt) - len(section_prefix) - 2,
+        )
+        proposal_text = _clip_v5_packet(proposal_text, available)
+        if not proposal_text:
+            return prompt
+    section = f"{section_prefix}{proposal_text.rstrip()}"
+    marker_index = prompt.find(marker)
+    if marker_index < 0:
+        return f"{prompt.rstrip()}\n\n{section}"
+    return prompt[:marker_index] + f"{section}\n\n" + prompt[marker_index:]
+
+
+def _build_experiment_plan(
+    iteration,
+    island_epoch_id,
+    direction,
+    decision,
+    baseline,
+    task,
+    candidates_per_context,
+):
+    """Build a deterministic, validated ExperimentPlan for one Context round."""
+    plan_fields = {
+        "action": decision.action,
+        "target_island_epoch_id": island_epoch_id,
+        "generation_operator": "local_mutation",
+        "parent_ids": [baseline["id"]],
+        "inspiration_ids": [],
+        "analogy_hypothesis_id": None,
+        "implementation_intent": direction,
+        "negative_constraints": list(
+            getattr(task, "engineering_invariants", []) or []
+        ),
+        "success_criterion": (
+            decision.success_criterion or "trusted_evaluator_score_improves"
+        ),
+        "budget": {
+            "candidate_count": candidates_per_context,
+            "sandbox_seconds_per_cell": int(getattr(task, "timeout_s", 0)),
+            "max_artifact_bytes": int(
+                getattr(task, "max_artifact_bytes", 1024 * 1024)
+            ),
+        },
+    }
+    plan_hash = hashlib.sha256(
+        json.dumps(
+            {
+                "iteration": iteration,
+                **plan_fields,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    plan = ExperimentPlan(
+        id=f"plan_{iteration:04d}_{plan_hash[:12]}",
+        **plan_fields,
+    )
+    plan.validate()
+    return plan
+
+
+def _parent_source_text(parent_path, editable_files, max_chars=48_000):
+    """Render the editable parent source that belongs in a ProposalPacket."""
+    chunks = []
+    for filename in editable_files:
+        path = Path(parent_path) / filename
+        if not path.is_file():
+            continue
+        try:
+            source = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        chunks.append(f"# FILE: {filename}\n{source}")
+    return _clip_v5_packet("\n\n".join(chunks), max_chars)
+
+
 def _commit_candidate_result(result, task, eb, backend, model, print_lock,
                              parent_id=None, repair_of=None, v5_bridge=None):
     """Commit one candidate outcome without local winner selection."""
@@ -1038,6 +1173,9 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             )
             v5_bridge._log_sync_error(record["id"], "metrics_adapter", exc)
             v5_metrics = raw_metrics
+        experiment_plan_id = metadata.get("experiment_plan_id")
+        if experiment_plan_id:
+            v5_metrics["experiment_plan_id"] = experiment_plan_id
         v5_bridge.on_candidate_evaluated(
             record_id=record["id"],
             island_epoch_id=v5_island,
@@ -1118,6 +1256,28 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         )
                         if stop_policy.enabled else None
                     )
+                    v5_context = None
+                    v5_context_section = ""
+                    island_epoch_id = None
+                    v5_warnings = []
+                    if v5_bridge is not None:
+                        try:
+                            island_epoch_id = v5_bridge.pick_island(iteration)
+                            v5_context = v5_bridge.build_context(island_epoch_id)
+                            v5_context_section = _build_v5_prompt_section(
+                                v5_context
+                            )
+                        except Exception as exc:
+                            v5_warnings.append({
+                                "stage": "build_context",
+                                "error": repr(exc),
+                            })
+                            print(
+                                f"[v5] warning: build_context failed at round "
+                                f"{iteration}: {exc!r}; continuing with legacy "
+                                "context",
+                                file=sys.stderr,
+                            )
                     decision, baseline, prompt, direction, context_meta = build_inspiration(
                         task, eb, iteration, backend=backend, model=model,
                         active_directions=reserved,
@@ -1125,10 +1285,32 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         agent_stop_enabled=stop_policy.enabled,
                         stop_evidence=evidence_at_decision,
                         cancel_event=cancel_event,
+                        v5_context_prompt=v5_context_section,
                     )
+                    if v5_bridge is not None:
+                        context_meta["island_epoch_id"] = island_epoch_id
+                        context_meta["v5_status"] = (
+                            "degraded" if v5_warnings else "ready"
+                        )
+                        context_meta["v5_warnings"] = v5_warnings
+                        if v5_context is not None:
+                            context_meta["v5_context_provenance"] = {}
+                            for provenance_key, context_key in (
+                                ("portfolio", "portfolio_provenance"),
+                                ("analysis", "analysis_provenance"),
+                            ):
+                                provenance = v5_context.get(context_key)
+                                if provenance is None or isinstance(provenance, dict):
+                                    serialized = provenance
+                                else:
+                                    serialized = vars(provenance)
+                                context_meta["v5_context_provenance"][
+                                    provenance_key
+                                ] = serialized
                     if cancel_event.is_set():
                         inflight.release()
                         break
+                    effective_decision = decision
                     if decision.action == "stop":
                         review = stop_controller.review(decision, eb.records())
                         review_payload = review.to_dict()
@@ -1158,9 +1340,47 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                                 "Stop request rejected by deterministic evidence guards.",
                             ).to_dict()
                         )
-                    if v5_bridge is not None:
-                        island_epoch_id = v5_bridge.pick_island(iteration)
-                        context_meta["island_epoch_id"] = island_epoch_id
+                        effective_decision = decision.forced_continue(
+                            direction,
+                            "Stop request rejected by deterministic evidence guards.",
+                        )
+                    try:
+                        if v5_bridge is not None and island_epoch_id is not None:
+                            prompt = _inject_v5_context(
+                                prompt,
+                                v5_context_section,
+                                max_total_chars=(
+                                    MAX_PROPOSAL_PROMPT_CHARS
+                                    - PROPOSAL_IDENTITY_RESERVE_CHARS
+                                ),
+                            )
+                            experiment_plan = _build_experiment_plan(
+                                iteration,
+                                island_epoch_id,
+                                direction,
+                                effective_decision,
+                                baseline,
+                                task,
+                                candidates_per_context,
+                            )
+                            v5_bridge.event_store.append_plan_event(
+                                experiment_plan
+                            )
+                            context_meta["experiment_plan_id"] = experiment_plan.id
+                            context_meta["experiment_plan"] = experiment_plan.to_dict()
+                    except Exception as exc:
+                        if v5_bridge is not None:
+                            v5_warnings.append({
+                                "stage": "experiment_plan",
+                                "error": repr(exc),
+                            })
+                            context_meta["v5_status"] = "degraded"
+                            print(
+                                f"[v5] warning: experiment plan failed at round "
+                                f"{iteration}: {exc!r}; continuing without a "
+                                "frozen plan",
+                                file=sys.stderr,
+                            )
                     with active_lock:
                         active_directions[iteration] = direction
                     with print_lock:
@@ -1202,8 +1422,43 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
             parent = item["parent"]
             draft = task.run_dir / "drafts" / f"iter_{iteration:04d}" / f"cand_{candidate_index:02d}"
             try:
+                proposal_prompt = item["prompt"]
+                if (
+                    v5_bridge is not None
+                    and "experiment_plan" in item["context_meta"]
+                ):
+                    try:
+                        plan = ExperimentPlan.from_dict(
+                            item["context_meta"]["experiment_plan"]
+                        )
+                        proposal_context = v5_bridge.build_proposal_context(
+                            plan,
+                            _parent_source_text(
+                                parent["path"], task.editable_files,
+                            ),
+                            candidate_seed=item["candidate_seed"],
+                        )
+                        proposal_prompt = _inject_v5_proposal(
+                            proposal_prompt,
+                            proposal_context.get("proposal_text", ""),
+                            max_total_chars=MAX_PROPOSAL_PROMPT_CHARS,
+                        )
+                    except Exception as exc:
+                        item["context_meta"].setdefault(
+                            "v5_warnings", []
+                        ).append({
+                            "stage": "build_proposal_context",
+                            "error": repr(exc),
+                        })
+                        item["context_meta"]["v5_status"] = "degraded"
+                        print(
+                            f"[v5] warning: build_proposal_context failed at "
+                            f"round {iteration}, candidate {candidate_index}: "
+                            f"{exc!r}",
+                            file=sys.stderr,
+                        )
                 ok, description = propose(
-                    Path(parent["path"]), draft, item["prompt"], task.editable_files,
+                    Path(parent["path"]), draft, proposal_prompt, task.editable_files,
                     backend=backend, model=model, cancel_event=cancel_event,
                 )
                 failure = None
@@ -1320,6 +1575,8 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                                     f"at round {item['iteration']}: {exc!r}",
                                     file=sys.stderr,
                                 )
+                    except Exception as exc:
+                        errors.put((f"finalize iter {item['iteration']}", exc))
                     finally:
                         with active_lock:
                             active_directions.pop(item["iteration"], None)
