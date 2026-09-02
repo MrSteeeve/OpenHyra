@@ -12,16 +12,28 @@ from pathlib import Path
 RUN_MANIFEST_SCHEMA = 1
 EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 SOURCE_FILES = (
+    "analogy_graph.py",
     "auditing.py",
+    "behavior_index.py",
+    "behavior_profiler.py",
     "context_agent.py",
+    "context_retrieval.py",
     "eb.py",
+    "experience_events.py",
     "external_formal_runner.py",
     "harness.py",
+    "harness_v5.py",
+    "island_scheduler.py",
     "llm_backend.py",
+    "matched_control.py",
+    "mechanism_cards.py",
+    "object_store.py",
+    "probe_suite.py",
     "proposal_agent.py",
     "provenance.py",
     "reporting.py",
     "sandbox.py",
+    "schemas_v5.py",
     "stopping.py",
 )
 
@@ -137,7 +149,7 @@ def git_metadata(root):
 
 def build_run_manifest(task, root, *, backend, model, workers,
                        candidates_per_context, trial_seed,
-                       stopping_policy=None):
+                       stopping_policy=None, v5_config=None):
     root = Path(root)
     task_support_sha256 = {}
     for path in sorted(task.dir.rglob("*")):
@@ -185,6 +197,7 @@ def build_run_manifest(task, root, *, backend, model, workers,
         "source_sha256": {
             name: sha256_file(root / name)
             for name in SOURCE_FILES
+            if (root / name).is_file()
         },
         "search": {
             "backend": backend,
@@ -218,6 +231,7 @@ def build_run_manifest(task, root, *, backend, model, workers,
             "evaluator_max_memory_mb": task.evaluator_max_memory_mb,
         },
         "stopping_policy": stopping_policy or {},
+        "v5": v5_config or {},
         "git": git_metadata(root),
         "environment": {
             "python": sys.version,
@@ -258,7 +272,7 @@ def validate_run_manifest(recorded, current):
     mismatches = []
     for field in (
             "task", "source_sha256", "search", "limits",
-            "evaluation", "stopping_policy", "environment"):
+            "evaluation", "stopping_policy", "v5", "environment"):
         if recorded.get(field) != current.get(field):
             mismatches.append(field)
     if mismatches:

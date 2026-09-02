@@ -53,9 +53,10 @@ from stopping import (
 )
 
 try:
-    from harness_v5 import V5Bridge
+    from harness_v5 import V5Bridge, adapt_bermudan_metrics, get_metrics_adapter
 except ImportError:
     V5Bridge = None
+    adapt_bermudan_metrics = None
 
 ROOT = Path(__file__).resolve().parent
 STOP = object()
@@ -1025,6 +1026,18 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
     )
     if v5_bridge is not None:
         v5_island = metadata.get("island_epoch_id", "island_00_epoch_00")
+        raw_metrics = result.get("metrics", {})
+        adapter = get_metrics_adapter(task.protocol)
+        try:
+            v5_metrics = adapter(raw_metrics)
+        except Exception as exc:
+            print(
+                f"[v5] warning: metrics adapter failed for {record['id']}: "
+                f"{exc!r}",
+                file=sys.stderr,
+            )
+            v5_bridge._log_sync_error(record["id"], "metrics_adapter", exc)
+            v5_metrics = raw_metrics
         v5_bridge.on_candidate_evaluated(
             record_id=record["id"],
             island_epoch_id=v5_island,
@@ -1032,7 +1045,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             status=result["status"],
             description=item["description"],
             parent_ids=[parent_id] if parent_id else [],
-            metrics=result.get("metrics", {}),
+            metrics=v5_metrics,
         )
     best = eb.best()
     improved = eb.is_improvement(
@@ -1296,12 +1309,21 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         context_completions.pop(item["iteration"])
                         context_finished = True
                 if context_finished:
-                    finalize_analysis(eb, item["iteration"], result_ids)
-                    if v5_bridge is not None:
-                        v5_bridge.on_context_complete(item["iteration"])
-                    with active_lock:
-                        active_directions.pop(item["iteration"], None)
-                    inflight.release()
+                    try:
+                        finalize_analysis(eb, item["iteration"], result_ids)
+                        if v5_bridge is not None:
+                            try:
+                                v5_bridge.on_context_complete(item["iteration"])
+                            except Exception as exc:
+                                print(
+                                    f"[v5] warning: on_context_complete failed "
+                                    f"at round {item['iteration']}: {exc!r}",
+                                    file=sys.stderr,
+                                )
+                    finally:
+                        with active_lock:
+                            active_directions.pop(item["iteration"], None)
+                        inflight.release()
                 candidate_queue.task_done()
 
     evaluators = [
@@ -1465,8 +1487,34 @@ def _validate_manifest_for_final_audit(task, manifest_path):
         candidates_per_context=search["candidates_per_context"],
         trial_seed=search["trial_seed"],
         stopping_policy=recorded.get("stopping_policy", {}),
+        v5_config=recorded.get("v5", {}),
     )
     return validate_run_manifest(recorded, current)
+
+
+def _extract_baseline_scores(record: dict) -> dict[str, float]:
+    """Extract per-instance baseline scores from a seed record's metrics.
+
+    Returns a dict mapping instance_id → mean baseline score, suitable
+    for BehaviorProfiler initialization. Returns empty dict if the
+    metrics don't contain the expected summaries.
+    """
+    metrics = record.get("metrics", {})
+    summaries = metrics.get("summaries")
+    if not isinstance(summaries, list) or not summaries:
+        return {}
+    baselines: dict[str, float] = {}
+    counts: dict[str, int] = {}
+    for s in summaries:
+        iid = s.get("instance_id", "")
+        baseline_lb = s.get("baseline_lower_bound")
+        if iid and baseline_lb is not None:
+            baselines[iid] = baselines.get(iid, 0.0) + float(baseline_lb)
+            counts[iid] = counts.get(iid, 0) + 1
+    for iid, count in counts.items():
+        if count > 1:
+            baselines[iid] /= count
+    return baselines
 
 
 def main():
@@ -1548,10 +1596,15 @@ def main():
         parser.error(str(exc))
     eb = ExperienceBank(task.run_dir / "eb", direction=task.direction)
     v5_bridge = None
+    v5_config = {}
     if getattr(args, 'v5', False):
         if V5Bridge is None:
             sys.exit("--v5 requires harness_v5 module")
         v5_bridge = V5Bridge(task.run_dir)
+        v5_config = {
+            "enabled": True,
+            "num_islands": 4,
+        }
     if args.status:
         for record in eb.records():
             score = f"{record['score']:.12f}" if record["score"] is not None else "-"
@@ -1587,6 +1640,7 @@ def main():
                 candidates_per_context=candidates_per_context,
                 trial_seed=args.trial_seed,
                 stopping_policy=stop_policy.to_dict(),
+                v5_config=v5_config,
             )
             write_run_manifest(manifest_path, task.run_manifest)
             task.search_evaluation_request = task.run_manifest.get(
@@ -1595,10 +1649,24 @@ def main():
             init_seed(task, eb)
             if v5_bridge is not None:
                 seed = eb.records()[0]
+                seed_metrics_adapter = get_metrics_adapter(task.protocol)
+                seed_v5_metrics = seed_metrics_adapter(
+                    seed.get("metrics", {})
+                )
+                v5_bridge.record_seed(
+                    record_id=seed["id"],
+                    score=seed["score"],
+                    metrics=seed_v5_metrics,
+                )
+                seed_baselines = _extract_baseline_scores(seed)
                 v5_bridge.initialize(
                     [seed["id"]],
                     frozen_baseline_score=seed["score"],
                     base_proposal_seed=args.trial_seed,
+                    baseline_scores=seed_baselines or None,
+                    probe_suite_sha256=seed.get("metrics", {}).get(
+                        "evaluation_request_sha256", ""
+                    ),
                 )
         elif args.iterations:
             if not eb.records():
@@ -1610,6 +1678,7 @@ def main():
                 candidates_per_context=candidates_per_context,
                 trial_seed=args.trial_seed,
                 stopping_policy=stop_policy.to_dict(),
+                v5_config=v5_config,
             )
             task.run_manifest = validate_run_manifest(recorded, current)
             task.search_evaluation_request = task.run_manifest.get(
@@ -1617,12 +1686,35 @@ def main():
             ).get("evaluation_request")
             if v5_bridge is not None:
                 seeds = [r["id"] for r in eb.records() if r.get("metadata", {}).get("iteration") is None]
-                best = eb.best()
-                v5_bridge.initialize(
-                    seeds or [eb.records()[0]["id"]],
-                    frozen_baseline_score=best["score"] if best else None,
-                    base_proposal_seed=args.trial_seed,
+                seed_record = eb.records()[0]
+                seed_metrics_adapter = get_metrics_adapter(task.protocol)
+                seed_v5_metrics = seed_metrics_adapter(
+                    seed_record.get("metrics", {})
                 )
+                v5_bridge.record_seed(
+                    record_id=seed_record["id"],
+                    score=seed_record["score"],
+                    metrics=seed_v5_metrics,
+                )
+                seed_baselines = _extract_baseline_scores(seed_record)
+                v5_bridge.initialize(
+                    seeds or [seed_record["id"]],
+                    frozen_baseline_score=seed_record["score"],
+                    base_proposal_seed=args.trial_seed,
+                    baseline_scores=seed_baselines or None,
+                    probe_suite_sha256=seed_record.get("metrics", {}).get(
+                        "evaluation_request_sha256", ""
+                    ),
+                )
+                reconciliation = v5_bridge._reconcile(
+                    legacy_record_ids=[r["id"] for r in eb.records()],
+                )
+                if reconciliation.get("missing_in_v5"):
+                    print(
+                        f"[v5] warning: {len(reconciliation['missing_in_v5'])} "
+                        "legacy records missing from V5 events",
+                        file=sys.stderr,
+                    )
 
         if args.iterations:
             ensure_run_resumable(task, eb)
@@ -1687,6 +1779,12 @@ def main():
             else:
                 print("[audit] failed: no successful private candidate")
         if args.export_bundle:
+            if v5_bridge is not None and v5_bridge.sync_status == "degraded":
+                sys.exit(
+                    "[v5] export refused: V5 sync status is 'degraded' — "
+                    "check v5/sync_errors.jsonl for failed event recordings. "
+                    "Resolve gaps before exporting."
+                )
             if task.run_manifest is None:
                 task.run_manifest = load_run_manifest(manifest_path)
             destination = export_bundle(
