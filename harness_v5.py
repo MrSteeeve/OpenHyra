@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import sys
 import threading
 from pathlib import Path
@@ -45,6 +46,7 @@ _LEGACY_STATUS_MAP = {
     "artifact_rejected": "artifact_rejected",
     "oom": "oom",
 }
+_SUCCESS_STATUSES = {"ok", "early_stopped"}
 
 
 def _map_status(legacy_status: str) -> str:
@@ -202,6 +204,8 @@ class V5Bridge:
         ledger.parent.mkdir(parents=True, exist_ok=True)
         with open(ledger, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     def resolve_sync_error(self, record_id: str, resolution: str) -> None:
         entry = {
@@ -216,6 +220,56 @@ class V5Bridge:
             ledger.parent.mkdir(parents=True, exist_ok=True)
             with open(ledger, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+
+    def _read_sync_ledger(self) -> tuple[list[dict], bool]:
+        """Read sync entries while keeping a torn line visible to diagnostics."""
+        ledger = self.run_dir / "v5" / "sync_errors.jsonl"
+        if not ledger.is_file():
+            return [], False
+        entries = []
+        malformed = False
+        for line_number, line in enumerate(
+            ledger.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except (json.JSONDecodeError, TypeError):
+                malformed = True
+                print(
+                    f"[v5] warning: ignoring malformed sync ledger line "
+                    f"{line_number}",
+                    file=sys.stderr,
+                )
+                continue
+            if not isinstance(entry, dict) or not entry.get("record_id"):
+                malformed = True
+                print(
+                    f"[v5] warning: ignoring invalid sync ledger line "
+                    f"{line_number}",
+                    file=sys.stderr,
+                )
+                continue
+            entries.append(entry)
+        return entries, malformed
+
+    def _unresolved_sync_record_ids(
+        self, entries: list[dict] | None = None,
+    ) -> set[str]:
+        """Resolve errors by latest ledger operation, not record-wide sets."""
+        if entries is None:
+            entries, _malformed = self._read_sync_ledger()
+        latest_operation: dict[str, str] = {}
+        for entry in entries:
+            latest_operation[entry["record_id"]] = entry.get("operation", "")
+        return {
+            record_id
+            for record_id, operation in latest_operation.items()
+            if operation != "resolution"
+        }
 
     def _reload_cached_state(self) -> None:
         """Rebuild in-memory caches from persisted state (for resume)."""
@@ -260,19 +314,18 @@ class V5Bridge:
             if event.record_id not in self._cards
         )
         sync_error_count = 0
-        ledger = self.run_dir / "v5" / "sync_errors.jsonl"
-        if ledger.is_file():
-            sync_error_count = sum(
-                1
-                for line in ledger.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-                and json.loads(line).get("operation") != "resolution"
-            )
+        ledger_entries, ledger_malformed = self._read_sync_ledger()
+        sync_error_count = sum(
+            1
+            for entry in ledger_entries
+            if entry.get("operation") != "resolution"
+        )
         result = {
             "v5_event_count": len(v5_ids),
             "sync_error_count": sync_error_count,
             "orphan_events": orphan_events,
             "missing_cards": missing_cards,
+            "malformed_sync_ledger": ledger_malformed,
         }
         if legacy_record_ids is not None:
             legacy_set = set(legacy_record_ids)
@@ -283,20 +336,14 @@ class V5Bridge:
             result["extra_in_v5"] = sorted(extra_in_v5)
             if missing_in_v5:
                 print(f"[v5] reconciliation: {len(missing_in_v5)} legacy records missing from V5 events: {sorted(missing_in_v5)[:5]}...", file=sys.stderr)
-            if ledger.is_file():
-                error_ids: set[str] = set()
-                resolved_ids: set[str] = set()
-                for line in ledger.read_text(encoding="utf-8").splitlines():
-                    if not line.strip():
-                        continue
-                    entry = json.loads(line)
-                    record_id = entry["record_id"]
-                    if entry.get("operation") == "resolution":
-                        resolved_ids.add(record_id)
-                    else:
-                        error_ids.add(record_id)
-                for record_id in sorted(error_ids - resolved_ids):
-                    if record_id in v5_ids and record_id not in extra_in_v5:
+            if ledger_entries:
+                error_ids = self._unresolved_sync_record_ids(ledger_entries)
+                orphan_set = set(orphan_events)
+                missing_card_set = set(missing_cards)
+                for record_id in sorted(error_ids):
+                    if (record_id in v5_ids
+                            and record_id not in orphan_set
+                            and record_id not in missing_card_set):
                         self.resolve_sync_error(record_id, "auto_reconciled")
         return result
 
@@ -623,7 +670,7 @@ class V5Bridge:
             events = self.event_store.read_experiment_events()
             scores = {}
             for event in events:
-                if event.score is not None:
+                if event.status in _SUCCESS_STATUSES and event.score is not None:
                     scores[event.record_id] = float(event.score)
 
             if not scores:
@@ -676,11 +723,14 @@ class V5Bridge:
         self,
         plan: ExperimentPlan,
         parent_source: str,
+        candidate_seed: int | None = None,
     ) -> dict:
         """Build a ProposalPacket for the Proposal Agent."""
         with self._lock:
             retrieval = self._make_retrieval()
-            packet, prov = retrieval.build_proposal(plan, parent_source)
+            packet, prov = retrieval.build_proposal(
+                plan, parent_source, candidate_seed=candidate_seed,
+            )
             return {
                 "proposal": packet,
                 "proposal_text": packet.to_text(),
@@ -692,21 +742,14 @@ class V5Bridge:
         with self._lock:
             active = self.island_scheduler.get_active_epochs()
             sync_error_count = 0
-            error_ids: set[str] = set()
-            resolved_ids: set[str] = set()
-            ledger = self.run_dir / "v5" / "sync_errors.jsonl"
-            if ledger.is_file():
-                for line in ledger.read_text(encoding="utf-8").splitlines():
-                    if not line.strip():
-                        continue
-                    entry = json.loads(line)
-                    record_id = entry["record_id"]
-                    if entry.get("operation") == "resolution":
-                        resolved_ids.add(record_id)
-                    else:
-                        error_ids.add(record_id)
-                        sync_error_count += 1
-            unresolved_count = len(error_ids - resolved_ids)
+            ledger_entries, ledger_malformed = self._read_sync_ledger()
+            sync_error_count = sum(
+                entry.get("operation") != "resolution"
+                for entry in ledger_entries
+            )
+            unresolved_count = len(
+                self._unresolved_sync_record_ids(ledger_entries)
+            )
             return {
                 "active_islands": len(active),
                 "total_epochs": len(
@@ -716,6 +759,7 @@ class V5Bridge:
                 "cards_cached": len(self._cards),
                 "sync_error_count": sync_error_count,
                 "unresolved_sync_errors": unresolved_count,
+                "malformed_sync_ledger": ledger_malformed,
                 "sync_status": self.sync_status,
                 "island_sizes": {
                     f"{e.island_id}_epoch_{e.epoch:02d}": len(
@@ -730,22 +774,21 @@ class V5Bridge:
     @property
     def sync_status(self) -> str:
         """Return V5 sync health: 'healthy' or 'degraded'."""
-        ledger = self.run_dir / "v5" / "sync_errors.jsonl"
-        if not ledger.is_file():
-            return "healthy"
-        error_ids: set[str] = set()
-        resolved_ids: set[str] = set()
-        for line in ledger.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
+        ledger_entries, ledger_malformed = self._read_sync_ledger()
+        if ledger_malformed or self._unresolved_sync_record_ids(ledger_entries):
+            return "degraded"
+        for event in self.event_store.read_experiment_events():
+            if not event.island_epoch_id:
                 continue
-            entry = json.loads(line)
-            record_id = entry["record_id"]
-            if entry.get("operation") == "resolution":
-                resolved_ids.add(record_id)
-            else:
-                error_ids.add(record_id)
-        unresolved = error_ids - resolved_ids
-        return "degraded" if unresolved else "healthy"
+            if not self.island_scheduler.get_island_records(
+                event.island_epoch_id
+            ) or event.record_id not in self.island_scheduler.get_island_records(
+                event.island_epoch_id
+            ):
+                return "degraded"
+            if event.record_id not in self._cards:
+                return "degraded"
+        return "healthy"
 
     def save_state(self) -> None:
         """Persist analogy graph (other state auto-persists)."""

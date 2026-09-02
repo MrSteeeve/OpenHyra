@@ -324,6 +324,7 @@ class ContextRetrieval:
         plan: ExperimentPlan,
         parent_source: str,
         inspiration_diffs: list[Any] | None = None,
+        candidate_seed: int | None = None,
     ) -> tuple[ProposalPacket, PacketProvenance]:
         target_epoch = next(
             (epoch for epoch in self.islands if self._epoch_id(epoch) == plan.target_island_epoch_id),
@@ -340,7 +341,11 @@ class ContextRetrieval:
                 "private_audit": "never available to proposal generation",
             },
             negative_constraints=list(plan.negative_constraints),
-            candidate_seed=target_epoch.proposal_seed if target_epoch else 0,
+            candidate_seed=(
+                target_epoch.proposal_seed
+                if candidate_seed is None and target_epoch
+                else int(candidate_seed or 0)
+            ),
         )
         selected = list(plan.parent_ids) + list(plan.inspiration_ids)
         rules = {"full_code_scope": "parent_only", "inspiration_diff_limit": 2, "constraints_source": "experiment_plan"}
