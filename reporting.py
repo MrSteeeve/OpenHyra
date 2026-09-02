@@ -212,6 +212,29 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
         except ValueError as exc:
             raise RuntimeError(str(exc)) from exc
         (destination / "final_audit.json").write_bytes(final_audit_data)
+
+    # V5 event logs, object-store payloads and island state are part of the
+    # auditable run, rather than an optional side directory.  Copy the whole
+    # run-local tree so a bundle can reconstruct Context -> Plan -> Proposal
+    # -> ExperimentEvent without reaching back into the live checkout.
+    v5_source = Path(task.run_dir) / "v5"
+    v5_manifest = {"present": v5_source.is_dir(), "file_count": 0}
+    if v5_source.is_dir():
+        v5_destination = destination / "v5"
+        shutil.copytree(v5_source, v5_destination)
+        v5_files = [path for path in v5_destination.rglob("*") if path.is_file()]
+        v5_manifest["file_count"] = len(v5_files)
+        for key, relative in (
+            ("experiment_event_count", "events/events/experiment_events.jsonl"),
+            ("plan_event_count", "events/events/plan_events.jsonl"),
+            ("annotation_event_count", "events/events/annotation_events.jsonl"),
+            ("analogy_result_count", "events/events/analogy_results.jsonl"),
+        ):
+            path = v5_destination / relative
+            v5_manifest[key] = (
+                sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+                if path.is_file() else 0
+            )
     output_solutions = destination / "solutions"
     output_solutions.mkdir()
     for record in records:
@@ -358,6 +381,7 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
             for record in records
             if isinstance(record.get("metadata", {}).get("iteration"), int)
         }),
+        "v5": v5_manifest,
     }
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"

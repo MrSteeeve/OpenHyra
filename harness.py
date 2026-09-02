@@ -1877,6 +1877,29 @@ def main():
                 f"last termination: {termination.get('reason')} "
                 f"(terminal={termination.get('terminal')})"
             )
+        if v5_bridge is not None:
+            diagnostics = v5_bridge.get_island_diagnostics()
+            event_count = len(
+                v5_bridge.event_store.read_experiment_events()
+            )
+            plan_count = len(v5_bridge.event_store.read_plan_events())
+            print(
+                "v5: "
+                f"sync={diagnostics['sync_status']} "
+                f"events={event_count} plans={plan_count} "
+                f"active_islands={diagnostics['active_islands']} "
+                f"profiles={diagnostics['profiles_cached']} "
+                f"unresolved_sync_errors={diagnostics['unresolved_sync_errors']}"
+            )
+            print(
+                "v5 island sizes: "
+                + ", ".join(
+                    f"{epoch}={size}"
+                    for epoch, size in sorted(
+                        diagnostics["island_sizes"].items()
+                    )
+                )
+            )
         return
 
     candidates_per_context = (
