@@ -67,6 +67,37 @@ MIN_CANDIDATES_PER_CONTEXT = 1
 MAX_STORED_LOG_CHARS = 6000
 REPAIRABLE_STATUSES = {"crash", "timeout"}
 V5_PACKET_TRUNCATION_MARKER = "\n\n[V5 packet clipped to fit the prompt budget]"
+CANDIDATE_MODES = frozenset({"legacy", "algorithm_bundle"})
+ALGORITHM_BUNDLE_SCHEMA = "openhyra-algorithm-bundle.v1"
+DEFAULT_ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
+
+
+def _safe_relative_source_files(value, *, label):
+    """Normalize a task-owned candidate file allowlist.
+
+    The list is configuration, not candidate input.  Keeping this validation
+    in the harness ensures every copy/freeze path uses the same lexical
+    interpretation and cannot be widened by a submitted manifest.
+    """
+    if not isinstance(value, (list, tuple)) or not value:
+        raise ValueError(f"{label} must be a non-empty list of relative paths")
+    result = []
+    for item in value:
+        if (
+            not isinstance(item, str)
+            or not item
+            or "\x00" in item
+            or Path(item).is_absolute()
+            or ".." in Path(item).parts
+            or item in result
+        ):
+            raise ValueError(f"{label} contains an unsafe or duplicate path")
+        # Candidate bundle paths are POSIX names even on the host.  Reject
+        # backslashes so a Windows-looking path cannot bypass a later join.
+        if "\\" in item:
+            raise ValueError(f"{label} contains an unsafe path separator")
+        result.append(item)
+    return tuple(result)
 
 
 class Task:
@@ -94,7 +125,139 @@ class Task:
         ):
             sys.exit("task seed_description must be bounded non-empty text")
         self.seed_description = self.seed_description.strip()
-        self.editable_files = cfg["editable_files"]
+        candidate_cfg = cfg.get("candidate", {})
+        if candidate_cfg is None:
+            candidate_cfg = {}
+        if not isinstance(candidate_cfg, dict):
+            sys.exit("task candidate must be an object")
+        # ``candidate_mode`` is intentionally optional.  Existing tasks keep
+        # the historical solve.sh/solution.json path byte-for-byte; new tasks
+        # opt into an AlgorithmBundle explicitly.
+        candidate_mode = cfg.get(
+            "candidate_mode", candidate_cfg.get("mode", "legacy"),
+        )
+        if candidate_mode not in CANDIDATE_MODES:
+            sys.exit(
+                "task candidate_mode must be one of: "
+                + ", ".join(sorted(CANDIDATE_MODES))
+            )
+        self.candidate_mode = candidate_mode
+
+        configured_editable = cfg.get("editable_files")
+        if configured_editable is None and candidate_mode == "algorithm_bundle":
+            configured_editable = candidate_cfg.get(
+                "editable_files", list(DEFAULT_ALGORITHM_SOURCE_FILES),
+            )
+        if configured_editable is None:
+            # Preserve the old error shape for malformed legacy task specs.
+            sys.exit("task editable_files is required")
+        try:
+            self.editable_files = list(_safe_relative_source_files(
+                configured_editable, label="task editable_files",
+            ))
+        except ValueError as exc:
+            sys.exit(str(exc))
+
+        configured_sources = cfg.get(
+            "source_files",
+            candidate_cfg.get("source_files", configured_editable),
+        )
+        try:
+            self.candidate_source_files = _safe_relative_source_files(
+                configured_sources, label="task source_files",
+            )
+        except ValueError as exc:
+            sys.exit(str(exc))
+        if not set(self.editable_files).issubset(self.candidate_source_files):
+            sys.exit("task editable_files must be a subset of task source_files")
+        if (
+            candidate_mode == "algorithm_bundle"
+            and set(self.candidate_source_files)
+            != set(DEFAULT_ALGORITHM_SOURCE_FILES)
+        ):
+            sys.exit(
+                "algorithm_bundle v1 source_files must be exactly train.py "
+                "and manifest.json"
+            )
+        self.candidate_entrypoint = cfg.get(
+            "entrypoint",
+            candidate_cfg.get(
+                "entrypoint",
+                "train.py" if candidate_mode == "algorithm_bundle" else "solve.sh",
+            ),
+        )
+        if (
+            not isinstance(self.candidate_entrypoint, str)
+            or not self.candidate_entrypoint
+            or Path(self.candidate_entrypoint).is_absolute()
+            or ".." in Path(self.candidate_entrypoint).parts
+            or "\\" in self.candidate_entrypoint
+        ):
+            sys.exit("task entrypoint must be a safe relative path")
+        if (
+            candidate_mode == "algorithm_bundle"
+            and self.candidate_entrypoint != "train.py"
+        ):
+            sys.exit(
+                "algorithm_bundle v1 currently requires entrypoint train.py"
+            )
+        self.solve_entrypoint = cfg.get(
+            "solve_entrypoint",
+            candidate_cfg.get("solve_entrypoint", "solve.sh"),
+        )
+        if (
+            not isinstance(self.solve_entrypoint, str)
+            or not self.solve_entrypoint
+            or Path(self.solve_entrypoint).is_absolute()
+            or ".." in Path(self.solve_entrypoint).parts
+            or "\\" in self.solve_entrypoint
+        ):
+            sys.exit("task solve_entrypoint must be a safe relative path")
+        self.artifact_protocol = cfg.get(
+            "artifact_protocol",
+            candidate_cfg.get(
+                "artifact_protocol",
+                "openhyra-policy-spec.v1"
+                if candidate_mode == "algorithm_bundle" else self.protocol,
+            ),
+        )
+        if (
+            not isinstance(self.artifact_protocol, str)
+            or not self.artifact_protocol.strip()
+            or len(self.artifact_protocol) > 256
+        ):
+            sys.exit("task artifact_protocol must be bounded non-empty text")
+        configured_protocols = cfg.get(
+            "artifact_protocols",
+            candidate_cfg.get("artifact_protocols", [self.artifact_protocol]),
+        )
+        if (
+            not isinstance(configured_protocols, (list, tuple))
+            or not configured_protocols
+            or any(
+                not isinstance(value, str)
+                or not value.strip()
+                or len(value) > 256
+                for value in configured_protocols
+            )
+        ):
+            sys.exit("task artifact_protocols must be bounded non-empty text")
+        self.artifact_protocols = tuple(dict.fromkeys(
+            value.strip() for value in configured_protocols
+        ))
+        if self.artifact_protocol not in self.artifact_protocols:
+            sys.exit("task artifact_protocol must be in artifact_protocols")
+        self.bundle_subdir = cfg.get(
+            "bundle_subdir", candidate_cfg.get("bundle_subdir", "."),
+        )
+        if (
+            not isinstance(self.bundle_subdir, str)
+            or not self.bundle_subdir
+            or Path(self.bundle_subdir).is_absolute()
+            or ".." in Path(self.bundle_subdir).parts
+            or "\\" in self.bundle_subdir
+        ):
+            sys.exit("task bundle_subdir must be a safe relative path")
         self.timeout_s = cfg.get("sandbox_timeout_s", 660)
         self.eval_concurrency = cfg.get("eval_concurrency", 1)
         self.candidates_per_context = cfg.get(
@@ -434,12 +597,18 @@ def _controlled_failure_result(item, task, exc, *, cancelled=False):
         "failure_status": status,
         "repairable": False,
     }
+    failed_metrics = {"source_snapshot_sha256": source_hash}
+    # A controlled failure has no usable bundle, but retaining the configured
+    # mode lets downstream provenance distinguish it from a legacy solver
+    # crash without inventing a digest.
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        failed_metrics["candidate_mode"] = "algorithm_bundle"
     return {
         "item": failed_item,
         "score": None,
         "status": status,
         "log_tail": note,
-        "metrics": {"source_snapshot_sha256": source_hash},
+        "metrics": failed_metrics,
     }
 
 
@@ -574,6 +743,34 @@ def _record_metadata(task, context_meta, backend, model):
     return metadata
 
 
+def _v5_metrics_input(task, raw_metrics):
+    """Add trusted AlgorithmBundle identity fields before V5 adaptation.
+
+    The legacy evaluator historically reported ``protocol`` as its task
+    protocol, while V5 mechanism cards use that field for the artifact wire
+    protocol.  Keep the old path untouched and, for Python candidates, derive
+    the card identity from evaluator output or the task-owned default.  The
+    returned copy prevents V5 bookkeeping from mutating the Experience Bank
+    metrics.
+    """
+    payload = dict(raw_metrics or {})
+    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+        return payload
+    artifact_protocol = payload.get("artifact_protocol") or getattr(
+        task, "artifact_protocol", ""
+    )
+    if artifact_protocol:
+        payload["artifact_protocol"] = artifact_protocol
+        # MechanismCardBuilder consumes ``protocol`` as the artifact protocol.
+        # This is a trusted projection, not a candidate-supplied score field.
+        payload["protocol"] = artifact_protocol
+    payload.setdefault(
+        "entrypoint", getattr(task, "candidate_entrypoint", "train.py")
+    )
+    payload.setdefault("candidate_mode", "algorithm_bundle")
+    return payload
+
+
 def _editable_hashes(directory, editable_files):
     hashes = {}
     for name in editable_files:
@@ -583,6 +780,64 @@ def _editable_hashes(directory, editable_files):
             if path.is_file() else None
         )
     return hashes
+
+
+def _algorithm_bundle_digest(directory, task):
+    """Return the canonical digest for a configured AlgorithmBundle.
+
+    The digest intentionally covers only the task-owned ``source_files``
+    allowlist (normally ``train.py`` and ``manifest.json``), not harness
+    outputs such as ``solve.sh`` or ``solution.json``.  This matches the V5
+    AlgorithmBundle provenance schema and gives EB/V5 a stable code identity
+    independent of generated artifacts.
+    """
+    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+        return None
+    source_files = tuple(getattr(task, "candidate_source_files", ()))
+    if not source_files:
+        raise ValueError("algorithm bundle has no configured source_files")
+    files = []
+    root = Path(directory)
+    for name in sorted(source_files):
+        path = root / name
+        # ``read_regular_file`` rejects symlinks and hard-link surprises and
+        # applies the same source-size budget as the sealing path.
+        data = read_regular_file(
+            path,
+            _source_limit_bytes(task),
+            label=f"algorithm source file {name}",
+        )
+        files.append({
+            "path": name,
+            "size_bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    payload = {
+        "schema": ALGORITHM_BUNDLE_SCHEMA,
+        "files": files,
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    return digest
+
+
+def _validate_algorithm_bundle_source(directory, task):
+    """Validate required bundle files before launching candidate/evaluator."""
+    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+        return None
+    digest = _algorithm_bundle_digest(directory, task)
+    entrypoint = getattr(task, "candidate_entrypoint", "train.py")
+    if entrypoint not in getattr(task, "candidate_source_files", ()):
+        raise ValueError(
+            "algorithm entrypoint must be included in task source_files"
+        )
+    return digest
 
 
 def _next_context_iteration(records):
@@ -667,12 +922,30 @@ def _evaluate_candidate(item, task, print_lock):
     source_snapshot_sha256 = _seal_candidate_source(
         draft, sealed, task,
     )
+    bundle_digest = None
+    bundle_error = None
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        try:
+            bundle_digest = _validate_algorithm_bundle_source(sealed, task)
+        except (OSError, ValueError) as exc:
+            bundle_error = str(exc)
 
     if item.get("failure"):
         score, status, log_tail, metrics = (
             None,
             item["failure_status"],
             item["failure"],
+            {
+                "source_snapshot_sha256": source_snapshot_sha256,
+                **({"algorithm_bundle_sha256": bundle_digest}
+                   if bundle_digest else {}),
+            },
+        )
+    elif bundle_error:
+        score, status, log_tail, metrics = (
+            None,
+            "rejected",
+            f"algorithm bundle preflight failed: {bundle_error}",
             {"source_snapshot_sha256": source_snapshot_sha256},
         )
     else:
@@ -685,7 +958,11 @@ def _evaluate_candidate(item, task, print_lock):
                 None,
                 "violation",
                 f"sealed proposal modified non-editable file(s): {violations}",
-                {"source_snapshot_sha256": source_snapshot_sha256},
+                {
+                    "source_snapshot_sha256": source_snapshot_sha256,
+                    **({"algorithm_bundle_sha256": bundle_digest}
+                       if bundle_digest else {}),
+                },
             )
         elif issues:
             score, status, log_tail, metrics = (
@@ -693,7 +970,11 @@ def _evaluate_candidate(item, task, print_lock):
                 "rejected",
                 "sealed proposal failed engineering preflight: "
                 + "; ".join(issues),
-                {"source_snapshot_sha256": source_snapshot_sha256},
+                {
+                    "source_snapshot_sha256": source_snapshot_sha256,
+                    **({"algorithm_bundle_sha256": bundle_digest}
+                       if bundle_digest else {}),
+                },
             )
         else:
             with print_lock:
@@ -705,6 +986,11 @@ def _evaluate_candidate(item, task, print_lock):
             score, status, log_tail, metrics = run_solution(
                 sealed, sandbox, task,
             )
+            if bundle_digest:
+                metrics = dict(metrics)
+                metrics.setdefault(
+                    "algorithm_bundle_sha256", bundle_digest,
+                )
     commit_dir = _assemble_commit_snapshot(
         sealed, sandbox, task, metrics,
     )
@@ -768,6 +1054,10 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
             result.get("log_tail", ""),
             task.editable_files,
             backend=backend, model=model, cancel_event=cancel_event,
+            candidate_mode=getattr(task, "candidate_mode", "legacy"),
+            entrypoint=getattr(task, "candidate_entrypoint", None),
+            artifact_protocol=getattr(task, "artifact_protocol", None),
+            source_files=getattr(task, "candidate_source_files", None),
         )
         repair_item = {
             **item,
@@ -872,6 +1162,10 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
             backend=backend,
             model=model,
             cancel_event=cancel_event,
+            candidate_mode=getattr(task, "candidate_mode", "legacy"),
+            entrypoint=getattr(task, "candidate_entrypoint", None),
+            artifact_protocol=getattr(task, "artifact_protocol", None),
+            source_files=getattr(task, "candidate_source_files", None),
         )
         revision_item = {
             **item,
@@ -1084,10 +1378,18 @@ def _build_experiment_plan(
     return plan
 
 
-def _parent_source_text(parent_path, editable_files, max_chars=48_000):
-    """Render the editable parent source that belongs in a ProposalPacket."""
+def _parent_source_text(parent_path, editable_files, max_chars=48_000,
+                        source_files=None):
+    """Render parent code for a ProposalPacket using the task allowlist.
+
+    Algorithm bundles normally expose the same files as ``editable_files``;
+    ``source_files`` can additionally include frozen helper modules when a
+    protocol explicitly permits them.  Legacy callers retain their original
+    positional behavior.
+    """
     chunks = []
-    for filename in editable_files:
+    filenames = source_files if source_files is not None else editable_files
+    for filename in filenames:
         path = Path(parent_path) / filename
         if not path.is_file():
             continue
@@ -1152,6 +1454,24 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             commit_dir, task.editable_files,
         ),
     })
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        # The evaluator validates the sealed source manifest and reports its
+        # schema (MLP, linear, or expression).  Preserve that actual protocol
+        # in EB metadata; the task default is only a fallback for preflight or
+        # failed candidates that never reached the evaluator.
+        actual_artifact_protocol = metrics.get("artifact_protocol") or (
+            task.artifact_protocol
+        )
+        metadata.update({
+            "candidate_mode": task.candidate_mode,
+            "entrypoint": task.candidate_entrypoint,
+            "solve_entrypoint": task.solve_entrypoint,
+            "artifact_protocol": actual_artifact_protocol,
+            "source_files": list(task.candidate_source_files),
+            "algorithm_bundle_sha256": metrics.get(
+                "algorithm_bundle_sha256"
+            ) or "",
+        })
 
     previous_best = eb.best()
     record = eb.commit(
@@ -1161,7 +1481,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
     )
     if v5_bridge is not None:
         v5_island = metadata.get("island_epoch_id", "island_00_epoch_00")
-        raw_metrics = result.get("metrics", {})
+        raw_metrics = _v5_metrics_input(task, result.get("metrics", {}))
         adapter = get_metrics_adapter(task.protocol)
         try:
             v5_metrics = adapter(raw_metrics)
@@ -1435,6 +1755,9 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                             plan,
                             _parent_source_text(
                                 parent["path"], task.editable_files,
+                                source_files=getattr(
+                                    task, "candidate_source_files", None,
+                                ),
                             ),
                             candidate_seed=item["candidate_seed"],
                         )
@@ -1460,6 +1783,10 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                 ok, description = propose(
                     Path(parent["path"]), draft, proposal_prompt, task.editable_files,
                     backend=backend, model=model, cancel_event=cancel_event,
+                    candidate_mode=getattr(task, "candidate_mode", "legacy"),
+                    entrypoint=getattr(task, "candidate_entrypoint", None),
+                    artifact_protocol=getattr(task, "artifact_protocol", None),
+                    source_files=getattr(task, "candidate_source_files", None),
                 )
                 failure = None
                 failure_status = None
@@ -1695,6 +2022,16 @@ def init_seed(task, eb):
     seed_candidate = _assemble_commit_snapshot(
         task.seed_dir, sandbox, task, metrics,
     )
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        try:
+            metrics = {
+                **metrics,
+                "algorithm_bundle_sha256": _validate_algorithm_bundle_source(
+                    seed_candidate, task,
+                ),
+            }
+        except (OSError, ValueError) as exc:
+            sys.exit(f"Seed algorithm bundle is invalid: {exc}")
     if metrics.get("artifact_sha256"):
         _validate_hashed_file(
             seed_candidate / "solution.json", metrics["artifact_sha256"],
@@ -1718,6 +2055,20 @@ def init_seed(task, eb):
             seed_candidate, task.editable_files,
         ),
     }
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        actual_artifact_protocol = metrics.get("artifact_protocol") or (
+            task.artifact_protocol
+        )
+        seed_metadata.update({
+            "candidate_mode": task.candidate_mode,
+            "entrypoint": task.candidate_entrypoint,
+            "solve_entrypoint": task.solve_entrypoint,
+            "artifact_protocol": actual_artifact_protocol,
+            "source_files": list(task.candidate_source_files),
+            "algorithm_bundle_sha256": metrics.get(
+                "algorithm_bundle_sha256"
+            ) or "",
+        })
     record = eb.commit(
         seed_candidate, score, status, task.seed_description,
         None, log_tail, metrics,
@@ -1776,7 +2127,7 @@ def _extract_baseline_scores(record: dict) -> dict[str, float]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", default="sums_diffs")
+    parser.add_argument("--task", default="bermudan_optimal_stopping")
     parser.add_argument("--run-id", default="default")
     parser.add_argument("--init", action="store_true")
     parser.add_argument("--iterations", type=int, default=0)
@@ -1931,7 +2282,7 @@ def main():
                 seed = eb.records()[0]
                 seed_metrics_adapter = get_metrics_adapter(task.protocol)
                 seed_v5_metrics = seed_metrics_adapter(
-                    seed.get("metrics", {})
+                    _v5_metrics_input(task, seed.get("metrics", {}))
                 )
                 v5_bridge.record_seed(
                     record_id=seed["id"],
@@ -1969,7 +2320,7 @@ def main():
                 seed_record = eb.records()[0]
                 seed_metrics_adapter = get_metrics_adapter(task.protocol)
                 seed_v5_metrics = seed_metrics_adapter(
-                    seed_record.get("metrics", {})
+                    _v5_metrics_input(task, seed_record.get("metrics", {}))
                 )
                 v5_bridge.record_seed(
                     record_id=seed_record["id"],

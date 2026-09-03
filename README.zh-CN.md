@@ -6,41 +6,27 @@
 [English](README.md) | **中文**
 
 对腾讯混元 **Hyra**（Hunyuan Research Agent）公开 Harness 架构 [1] 的开源、部分复现，
-目前用于演示 **sums_diffs** 与**百慕大期权最优停止**任务。OpenHyra 实现了一个自主研究循环，让模型智能体提出求解器、
+目前用于演示**百慕大期权最优停止**任务。OpenHyra 实现了一个自主研究循环，让模型智能体提出求解器、
 沙盒运行、可信评估器打分，每次尝试无论成败都作为经验存入经验库，
 供后续轮次利用。
 
 ## 任务
 
-### 和差集搜索
-
-构造有限整数集 $A$，最大化和差集指数
-
-$$C(A) = \frac{\log\left(|A+A| \/\ |A|\right)}{\log\left(|A-A| \/\ |A|\right)}$$
-
-其中 $A+A = \{a+b : a,b \in A\}$ ，$A-A = \{a-b : a,b \in A\}$。
-
-对绝大多数集合 $C(A) < 1$（加法可交换，差通常多于和）；
-和占优（MSTD）构造能把它推到 1 以上 [4]。
-
-当前任务接受任意满足 $|A|\ge2$ 的显式有限集合，元素取值仍须位于
-$[-10^6,10^6]$，但不再设置集合大小的固定上限。候选方案运行时间最长 180 秒，
-由沙盒外的可信评估器精确枚举 $A+A$ 与 $A-A$；artifact 大小、评估时间和评估内存
-构成实际资源边界。
-
-`solution.json` 还可以携带唯一的 current `openhyra-research` schema；没有
-`v1`/`v2` 并行协议。构造必须是类型化的 positional digit product，并显式给出有限
-检查层和白名单 obligation。可信评估器另行生成 `evidence.json`：通过重算的 obligation
-标为 `bounded_checked`，失败项标为 `refuted` 并保存最小反例；关联 claim 只能成为
-带界或反例证据的索引，但不会因此获得可信数学状态；没有受信 implication rule 时，
-自然语言 claim 仍是 `unverified`。这些字段绝不改变数值分数，有限检查也不会被冒充为
-渐近证明。候选输入字段见 [任务说明](tasks/sums_diffs/TASK.md)。
-
 ### 百慕大期权最优停止
 
-第二个任务搜索一个有界、类型化的特征表达式程序，固定算法为 Ridge LSMC，金融环境由
-可信评估器控制的风险中性 Black--Scholes 模型给出。候选既不提交价格，也不提交可执行
-Python；路径模拟、合约、贴现、回归、因果行权、计算预算和统计量全部归评估器所有。
+OpenHyra 现在提供两条并行的百慕大任务。历史的
+`bermudan_optimal_stopping` 仍搜索有界、类型化的特征表达式程序，算法固定为 Ridge
+LSMC；新增的 `bermudan_python_search` 搜索 AlgorithmBundle：候选自己的 `train.py`
+在每个实例和 repeat 上于独立训练沙盒中运行，并依据 `manifest.json` 生成纯数据型的
+continuation 工件。当前注册了 MLP、仿射线性和有界表达式三类 runner，因此纯逻辑解和
+神经网络解可以走同一条可信评估链路。
+
+MLP 与线性工件直接返回以时间零计价的贴现货币值。表达式工件保留历史 Feature IR
+终端在当前行权时点的执行价归一化语义；可信 runner 在交给行权与评分前统一执行
+`strike * exp(-rate * t)` 的换算。
+
+两条任务中的风险中性模型、路径模拟、合约、贴现、因果行权、原始—对偶审计、计算预算
+和统计量都由评估器控制。Python 只开放在逐实例训练阶段，定价评估器不会导入候选代码。
 公开搜索使用相互独立的拟合路径与定价路径，并让候选和冻结基线共享随机数；分数是相对
 基线、按执行价归一化的下界改善之保守下置信值。
 
@@ -49,29 +35,10 @@ Python；路径模拟、合约、贴现、回归、因果行权、计算预算�
 的嵌套鞅计算原始—对偶置信 Gap。结果只写入 `final_audit.json`，不会回流经验库或下一轮
 搜索；公开 termination 仅携带种子承诺，导出已完成的审计记录后才可用其中种子独立复现。
 
-当前版本刻意限定为“Phase 1 特征搜索 + Phase 4 验收审计”，尚未开放任意策略、Python
-或完整算法搜索。数据型工件冻结后才生成隐藏种子，封闭了当前任务所需的反馈通道；这并不
-意味着现有写入约束沙盒已成为可安全运行任意候选代码的机密性边界。完整 IR、金融协议、
-评分规则和结论边界见[百慕大任务说明](tasks/bermudan_optimal_stopping/TASK.md)。
-
-## 结果
-
-| 系统 | $C(A)$ |
-|---|---:|
-| 官方种子（初始构造） | 1.059793 |
-| **OpenHyra 历史运行** | **1.111815**（$n=405$） |
-| SimpleTES [3] | 1.144887 |
-
-这些是历史参考点，不是当前同协议排行榜：OpenHyra 历史运行和 SimpleTES 结果产生于
-限制集合大小的设置，而当前任务已经取消固定的集合大小上限。Hyra 公布的 artifact
-[1, 2] 尚未通过当前可信评估器及其资源边界重新运行，因此不加入表格。
-
-OpenHyra 集合来自 Codex 后端的一次历史运行（20 轮 Context × 每轮 4 个候选），
-经可信评估器打分并独立复核：$n=405$、$|A+A|=2395$、$|A-A|=2003$。
-该实验早于当前“所有结果独立入库”和“repair 不可变”语义：每轮只保存了 winner artifact，
-其他候选只留下摘要。集合及独立 verifier 已作为明确标注的
-[legacy artifact](artifacts/sums_diffs/openhyra-1.111814562869239-legacy/) 发布；
-当前 Harness 尚未重跑产生新的主结果。
+特征任务继续作为兼容基线，Python 任务则是新增的算法搜索入口。只有在数据型工件及其
+源码 bundle 冻结后才生成隐藏种子，从而封闭相关反馈通道；公开分数仍不是定理，也不是
+生产价格。完整协议、金融模型、评分规则和结论边界见[特征任务说明](tasks/bermudan_optimal_stopping/TASK.md)
+与 [Python 任务说明](tasks/bermudan_python_search/TASK.md)。
 
 ## 工作原理
 
@@ -141,9 +108,8 @@ Harness 同时写同一 `run-id`。
 主动停止需要显式启用 `--agent-stop`，`--iterations` 仍然是不可突破的轮数上限。
 启用后，Context 轮次改为顺序决策，保证每次判断都看到上一轮完整入库的结果；同一轮中的
 多个候选仍然并行生成和评估。Context 的 `stop` 只是请求，默认只有同时满足以下证据才接受：
-至少完成 6 轮、连续 4 轮没有超过 `0.0001` 的有效提升、最近 4 轮至少有 4 个成功候选；
-对 sums_diffs 还必须完成上述四类同目标形式证明。Context JSON 无效、模型调用失败、
-runner 缺失、存在可信反例或证明不完整时一律继续。每次带 `--iterations` 的 pipeline
+至少完成 6 轮、连续 4 轮没有超过 `0.0001` 的有效提升、最近 4 轮至少有 4 个成功候选。
+Context JSON 无效或模型调用失败时一律继续。每次带 `--iterations` 的 pipeline
 调用都会把终止原因和证据写入 `termination.json`；若接受 Agent 停止，还会保存 Agent
 原始判断与 Harness 审核结论。导出 bundle 时该文件一并保存。
 
@@ -160,24 +126,21 @@ python3 harness.py --run-id guarded --iterations 20 --workers 2 --agent-stop
 
 ```bash
 # 依赖：macOS、Python >= 3.10、numpy，以及 Claude Code 或 Codex CLI
-python3 harness.py --run-id demo --init --workers 2
-python3 harness.py --run-id demo --iterations 5 --workers 2
-python3 harness.py --run-id demo --status
-python3 harness.py --run-id demo --export-bundle bundles/demo
 
 # 百慕大特征搜索，以及一次性冻结 Top-K 审计。
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --init --workers 2 --trial-seed 1729
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --iterations 5 --workers 2 --trial-seed 1729
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --final-audit
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --export-bundle bundles/bermudan-demo
+python3 harness.py --run-id bermudan-demo --init --workers 2 --trial-seed 1729
+python3 harness.py --run-id bermudan-demo --iterations 5 --workers 2 --trial-seed 1729
+python3 harness.py --run-id bermudan-demo --final-audit
+python3 harness.py --run-id bermudan-demo --status
+python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
-# 形式化 run 在初始化和续跑时必须使用同一个可信隔离 runner。
-python3 harness.py --run-id formal --init \
-  --formal-runner /absolute/path/to/openhyra-formal-runner
+# Python AlgorithmBundle 搜索（MLP/线性/表达式 runner）。
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --init --workers 1 --trial-seed 1729
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --iterations 5 --workers 1 --trial-seed 1729
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --final-audit
 ```
 
 初始化和续跑时应传入相同的 `--backend`、`--model`、`--workers`、候选数、trial seed
@@ -189,8 +152,3 @@ python3 harness.py --run-id formal --init \
    <https://hy.tencent.com/research/hyra>
 2. Tencent-Hunyuan. *Hyra-results: research artifacts from Hyra.*
    <https://github.com/Tencent-Hunyuan/Hyra-results>
-3. *SimpleTES: Evaluation-driven Scaling for Scientific Discovery.*
-   arXiv:2604.19341. <https://arxiv.org/abs/2604.19341>
-4. G. Martin, K. O'Bryant. *Many sets have more sums than differences.*
-   Additive Combinatorics, CRM Proc. Lecture Notes 43, 2007。
-   <https://arxiv.org/abs/math/0608131>

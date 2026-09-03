@@ -1,5 +1,4 @@
 import hashlib
-import importlib.util
 import json
 import os
 import subprocess
@@ -60,10 +59,7 @@ from stopping import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-EVALUATOR_PATH = ROOT / "tasks" / "sums_diffs" / "evaluator.py"
-SPEC = importlib.util.spec_from_file_location("sums_diffs_evaluator", EVALUATOR_PATH)
-EVALUATOR = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(EVALUATOR)
+EVALUATOR_PATH = ROOT / "tasks" / "bermudan_optimal_stopping" / "evaluator.py"
 
 
 def _context_result(parent, direction, metadata):
@@ -79,338 +75,6 @@ def _context_result(parent, direction, metadata):
         decision, parent, "seed=__OPENHYRA_CANDIDATE_SEED__",
         direction, metadata,
     )
-
-
-def _research_payload():
-    return {
-        "schema": "openhyra-research",
-        "scope": "all_finite_integer_sets",
-        "hypothesis": (
-            "A base-12 digit gadget separates modular sums from differences."
-        ),
-        "construction": {
-            "schema": "openhyra-digit-product",
-            "base": 12,
-            "digits": [0, 1, 2, 4, 5, 9],
-            "levels": 2,
-            "check_levels": [1, 2],
-            "obligations": [{
-                "id": "O1",
-                "type": "level_counts",
-                "level": 1,
-                "expected_n": 6,
-                "expected_sum_count": 15,
-                "expected_diff_count": 17,
-            }],
-        },
-        "claims": [{
-            "id": "G1",
-            "template": "supporting_lemma",
-            "statement": (
-                "W+W covers every residue modulo 12 and W-W has size 11."
-            ),
-            "depends_on": [],
-            "obligation_ids": ["O1"],
-        }],
-        "falsification_plan": (
-            "Recompute the modular sum and difference residue counts exactly."
-        ),
-        "proof_sketch": (
-            "A digit product may amplify the one-residue modular gap."
-        ),
-        "certificates": [{
-            "type": "modular_sum_diff",
-            "modulus": 12,
-            "residues": [0, 1, 2, 4, 5, 9],
-            "expected_sum_count": 12,
-            "expected_diff_count": 11,
-        }],
-    }
-
-
-class EvaluatorTests(unittest.TestCase):
-    def test_official_simpletes_seed(self):
-        values = [0, 1, 2, 4, 5, 9, 12, 13, 14, 16, 17, 21, 24, 25, 26, 28, 29]
-        score, metrics, normalized = EVALUATOR.evaluate_values(values)
-        self.assertAlmostEqual(score, 1.0597930945472454, places=14)
-        self.assertEqual(metrics["n"], 17)
-        self.assertEqual(metrics["sums"], 59)
-        self.assertEqual(metrics["diffs"], 55)
-        self.assertEqual(normalized, values)
-
-    def test_canonical_hash_removes_affine_symmetries(self):
-        values = [0, 1, 3, 7]
-        translated_scaled = [19 + 5 * value for value in values]
-        reflected = [max(values) - value for value in values]
-        expected = EVALUATOR.canonical_hash(values)
-        self.assertEqual(expected, EVALUATOR.canonical_hash(translated_scaled))
-        self.assertEqual(expected, EVALUATOR.canonical_hash(reflected))
-
-    def test_simpletes_normalizes_integer_duplicates(self):
-        score, metrics, normalized = EVALUATOR.evaluate_values(
-            [3, 0, 1, 3, 0],
-        )
-        self.assertEqual(normalized, [0, 1, 3])
-        self.assertEqual(metrics["n"], 3)
-        self.assertEqual(metrics["sums"], 6)
-        self.assertEqual(metrics["diffs"], 7)
-        self.assertGreater(score, 0)
-
-    def test_candidate_values_require_actual_integers(self):
-        for value in (1.0, True, "1"):
-            with self.subTest(value=value):
-                with self.assertRaisesRegex(ValueError, "must be an integer"):
-                    EVALUATOR.evaluate_values([0, value])
-
-    def test_accepts_more_than_512_elements(self):
-        score, metrics, normalized = EVALUATOR.evaluate_values(list(range(513)))
-        self.assertEqual(metrics["n"], 513)
-        self.assertEqual(metrics["sums"], 1025)
-        self.assertEqual(metrics["diffs"], 1025)
-        self.assertEqual(normalized, list(range(513)))
-        self.assertEqual(score, 1.0)
-
-    def test_rejects_fewer_than_two_distinct_elements(self):
-        with self.assertRaisesRegex(ValueError, "at least 2"):
-            EVALUATOR.evaluate_values([7, 7])
-
-    def test_integer_range_remains_bounded(self):
-        for values in ([-1_000_001, 0], [0, 1_000_001]):
-            with self.subTest(values=values):
-                with self.assertRaisesRegex(ValueError, "elements must be in"):
-                    EVALUATOR.evaluate_values(values)
-
-    def test_research_certificate_is_bounded_evidence_not_a_proof(self):
-        values = [0, 1, 2, 4, 5, 9]
-        expected_score = EVALUATOR.evaluate_values(values)[0]
-        score, metrics, normalized, evidence = EVALUATOR.evaluate_submission({
-            "A": values,
-            "research": _research_payload(),
-        })
-        self.assertEqual(score, expected_score)
-        self.assertEqual(
-            metrics["evidence_level"],
-            "proposal_with_bounded_support",
-        )
-        self.assertEqual(metrics["research_claim_count"], 1)
-        self.assertEqual(metrics["verified_certificate_count"], 1)
-        self.assertEqual(evidence["numeric"]["status"], "exact")
-        self.assertEqual(evidence["research"]["status"], "bounded_supported")
-        self.assertEqual(
-            evidence["research"]["certificate_summary"],
-            "contains_bounded_certificate",
-        )
-        self.assertEqual(
-            evidence["research"]["claims"][0]["status"],
-            "unverified",
-        )
-        self.assertEqual(
-            evidence["research"]["claims"][0][
-                "linked_obligation_status"
-            ],
-            "bounded_checked",
-        )
-        self.assertEqual(
-            evidence["research"]["certificates"][0]["status"],
-            "bounded_checked",
-        )
-        self.assertEqual(
-            evidence["research"]["formalization"]["status"],
-            "not_submitted",
-        )
-        self.assertNotIn("verified", normalized["research"]["certificates"][0])
-
-        repeated = EVALUATOR.evaluate_submission(normalized)
-        self.assertEqual(repeated[2], normalized)
-        self.assertEqual(
-            repeated[1]["research_sha256"],
-            metrics["research_sha256"],
-        )
-
-    def test_false_research_certificate_is_refuted_without_losing_score(self):
-        research = _research_payload()
-        research["certificates"][0]["expected_diff_count"] = 12
-        score, metrics, _normalized, evidence = EVALUATOR.evaluate_submission({
-            "A": [0, 1, 2, 4, 5, 9],
-            "research": research,
-        })
-        self.assertIsNotNone(score)
-        self.assertEqual(
-            metrics["evidence_level"],
-            "proposal_with_refutation",
-        )
-        self.assertEqual(metrics["verified_certificate_count"], 0)
-        self.assertEqual(metrics["refuted_certificate_count"], 1)
-        certificate = evidence["research"]["certificates"][0]
-        self.assertEqual(certificate["status"], "refuted")
-        self.assertEqual(certificate["expected_diff_count"], 12)
-        self.assertEqual(certificate["diff_count"], 11)
-        self.assertEqual(evidence["research"]["status"], "contains_refutation")
-        self.assertEqual(
-            evidence["research"]["certificate_summary"],
-            "contains_refuted_certificate",
-        )
-
-    def test_refutation_outranks_a_submitted_formalization(self):
-        research = _research_payload()
-        research["construction"]["obligations"][0][
-            "expected_sum_count"
-        ] = 14
-        research["claims"][0].update({
-            "id": "U1",
-            "template": "universal_upper_bound",
-            "statement": "Every admissible exponent is below two.",
-            "target": {"numerator": 2, "denominator": 1},
-        })
-        research["formalization"] = {
-            "schema": "openhyra-lean4-request",
-            "target": "lean4",
-            "proofs": [{
-                "claim_id": "U1",
-                "term": "by exact proof",
-            }],
-        }
-
-        _score, metrics, _normalized, evidence = (
-            EVALUATOR.evaluate_submission({
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": research,
-            })
-        )
-
-        self.assertEqual(
-            metrics["evidence_level"],
-            "proposal_with_refutation",
-        )
-        self.assertEqual(metrics["formalization_status"], "submitted")
-        self.assertEqual(evidence["research"]["status"], "contains_refutation")
-        self.assertEqual(
-            evidence["research"]["claims"][0]["status"],
-            "unverified",
-        )
-        self.assertEqual(
-            evidence["research"]["claims"][0][
-                "linked_obligation_status"
-            ],
-            "contains_refutation",
-        )
-
-    def test_candidate_cannot_forge_research_evidence_status(self):
-        research = _research_payload()
-        research["status"] = "formal_checked"
-        with self.assertRaisesRegex(ValueError, "unknown field"):
-            EVALUATOR.evaluate_submission({
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": research,
-            })
-
-    def test_research_claim_dependencies_must_be_acyclic(self):
-        research = _research_payload()
-        research["claims"] = [
-            {
-                "id": "C1",
-                "template": "supporting_lemma",
-                "statement": "First claim.",
-                "depends_on": ["C2"],
-                "obligation_ids": [],
-            },
-            {
-                "id": "C2",
-                "template": "supporting_lemma",
-                "statement": "Second claim.",
-                "depends_on": ["C1"],
-                "obligation_ids": [],
-            },
-        ]
-        with self.assertRaisesRegex(ValueError, "acyclic"):
-            EVALUATOR.evaluate_submission({
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": research,
-            })
-
-    def test_research_hash_is_canonical_but_scope_sensitive(self):
-        first = _research_payload()
-        first["claims"].append({
-            "id": "G0",
-            "template": "observation",
-            "statement": "The digit set has six residues.",
-            "depends_on": [],
-            "obligation_ids": [],
-        })
-        first["claims"][0]["depends_on"] = ["G0"]
-        second = {
-            key: first[key]
-            for key in reversed(list(first))
-        }
-        second["claims"] = list(reversed(second["claims"]))
-        first_hash = EVALUATOR.evaluate_submission({
-            "A": [0, 1, 2, 4, 5, 9],
-            "research": first,
-        })[1]["research_sha256"]
-        second_hash = EVALUATOR.evaluate_submission({
-            "A": [0, 1, 2, 4, 5, 9],
-            "research": second,
-        })[1]["research_sha256"]
-        self.assertEqual(first_hash, second_hash)
-
-        second["scope"] = "current_task"
-        scoped_hash = EVALUATOR.evaluate_submission({
-            "A": [0, 1, 2, 4, 5, 9],
-            "research": second,
-        })[1]["research_sha256"]
-        self.assertNotEqual(first_hash, scoped_hash)
-
-    def test_supremum_claim_never_becomes_finite_candidate_score(self):
-        research = _research_payload()
-        research["claims"][0].update({
-            "id": "S1",
-            "template": "supremum_eq",
-            "statement": "The supremum of C(A) is 2.",
-            "target": {"numerator": 2, "denominator": 1},
-        })
-        score, _metrics, _normalized, evidence = (
-            EVALUATOR.evaluate_submission({
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": research,
-            })
-        )
-        self.assertLess(score, 2)
-        self.assertEqual(
-            evidence["research"]["claims"][0]["status"],
-            "unverified",
-        )
-        self.assertEqual(evidence["research"]["status"], "bounded_supported")
-        self.assertNotIn(
-            "claim_id",
-            evidence["research"]["certificates"][0],
-        )
-
-    def test_certificate_cannot_bind_itself_to_a_free_text_claim(self):
-        research = _research_payload()
-        research["claims"][0].update({
-            "id": "S1",
-            "template": "supremum_eq",
-            "statement": "The supremum of C(A) is 2.",
-            "target": {"numerator": 2, "denominator": 1},
-        })
-        research["certificates"][0]["claim_id"] = "S1"
-        with self.assertRaisesRegex(ValueError, "unknown field"):
-            EVALUATOR.evaluate_submission({
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": research,
-            })
-
-    def test_duplicate_json_keys_are_rejected(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "solution.json"
-            path.write_text('{"A":[0,1,3],"A":[0,1,4]}')
-            result = subprocess.run(
-                [sys.executable, str(EVALUATOR_PATH), str(path)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        self.assertIn("duplicate JSON key", result.stdout)
 
 
 class ExperienceBankTests(unittest.TestCase):
@@ -448,7 +112,7 @@ class ProvenanceTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary, \
                 patch("provenance.command_version", return_value="test-cli 1.0"):
-            task = Task("sums_diffs", "provenance-test")
+            task = Task("bermudan_optimal_stopping", "provenance-test")
             recorded = build_run_manifest(
                 task, ROOT, backend="codex", model="test-model", workers=2,
                 candidates_per_context=4, trial_seed=7,
@@ -486,7 +150,7 @@ class ProvenanceTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary, \
                 patch("provenance.command_version", return_value="test-cli 1.0"):
-            task = Task("sums_diffs", "provenance-v5-test")
+            task = Task("bermudan_optimal_stopping", "provenance-v5-test")
             recorded = build_run_manifest(
                 task, ROOT, backend="codex", model="test-model", workers=2,
                 candidates_per_context=4, trial_seed=7,
@@ -1460,30 +1124,6 @@ class ArtifactIntakeTests(unittest.TestCase):
                 _snapshot_artifact(artifact, root / "trusted", max_bytes=16)
 
 
-class PublishedArtifactTests(unittest.TestCase):
-    def test_legacy_winner_bundle_verifies_and_matches_manifest(self):
-        artifact = (
-            ROOT / "artifacts" / "sums_diffs" /
-            "openhyra-1.111814562869239-legacy"
-        )
-        result = subprocess.run(
-            [sys.executable, str(artifact / "verify.py")],
-            capture_output=True, text=True, check=True,
-        )
-        verdict = json.loads(result.stdout)
-        self.assertEqual(verdict["n"], 405)
-        self.assertEqual(verdict["sums"], 2395)
-        self.assertEqual(verdict["diffs"], 2003)
-        self.assertAlmostEqual(verdict["score"], 1.111814562869239, places=15)
-
-        manifest = json.loads((artifact / "manifest.json").read_text())
-        self.assertEqual(manifest["artifact_kind"], "legacy-winner-only")
-        self.assertFalse(manifest["retention"]["current_harness_rerun"])
-        for name, expected in manifest["files_sha256"].items():
-            actual = hashlib.sha256((artifact / name).read_bytes()).hexdigest()
-            self.assertEqual(actual, expected, name)
-
-
 class CandidatePipelineTests(unittest.TestCase):
     def test_next_context_iteration_ignores_candidates_per_context(self):
         records = [
@@ -1889,330 +1529,6 @@ class CancellationTests(unittest.TestCase):
             self.assertFalse(marker.exists())
 
 
-class ResearchArtifactPipelineTests(unittest.TestCase):
-    def test_research_and_trusted_evidence_survive_the_snapshot_pipeline(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source = root / "candidate"
-            source.mkdir()
-            (source / "solve.sh").write_text(
-                '#!/bin/bash\nexec "$OPENHYRA_PYTHON" solver.py\n'
-            )
-            payload = {
-                "A": [0, 1, 2, 4, 5, 9],
-                "research": _research_payload(),
-            }
-            (source / "solver.py").write_text(
-                "from pathlib import Path\n"
-                f"Path('solution.json').write_text({json.dumps(payload)!r})\n"
-            )
-            task = SimpleNamespace(
-                evaluator=EVALUATOR_PATH,
-                python_bin=sys.executable,
-                timeout_s=10,
-                max_memory_mb=512,
-                max_output_mb=8,
-                max_artifact_bytes=65536,
-                evaluator_timeout_s=10,
-                evaluator_max_memory_mb=512,
-            )
-            with patch.dict(
-                os.environ,
-                {"OPENHYRA_ALLOW_UNSANDBOXED": "1"},
-            ):
-                score, status, _tail, metrics = run_solution(
-                    source, root / "sandbox", task,
-                )
-
-            self.assertEqual(status, "ok")
-            self.assertIsNotNone(score)
-            self.assertEqual(
-                metrics["evidence_level"],
-                "proposal_with_bounded_support",
-            )
-            trusted = trusted_artifact_dir(root / "sandbox")
-            evaluated = json.loads(
-                (trusted / "evaluated_solution.json").read_text()
-            )
-            evidence_path = trusted / "evidence.json"
-            evidence = json.loads(evidence_path.read_text())
-            self.assertEqual(
-                evaluated["research"]["hypothesis"],
-                payload["research"]["hypothesis"],
-            )
-            self.assertEqual(
-                evidence["research"]["claims"][0]["status"],
-                "unverified",
-            )
-            self.assertEqual(
-                evidence["research"]["certificates"][0]["status"],
-                "bounded_checked",
-            )
-            self.assertEqual(
-                metrics["evidence_sha256"],
-                hashlib.sha256(evidence_path.read_bytes()).hexdigest(),
-            )
-
-    def test_research_and_evidence_reach_the_experience_bank(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            parent_dir = root / "parent"
-            parent_dir.mkdir()
-            (parent_dir / "solve.sh").write_text(
-                '#!/bin/bash\nexec "$OPENHYRA_PYTHON" solver.py\n'
-            )
-            (parent_dir / "solver.py").write_text("print('seed')\n")
-            bank = ExperienceBank(root / "eb", direction="max")
-            parent = bank.commit(
-                parent_dir, 0.5, "ok", "seed", None, "",
-                metrics={"set_hash": "seed"},
-            )
-            task = SimpleNamespace(
-                run_dir=root / "run",
-                eval_concurrency=1,
-                candidates_per_context=1,
-                candidate_repair_attempts=0,
-                editable_files=["solver.py"],
-                direction="max",
-                protocol="sums-diffs",
-                run_id="research-round-trip",
-                evaluator=EVALUATOR_PATH,
-                python_bin=sys.executable,
-                timeout_s=10,
-                max_memory_mb=512,
-                max_output_mb=8,
-                max_artifact_bytes=65536,
-                evaluator_timeout_s=10,
-                evaluator_max_memory_mb=512,
-            )
-
-            def fake_context(*_args, **_kwargs):
-                metadata = {
-                    "iteration": 0,
-                    "eb_version": 1,
-                    "visible_solution_ids": [parent["id"]],
-                    "trial_seed": 12,
-                    "direction": "certify a modular gadget",
-                }
-                return _context_result(
-                    parent, "certify a modular gadget", metadata,
-                )
-
-            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
-                prepare_draft(parent_path, draft)
-                payload = {
-                    "A": [0, 1, 2, 4, 5, 9],
-                    "research": _research_payload(),
-                }
-                (draft / editable_files[0]).write_text(
-                    "from pathlib import Path\n"
-                    f"Path('solution.json').write_text({json.dumps(payload)!r})\n"
-                )
-                return True, "certify the base-12 modular gadget"
-
-            with (
-                patch("harness.build_inspiration", side_effect=fake_context),
-                patch("harness.propose", side_effect=fake_propose),
-                patch.dict(
-                    os.environ,
-                    {"OPENHYRA_ALLOW_UNSANDBOXED": "1"},
-                ),
-            ):
-                run_pipeline(
-                    task, bank, iterations=1, workers=1, backend="codex",
-                    model="test", trial_seed=12,
-                )
-
-            record = bank.records()[-1]
-            self.assertEqual(record["status"], "ok")
-            self.assertEqual(
-                record["metrics"]["evidence_level"],
-                "proposal_with_bounded_support",
-            )
-            stored = Path(record["path"])
-            self.assertTrue((stored / "evidence.json").is_file())
-            self.assertIn(
-                "research",
-                json.loads((stored / "solution.json").read_text()),
-            )
-
-    def test_detached_draft_writer_cannot_change_committed_source(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            parent_dir = root / "parent"
-            parent_dir.mkdir()
-            (parent_dir / "solver.py").write_text("print('seed')\n")
-            bank = ExperienceBank(root / "eb", direction="max")
-            parent = bank.commit(parent_dir, 0.5, "ok", "seed", None, "")
-            task = SimpleNamespace(
-                run_dir=root / "run",
-                eval_concurrency=1,
-                candidates_per_context=1,
-                candidate_repair_attempts=0,
-                editable_files=["solver.py"],
-                direction="max",
-                protocol="sums-diffs",
-                run_id="detached-writer",
-            )
-            children = []
-
-            def fake_context(*_args, **_kwargs):
-                metadata = {
-                    "iteration": 0,
-                    "eb_version": 1,
-                    "visible_solution_ids": [parent["id"]],
-                    "trial_seed": 14,
-                    "direction": "seal candidate source",
-                }
-                return _context_result(parent, "seal candidate source", metadata)
-
-            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
-                prepare_draft(parent_path, draft)
-                target = draft / editable_files[0]
-                target.write_text("print('sealed')\n")
-                late_writer = (
-                    "import pathlib,time; time.sleep(0.5); "
-                    f"pathlib.Path({str(target)!r}).write_text(\"print('late')\\n\")"
-                )
-                children.append(subprocess.Popen(
-                    [sys.executable, "-c", late_writer],
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    start_new_session=True,
-                ))
-                return True, "candidate with a detached late writer"
-
-            def fake_run_solution(_source, sandbox, _task):
-                Path(sandbox).mkdir(parents=True)
-                return 1.0, "ok", "ok", {"set_hash": "sealed"}
-
-            with (
-                patch("harness.build_inspiration", side_effect=fake_context),
-                patch("harness.propose", side_effect=fake_propose),
-                patch("harness.run_solution", side_effect=fake_run_solution),
-            ):
-                run_pipeline(
-                    task, bank, iterations=1, workers=1, backend="codex",
-                    model="test", trial_seed=14,
-                )
-            for child in children:
-                child.wait(timeout=3)
-
-            record = bank.records()[-1]
-            self.assertEqual(
-                (Path(record["path"]) / "solver.py").read_text(),
-                "print('sealed')\n",
-            )
-            draft = task.run_dir / "drafts" / "iter_0000" / "cand_00"
-            self.assertEqual(
-                (draft / "solver.py").read_text(),
-                "print('late')\n",
-            )
-
-    def test_unsafe_source_intake_is_recorded_without_copying_candidate_bytes(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            parent_dir = root / "parent"
-            parent_dir.mkdir()
-            (parent_dir / "solver.py").write_text("print('seed')\n")
-            bank = ExperienceBank(root / "eb", direction="max")
-            parent = bank.commit(parent_dir, 0.5, "ok", "seed", None, "")
-            task = SimpleNamespace(
-                run_dir=root / "run",
-                eval_concurrency=1,
-                candidates_per_context=1,
-                candidate_repair_attempts=0,
-                editable_files=["solver.py"],
-                direction="max",
-                protocol="sums-diffs",
-                run_id="unsafe-intake",
-            )
-
-            def fake_context(*_args, **_kwargs):
-                metadata = {
-                    "iteration": 0,
-                    "eb_version": 1,
-                    "visible_solution_ids": [parent["id"]],
-                    "trial_seed": 15,
-                    "direction": "reject unsafe source",
-                }
-                return _context_result(parent, "reject unsafe source", metadata)
-
-            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
-                prepare_draft(parent_path, draft)
-                editable = draft / editable_files[0]
-                editable.unlink()
-                victim = root / "outside.py"
-                victim.write_text("print('must not be copied')\n")
-                editable.symlink_to(victim)
-                return True, "candidate with an unsafe editable link"
-
-            with (
-                patch("harness.build_inspiration", side_effect=fake_context),
-                patch("harness.propose", side_effect=fake_propose),
-            ):
-                outcome = run_pipeline(
-                    task, bank, iterations=1, workers=1, backend="codex",
-                    model="test", trial_seed=15,
-                )
-
-            self.assertEqual(outcome["reason"], "iteration_limit")
-            record = bank.records()[-1]
-            self.assertEqual(record["status"], "crash")
-            self.assertIn("intake failed closed", record["log_tail"])
-            self.assertFalse((Path(record["path"]) / "solver.py").exists())
-
-    def test_failed_proposal_cannot_smuggle_an_evidence_file(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            parent_dir = root / "parent"
-            parent_dir.mkdir()
-            (parent_dir / "solver.py").write_text("print('seed')\n")
-            bank = ExperienceBank(root / "eb", direction="max")
-            parent = bank.commit(parent_dir, 0.5, "ok", "seed", None, "")
-            task = SimpleNamespace(
-                run_dir=root / "run",
-                eval_concurrency=1,
-                candidates_per_context=1,
-                candidate_repair_attempts=0,
-                editable_files=["solver.py"],
-                direction="max",
-                protocol="sums-diffs",
-                run_id="reject-forged-evidence",
-            )
-
-            def fake_context(*_args, **_kwargs):
-                metadata = {
-                    "iteration": 0,
-                    "eb_version": 1,
-                    "visible_solution_ids": [parent["id"]],
-                    "trial_seed": 13,
-                    "direction": "invalid proposal",
-                }
-                return _context_result(parent, "invalid proposal", metadata)
-
-            def fake_propose(parent_path, draft, _prompt, _editable, **_kwargs):
-                prepare_draft(parent_path, draft)
-                (draft / "evidence.json").write_text(
-                    '{"research":{"status":"formal_checked"}}'
-                )
-                return False, "proposal failed after writing a reserved file"
-
-            with (
-                patch("harness.build_inspiration", side_effect=fake_context),
-                patch("harness.propose", side_effect=fake_propose),
-            ):
-                run_pipeline(
-                    task, bank, iterations=1, workers=1, backend="codex",
-                    model="test", trial_seed=13,
-                )
-
-            record = bank.records()[-1]
-            self.assertEqual(record["status"], "crash")
-            self.assertFalse((Path(record["path"]) / "evidence.json").exists())
-
-
 @unittest.skipUnless(sys.platform == "darwin", "requires macOS Seatbelt")
 class SandboxTests(unittest.TestCase):
     def test_cancel_event_kills_active_solver_process_group(self):
@@ -2259,16 +1575,16 @@ class SandboxTests(unittest.TestCase):
             )
             (source / "solver.py").write_text(
                 "import json, os, time\n"
-                "seed=[0,1,2,4,5,9,12,13,14,16,17,21,24,25,26,28,29]\n"
-                "with open('solution.json','w') as f: json.dump({'A':seed},f)\n"
+                "program={'schema':'openhyra-feature-program.v1','features':[{'op':'intrinsic'}]}\n"
+                "with open('solution.json','w') as f: json.dump(program,f)\n"
                 "pid=os.fork()\n"
                 "if pid == 0:\n"
                 "    time.sleep(0.5)\n"
-                "    with open('solution.json','w') as f: json.dump({'A':[0,1]},f)\n"
+                "    with open('solution.json','w') as f: json.dump({'schema':'openhyra-feature-program.v1','features':[{'op':'constant','value':0}]},f)\n"
                 "    os._exit(0)\n"
             )
             stale = source / "solution.json"
-            stale.write_text('{"A":[0,1]}')
+            stale.write_text('{"schema":"openhyra-feature-program.v1","features":[{"op":"constant","value":0}]}')
             stale.chmod(0o444)
             task = SimpleNamespace(
                 evaluator=EVALUATOR_PATH,
@@ -2281,11 +1597,12 @@ class SandboxTests(unittest.TestCase):
                 source, root / "sandbox", task,
             )
             self.assertEqual(status, "ok")
-            self.assertAlmostEqual(score, 1.0597930945472454, places=14)
-            self.assertEqual(metrics["n"], 17)
+            self.assertIsNotNone(score)
             trusted = trusted_artifact_dir(root / "sandbox")
             snapshot = json.loads((trusted / "solution.snapshot.json").read_text())
-            self.assertEqual(snapshot["A"], [0,1,2,4,5,9,12,13,14,16,17,21,24,25,26,28,29])
+            self.assertEqual(snapshot["schema"], "openhyra-feature-program.v1")
+            self.assertEqual(len(snapshot["features"]), 1)
+            self.assertEqual(snapshot["features"][0]["op"], "intrinsic")
             evaluated = trusted / "evaluated_solution.json"
             self.assertEqual(
                 hashlib.sha256(evaluated.read_bytes()).hexdigest(),
