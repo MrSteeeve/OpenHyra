@@ -7,53 +7,35 @@
 
 An open, partial reproduction of the public architecture of Tencent Hunyuan's
 **Hyra** (Hunyuan Research Agent) harness [1], currently demonstrated on the
-**sums_diffs** and **Bermudan optimal stopping** tasks: an autonomous loop in which LLM agents
+**Bermudan optimal stopping** task: an autonomous loop in which LLM agents
 propose solvers, a sandbox runs them, a trusted evaluator scores them, and
 every outcome, whether success or failure, is banked as experience for the next round.
 
 ## Tasks
 
-### Sum-difference search
-
-Construct a finite set of integers $A$ maximizing the sum-vs-difference exponent
-
-$$C(A) = \frac{\log\left(|A+A| \/\ |A|\right)}{\log\left(|A-A| \/\ |A|\right)}$$
-
-where $A+A = \{a+b : a,b \in A\}$ and $A-A = \{a-b : a,b \in A\}$.
-
-For most sets $C(A) < 1$, since addition commutes and differences tend to
-outnumber sums; sum-dominant ("MSTD") constructions push it above 1 [4].
-
-The current task accepts any finite explicit set with $|A| \ge 2$ and elements
-within $[-10^6, 10^6]$; it has no fixed upper bound on set cardinality.
-Candidates have a hard 180-second timeout, and a trusted evaluator outside the
-sandbox exactly enumerates $A+A$ and $A-A$. Artifact size, evaluator time, and
-evaluator memory budgets provide the operational limits. Nothing a candidate
-reports about itself is ever trusted.
-
-`solution.json` may also carry the single current `openhyra-research` schema;
-there are no `v1`/`v2` protocol variants. Its construction is a typed positional
-digit product with bounded exact check levels and allowlisted obligations.
-Claims link explicitly to those obligations and, for formal claims, to a
-normalized rational target. These fields never change the numerical score.
-The trusted evaluator separately writes `evidence.json`: checked finite
-obligations are `bounded_checked`, failed obligations are `refuted` with a
-trusted counterexample. An obligation link is recorded as bounded or refuted
-evidence, but it does not promote the linked natural-language claim: without a
-trusted implication rule that claim remains `unverified`. Passing bounded
-checks never proves an asymptotic statement. The candidate input field
-contract and an example are in
-[the task specification](tasks/sums_diffs/TASK.md).
-
 ### Bermudan optimal stopping
 
-The second task searches a bounded, typed feature-expression program for a
-fixed Ridge LSMC algorithm under evaluator-owned risk-neutral Black--Scholes
-models. Candidates submit neither prices nor executable Python. The evaluator
-owns simulation, contracts, discounting, regression, causal exercise, budgets,
-and statistics. Public search uses independent fit/pricing paths and paired
-Common Random Numbers against a frozen baseline; its score is a conservative
-lower bound on strike-normalized lower-bound improvement.
+OpenHyra now exposes two additive Bermudan tracks. The historical
+`bermudan_optimal_stopping` task searches a bounded, typed feature-expression
+program for a fixed Ridge LSMC algorithm. The new `bermudan_python_search`
+task searches an AlgorithmBundle: a candidate-owned `train.py` is run once per
+instance and repeat in a fresh training sandbox and emits a data-only
+continuation artifact described by `manifest.json`. Registered artifacts cover
+MLP, affine-linear, and bounded expression runners, so pure logic and neural
+network candidates use the same trusted evaluation path.
+
+MLP and linear artifacts return time-zero discounted currency values directly.
+Expression artifacts retain the legacy strike-normalized terminals at the
+current exercise date; their trusted runner performs the final
+`strike * exp(-rate * t)` conversion before stopping and scoring.
+
+In both tracks the evaluator owns the risk-neutral model, simulation,
+contracts, discounting, causal exercise, primal/dual audit, budgets, and
+statistics. Python is open only in the per-instance training stage; the
+pricing evaluator never imports candidate code. Public search uses independent
+fit/pricing paths and paired Common Random Numbers against a frozen baseline;
+its score is a conservative lower bound on strike-normalized lower-bound
+improvement.
 
 Final acceptance is a separate one-shot action. The harness validates and
 freezes the distinct Top-K normalized artifacts first, then draws a fresh
@@ -64,36 +46,13 @@ fed back into the Experience Bank or another search round. The public
 termination record carries the seed commitment; exporting the completed audit
 record makes the private seed available for independent reproduction.
 
-This is deliberately a Phase-1 feature-search task with a Phase-4 acceptance
-audit, not yet unrestricted policy/Python/full-algorithm search. Generating the
-hidden seed only after a data-only artifact is frozen closes the relevant
-feedback channel here; it does not turn the existing write-confinement sandbox
-into a confidentiality boundary for arbitrary candidate code. The complete IR,
-financial protocol, scoring rule, and claim boundary are in the
-[Bermudan task specification](tasks/bermudan_optimal_stopping/TASK.md).
-
-## Results
-
-| System | $C(A)$ |
-|---|---:|
-| Official seed (17-element initial construction) | 1.059793 |
-| **OpenHyra legacy run** | **1.111815** ($n = 405$) |
-| SimpleTES [3] | 1.144887 |
-
-These are historical reference points, not a current same-protocol leaderboard:
-the OpenHyra legacy run and SimpleTES result were produced under size-bounded
-settings, while the current task has no fixed cardinality ceiling. Published
-Hyra artifacts [1, 2] have not been rerun through the current trusted evaluator
-and its resource envelope, so they are not added to the table.
-
-The OpenHyra set was found by a Codex-backed historical run (20 Context rounds
-× 4 candidates per round), scored by the trusted evaluator and independently
-re-verified: $n=405$, $|A+A|=2395$, $|A-A|=2003$. That run predates the current
-all-outcomes and immutable-repair EB semantics: it retained one winner artifact
-per Context and summaries for the other candidates. The set and standalone
-verifier are published as a clearly labelled
-[legacy artifact](artifacts/sums_diffs/openhyra-1.111814562869239-legacy/);
-the current harness has not yet been rerun for a replacement headline result.
+The feature task remains the compatibility baseline, while the Python task is
+the additive algorithm-search surface. Generating the hidden seed only after a
+data-only artifact and its source bundle are frozen closes the relevant
+feedback channel; it does not turn a public score into a theorem or a
+production price. The complete protocols, financial model, scoring rules, and
+claim boundaries are in the [feature task specification](tasks/bermudan_optimal_stopping/TASK.md)
+and [Python task specification](tasks/bermudan_python_search/TASK.md).
 
 ## How it works
 
@@ -190,10 +149,8 @@ round still run concurrently. A Context `stop` is only a request. The
 deterministic controller accepts it only after, by default, at least 6 completed
 Contexts, 4 Contexts
 without a meaningful gain of `0.0001`, and at least 4 successful candidates in
-the latest 4 Contexts. For this task it also requires the four formal claims
-above at one common rational target. Invalid Context JSON, a failed Context
-call, a missing formal runner, or incomplete formal evidence therefore
-continues rather than producing an accepted convergence stop. Every pipeline
+the latest 4 Contexts. Invalid Context JSON or a failed Context
+call therefore continues rather than producing an accepted convergence stop. Every pipeline
 invocation with `--iterations` writes its termination reason and evidence to
 `termination.json`; an accepted stop also includes the raw Agent decision and
 the controller review. The file is included in exported bundles.
@@ -221,24 +178,21 @@ resuming a run.
 
 ```bash
 # Requirements: macOS, Python >= 3.10, numpy, and the Claude Code or Codex CLI
-python3 harness.py --run-id demo --init --workers 2
-python3 harness.py --run-id demo --iterations 5 --workers 2
-python3 harness.py --run-id demo --status
-python3 harness.py --run-id demo --export-bundle bundles/demo
 
 # Bermudan feature search, followed by a one-shot frozen Top-K audit.
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --init --workers 2 --trial-seed 1729
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --iterations 5 --workers 2 --trial-seed 1729
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --final-audit
-python3 harness.py --task bermudan_optimal_stopping --run-id bermudan-demo \
-  --export-bundle bundles/bermudan-demo
+python3 harness.py --run-id bermudan-demo --init --workers 2 --trial-seed 1729
+python3 harness.py --run-id bermudan-demo --iterations 5 --workers 2 --trial-seed 1729
+python3 harness.py --run-id bermudan-demo --final-audit
+python3 harness.py --run-id bermudan-demo --status
+python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
-# Formal runs must use the same trusted runner at initialization and resume.
-python3 harness.py --run-id formal --init \
-  --formal-runner /absolute/path/to/openhyra-formal-runner
+# Additive Python AlgorithmBundle search (MLP/linear/expression runners).
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --init --workers 1 --trial-seed 1729
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --iterations 5 --workers 1 --trial-seed 1729
+python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
+  --final-audit
 ```
 
 Pass the same `--backend`, `--model`, `--workers`, candidate count and trial
@@ -251,8 +205,3 @@ new `--run-id`.
    <https://hy.tencent.com/research/hyra>
 2. Tencent-Hunyuan. *Hyra-results: research artifacts from Hyra.*
    <https://github.com/Tencent-Hunyuan/Hyra-results>
-3. *SimpleTES: Evaluation-driven Scaling for Scientific Discovery.*
-   arXiv:2604.19341. <https://arxiv.org/abs/2604.19341>
-4. G. Martin, K. O'Bryant. *Many sets have more sums than differences.*
-   In Additive Combinatorics, CRM Proc. Lecture Notes 43, 2007.
-   <https://arxiv.org/abs/math/0608131>
