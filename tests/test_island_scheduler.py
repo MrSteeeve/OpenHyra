@@ -54,6 +54,7 @@ def test_assign_and_get_records(tmp_path):
     scheduler.assign_candidate("island_00_epoch_00", "sol_0002")
 
     assert scheduler.get_island_records("island_00_epoch_00") == [
+        "baseline",
         "sol_0001",
         "sol_0002",
     ]
@@ -142,7 +143,7 @@ def test_run_review_creates_new_epochs(tmp_path):
         assert new_epoch.started_after_context_round == 10
         assert new_epoch.seed_record_ids in (["sol_0002"], ["sol_0003"])
         assert new_epoch.proposal_seed != scheduler.get_epoch(old_epoch_id).proposal_seed
-        assert scheduler.get_island_records(new_epoch_id) == []
+        assert scheduler.get_island_records(new_epoch_id) == new_epoch.seed_record_ids
 
 
 def test_persistence_round_trip(tmp_path):
@@ -156,7 +157,9 @@ def test_persistence_round_trip(tmp_path):
     assert [epoch.to_dict() for epoch in restored.get_all_epochs()] == [
         epoch.to_dict() for epoch in scheduler.get_all_epochs()
     ]
-    assert restored.get_island_records("island_00_epoch_00") == ["sol_0001"]
+    assert restored.get_island_records("island_00_epoch_00") == [
+        "baseline", "sol_0001"
+    ]
     assert restored.should_review(10)
 
 

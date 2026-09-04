@@ -1,0 +1,1 @@
+{"inference_config":{"input_dim":"n_assets","output_clip":[-1000000.0,1000000.0],"output_dim":1},"normalization":"per_step","output_semantics":"discounted_continuation_value_t0","runner_type":"linear","schema":"continuation-linear.v1","weight_pattern":"step_{:03d}.npy"}

@@ -203,6 +203,14 @@ class ExperimentEvent:
     parent_ids: list[str]
     inspiration_ids: list[str]
     created_at: str
+    # Optional sidecar references added by the feedback-aware bridge.  Keeping
+    # them keyword-only preserves the v1 constructor and lets old event lines
+    # load with empty references.
+    feedback_packet_ref: str = field(default="", kw_only=True)
+    feedback_packet_schema: str = field(default="", kw_only=True)
+    problem_state_ref: str = field(default="", kw_only=True)
+    problem_state_version: int | None = field(default=None, kw_only=True)
+    problem_state_hash: str = field(default="", kw_only=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -220,6 +228,11 @@ class ExperimentEvent:
             "parent_ids": deepcopy(self.parent_ids),
             "inspiration_ids": deepcopy(self.inspiration_ids),
             "created_at": self.created_at,
+            "feedback_packet_ref": self.feedback_packet_ref,
+            "feedback_packet_schema": self.feedback_packet_schema,
+            "problem_state_ref": self.problem_state_ref,
+            "problem_state_version": self.problem_state_version,
+            "problem_state_hash": self.problem_state_hash,
         }
 
     @classmethod
@@ -242,6 +255,14 @@ class ExperimentEvent:
         _require_str_list(self.parent_ids, "parent_ids")
         _require_str_list(self.inspiration_ids, "inspiration_ids")
         _require_str(self.created_at, "created_at")
+        _require_str(self.feedback_packet_ref, "feedback_packet_ref")
+        _require_str(self.feedback_packet_schema, "feedback_packet_schema")
+        _require_str(self.problem_state_ref, "problem_state_ref")
+        _require_str(self.problem_state_hash, "problem_state_hash")
+        if self.problem_state_version is not None:
+            _require_int(self.problem_state_version, "problem_state_version")
+            if self.problem_state_version < 0:
+                raise ValueError("problem_state_version must be nonnegative")
         if self.status not in _EXPERIMENT_STATUSES:
             raise ValueError("status is not allowed")
 
@@ -486,6 +507,16 @@ class AnalogyResult:
     predicted_slice_effect: float
     prediction_direction_correct: bool
     verdict: str
+    # Optional evaluator-owned paired-cell statistics.  They are keyword-only
+    # so archived v1 constructors and JSON lines remain readable.  The legacy
+    # ``transfer_gain_standard_error`` field now means the actual standard
+    # error of per-cell transfer gains; it is never a relative-effect ratio.
+    paired_cell_count: int = field(default=0, kw_only=True)
+    transfer_gain_ci_low: float | None = field(default=None, kw_only=True)
+    transfer_gain_ci_high: float | None = field(default=None, kw_only=True)
+    relative_transfer_gain: float | None = field(default=None, kw_only=True)
+    invalid_control_reason: str | None = field(default=None, kw_only=True)
+    control_valid: bool | None = field(default=None, kw_only=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -500,6 +531,12 @@ class AnalogyResult:
             "predicted_slice_effect": self.predicted_slice_effect,
             "prediction_direction_correct": self.prediction_direction_correct,
             "verdict": self.verdict,
+            "paired_cell_count": self.paired_cell_count,
+            "transfer_gain_ci_low": self.transfer_gain_ci_low,
+            "transfer_gain_ci_high": self.transfer_gain_ci_high,
+            "relative_transfer_gain": self.relative_transfer_gain,
+            "invalid_control_reason": self.invalid_control_reason,
+            "control_valid": self.control_valid,
         }
 
     @classmethod
@@ -521,6 +558,29 @@ class AnalogyResult:
         _require_bool(
             self.prediction_direction_correct, "prediction_direction_correct"
         )
+        _require_int(self.paired_cell_count, "paired_cell_count")
+        if self.paired_cell_count < 0:
+            raise ValueError("paired_cell_count must be non-negative")
+        if self.transfer_gain_ci_low is not None:
+            _require_float(self.transfer_gain_ci_low, "transfer_gain_ci_low")
+        if self.transfer_gain_ci_high is not None:
+            _require_float(self.transfer_gain_ci_high, "transfer_gain_ci_high")
+        if (self.transfer_gain_ci_low is None) != (
+            self.transfer_gain_ci_high is None
+        ):
+            raise ValueError(
+                "transfer_gain_ci_low and transfer_gain_ci_high must be set together"
+            )
+        if self.relative_transfer_gain is not None:
+            _require_float(self.relative_transfer_gain, "relative_transfer_gain")
+        if self.invalid_control_reason is not None:
+            _require_str(self.invalid_control_reason, "invalid_control_reason")
+        if self.control_valid is not None:
+            _require_bool(self.control_valid, "control_valid")
+        if self.control_valid is False and not self.invalid_control_reason:
+            raise ValueError(
+                "control_valid=False requires invalid_control_reason"
+            )
         _require_str(self.verdict, "verdict")
         if self.verdict not in {
             "transfer_supported",
@@ -530,6 +590,18 @@ class AnalogyResult:
             "execution_failed",
         }:
             raise ValueError("verdict is not allowed")
+
+    @property
+    def paired_standard_error(self) -> float:
+        """Descriptive alias for the evaluator-owned paired-cell SE."""
+        return self.transfer_gain_standard_error
+
+    @property
+    def paired_ci(self) -> tuple[float, float] | None:
+        """Return the confidence interval when per-cell evidence exists."""
+        if self.transfer_gain_ci_low is None or self.transfer_gain_ci_high is None:
+            return None
+        return self.transfer_gain_ci_low, self.transfer_gain_ci_high
 
 
 @dataclass
@@ -548,6 +620,19 @@ class ExperimentPlan:
     negative_constraints: list[str]
     success_criterion: str
     budget: dict
+    # Feedback-aware typed intervention fields.  They are keyword-only
+    # extensions so archived v1 plans and positional constructors remain
+    # readable.  The fields describe a probe; they are not evaluator claims.
+    phase: str = field(default="numeric", kw_only=True)
+    intervention_scope: str | None = field(default=None, kw_only=True)
+    intervention_operator: str | None = field(default=None, kw_only=True)
+    target_slice: str | None = field(default=None, kw_only=True)
+    prediction: str | None = field(default=None, kw_only=True)
+    falsifier: str | None = field(default=None, kw_only=True)
+    evidence_ids: list[str] = field(default_factory=list, kw_only=True)
+    next_probe: str | None = field(default=None, kw_only=True)
+    state_version: str | int | None = field(default=None, kw_only=True)
+    state_hash: str | None = field(default=None, kw_only=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -563,6 +648,16 @@ class ExperimentPlan:
             "negative_constraints": deepcopy(self.negative_constraints),
             "success_criterion": self.success_criterion,
             "budget": deepcopy(self.budget),
+            "phase": self.phase,
+            "intervention_scope": self.intervention_scope,
+            "intervention_operator": self.intervention_operator,
+            "target_slice": self.target_slice,
+            "prediction": self.prediction,
+            "falsifier": self.falsifier,
+            "evidence_ids": deepcopy(self.evidence_ids),
+            "next_probe": self.next_probe,
+            "state_version": self.state_version,
+            "state_hash": self.state_hash,
         }
 
     @classmethod
@@ -582,6 +677,24 @@ class ExperimentPlan:
         _require_str(self.implementation_intent, "implementation_intent")
         _require_str_list(self.negative_constraints, "negative_constraints")
         _require_str(self.success_criterion, "success_criterion")
+        _require_str(self.phase, "phase")
+        for name, value in (
+            ("intervention_scope", self.intervention_scope),
+            ("intervention_operator", self.intervention_operator),
+            ("target_slice", self.target_slice),
+            ("prediction", self.prediction),
+            ("falsifier", self.falsifier),
+            ("next_probe", self.next_probe),
+            ("state_hash", self.state_hash),
+        ):
+            if value is not None:
+                _require_str(value, name)
+        _require_str_list(self.evidence_ids, "evidence_ids")
+        if self.state_version is not None and (
+            isinstance(self.state_version, bool)
+            or not isinstance(self.state_version, (int, str))
+        ):
+            raise ValueError("state_version must be an int, str, or None")
         budget = _require_keys(
             self.budget,
             {"candidate_count", "sandbox_seconds_per_cell", "max_artifact_bytes"},
@@ -698,3 +811,39 @@ __all__ = [
     "IslandEpoch",
     "AnnotationEvent",
 ]
+
+# The feedback/state schemas live in their own module so task plugins can use
+# them without importing the full V5 event schema.  Re-exporting them here
+# keeps the historical ``schemas_v5`` import surface additive and backwards
+# compatible.
+from feedback import (  # noqa: E402  (import after legacy declarations)
+    BELIEF_CELL_SCHEMA,
+    DIRECTIONAL_FEEDBACK_SCHEMA,
+    FEEDBACK_PACKET_SCHEMA,
+    NOT_OBSERVED,
+    PROBLEM_STATE_SCHEMA,
+    BeliefCell,
+    BeliefReducer,
+    DirectionalFeedback,
+    FeedbackPacket,
+    ProblemState,
+    ProblemStateLog,
+    is_not_observed,
+    not_observed,
+)
+
+__all__.extend([
+    "FEEDBACK_PACKET_SCHEMA",
+    "DIRECTIONAL_FEEDBACK_SCHEMA",
+    "PROBLEM_STATE_SCHEMA",
+    "BELIEF_CELL_SCHEMA",
+    "NOT_OBSERVED",
+    "DirectionalFeedback",
+    "FeedbackPacket",
+    "BeliefCell",
+    "ProblemState",
+    "BeliefReducer",
+    "ProblemStateLog",
+    "not_observed",
+    "is_not_observed",
+])

@@ -1,0 +1,103 @@
+{
+  "iteration": 2,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 1731,
+  "direction": "Implement cross_fitted_targets_v1 in train.py: deterministically partition supplied paths into folds, generate fold-excluded backward regression targets, train the unchanged MLP within the same update budget, and emit only the unchanged manifest-declared artifacts.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Only the deterministic MLP baseline has been evaluated, scoring -0.003420; there is no comparative evidence yet. Boundary-weighted loss and residual continuation are already in flight, so the next experiment should isolate a different mechanism. Cross-fitting is especially testable because it changes target estimation while preserving the registered artifact, architecture, and compute budget. Adaptive normalization and robust loss remain plausible alternatives, but should be evaluated with matched controls before combination.",
+    "reason": "Comparative evidence is insufficient and active stopping is disabled.",
+    "expected_gain": 0.001,
+    "confidence": 0.25,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "Cross-fitted candidate completes all public cells with finite artifacts and paired_lower_bound_lcb greater than -0.003420352499235219.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "cross_fitted_targets_v1",
+        "family": "estimation",
+        "mechanism": "Cross-fit backward cash-flow targets across deterministic path folds, then train the unchanged 16-16 tanh MLP.",
+        "prediction": "Reduces target reuse and improves held-out stopping near exercise boundaries, especially in high-volatility and near-boundary cells.",
+        "failure_condition": "No paired gain after matching total updates, or degradation on any payoff family.",
+        "matched_control": "Ordinary backward targets using the same parent, paths, seed, architecture, optimizer, and update budget.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "adaptive_normalization_v1",
+        "family": "preprocessing",
+        "mechanism": "Use payoff-relevant per-step normalization with deterministic log-space features where valid while preserving the MLP manifest.",
+        "prediction": "Improves conditioning for heterogeneous correlated baskets.",
+        "failure_condition": "No targeted-slice gain or degradation on raw-scale contracts.",
+        "matched_control": "Current per-step mean/std normalization with identical parent, seed, architecture, and compute.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "robust_target_loss_v1",
+        "family": "optimization",
+        "mechanism": "Fit backward targets with deterministic Huber loss or explicitly clipped residuals.",
+        "prediction": "Reduces tail-driven policy variance on multi-asset, high-volatility cells.",
+        "failure_condition": "Lower paired confidence bound or materially higher failure rate.",
+        "matched_control": "Ordinary squared loss with identical initialization, data, optimizer, and update count.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      }
+    ],
+    "next": "Implement cross_fitted_targets_v1 in train.py: deterministically partition supplied paths into folds, generate fold-excluded backward regression targets, train the unchanged MLP within the same update budget, and emit only the unchanged manifest-declared artifacts."
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "cross_fitted_targets_v1",
+      "family": "estimation",
+      "mechanism": "Cross-fit backward cash-flow targets across deterministic path folds, then train the unchanged 16-16 tanh MLP.",
+      "prediction": "Reduces target reuse and improves held-out stopping near exercise boundaries, especially in high-volatility and near-boundary cells.",
+      "failure_condition": "No paired gain after matching total updates, or degradation on any payoff family.",
+      "matched_control": "Ordinary backward targets using the same parent, paths, seed, architecture, optimizer, and update budget.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "adaptive_normalization_v1",
+      "family": "preprocessing",
+      "mechanism": "Use payoff-relevant per-step normalization with deterministic log-space features where valid while preserving the MLP manifest.",
+      "prediction": "Improves conditioning for heterogeneous correlated baskets.",
+      "failure_condition": "No targeted-slice gain or degradation on raw-scale contracts.",
+      "matched_control": "Current per-step mean/std normalization with identical parent, seed, architecture, and compute.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "robust_target_loss_v1",
+      "family": "optimization",
+      "mechanism": "Fit backward targets with deterministic Huber loss or explicitly clipped residuals.",
+      "prediction": "Reduces tail-driven policy variance on multi-asset, high-volatility cells.",
+      "failure_condition": "Lower paired confidence bound or materially higher failure rate.",
+      "matched_control": "Ordinary squared loss with identical initialization, data, optimizer, and update count.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    }
+  ],
+  "result_ids": [
+    "sol_0008",
+    "sol_0010",
+    "sol_0011",
+    "sol_0012"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Only the deterministic MLP baseline has been evaluated, scoring -0.003420; there is no comparative evidence yet. Boundary-weighted loss and residual continuation are already in flight, so the next experiment should isolate a different mechanism. Cross-fitting is especially testable because it changes target estimation while preserving the registered artifact, architecture, and compute budget. Adaptive normalization and robust loss remain plausible alternatives, but should be evaluated with matched controls before combination.\", \"reason\": \"Comparative evidence is insufficient and active stopping is disabled.\", \"expected_gain\": 0.001, \"confidence\": 0.25, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"Cross-fitted candidate completes all public cells with finite artifacts and paired_lower_bound_lcb greater than -0.003420352499235219.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"cross_fitted_targets_v1\", \"family\": \"estimation\", \"mechanism\": \"Cross-fit backward cash-flow targets across deterministic path folds, then train the unchanged 16-16 tanh MLP.\", \"prediction\": \"Reduces target reuse and improves held-out stopping near exercise boundaries, especially in high-volatility and near-boundary cells.\", \"failure_condition\": \"No paired gain after matching total updates, or degradation on any payoff family.\", \"matched_control\": \"Ordinary backward targets using the same parent, paths, seed, architecture, optimizer, and update budget.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"adaptive_normalization_v1\", \"family\": \"preprocessing\", \"mechanism\": \"Use payoff-relevant per-step normalization with deterministic log-space features where valid while preserving the MLP manifest.\", \"prediction\": \"Improves conditioning for heterogeneous correlated baskets.\", \"failure_condition\": \"No targeted-slice gain or degradation on raw-scale contracts.\", \"matched_control\": \"Current per-step mean/std normalization with identical parent, seed, architecture, and compute.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"robust_target_loss_v1\", \"family\": \"optimization\", \"mechanism\": \"Fit backward targets with deterministic Huber loss or explicitly clipped residuals.\", \"prediction\": \"Reduces tail-driven policy variance on multi-asset, high-volatility cells.\", \"failure_condition\": \"Lower paired confidence bound or materially higher failure rate.\", \"matched_control\": \"Ordinary squared loss with identical initialization, data, optimizer, and update count.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}], \"next\": \"Implement cross_fitted_targets_v1 in train.py: deterministically partition supplied paths into folds, generate fold-excluded backward regression targets, train the unchanged MLP within the same update budget, and emit only the unchanged manifest-declared artifacts.\"}"
+}

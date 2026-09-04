@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-03T15:58:19+0800",
+  "run_id": "mathai-bermudan-5r-codex-20260903",
+  "task": {
+    "name": "bermudan_python_search",
+    "protocol": "bermudan-lsmc-algorithm-bundle.v1",
+    "config_sha256": "8484b34c120f5b67749d25e00a68833eca0de26dc7ea01fed48687d996590dbb",
+    "description_sha256": "56bc6eac44a7ae233571913e8148f75b48951e2bf62446dee5e907f34940afaf",
+    "evaluator_sha256": "b535668aedacea1cda87bc30865111a08879452b46910a687267aeb0d25ba406",
+    "support_sha256": {
+      "POLICY_PROTOCOLS_V1.md": "db2ccb1db51a2df45e214490854232dbda4a6497726ec7f773923d3e0a602eeb"
+    },
+    "seed_solution_sha256": {
+      "manifest.json": "623eae39c8513690dd4c6970d22466f9cd46f40a7a632083b537ad2afa50ee98",
+      "solve.sh": "0715c9231617d1523a3850de2a9607d2e1a1dbd464ba4f409b9d9b69cce29ce0",
+      "train.py": "89d4c7c10c9829d834900f674e60d47dd67024b8735a461f615d380191017b60"
+    },
+    "formalization": {
+      "config": {},
+      "runner": null
+    },
+    "runtime_dependency_sha256": {
+      "tasks/bermudan_optimal_stopping/evaluator.py": "6427e20bea6eca18bde693641523586688ca22a90c73ba3e1b930c5aab51f372",
+      "tasks/bermudan_optimal_stopping/policy_artifact.py": "e3f475bed2b917ee0a96505a322b5a96d1777ae85c38a53763d3f5f668f8d254",
+      "tasks/bermudan_optimal_stopping/policy_protocols.py": "bbd04d02710267a198e427962c4f99da82cc60a7e15c909dad29f3109f89f872",
+      "tasks/bermudan_optimal_stopping/training_pipeline.py": "6672a9dfe20a31f13a498e27d180fa3513c43788d45877e92c23b964e64cd7d5"
+    }
+  },
+  "source_sha256": {
+    "analogy_graph.py": "633ab94baec20fa38cbafedda5d8b5a79f0a979dd5d64292a42e72370dff8b4d",
+    "auditing.py": "7616b2a5960e62d652191a8de7c507ba4525757eab3ccf9dca7df2bee2b79729",
+    "behavior_index.py": "b38886b721473981aaedd32de8cda6f874aeb435cf58c8f30867de59b7b4e8fc",
+    "behavior_profiler.py": "22373061de82c89773be659e7a12bb15b4eaf08aeac8e1e8e38be761b9eb11e3",
+    "context_agent.py": "dd7809484ab849f6bb94c0e5089d7d1fb42b22e8b8d4c8491651c4d6cb2a18b4",
+    "context_retrieval.py": "a58bc352c1ba678839cb98d18526d478f5a4d41fca210e4dbc5587a3a8569812",
+    "eb.py": "24a9ecd9f464d1508166e68b915c335b77921d1414d5d1bca93e2cef943292f4",
+    "experience_events.py": "4200b2f895c864e465994344c3c2e7729e488d03e7a7e5800db3ec9ccde6ee8c",
+    "external_formal_runner.py": "c5e153df79419eaefc19f7bf5c6a3fbf9c797e4f9a98704f3c1d098ab78b4d39",
+    "harness.py": "6fdd129d5ad111b590c1060b25ac0da352e67c9d1dc825bb7ab19da9609f464c",
+    "harness_v5.py": "1f546d04d93b60868b77b2889d7ccaca9321f2c9bd417774d95e443738627be1",
+    "island_scheduler.py": "ee4f3959f23cf4a7a5b5c98285d24491ec6659467b144fa6caa0218ae803aa4a",
+    "llm_backend.py": "b1deed861744db7c92e79de5ba17bae7dd2c84e0b9008ff513cc7689ea313647",
+    "matched_control.py": "a43654424293407dcf8d74260bbf1296d2720b956fc7a60832db2c6085b2a218",
+    "mechanism_cards.py": "5fbe3ee500fa4ef1a2e6ecd116a37ef48558480e9981f26f88d225e15ec5fd21",
+    "mechanism_hypotheses.py": "2374dcc077b32f22d0800100822a9ebf54fb1a36207562c4c5b81dad646fc07f",
+    "object_store.py": "984fc64ebe6ddbbcbae5624b491c89a338243d5ea2c929418d25f4badb53d496",
+    "probe_suite.py": "53a2c9e96242ab1a874be8fda162670def5d4fc8c4c58030e866c7c604f8347b",
+    "proposal_agent.py": "99682b89e7ddbecd899c9b0a93463d997e6a275268b69f570d283c5fe6f4bbec",
+    "provenance.py": "e81b2c346546bf3f6baf09ec0c478705a55d5e9de7156b15af3b0a318e1b5870",
+    "reporting.py": "d9f20db8eb22f99f2d79bfb9fcff96d42f2d1c5e74f9ace2dfd06a5c60693ae2",
+    "sandbox.py": "31ea9f51ed80e03b963144138a80f00b90df7532f976f05b7241ed70f9a32c5a",
+    "schemas_v5.py": "9de2b66aa74dc4b83a6914d32e801b9adaccdf77ee3f59dcb42a9456770e0571",
+    "stopping.py": "038bac6a6b007db393df1d82df7f65dd672504e77ca320356ea3080a0203cd9e"
+  },
+  "search": {
+    "backend": "codex",
+    "model": "gpt-5.6-luna",
+    "workers": 2,
+    "eval_concurrency": 1,
+    "candidates_per_context": 4,
+    "candidate_repair_attempts": 1,
+    "research_revision_attempts": 0,
+    "trial_seed": 1729,
+    "evaluation_request": {
+      "schema": "openhyra-evaluation-request.v1",
+      "stage": "search",
+      "task": "bermudan_python_search",
+      "protocol": "bermudan-lsmc-algorithm-bundle.v1",
+      "seed": 8365925799749543377,
+      "suite_id": "bermudan-python-public-v1",
+      "config": {
+        "direction": "max",
+        "metric": "paired_lower_bound_lcb",
+        "confidence_level": 0.95,
+        "instance_count": 4,
+        "repeats": 2,
+        "training_paths": 1024,
+        "pricing_paths": 2048,
+        "ridge_alpha": 1e-06,
+        "training_timeout_s": 60,
+        "training_memory_bytes": 1073741824,
+        "training_file_size_bytes": 67108864
+      }
+    }
+  },
+  "evaluation": {
+    "search_request_sha256": "e77af18e1eebf24a4d1184a7931d09d65d996f5deecd7c5c1d9feb4d7959fdbe",
+    "audit_stage": {
+      "suite_id": "bermudan-python-hidden-v1",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 1e-06,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    },
+    "audit_seed_strategy": "secrets.randbits(63)-after-top-k-freeze"
+  },
+  "limits": {
+    "candidate_timeout_s": 30,
+    "max_memory_mb": 1024,
+    "max_output_mb": 64,
+    "max_artifact_bytes": 131072,
+    "evaluator_timeout_s": 900,
+    "evaluator_max_memory_mb": 2048
+  },
+  "stopping_policy": {
+    "enabled": false,
+    "min_contexts_before_stop": 6,
+    "stop_patience": 4,
+    "meaningful_delta": 0.0001,
+    "recent_window": 4,
+    "min_successful_candidates": 4
+  },
+  "v5": {
+    "enabled": true,
+    "num_islands": 4
+  },
+  "git": {
+    "commit": "4ad87556c2155bcda4120b76448c5393df9f75a3",
+    "dirty": true,
+    "dirty_state_sha256": "b42a23bdf39adf3d450d48bf5f661dfdbc2e314983f35e6ece6ed2a5101ae596"
+  },
+  "environment": {
+    "python": "3.12.6 (v3.12.6:a4a2d2b0d85, Sep  6 2024, 16:08:03) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "backend_cli": "codex-cli 0.146.0"
+  },
+  "initial_invocation": [
+    "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+    "harness.py",
+    "--task",
+    "bermudan_python_search",
+    "--run-id",
+    "mathai-bermudan-5r-codex-20260903",
+    "--v5",
+    "--init",
+    "--workers",
+    "2",
+    "--candidates-per-context",
+    "4",
+    "--trial-seed",
+    "1729",
+    "--backend",
+    "codex",
+    "--model",
+    "gpt-5.6-luna"
+  ],
+  "manifest_sha256": "dbe7afff9990d1007bb365064d1a4f214f68c4841dd5403c64a36d7677e39a49"
+}

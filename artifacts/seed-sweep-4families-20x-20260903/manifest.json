@@ -1,0 +1,126 @@
+{
+  "schema": "openhyra-seed-sweep-manifest.v1",
+  "created_at_epoch": 1788429326.479837,
+  "python": "3.12.6 (v3.12.6:a4a2d2b0d85, Sep  6 2024, 16:08:03) [Clang 13.0.0 (clang-1300.0.29.30)]",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "backend": "frozen source snapshots; no LLM calls",
+  "task": "bermudan_python_search",
+  "suite_id": "bermudan-python-public-v1",
+  "metric": "paired_lower_bound_lcb",
+  "seeds": [
+    2359038404377610887,
+    3074985376860743815,
+    1851949258967370848,
+    7298786677826294009,
+    6258480927987544070,
+    3282248915119515299,
+    6562351891297473493,
+    2364983509746026608,
+    6984564048904944280,
+    3784759027195039601,
+    4056356927110817021,
+    4629036863202229122,
+    1182754903103317080,
+    8784800298274513088,
+    5337760063869546817,
+    688464670807646658,
+    6307272647990815620,
+    4774293579302892656,
+    3569899461408270403,
+    8910482932756515869
+  ],
+  "families": {
+    "representation": {
+      "mechanism_id": "residual_continuation_v1",
+      "guided": {
+        "pilot_record": "sol_0004",
+        "source_digest": "c272245fd77a9d75dfc6cb49f7f7ff2dd32da53447d59f9416dc99f8248f78bf",
+        "parent": "sol_0000"
+      },
+      "control": {
+        "pilot_record": "sol_0003",
+        "source_digest": "6352da4ab72d0fd25d148d7a9938bbd8f8bd96fc5f4a54ac2393929339725ea2",
+        "parent": "sol_0000"
+      }
+    },
+    "estimation": {
+      "mechanism_id": "cross_fitted_targets",
+      "guided": {
+        "pilot_record": "sol_0009",
+        "source_digest": "1269a6cb4632a10414cc788b955a11c797987c6dd14a6d5f403b354c17b83f3e",
+        "parent": "sol_0000"
+      },
+      "control": {
+        "pilot_record": "sol_0007",
+        "source_digest": "736e746b9ee5aca2b71dcec8d991e7a5047860152d85f415b542068a6a86e27b",
+        "parent": "sol_0000"
+      }
+    },
+    "optimization": {
+      "mechanism_id": "boundary_weighted_loss_v1",
+      "guided": {
+        "pilot_record": "sol_0001",
+        "source_digest": "724c4b4efb808ae65dc7eeb7cc1bb52a7d10263bad90b10b88293da5811f040d",
+        "parent": "sol_0000"
+      },
+      "control": {
+        "pilot_record": "sol_0002",
+        "source_digest": "bbde386985b81dc32d4f0163d06a96ace1a5507e4ba6000fa809a63938cafa42",
+        "parent": "sol_0000"
+      }
+    },
+    "inductive_bias": {
+      "mechanism_id": "symbolic_affine_switch",
+      "guided": {
+        "pilot_record": "sol_0020",
+        "source_digest": "ca8ffee957cd489222765896a6ef1102359f53bf4e44798e69a12d559dfa0ad4",
+        "parent": "sol_0004"
+      },
+      "control": {
+        "pilot_record": "sol_0019",
+        "source_digest": "36bd795360e0dd7a80645f5617115b6f358bfda824915c3b76fb3dc95180feba",
+        "parent": "sol_0004"
+      }
+    }
+  },
+  "public_config": {
+    "instance_count": 4,
+    "repeats": 2,
+    "training_paths": 1024,
+    "pricing_paths": 2048
+  },
+  "git": {
+    "head": "4ad87556c2155bcda4120b76448c5393df9f75a3",
+    "status_porcelain": [
+      " M README.md",
+      " M README.zh-CN.md",
+      " M algorithm_auditing.py",
+      " M auditing.py",
+      " M context_agent.py",
+      " M context_retrieval.py",
+      " M harness.py",
+      " M harness_v5.py",
+      " M proposal_agent.py",
+      " M provenance.py",
+      " M reporting.py",
+      " M sandbox.py",
+      " M stopping.py",
+      " M tasks/bermudan_optimal_stopping/evaluator.py",
+      " M tasks/bermudan_optimal_stopping/policy_artifact.py",
+      " M tasks/bermudan_optimal_stopping/training_pipeline.py",
+      " M tests/test_harness_v5.py",
+      "?? artifacts/mathai-bermudan-5r-codex-20260903/",
+      "?? artifacts/seed-sweep-4families-20x-20260903/",
+      "?? mechanism_hypotheses.py",
+      "?? tasks/bermudan_optimal_stopping/policy_protocols.py",
+      "?? tasks/bermudan_python_search/",
+      "?? tests/test_algorithm_bundle_private_audit.py",
+      "?? tests/test_bermudan_behavior_metrics.py",
+      "?? tests/test_bermudan_python_dispatch.py",
+      "?? tests/test_bermudan_python_task.py",
+      "?? tests/test_mechanism_hypotheses.py",
+      "?? tests/test_open_algorithm_loop.py",
+      "?? tests/test_policy_protocols.py"
+    ]
+  }
+}

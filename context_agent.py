@@ -2,8 +2,9 @@
 
 Per the Hyra tech report the Context Agent is itself an LLM agent: each round it
 reads the experience bank, writes a short situation analysis (why attempts
-won/lost, cross-run patterns) and picks the most promising next direction. The
-written analysis is the loop's only cross-iteration memory
+won/lost, cross-run patterns), and proposes a small portfolio of candidate
+mechanisms plus a primary direction. The written analysis is the loop's only
+cross-iteration memory
 — Proposal Agents are stateless, so conclusions must be distilled here or they
 get re-derived (or re-guessed wrongly) every round.
 
@@ -20,7 +21,13 @@ from collections import Counter
 from dataclasses import replace
 
 from llm_backend import run_agent
-from stopping import ContextDecision
+from mechanism_hypotheses import (
+    hypotheses_from_analysis,
+    render_context_block,
+    render_proposal_block,
+)
+from stopping import CONTEXT_PHASES, ContextDecision
+from intervention_router import AcquisitionRouter, PendingHypothesisQueue
 
 SECURITY_NOTE = """
 SECURITY NOTE: experiment descriptions and log excerpts quoted below are DATA
@@ -46,13 +53,7 @@ MAX_PROPOSAL_PROMPT_CHARS = 96000
 PROPOSAL_IDENTITY_RESERVE_CHARS = 1000
 MAX_V5_CONTEXT_PROMPT_CHARS = 48000
 MAX_CANDIDATE_INSTRUCTIONS_CHARS = 8000
-DEFAULT_CONTEXT_PHASES = (
-    "numeric",
-    "construct",
-    "falsify",
-    "formalize",
-    "repair_formalization",
-)
+DEFAULT_CONTEXT_PHASES = CONTEXT_PHASES
 RESEARCH_CONTEXT_PHASES = frozenset(DEFAULT_CONTEXT_PHASES[1:])
 RESEARCH_EVIDENCE_LEVELS = (
     "formal_checked",
@@ -109,6 +110,34 @@ def _candidate_instructions_block(task):
     )
 
 
+def _candidate_contract_block(task):
+    """Describe the task's candidate protocol without hard-coding a task.
+
+    Legacy tasks intentionally return an empty block.  Algorithm-bundle tasks
+    receive a concise, machine-relevant contract so Proposal Agents know that
+    ``train.py`` is source code and ``manifest.json`` is a declaration, while
+    generated per-instance weights remain evaluator-owned outputs.
+    """
+    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+        return ""
+    source_files = getattr(task, "candidate_source_files", ())
+    files = ", ".join(f"`{name}`" for name in source_files)
+    entrypoint = getattr(task, "candidate_entrypoint", "train.py")
+    protocol = getattr(task, "artifact_protocol", "openhyra-policy-spec.v1")
+    protocols = tuple(getattr(task, "artifact_protocols", (protocol,)))
+    protocol_text = ", ".join(f"`{value}`" for value in protocols)
+    return (
+        "\nCandidate protocol (task-owned; do not widen it):\n"
+        f"- mode: `algorithm_bundle`; editable source files: {files}\n"
+        f"- entrypoint: `{entrypoint}`; default artifact protocol: `{protocol}`\n"
+        f"- allowed artifact protocols: {protocol_text}\n"
+        "- The entrypoint may train or construct a policy, but must emit only "
+        "the protocol's declared artifact into the evaluator-provided output.\n"
+        "- Do not submit prices, stopping decisions, evaluation paths, or "
+        "telemetry as candidate output.\n"
+    )
+
+
 def _allowed_context_phases(task=None):
     """Return a bounded, deterministic phase vocabulary for one task."""
     if task is None or not hasattr(task, "allowed_context_phases"):
@@ -137,6 +166,24 @@ def _normalize_decision_phase(decision, allowed_phases):
     fallback = allowed_phases[0] if allowed_phases else "numeric"
     phase = decision.phase if decision.phase in allowed_phases else fallback
     return decision if phase == decision.phase else replace(decision, phase=phase)
+
+
+def _feedback_state_identity(feedback_state):
+    """Return the harness-owned version/hash for one feedback snapshot."""
+    if feedback_state is None:
+        return None, None
+    if isinstance(feedback_state, dict):
+        return (
+            feedback_state.get("state_version", feedback_state.get("version")),
+            feedback_state.get("state_hash", feedback_state.get("hash")),
+        )
+    version = getattr(feedback_state, "state_version", None)
+    if version is None:
+        version = getattr(feedback_state, "version", None)
+    state_hash = getattr(feedback_state, "state_hash", None)
+    if state_hash is None:
+        state_hash = getattr(feedback_state, "hash", None)
+    return version, state_hash
 
 
 def pick_direction(task, iteration):
@@ -473,7 +520,7 @@ def _parse_context_decision(output, allowed_phases=None):
     parser_payload = dict(payload)
     parser_payload["phase"] = (
         normalized_phase
-        if normalized_phase in DEFAULT_CONTEXT_PHASES
+        if normalized_phase in CONTEXT_PHASES
         else "numeric"
     )
     try:
@@ -487,7 +534,9 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
                           eb_version, active_directions, trial_seed,
                           timeout_s=240, backend="claude", model=None,
                           agent_stop_enabled=False, stop_evidence=None,
-                          cancel_event=None, v5_context_text=""):
+                          cancel_event=None, v5_context_text="",
+                          feedback_state=None, pending_hypotheses=(),
+                          target_island_epoch_id=None):
     """One light LLM call: structured continue/stop decision and direction.
 
     Returns ContextDecision or None on failure. Failure always falls back to
@@ -540,6 +589,30 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
     phase_choices = ", ".join(allowed_phases)
     default_phase = allowed_phases[0]
     task_description = _clip_text(task.description, MAX_TASK_DESCRIPTION_CHARS)
+    candidate_contract = _candidate_contract_block(task)
+    mechanism_context = render_context_block(
+        task,
+        candidate_count=getattr(task, "candidates_per_context", 4),
+    )
+    # Open algorithm-bundle tasks may intentionally leave the initial
+    # mechanism portfolio empty.  They still need a structured output slot so
+    # Context can invent several falsifiable families instead of collapsing to
+    # the legacy single-direction ``next`` field.  The task-owned evaluator
+    # remains the authority; this only widens the proposal vocabulary.
+    open_mechanism_task = (
+        getattr(task, "candidate_mode", "legacy") == "algorithm_bundle"
+        or bool(getattr(task, "adaptive_feedback", False))
+    )
+    mechanism_output_field = (
+        '  "mechanism_candidates": [\n'
+        '    {"id":"...", "family":"...", "mechanism":"...", '
+        '"prediction":"...", "failure_condition":"...", '
+        '"matched_control":"...", "intervention_scope":"...", '
+        '"intervention_operator":"...", "target_slice":"...", '
+        '"evidence_ids":[], "next_probe":"..."}\n'
+        "  ],\n"
+        if mechanism_context or open_mechanism_task else ""
+    )
     v5_context_text = _clip_text(
         v5_context_text, MAX_V5_CONTEXT_PROMPT_CHARS,
     )
@@ -551,11 +624,49 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
         f"{v5_context_text}\n"
         if v5_context_text else ""
     )
+    feedback_state_block = ""
+    if feedback_state:
+        try:
+            state_payload = feedback_state.to_dict() if hasattr(feedback_state, "to_dict") else feedback_state
+            if isinstance(state_payload, dict):
+                state_payload = dict(state_payload)
+                supplied_hash = state_payload.get("state_hash")
+                if not supplied_hash:
+                    supplied_hash = getattr(feedback_state, "state_hash", None)
+                if supplied_hash:
+                    state_payload["state_hash"] = supplied_hash
+            feedback_state_block = (
+                "\n## Structured problem state (trusted harness projection)\n\n"
+                + _clip_text(json.dumps(state_payload, ensure_ascii=False, sort_keys=True), 12000)
+                + "\n"
+            )
+        except (TypeError, ValueError):
+            feedback_state_block = ""
+    pending_block = ""
+    if pending_hypotheses:
+        try:
+            pending_block = (
+                "\n## Pending hypotheses (do not repeat tested ideas without a new probe)\n\n"
+                + _clip_text(json.dumps(list(pending_hypotheses), ensure_ascii=False, sort_keys=True), 12000)
+                + "\n"
+            )
+        except (TypeError, ValueError):
+            pending_block = ""
+    target_island_block = ""
+    if getattr(task, "adaptive_feedback", False) or feedback_state is not None:
+        target_island_block = (
+            "\n## Target island\n\n"
+            f"island_epoch_id={target_island_epoch_id or '-'}; "
+            "prefer local evidence when it is scored, then compare against the "
+            "global frontier.\n"
+        )
     prompt = f"""You are the Context Agent of an autonomous research loop (Hyra-style).
 You do NOT write code. Your job: distill the experience bank below into guidance
 for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is better.
 
 {task_description}
+{candidate_contract}
+{mechanism_context}
 {SECURITY_NOTE}
 ## Experience bank (representative attempts plus global aggregates)
 
@@ -568,6 +679,9 @@ for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is
 {active_block}
 {evidence_block}
 {v5_context_block}
+{feedback_state_block}
+{pending_block}
+{target_island_block}
 ## Stop authority
 
 {stop_rule}
@@ -585,11 +699,32 @@ Return exactly one JSON object, with no markdown fences or surrounding text:
   "phase": "{default_phase}",
   "target_claim_id": a claim id or null,
   "success_criterion": "one concrete machine-checkable condition" or null,
+  "intervention": {{
+    "scope": "parameter|target|representation|architecture|mechanism|family",
+    "operator": "tune|replace|combine|ablate|transfer|abandon|probe",
+    "target_slice": "one evaluator slice or null",
+    "prediction": "what should change and where",
+    "falsifier": "what result would refute it",
+    "evidence_ids": ["record or packet ids"],
+    "next_probe": "one bounded diagnostic query or null",
+    "state_version": "state version or null",
+    "state_hash": "state digest or null"
+  }},
+{mechanism_output_field}
   "next": "one concrete implementable experiment" or null
 }}
 
 `phase` must be exactly one of: {phase_choices}. Interpret those task-owned
-phase names using the task description.
+phase names using the task description. When available, use `discover` for a
+new mechanism family, `diagnose` for a measured failure slice, `transfer` for
+an evidence-linked cross-mechanism move, and `confirm` for a held-out or
+matched-control check. Keep the primary evaluator score fixed; the
+`intervention` object only chooses what to probe next.
+
+The `intervention` object is a typed plan, not a result. `prediction` and
+`falsifier` must be concrete enough for the evaluator to test. `evidence_ids`
+must refer only to records in the packet above, and `state_version` must be
+copied from the trusted problem state when one is supplied.
 
 `next` is required for `continue` and may be null only for `stop`. When evidence
 is ambiguous, choose `continue`. A failed experiment is not proof of mathematical
@@ -631,6 +766,9 @@ evaluator verifies them. Any next experiment must edit only:
         "trial_seed": trial_seed,
         "direction": decision.next_experiment,
         "decision": decision.to_dict(),
+        "mechanism_candidates": [
+            dict(item) for item in decision.mechanism_candidates
+        ],
         "result_ids": [],
         "text": json.dumps(decision.to_dict(), ensure_ascii=False),
     })
@@ -640,13 +778,17 @@ evaluator verifies them. Any next experiment must edit only:
 def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
                       active_directions=(), trial_seed=0,
                       agent_stop_enabled=False, stop_evidence=None,
-                      cancel_event=None, v5_context_prompt=""):
-    """Return a runnable baseline plus one inspiration for Proposal Agents.
+                      cancel_event=None, v5_context_prompt="",
+                      target_island_epoch_id=None, target_record_ids=(),
+                      feedback_state=None, pending_queue=None,
+                      acquisition_router=None):
+    """Return a runnable baseline plus a mechanism portfolio for Proposal Agents.
 
     The Context Agent reasons over a bounded representative view and aggregate
     statistics from the full EB, but does not select a unique lineage. The
     current best is copied only as an executable workspace baseline; every
-    candidate outcome remains an independent EB record.
+    candidate outcome remains an independent EB record.  The portfolio is
+    advisory metadata: the evaluator still decides whether a mechanism works.
     """
     eb_version, records = eb.snapshot()
     scored = [r for r in records if r["score"] is not None]
@@ -680,6 +822,22 @@ def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
     failure_notes = _failure_notes(records)
     allowed_phases = _allowed_context_phases(task)
 
+    # Prefer a target island's local frontier when one is available.  The
+    # global frontier remains the deterministic fallback for legacy callers or
+    # a newly initialized island with no scored records.
+    local_ids = {
+        str(value) for value in (target_record_ids or ())
+        if isinstance(value, str) and value
+    }
+    if target_island_epoch_id and not local_ids:
+        local_ids = {
+            str(record.get("id")) for record in records
+            if str(record.get("metadata", {}).get("island_epoch_id", ""))
+            == str(target_island_epoch_id)
+        }
+    local_scored = [record for record in scored if record.get("id") in local_ids]
+    local_best = pick(local_scored, key=lambda r: r["score"]) if local_scored else None
+
     decision = _llm_context_analysis(
         task, eb, records, numeric_best, history, iteration, eb_version,
         active_directions, trial_seed,
@@ -688,9 +846,27 @@ def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
         stop_evidence=stop_evidence,
         cancel_event=cancel_event,
         v5_context_text=v5_context_prompt,
+        feedback_state=feedback_state,
+        pending_hypotheses=(
+            pending_queue.pending(limit=24)
+            if hasattr(pending_queue, "pending") else pending_queue or ()
+        ),
+        target_island_epoch_id=target_island_epoch_id,
     )
     if decision is not None:
         decision = _normalize_decision_phase(decision, allowed_phases)
+        trusted_state_version, trusted_state_hash = _feedback_state_identity(
+            feedback_state
+        )
+        if feedback_state is not None:
+            # The model may echo these fields, but only the harness snapshot
+            # is authoritative.  Bind the plan to the exact state supplied in
+            # this call without adding a second review/approval layer.
+            decision = replace(
+                decision,
+                state_version=trusted_state_version,
+                state_hash=trusted_state_hash,
+            )
         direction = decision.next_experiment or pick_direction(task, iteration)
         prompt_direction = _clip_text(direction, MAX_DIRECTION_CHARS)
         prompt_analysis = _clip_text(decision.analysis, 2000)
@@ -732,23 +908,92 @@ clear flaw in the reasoning; document that in PROPOSAL.md."""
             "trial_seed": trial_seed,
             "direction": direction,
             "decision": decision.to_dict(),
+            "mechanism_candidates": [],
             "result_ids": [],
             "text": "Context LLM unavailable; deterministic fallback used.",
         })
+
+    # ContextDecision carries the structured hypotheses when the LLM returned
+    # them.  Reading the analysis file as a fallback also supports old/custom
+    # Context implementations that only persist the JSON packet.
+    mechanism_candidates = list(
+        getattr(decision, "mechanism_candidates", ()) or ()
+    )
+    if not mechanism_candidates:
+        mechanism_candidates = hypotheses_from_analysis(
+            _analysis_path(eb, iteration)
+        )
+    # If the Context supplied one typed intervention at the decision level,
+    # project it onto hypotheses that omitted the same fields.  This keeps the
+    # proposal slots executable without forcing the model to duplicate every
+    # field in each portfolio item.
+    decision_intervention = {
+        "intervention_scope": getattr(decision, "intervention_scope", None),
+        "intervention_operator": getattr(decision, "intervention_operator", None),
+        "target_slice": getattr(decision, "target_slice", None),
+        "prediction": getattr(decision, "prediction", None),
+        "failure_condition": getattr(decision, "falsifier", None),
+        "evidence_ids": list(getattr(decision, "evidence_ids", ()) or ()),
+        "next_probe": getattr(decision, "next_probe", None),
+        "state_version": getattr(decision, "state_version", None),
+        "state_hash": getattr(decision, "state_hash", None),
+    }
+    if mechanism_candidates and any(value not in (None, "", []) for value in decision_intervention.values()):
+        for hypothesis in mechanism_candidates:
+            if not isinstance(hypothesis, dict):
+                continue
+            for key, value in decision_intervention.items():
+                if value not in (None, "", []) and not hypothesis.get(key):
+                    hypothesis[key] = value
+
+    # Queue every Context idea, then execute only a bounded deterministic
+    # portfolio.  The queue retains unselected hypotheses for later rounds;
+    # this avoids silently collapsing an open proposal space to the first few
+    # slots when a Context returns more ideas than the current budget.
+    if acquisition_router is None and pending_queue is not None:
+        acquisition_router = AcquisitionRouter(pending_queue)
+    selected_mechanisms = list(mechanism_candidates)
+    pending_snapshot = []
+    if acquisition_router is not None:
+        state_mapping = None
+        if isinstance(feedback_state, dict):
+            state_mapping = feedback_state
+        elif hasattr(feedback_state, "to_dict"):
+            try:
+                state_mapping = feedback_state.to_dict()
+            except (TypeError, ValueError):
+                state_mapping = None
+        selected_mechanisms = acquisition_router.select(
+            mechanism_candidates if mechanism_candidates else None,
+            count=max(1, int(getattr(task, "candidates_per_context", 1) or 1)),
+            state=state_mapping,
+            iteration=iteration,
+        )
+        pending_snapshot = acquisition_router.queue.pending(limit=32)
 
     use_research_frontier = (
         decision.phase in RESEARCH_CONTEXT_PHASES
         and bool(research_candidates)
     )
-    baseline = research_best if use_research_frontier else numeric_best
+    baseline = local_best or (research_best if use_research_frontier else numeric_best)
     baseline_kind = (
-        "numeric_frontier"
-        if baseline["id"] == numeric_best["id"]
-        else "research_frontier"
+        "island_local_frontier"
+        if local_best is not None and baseline["id"] == local_best["id"]
+        else (
+            "numeric_frontier"
+            if baseline["id"] == numeric_best["id"]
+            else "research_frontier"
+        )
     )
     better = "lower" if task.direction == "min" else "higher"
     editable = ", ".join(f"`{f}`" for f in task.editable_files)
     candidate_instructions = _candidate_instructions_block(task)
+    candidate_contract = _candidate_contract_block(task)
+    mechanism_proposal = render_proposal_block(
+        task,
+        candidate_count=getattr(task, "candidates_per_context", 4),
+        context_hypotheses=selected_mechanisms,
+    )
     if research_candidates:
         frontier_summary = f"""The numeric frontier is {numeric_best['id']} (score
 {numeric_best['score']:.6f}). The research frontier is {research_best['id']}
@@ -759,8 +1004,9 @@ For this `{decision.phase}` phase, your working directory is copied from
 {baseline_kind} record {baseline['id']}."""
         bank_guidance = "low-scoring, refuted, and formally rejected attempts"
     else:
-        frontier_summary = f"""Your working directory is copied from the current
-numeric frontier, {numeric_best['id']} (score {numeric_best['score']:.6f})."""
+        frontier_summary = f"""Your working directory is copied from the
+{baseline_kind}, {baseline['id']} (score {baseline['score']:.6f}); the global
+numeric frontier is {numeric_best['id']} (score {numeric_best['score']:.6f})."""
         bank_guidance = "low-scoring and failed attempts"
 
     task_description = _clip_text(task.description, MAX_TASK_DESCRIPTION_CHARS)
@@ -792,10 +1038,16 @@ Use `{CANDIDATE_SEED_TOKEN}` as the deterministic random seed for this candidate
 experiment needs randomness.
 {_clip_text(_invariants_block(task), 8000)}
 {candidate_instructions}
-Modify {editable} in the current directory to implement ONE focused experiment.
-Keep the change minimal and surgical — this is one iteration of an experiment
-loop, not a rewrite. Then write a single line describing the change to a new
-file named `PROPOSAL.md` (one short sentence, no markdown headers).
+{candidate_contract}
+{mechanism_proposal}
+Modify {editable} in the current directory to implement the mechanism assigned
+to this candidate slot (or a clearly named extension proposed by you). Across
+the Context round, preserve structural diversity rather than repeating the
+same parameter tweak. Keep each candidate executable and scoped to one
+mechanism instantiation; the portfolio itself may contain many different
+structures. Then write a compact mechanism note to `PROPOSAL.md` as requested
+above (one short sentence for legacy tasks; the JSON first line for the open
+algorithm-design task).
 
 Follow the candidate output contract and evaluation rules in the task
 description above. Do not run the solution yourself. Only {editable} and the one-line
@@ -808,6 +1060,10 @@ that adds, removes or modifies other files.
         prompt = prompt.replace(history, _clip_text(history, target), 1)
     if len(prompt) > base_prompt_limit:
         raise ValueError("Proposal prompt framing exceeds its bounded base allocation")
+    state_version = getattr(decision, "state_version", None)
+    state_hash = getattr(decision, "state_hash", None)
+    if feedback_state is not None:
+        state_version, state_hash = _feedback_state_identity(feedback_state)
     context_meta = {
         "iteration": iteration,
         "eb_version": eb_version,
@@ -820,7 +1076,22 @@ that adds, removes or modifies other files.
         "baseline_kind": baseline_kind,
         "numeric_frontier_id": numeric_best["id"],
         "research_frontier_id": research_best["id"],
+        "target_island_epoch_id": target_island_epoch_id,
+        "target_record_ids": sorted(local_ids),
+        "baseline_record_id": baseline["id"],
         "context_decision": decision.to_dict(),
+        "intervention_scope": getattr(decision, "intervention_scope", None),
+        "intervention_operator": getattr(decision, "intervention_operator", None),
+        "target_slice": getattr(decision, "target_slice", None),
+        "prediction": getattr(decision, "prediction", None),
+        "falsifier": getattr(decision, "falsifier", None),
+        "evidence_ids": list(getattr(decision, "evidence_ids", ()) or ()),
+        "next_probe": getattr(decision, "next_probe", None),
+        "mechanism_candidates": mechanism_candidates,
+        "selected_mechanism_candidates": selected_mechanisms,
+        "pending_hypotheses": pending_snapshot,
+        "state_version": state_version,
+        "state_hash": state_hash,
         "stop_evidence_at_decision": stop_evidence,
     }
     return decision, baseline, prompt, direction, context_meta

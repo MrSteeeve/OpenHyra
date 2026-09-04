@@ -1,4 +1,4 @@
-"""Experimental per-instance training bridge for Bermudan MLP policies.
+"""Per-instance training bridge for trusted continuation-policy protocols.
 
 This module is intentionally additive: the default task and evaluator do not
 call it.  A trusted caller gives one validated contract and only its training
@@ -23,10 +23,10 @@ import numpy as np
 
 from sandbox import run_training_sandbox
 from tasks.bermudan_optimal_stopping.evaluator import BSInstance, discounted_rewards
-from tasks.bermudan_optimal_stopping.policy_artifact import (
-    MLPContinuationRunner,
-    load_policy_artifact,
-    load_policy_manifest,
+from tasks.bermudan_optimal_stopping.policy_protocols import (
+    ContinuationRunner,
+    load_continuation_manifest,
+    load_continuation_runner,
 )
 
 
@@ -69,7 +69,7 @@ class TrainingCellResult:
     input_bundle_sha256: str
     policy_file_sha256: tuple[tuple[str, str], ...] | None
     policy_artifact_sha256: str | None
-    runner: MLPContinuationRunner | None
+    runner: ContinuationRunner | None
 
 
 def _canonical_json_bytes(payload: Any) -> bytes:
@@ -298,7 +298,10 @@ def run_per_instance_training(
     seed = _strict_seed(train_seed)
     validated_instance = _validated_instance(instance)
     source = Path(candidate_source_dir)
-    manifest = load_policy_manifest(source / "manifest.json")
+    # Parse the manifest before starting an untrusted process so unsupported
+    # runner protocols fail deterministically and do not consume a training
+    # cell.  The same validated manifest is used for artifact loading below.
+    manifest = load_continuation_manifest(source / "manifest.json")
     _root, input_dir, output_dir, tmp_dir = _create_cell_directories(cell_dir)
     input_bundle = write_training_input_bundle(
         validated_instance, training_paths, input_dir,
@@ -349,11 +352,12 @@ def run_per_instance_training(
         )
 
     try:
-        artifact = load_policy_artifact(
+        runner = load_continuation_runner(
             manifest,
             output_dir,
             n_exercise_times=len(validated_instance.exercise_times),
             input_dim=validated_instance.dimension,
+            instance=validated_instance,
         )
     except ValueError as exc:
         note = f"trusted policy artifact rejected: {exc}"
@@ -365,11 +369,10 @@ def run_per_instance_training(
             runner=None,
             **{**common, "log_tail": log_tail},
         )
-    runner = MLPContinuationRunner(artifact)
     return TrainingCellResult(
         status="ok",
-        policy_file_sha256=artifact.file_sha256,
-        policy_artifact_sha256=artifact.bundle_sha256,
+        policy_file_sha256=runner.artifact.file_sha256,
+        policy_artifact_sha256=runner.artifact.bundle_sha256,
         runner=runner,
         **common,
     )

@@ -6,6 +6,30 @@ import time
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
+from mechanism_hypotheses import normalize_hypotheses
+
+
+CONTEXT_PHASES = (
+    "numeric",
+    "discover",
+    "diagnose",
+    "transfer",
+    "confirm",
+    "construct",
+    "falsify",
+    "formalize",
+    "repair_formalization",
+)
+INTERVENTION_SCOPES = {
+    "parameter", "target", "representation", "architecture", "mechanism", "family",
+    "objective", "loss", "feature", "protocol", "probe",
+}
+INTERVENTION_OPERATORS = {
+    "tune", "replace", "combine", "ablate", "transfer", "abandon", "probe",
+    "mutate", "switch", "adjust", "compose", "remove", "restart", "inspect",
+    "modify", "change", "add", "delete",
+}
+
 
 @dataclass(frozen=True)
 class ContextDecision:
@@ -18,6 +42,33 @@ class ContextDecision:
     phase: str = "numeric"
     target_claim_id: str | None = None
     success_criterion: str | None = None
+    # Context may propose a small portfolio of mechanisms in addition to its
+    # single next-experiment direction.  Keeping this optional preserves the
+    # legacy decision shape while letting task-specific proposal flows carry a
+    # structured, falsifiable hypothesis list.
+    mechanism_candidates: tuple[dict, ...] = ()
+    # Typed intervention fields make the Context output executable by a
+    # deterministic router.  All are optional for legacy tasks and old JSON
+    # analysis files.
+    intervention_scope: str | None = None
+    intervention_operator: str | None = None
+    target_slice: str | None = None
+    prediction: str | None = None
+    falsifier: str | None = None
+    evidence_ids: tuple[str, ...] = ()
+    next_probe: str | None = None
+    state_version: str | int | None = None
+    state_hash: str | None = None
+
+    @property
+    def scope(self) -> str | None:
+        """Short alias used by compact Context payloads."""
+        return self.intervention_scope
+
+    @property
+    def operator(self) -> str | None:
+        """Short alias used by compact Context payloads."""
+        return self.intervention_operator
 
     @classmethod
     def from_payload(cls, payload):
@@ -59,13 +110,7 @@ class ContextDecision:
         if action == "stop" and next_experiment is not None:
             raise ValueError("A stop decision requires next=null")
         phase = payload.get("phase", "numeric")
-        if phase not in {
-            "numeric",
-            "construct",
-            "falsify",
-            "formalize",
-            "repair_formalization",
-        }:
+        if phase not in set(CONTEXT_PHASES):
             raise ValueError("Context phase is not supported")
         target_claim_id = payload.get("target_claim_id")
         if target_claim_id is not None and (
@@ -85,6 +130,104 @@ class ContextDecision:
             raise ValueError(
                 "Context success_criterion must be bounded text or null"
             )
+        raw_mechanisms = payload.get("mechanism_candidates", [])
+        if raw_mechanisms is None:
+            raw_mechanisms = []
+        if not isinstance(raw_mechanisms, (list, tuple)):
+            # The field is an optional extension.  Keep a valid legacy
+            # continue/stop decision usable when an LLM emits a single object
+            # or another malformed optional value.
+            raw_mechanisms = []
+        mechanism_candidates = tuple(
+            normalize_hypotheses(
+                raw_mechanisms,
+                source="context",
+                limit=8,
+            )
+        )
+        # Accept both the compact top-level representation and a nested
+        # ``intervention`` object.  Keeping aliases in the serialized form
+        # lets older Context prompts continue to work while newer routers can
+        # consume a typed record directly.
+        raw_intervention = payload.get("intervention")
+        if not isinstance(raw_intervention, dict):
+            raw_intervention = {}
+
+        def optional_text(name, *, limit=500, aliases=()):
+            value = payload.get(name)
+            if value is None:
+                value = raw_intervention.get(name)
+            if value is None:
+                for alias in aliases:
+                    value = payload.get(alias)
+                    if value is None:
+                        value = raw_intervention.get(alias)
+                    if value is not None:
+                        break
+            if value is None:
+                return None
+            if name == "target_slice" and isinstance(value, (list, tuple)):
+                value = ", ".join(
+                    item.strip() for item in value
+                    if isinstance(item, str) and item.strip()
+                )
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"Context {name} must be bounded text or null")
+            value = " ".join(value.split()).strip()
+            if len(value) > limit:
+                raise ValueError(f"Context {name} exceeds character limit")
+            return value
+
+        intervention_scope = optional_text(
+            "intervention_scope", limit=64, aliases=("scope",)
+        )
+        intervention_operator = optional_text(
+            "intervention_operator", limit=64, aliases=("operator",)
+        )
+        if intervention_scope is not None and intervention_scope not in INTERVENTION_SCOPES:
+            raise ValueError("Context intervention_scope is not supported")
+        if intervention_operator is not None and intervention_operator not in INTERVENTION_OPERATORS:
+            raise ValueError("Context intervention_operator is not supported")
+        target_slice = optional_text("target_slice", limit=240, aliases=("target_slices",))
+        prediction = optional_text("prediction", limit=500)
+        falsifier = optional_text("falsifier", limit=500, aliases=("failure_condition",))
+        next_probe = optional_text("next_probe", limit=500)
+        raw_evidence = payload.get("evidence_ids", raw_intervention.get("evidence_ids", ()))
+        if isinstance(raw_evidence, str):
+            raw_evidence = [raw_evidence]
+        if raw_evidence is None:
+            raw_evidence = []
+        if not isinstance(raw_evidence, (list, tuple)):
+            raise ValueError("Context evidence_ids must be a list or null")
+        evidence_ids = []
+        for evidence_id in raw_evidence:
+            if not isinstance(evidence_id, str) or not evidence_id.strip():
+                raise ValueError("Context evidence_ids must contain text")
+            evidence_id = evidence_id.strip()
+            if len(evidence_id) > 160:
+                raise ValueError("Context evidence_id exceeds character limit")
+            if evidence_id not in evidence_ids:
+                evidence_ids.append(evidence_id)
+            if len(evidence_ids) >= 16:
+                break
+        state_version = payload.get("state_version", raw_intervention.get("state_version"))
+        if isinstance(state_version, bool):
+            raise ValueError("Context state_version must be text, integer, or null")
+        if isinstance(state_version, float):
+            if not state_version.is_integer():
+                raise ValueError("Context state_version must be integral")
+            state_version = int(state_version)
+        elif state_version is not None and not isinstance(state_version, int):
+            if not isinstance(state_version, str) or not state_version.strip():
+                raise ValueError("Context state_version must be text, integer, or null")
+            state_version = state_version.strip()
+            if len(state_version) > 128:
+                raise ValueError("Context state_version exceeds character limit")
+        state_hash = payload.get("state_hash", raw_intervention.get("state_hash"))
+        if state_hash is not None:
+            if not isinstance(state_hash, str) or not state_hash.strip() or len(state_hash) > 128:
+                raise ValueError("Context state_hash must be bounded text or null")
+            state_hash = state_hash.strip()
         return cls(
             action=action,
             analysis=analysis.strip(),
@@ -99,11 +242,36 @@ class ContextDecision:
             success_criterion=(
                 success_criterion.strip() if success_criterion else None
             ),
+            mechanism_candidates=mechanism_candidates,
+            intervention_scope=intervention_scope,
+            intervention_operator=intervention_operator,
+            target_slice=target_slice,
+            prediction=prediction,
+            falsifier=falsifier,
+            evidence_ids=tuple(evidence_ids),
+            next_probe=next_probe,
+            state_version=state_version,
+            state_hash=state_hash,
         )
 
     def to_dict(self):
         payload = asdict(self)
         payload["next"] = payload.pop("next_experiment")
+        payload["mechanism_candidates"] = [
+            dict(item) for item in self.mechanism_candidates
+        ]
+        payload["evidence_ids"] = list(self.evidence_ids)
+        payload["intervention"] = {
+            "scope": self.intervention_scope,
+            "operator": self.intervention_operator,
+            "target_slice": self.target_slice,
+            "prediction": self.prediction,
+            "falsifier": self.falsifier,
+            "evidence_ids": list(self.evidence_ids),
+            "next_probe": self.next_probe,
+            "state_version": self.state_version,
+            "state_hash": self.state_hash,
+        }
         return payload
 
     def forced_continue(self, next_experiment, reason):

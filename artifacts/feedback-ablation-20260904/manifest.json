@@ -1,0 +1,25 @@
+{
+  "schema": "openhyra-feedback-ablation.v1",
+  "script": "experiments/feedback_ablation.py",
+  "script_sha256": "9da568e41277cdbef482759bf333096551c7db17bfd04ac2fa0733169ea04dee",
+  "git_head": "4ad87556c2155bcda4120b76448c5393df9f75a3",
+  "objective_schema": "openhyra-synthetic-landscape.v1",
+  "arms": [
+    "score_only",
+    "static_directional",
+    "adaptive_directional",
+    "adaptive_matched_control"
+  ],
+  "seeds": [
+    11,
+    23,
+    37,
+    41,
+    53
+  ],
+  "rounds": 8,
+  "candidates_per_round": 4,
+  "objective_calls_per_candidate": 2,
+  "llm_calls": 0,
+  "private_audit_calls": 0
+}

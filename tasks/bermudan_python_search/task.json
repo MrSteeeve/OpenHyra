@@ -1,0 +1,189 @@
+{
+  "name": "bermudan_python_search",
+  "direction": "max",
+  "metric": "paired_lower_bound_lcb",
+  "protocol": "bermudan-lsmc-algorithm-bundle.v1",
+  "seed_description": "deterministic MLP continuation-policy training baseline",
+  "candidate_mode": "algorithm_bundle",
+  "editable_files": ["train.py", "manifest.json"],
+  "source_files": ["train.py", "manifest.json"],
+  "entrypoint": "train.py",
+  "solve_entrypoint": "solve.sh",
+  "artifact_protocol": "openhyra-policy-spec.v1",
+  "artifact_protocols": [
+    "openhyra-policy-spec.v1",
+    "continuation-linear.v1",
+    "continuation-expression.v1"
+  ],
+  "allowed_context_phases": ["discover", "diagnose", "transfer", "confirm", "numeric"],
+  "feedback_mode": "adaptive",
+  "adaptive_feedback": true,
+  "context_barrier": true,
+  "candidate_instructions": [
+    "Edit only train.py and manifest.json; solve.sh is task-owned and remains frozen.",
+    "train.py is run once per public or private instance with --input, --output, and --seed.",
+    "Read only the four trusted training inputs and emit a validated continuation-policy artifact.",
+    "Do not emit prices, stopping decisions, evaluation paths, random streams, confidence intervals, or telemetry as artifacts.",
+    "The evaluator owns simulation, payoff, discounting, stopping, primal-dual auditing, and scoring."
+  ],
+  "mechanism_design": {
+    "schema": "openhyra-mechanism-design.v1",
+    "enabled": true,
+    "selection": "slot_round_robin",
+    "matched_control": {
+      "enabled": true,
+      "same_parent": true,
+      "same_seed": true,
+      "same_compute_budget": true
+    },
+    "directions": [
+      {
+        "id": "cross_fitted_targets",
+        "family": "estimation",
+        "mechanism": "cross-fit backward cash-flow targets across path folds",
+        "prediction": "reduces target reuse and improves held-out stopping near the exercise boundary",
+        "failure_condition": "no paired gain after matching total updates, or degradation on a payoff family",
+        "matched_control": "ordinary backward targets from the same parent, paths, seed, and update budget",
+        "target_slices": ["high volatility", "near-boundary states"],
+        "implementation_hint": "stay within the registered MLP artifact and keep fold assignment deterministic"
+      },
+      {
+        "id": "boundary_weighted_loss",
+        "family": "optimization",
+        "mechanism": "weight continuation errors more strongly where immediate payoff is close to the target",
+        "prediction": "improves exercise decisions in near-boundary states without requiring a larger network",
+        "failure_condition": "exercise-rate instability or no improvement in boundary slices",
+        "matched_control": "same architecture and epochs with uniform loss weighting",
+        "target_slices": ["near-boundary states", "out-of-money put"],
+        "implementation_hint": "derive weights only from supplied training paths and payoffs"
+      },
+      {
+        "id": "residual_continuation",
+        "family": "representation",
+        "mechanism": "learn a residual continuation value relative to a simple intrinsic or linear baseline",
+        "prediction": "improves sample efficiency when the continuation surface is close to a simple baseline",
+        "failure_condition": "residual model does not beat the same MLP trained on the raw target",
+        "matched_control": "same MLP and training budget with no baseline residualization",
+        "target_slices": ["one-asset put", "low volatility"],
+        "implementation_hint": "encode the baseline in train.py while emitting the unchanged policy artifact"
+      },
+      {
+        "id": "time_conditioned_representation",
+        "family": "representation",
+        "mechanism": "condition the continuation representation on normalized time-to-maturity",
+        "prediction": "reduces mismatch across exercise dates and helps contracts with irregular grids",
+        "failure_condition": "no gain on irregular-grid cells or increased runtime-adjusted error",
+        "matched_control": "same parameter budget with time omitted from the input representation",
+        "target_slices": ["irregular exercise grid", "long maturity"],
+        "implementation_hint": "use only causal time information already present in instance.json"
+      },
+      {
+        "id": "robust_target_loss",
+        "family": "optimization",
+        "mechanism": "use a robust clipped or Huber-style regression loss for noisy backward targets",
+        "prediction": "reduces tail-driven policy variance on multi-asset and high-volatility cells",
+        "failure_condition": "worse paired lower-bound confidence or materially higher failure rate",
+        "matched_control": "ordinary squared loss with identical initialization and update count",
+        "target_slices": ["multi-asset", "high volatility"],
+        "implementation_hint": "keep clipping finite and explicit; do not change evaluator-owned output clipping"
+      },
+      {
+        "id": "fold_ensemble",
+        "family": "estimation",
+        "mechanism": "fit a small ensemble of deterministic fold policies and average continuation values",
+        "prediction": "reduces seed sensitivity and improves repeat-to-repeat stability",
+        "failure_condition": "variance does not fall or the ensemble exceeds the matched compute budget",
+        "matched_control": "one policy with the same total number of optimizer updates",
+        "target_slices": ["all public families", "repeat stability"],
+        "implementation_hint": "average parameters or predictions within the fixed artifact format"
+      },
+      {
+        "id": "symbolic_affine_switch",
+        "family": "inductive_bias",
+        "mechanism": "switch from a learned MLP to a linear or typed-expression continuation rule when the fit is simple",
+        "prediction": "a lower-variance inductive bias wins on low-dimensional or nearly linear cells",
+        "failure_condition": "the switch overfits the public suite or loses on hidden products",
+        "matched_control": "fixed MLP runner under the same per-instance data budget",
+        "target_slices": ["one-asset put", "low-dimensional cells"],
+        "implementation_hint": "declare the registered linear or expression protocol rather than adding a runner"
+      },
+      {
+        "id": "adaptive_normalization",
+        "family": "preprocessing",
+        "mechanism": "adapt per-step state normalization to payoff-relevant scale and log-space features",
+        "prediction": "improves conditioning for heterogeneous assets and correlated baskets",
+        "failure_condition": "no conditioning benefit or a degradation on raw-scale contracts",
+        "matched_control": "current per-step mean/std normalization with the same model and budget",
+        "target_slices": ["correlated basket", "heterogeneous spots"],
+        "implementation_hint": "estimate statistics only from the supplied training bundle"
+      }
+    ],
+    "critic_questions": [
+      "What observation would distinguish this mechanism from simply training longer or using more parameters?",
+      "Which contract slice is most likely to falsify the predicted advantage?",
+      "Does the matched control keep parent, paths, seed, and compute budget fixed?",
+      "Is the proposed change a mechanism change rather than a cosmetic hyperparameter tweak?",
+      "What evidence would make the agent revise or abandon this mechanism?"
+    ]
+  },
+  "sandbox_timeout_s": 30,
+  "eval_concurrency": 1,
+  "candidates_per_context": 4,
+  "candidate_repair_attempts": 1,
+  "research_revision_attempts": 0,
+  "max_memory_mb": 1024,
+  "max_output_mb": 64,
+  "max_artifact_bytes": 131072,
+  "evaluator_timeout_s": 900,
+  "evaluator_max_memory_mb": 2048,
+  "evaluation": {
+    "search_stage": {
+      "suite_id": "bermudan-python-public-v1",
+      "direction": "max",
+      "metric": "paired_lower_bound_lcb",
+      "confidence_level": 0.95,
+      "instance_count": 4,
+      "repeats": 2,
+      "training_paths": 1024,
+      "pricing_paths": 2048,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    },
+    "audit_stage": {
+      "suite_id": "bermudan-python-hidden-v1",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    }
+  },
+  "engineering_invariants": [
+    "Candidate source is sealed before evaluation; only train.py and manifest.json are editable.",
+    "Every training cell receives one evaluator-owned instance and its training paths, never pricing or audit paths.",
+    "The candidate exports data-only artifacts; the trusted runner is stateless, deterministic, finite, and bounded.",
+    "The evaluator freezes each per-instance policy before independent pricing and owns every stopping decision.",
+    "Public search uses paired common-random-number differences against the fixed legacy Ridge baseline.",
+    "Private audit derives hidden products and domain-separated fit, pricing, outer, and inner streams from a sealed seed.",
+    "Raw primal-dual bound-order diagnostics are preserved; no candidate-reported metric is trusted or clipped."
+  ],
+  "fallback_directions": [
+    "Keep the manifest and runner protocol unchanged while varying one bounded architecture or optimizer choice.",
+    "Use deterministic feature normalization and a small continuation network before increasing width or depth.",
+    "Compare a linear or typed-expression runner against the MLP under the same per-instance training budget.",
+    "Use backward cash-flow targets and causal state inputs; never train on pricing, outer, or nested-inner paths.",
+    "Retain a change only when paired public lower-bound improvement survives repeated cells and remains finite.",
+    "Check hidden multi-product non-degradation separately from any public search gain."
+  ]
+}

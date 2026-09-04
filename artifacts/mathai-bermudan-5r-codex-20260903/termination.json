@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-03T16:38:46+0800",
+  "reason": "final_audit_complete",
+  "terminal": true,
+  "requested_by": "user",
+  "accepted_by": "harness",
+  "search_termination": {
+    "schema_version": 1,
+    "created_at": "2026-09-03T16:14:41+0800",
+    "reason": "iteration_limit",
+    "terminal": false,
+    "requested_by": "harness",
+    "accepted_by": "harness",
+    "run_id": "mathai-bermudan-5r-codex-20260903",
+    "requested_iterations": 5,
+    "completed_contexts": 5,
+    "candidate_attempts": 20,
+    "best_id": "sol_0020",
+    "best_score": -0.0006145663865906547,
+    "contexts_since_meaningful_improvement": 0,
+    "stopping_policy": {
+      "enabled": false,
+      "min_contexts_before_stop": 6,
+      "stop_patience": 4,
+      "meaningful_delta": 0.0001,
+      "recent_window": 4,
+      "min_successful_candidates": 4
+    },
+    "evidence": {
+      "completed_contexts": 5,
+      "incomplete_contexts": [],
+      "contexts_since_meaningful_improvement": 0,
+      "meaningful_delta": 0.0001,
+      "recent_window": 4,
+      "recent_candidate_count": 16,
+      "recent_successful_candidates": 16,
+      "recent_duplicate_candidates": 1,
+      "recent_duplicate_rate": 0.0625,
+      "covered_direction_count": 4,
+      "best_score": -0.0006145663865906547,
+      "context_improvements": [
+        {
+          "iteration": 0,
+          "best_score": -0.003231424465847859,
+          "improvement": 0.00018892803338735982,
+          "cumulative_gain": 0.00018892803338735982,
+          "meaningful": true
+        },
+        {
+          "iteration": 1,
+          "best_score": -0.003420352499235219,
+          "improvement": 0.0,
+          "cumulative_gain": 0.0,
+          "meaningful": false
+        },
+        {
+          "iteration": 2,
+          "best_score": -0.003420352499235219,
+          "improvement": 0.0,
+          "cumulative_gain": 0.0,
+          "meaningful": false
+        },
+        {
+          "iteration": 3,
+          "best_score": -0.002549520384446549,
+          "improvement": 0.0006819040814013103,
+          "cumulative_gain": 0.0006819040814013103,
+          "meaningful": true
+        },
+        {
+          "iteration": 4,
+          "best_score": -0.0006145663865906547,
+          "improvement": 0.0019349539978558942,
+          "cumulative_gain": 0.0019349539978558942,
+          "meaningful": true
+        }
+      ],
+      "required_formal_claim_templates": [],
+      "formal_complete_records": [],
+      "formal_complete_targets": {},
+      "proof_complete": true
+    }
+  },
+  "prior_termination_reason": "iteration_limit",
+  "final_audit_status": "complete",
+  "final_audit_payload_sha256": "2f6fe59d089e2bd0d23070fc54df3f7632432430d3a9f2fee4620553e5aad11d",
+  "final_audit_file_sha256": "8a16f011bd080e4c92ac9115ef51a760731ed2dbd96e3c628300265b5e6941a6",
+  "audit_seed_commitment": "2268880d2418faf1c6488664281e36156e5253b8fe80ee58a503571435a65e44",
+  "freeze_manifest_sha256": "848483336ea21267e9aecb8f2375d6c7e81ae2c2618e2a37aee201efb5cb115e",
+  "audit_winner_id": "sol_0020",
+  "audit_winner_score": 0.013324508705450225
+}

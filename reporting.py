@@ -34,6 +34,12 @@ SUMMARY_FIELDS = [
     "candidate_count", "candidate_index", "candidate_seed", "duplicate_of",
     "numeric_duplicate_of", "attempt_index", "attempt_kind", "repair_of",
     "run_manifest_sha256", "editable_file_sha256",
+    "mechanism_id", "hypothesis_id", "matched_pair_id", "matched_arm",
+    "paired_cell_count", "transfer_gain_standard_error",
+    "transfer_gain_ci_low", "transfer_gain_ci_high", "invalid_control_reason",
+    "control_valid",
+    "failure_rate", "deterministic_reproduction_passed",
+    "independent_reproduction",
 ]
 
 
@@ -89,7 +95,9 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
     if destination.exists():
         raise FileExistsError(f"refusing to overwrite existing bundle: {destination}")
     records = eb.records()
-    allowed = set(task.editable_files) | {
+    allowed = set(task.editable_files) | set(
+        getattr(task, "candidate_source_files", ())
+    ) | {
         "solve.sh", "solution.json", "evidence.json", "PROPOSAL.md", "run.log",
     }
     max_output_bytes = int(getattr(task, "max_output_mb", 64)) * 1024 * 1024
@@ -194,6 +202,11 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
     analyses = eb.root / "analyses"
     if analyses.exists():
         shutil.copytree(analyses, destination / "analyses")
+    matched_controls = Path(task.run_dir) / "research" / "matched_controls.jsonl"
+    if matched_controls.is_file():
+        research_destination = destination / "research"
+        research_destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(matched_controls, research_destination / matched_controls.name)
     termination = task.run_dir / "termination.json"
     if termination.is_file():
         shutil.copy2(termination, destination / "termination.json")
@@ -354,6 +367,31 @@ def export_bundle(task, eb, destination, *, root, run_manifest):
                 "editable_file_sha256": json.dumps(
                     metadata.get("editable_file_sha256"), sort_keys=True,
                 ) if metadata.get("editable_file_sha256") else None,
+                "mechanism_id": metadata.get("mechanism_id"),
+                "hypothesis_id": metadata.get("hypothesis_id"),
+                "matched_pair_id": metadata.get("matched_pair_id"),
+                "matched_arm": metadata.get("matched_arm"),
+                "paired_cell_count": metadata.get("paired_cell_count"),
+                "transfer_gain_standard_error": metadata.get(
+                    "transfer_gain_standard_error"
+                ),
+                "transfer_gain_ci_low": metadata.get("transfer_gain_ci_low"),
+                "transfer_gain_ci_high": metadata.get("transfer_gain_ci_high"),
+                "invalid_control_reason": metadata.get(
+                    "invalid_control_reason"
+                ),
+                "control_valid": metadata.get("control_valid"),
+                "failure_rate": metrics.get("failure_rate"),
+                "deterministic_reproduction_passed": metrics.get(
+                    "deterministic_reproduction_passed"
+                ),
+                "independent_reproduction": (
+                    metrics.get("feedback_packet", {})
+                    .get("observed", {})
+                    .get("independent_reproduction")
+                    if isinstance(metrics.get("feedback_packet"), Mapping)
+                    else None
+                ),
                 **_flatten_summary_mapping(metrics, "metrics"),
                 **_flatten_summary_mapping(metadata, "metadata"),
             })

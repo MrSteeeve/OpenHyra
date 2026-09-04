@@ -40,6 +40,28 @@ MLP 与线性工件直接返回以时间零计价的贴现货币值。表达式�
 生产价格。完整协议、金融模型、评分规则和结论边界见[特征任务说明](tasks/bermudan_optimal_stopping/TASK.md)
 与 [Python 任务说明](tasks/bermudan_python_search/TASK.md)。
 
+反馈协议也可以在不调用 LLM、且不运行金融模拟的情况下单独复现：
+
+```bash
+python3 experiments/feedback_ablation.py
+```
+
+它会在 `artifacts/feedback-ablation-20260904/` 写入四臂、等预算的合成消融，
+用于检查标量反馈、方向性反馈和自适应状态的线路与可复现性；这不是定价算法更优
+或数学发现的证据。
+
+### 与任务无关的发现协议
+
+[`algorithm_discovery.py`](algorithm_discovery.py) 提供一组面向完整有限候选的轻量接口：
+`AlgorithmSpec`、`SearchSpace`、`EvaluationResult`、`FeedbackOracle`、确定性的 acquisition、
+完整轮次屏障和 append-only discovery ledger。自适应任务无论是否启用 V5 岛，都能把
+评估器反馈归约成同一份 `ProblemState`；V5 增加的是种群调度、行为检索和更完整的 lineage，
+不是递归反馈的前置条件。
+
+这是一层可复用的集成接口，并不表示 OpenHyra 已经实现不受限的 AlphaEvolve 式 Python
+算法发现。新领域仍须提供自己的搜索空间、候选执行协议、评估器和 held-out 验证；当前
+百慕大任务只接受三种已注册的 continuation-policy 协议。
+
 ## 工作原理
 
 ```
@@ -57,12 +79,19 @@ MLP 与线性工件直接返回以时间零计价的贴现货币值。表达式�
 低分一律作为独立记录入库。
 
 **Context Agent**：LLM 每轮读取所有记录的结构化摘要、近期日志、近期失败和当前最佳实现，
-写一段简短局势分析（持久化为跨轮记忆），并确定下一个实验方向。它尚不能检索任意历史
-源码目录或 artifact。
+写一段简短局势分析（持久化为跨轮记忆），并提出一组带有预测与失败条件的机制假设，
+同时给出下一轮的主方向。它尚不能检索任意历史源码目录或 artifact。
 
 **Proposal Agent**：Claude Code 或 Codex CLI 在独立 draft 目录中按后端权限修改求解器；
 这些目录用于组织和校验改动，并不是 OpenHyra 统一提供的 OS 安全边界。
-每份 Context 简报扇出多个独立候选，提案生成与评估重叠执行。
+每份 Context 简报扇出多个独立候选；每个候选收到不同的机制槽位，必要时成对生成
+guided/control 版本，提案生成与评估重叠执行。候选可以在任务注册的 runner 内提出新的
+结构，而不是只能调一个固定超参数。
+
+**算法设计闭环**：在 `bermudan_python_search` 中，Context 的多个假设会冻结成可追踪
+的候选槽位，V5 保存假设与类比关系，可信评估器再用独立定价路径给出行为描述和分数。
+匹配对的差异写入 `research/matched_controls.jsonl`，因此 Workshop 版本展示的是
+“提出多种结构—配对反事实—独立验证”的智能体架构，而不是把一次最高分冒充新算法。
 
 **沙盒 + 可信评估**：候选在 macOS Seatbelt 下运行，网络被禁止、写入被限制在沙盒内；
 宿主机大多数文件仍可读，因此这是写入约束，不是机密性沙盒。候选 `solution.json`
@@ -136,11 +165,11 @@ python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
 # Python AlgorithmBundle 搜索（MLP/线性/表达式 runner）。
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --init --workers 1 --trial-seed 1729
+  --v5 --init --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --iterations 5 --workers 1 --trial-seed 1729
+  --v5 --iterations 5 --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --final-audit
+  --v5 --final-audit
 ```
 
 初始化和续跑时应传入相同的 `--backend`、`--model`、`--workers`、候选数、trial seed

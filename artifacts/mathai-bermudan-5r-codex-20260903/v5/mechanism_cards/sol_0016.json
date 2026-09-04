@@ -1,0 +1,11 @@
+{
+  "deterministic_facts": {
+    "entrypoint": "train.py",
+    "generation_operator": "local_mutation",
+    "protocol": "openhyra-policy-spec.v1"
+  },
+  "llm_inferences": [],
+  "record_id": "sol_0016",
+  "schema": "openhyra-mechanism-card.v1",
+  "trusted_observations": {}
+}

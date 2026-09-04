@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from harness_v5 import V5Bridge
-from schemas_v5 import ExperimentEvent, IslandEpoch
+from schemas_v5 import AnalogyHypothesis, AnalogyResult, ExperimentEvent, IslandEpoch
 
 
 def _bridge(tmp_path: Path, num_islands: int = 4) -> V5Bridge:
@@ -130,3 +130,68 @@ def test_build_context_returns_portfolio(tmp_path):
     assert "portfolio_text" in context
     assert isinstance(context["portfolio_text"], str)
     assert len(context["portfolio_text"]) > 0
+
+
+def _hypothesis(hypothesis_id: str = "hyp-1") -> AnalogyHypothesis:
+    return AnalogyHypothesis(
+        id=hypothesis_id,
+        source_record_ids=["seed-0"],
+        target_parent_id="seed-1",
+        relation_mapping=[{"source_role": "features", "target_role": "policy", "shared_relation": "smooth_boundary"}],
+        non_correspondence=["different_instance_regime"],
+        transferable_intervention="add a normalized continuation feature",
+        predicted_effect={"metric": "aggregate_score", "direction": "positive", "minimum_effect": 0.01},
+        falsifier="score does not improve on the held-out slice",
+        matched_control={"strategy": "same_parent_different_seed"},
+        status="preregistered",
+    )
+
+
+def test_hypotheses_are_registered_and_retrieved(tmp_path):
+    bridge = _bridge(tmp_path)
+    bridge.record_hypothesis(_hypothesis())
+    # Re-registration is intentionally idempotent.
+    bridge.record_hypothesis(_hypothesis())
+    context = bridge.build_context()
+    assert len(bridge.hypotheses) == 1
+    assert "hyp-1" in context["portfolio_text"]
+    resumed = _bridge(tmp_path)
+    assert [item.id for item in resumed.hypotheses] == ["hyp-1"]
+
+
+def test_analogy_result_updates_graph_and_is_idempotent(tmp_path):
+    bridge = _bridge(tmp_path)
+    hypothesis = _hypothesis()
+    bridge.record_hypothesis(hypothesis)
+    result = AnalogyResult(
+        analogy_hypothesis_id=hypothesis.id,
+        guided_record_id="guided-1",
+        control_record_id="control-1",
+        guided_delta=0.04,
+        control_delta=0.01,
+        transfer_gain=0.03,
+        transfer_gain_standard_error=0.01,
+        predicted_slice_effect=0.02,
+        prediction_direction_correct=True,
+        verdict="transfer_supported",
+    )
+    bridge.record_analogy_result(result)
+    bridge.record_analogy_result(result)
+    assert len(bridge.event_store.read_analogy_results()) == 1
+    assert bridge.analogy_graph.get_edges_by_type("transfer_supported")
+    # The preregistered hypothesis remains immutable, but it is no longer
+    # offered as pending once an outcome has been recorded.
+    context = bridge.build_context()
+    assert context["portfolio"].pending_analogy_pairs == []
+    completed = context["portfolio"].completed_analogy_results
+    assert len(completed) == 1
+    assert completed[0]["analogy_hypothesis_id"] == hypothesis.id
+    assert completed[0]["guided_record_id"] == "guided-1"
+    assert completed[0]["control_record_id"] == "control-1"
+    assert completed[0]["verdict"] == "transfer_supported"
+    assert completed[0]["transfer_gain"] == 0.03
+    assert completed[0]["matched_arm"] == "guided+control"
+    assert completed[0]["mechanism_id"] == hypothesis.id
+    assert completed[0]["family"] == "features"
+    assert completed[0]["generation_operator"] == "local_mutation"
+    assert "guided-1" in context["portfolio_text"]

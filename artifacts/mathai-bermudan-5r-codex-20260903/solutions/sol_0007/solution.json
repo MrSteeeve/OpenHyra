@@ -1,0 +1,1 @@
+{"inference_config":{"activation":"tanh","input_dim":"n_assets","layers":[16,16],"output_clip":[-1000000.0,1000000.0],"output_dim":1},"normalization":"per_step","output_semantics":"discounted_continuation_value_t0","runner_type":"mlp","schema":"openhyra-policy-spec.v1","weight_pattern":"step_{:03d}.npy"}

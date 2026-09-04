@@ -13,6 +13,7 @@ RUN_MANIFEST_SCHEMA = 1
 EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 SOURCE_FILES = (
     "analogy_graph.py",
+    "algorithm_discovery.py",
     "auditing.py",
     "behavior_index.py",
     "behavior_profiler.py",
@@ -20,13 +21,16 @@ SOURCE_FILES = (
     "context_retrieval.py",
     "eb.py",
     "experience_events.py",
+    "feedback.py",
     "external_formal_runner.py",
     "harness.py",
     "harness_v5.py",
+    "intervention_router.py",
     "island_scheduler.py",
     "llm_backend.py",
     "matched_control.py",
     "mechanism_cards.py",
+    "mechanism_hypotheses.py",
     "object_store.py",
     "probe_suite.py",
     "proposal_agent.py",
@@ -35,6 +39,19 @@ SOURCE_FILES = (
     "sandbox.py",
     "schemas_v5.py",
     "stopping.py",
+)
+
+# The Python AlgorithmBundle task loads these evaluator-owned modules lazily
+# from the shared Bermudan implementation.  The task-local evaluator wrapper
+# is covered by ``evaluator_sha256`` below, but a wrapper hash alone would not
+# detect a drift in one of its imported runtime dependencies when a run is
+# resumed.  Keep this list explicit and narrow so legacy task manifests retain
+# their historical shape and hash surface.
+ALGORITHM_RUNTIME_FILES = (
+    "tasks/bermudan_optimal_stopping/evaluator.py",
+    "tasks/bermudan_optimal_stopping/policy_artifact.py",
+    "tasks/bermudan_optimal_stopping/policy_protocols.py",
+    "tasks/bermudan_optimal_stopping/training_pipeline.py",
 )
 
 
@@ -51,6 +68,28 @@ def sha256_json(payload):
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _algorithm_runtime_dependency_hashes(task, root):
+    """Hash evaluator-owned modules used by an AlgorithmBundle task.
+
+    These are provenance identities, not encryption or authorization tokens.
+    The source is already sealed by the harness; the hashes simply make
+    resume/audit decisions sensitive to changes in the trusted runtime that
+    interprets a candidate bundle.
+    """
+    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+        return None
+    root = Path(root)
+    result = {}
+    for relative in ALGORITHM_RUNTIME_FILES:
+        path = root / relative
+        if not path.is_file():
+            raise RuntimeError(
+                "algorithm runtime dependency is missing: " + relative
+            )
+        result[relative] = sha256_file(path)
+    return result
 
 
 def _stage_config(task, stage):
@@ -177,23 +216,28 @@ def build_run_manifest(task, root, *, backend, model, workers,
         )
         if search_config is not None else None
     )
+    task_payload = {
+        "name": task.name,
+        "protocol": task.protocol,
+        "config_sha256": sha256_file(task.dir / "task.json"),
+        "description_sha256": sha256_file(task.dir / "TASK.md"),
+        "evaluator_sha256": sha256_file(task.evaluator),
+        "support_sha256": task_support_sha256,
+        "seed_solution_sha256": seed_solution_sha256,
+        "formalization": {
+            "config": getattr(task, "formalization", {}),
+            "runner": getattr(task, "formal_runner_identity", None),
+        },
+    }
+    runtime_hashes = _algorithm_runtime_dependency_hashes(task, root)
+    if runtime_hashes is not None:
+        task_payload["runtime_dependency_sha256"] = runtime_hashes
+
     payload = {
         "schema_version": RUN_MANIFEST_SCHEMA,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "run_id": task.run_id,
-        "task": {
-            "name": task.name,
-            "protocol": task.protocol,
-            "config_sha256": sha256_file(task.dir / "task.json"),
-            "description_sha256": sha256_file(task.dir / "TASK.md"),
-            "evaluator_sha256": sha256_file(task.evaluator),
-            "support_sha256": task_support_sha256,
-            "seed_solution_sha256": seed_solution_sha256,
-            "formalization": {
-                "config": getattr(task, "formalization", {}),
-                "runner": getattr(task, "formal_runner_identity", None),
-            },
-        },
+        "task": task_payload,
         "source_sha256": {
             name: sha256_file(root / name)
             for name in SOURCE_FILES
@@ -240,6 +284,22 @@ def build_run_manifest(task, root, *, backend, model, workers,
         },
         "initial_invocation": [sys.executable, *sys.argv],
     }
+    if (
+        getattr(task, "adaptive_feedback", False)
+        or getattr(task, "feedback_mode", "static") != "static"
+        or getattr(task, "mechanism_design", None)
+    ):
+        payload["feedback"] = {
+            "mode": getattr(task, "feedback_mode", "static"),
+            "adaptive": bool(getattr(task, "adaptive_feedback", False)),
+            "context_barrier": bool(getattr(task, "context_barrier", False)),
+            "packet_schema": "openhyra-feedback-packet.v1",
+            "problem_state_schema": "openhyra-problem-state.v1",
+            "update_policy": "complete_context_epoch",
+            "mechanism_design": getattr(
+                getattr(task, "mechanism_design", None), "schema", None
+            ),
+        }
     payload["manifest_sha256"] = sha256_json(payload)
     return payload
 

@@ -20,6 +20,8 @@ from stopping import incomplete_contexts, write_termination
 
 FINAL_AUDIT_SCHEMA = "openhyra-final-audit.v1"
 FREEZE_MANIFEST_SCHEMA = "openhyra-audit-freeze.v1"
+ALGORITHM_BUNDLE_SCHEMA = "openhyra-algorithm-bundle.v1"
+DEFAULT_ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
 SAFE_RECORD_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 
 
@@ -45,6 +47,139 @@ def _file_sha256(path):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _algorithm_source_files(task):
+    """Return the task-owned source allowlist for an AlgorithmBundle.
+
+    The harness validates this list when it constructs a real ``Task``.  The
+    small amount of validation here is intentional: final-audit orchestration
+    also receives lightweight task doubles in tests and must not turn a bad
+    task attribute into an arbitrary path traversal.
+    """
+    configured = getattr(task, "candidate_source_files", None)
+    if configured is None:
+        configured = getattr(task, "source_files", None)
+    if configured is None:
+        configured = DEFAULT_ALGORITHM_SOURCE_FILES
+    if not isinstance(configured, (list, tuple)) or not configured:
+        raise RuntimeError(
+            "algorithm bundle task has no configured source_files"
+        )
+    result = []
+    for name in configured:
+        if (
+            not isinstance(name, str)
+            or not name
+            or "\x00" in name
+            or Path(name).is_absolute()
+            or ".." in Path(name).parts
+            or "\\" in name
+            or name in result
+        ):
+            raise RuntimeError(
+                "algorithm bundle source_files contains an unsafe path"
+            )
+        result.append(name)
+    return tuple(result)
+
+
+def _algorithm_bundle_digest(source_dir, task):
+    """Compute the canonical AlgorithmBundle digest from sealed source bytes.
+
+    This deliberately mirrors the harness/evaluator contract: generated
+    ``solution.json`` and telemetry are not part of an algorithm identity;
+    only the configured source files, with their byte sizes and SHA-256s, are
+    included.
+    """
+    files = []
+    source_dir = Path(source_dir)
+    max_bytes = int(
+        getattr(task, "max_source_bytes", 0)
+        or int(getattr(task, "max_output_mb", 64)) * 1024 * 1024
+    )
+    for name in sorted(_algorithm_source_files(task)):
+        data = read_regular_file(
+            source_dir / name,
+            max_bytes,
+            label=f"algorithm source file {name}",
+        )
+        files.append({
+            "path": name,
+            "size_bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    payload = {"schema": ALGORITHM_BUNDLE_SCHEMA, "files": files}
+    return sha256_json(payload)
+
+
+def _copy_algorithm_source(source_dir, destination, task):
+    """Copy and seal exactly the configured AlgorithmBundle source files.
+
+    Returns the canonical bundle digest.  ``read_regular_file`` gives the
+    copy the same no-symlink/no-hard-link and byte-limit checks used by the
+    normal candidate intake path.
+    """
+    source_dir = Path(source_dir)
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=False)
+    max_bytes = int(
+        getattr(task, "max_source_bytes", 0)
+        or int(getattr(task, "max_output_mb", 64)) * 1024 * 1024
+    )
+    files = []
+    try:
+        for name in sorted(_algorithm_source_files(task)):
+            data = read_regular_file(
+                source_dir / name,
+                max_bytes,
+                label=f"algorithm source file {name}",
+            )
+            target = destination / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            target.chmod(0o400)
+            files.append({
+                "path": name,
+                "size_bytes": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            })
+        # The evaluator only needs to read/execute the sealed source.  Keep
+        # every directory non-writable so a candidate subprocess cannot alter
+        # the frozen bytes between candidates.
+        for directory in sorted(
+                (path for path in destination.rglob("*") if path.is_dir()),
+                key=lambda path: len(path.parts), reverse=True):
+            directory.chmod(0o500)
+        destination.chmod(0o500)
+    except Exception:
+        # The caller has already committed to a one-shot audit.  Remove a
+        # partial source copy so a failed freeze cannot be mistaken for a
+        # complete candidate bundle.
+        shutil.rmtree(destination, ignore_errors=True)
+        raise
+    return sha256_json({"schema": ALGORITHM_BUNDLE_SCHEMA, "files": files})
+
+
+def _source_artifact_protocol(source_dir):
+    """Read the declared artifact protocol from a frozen source manifest.
+
+    This is metadata only; the evaluator remains the authority that fully
+    validates the manifest before scoring.  Returning ``None`` for malformed
+    JSON lets the normal evaluator failure path preserve its diagnostics.
+    """
+    try:
+        payload = json.loads(
+            read_regular_file(
+                Path(source_dir) / "manifest.json",
+                1024 * 1024,
+                label="frozen algorithm manifest",
+            )
+        )
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+    schema = payload.get("schema") if isinstance(payload, dict) else None
+    return schema if isinstance(schema, str) and schema else None
 
 
 def _valid_scored_records(records):
@@ -74,7 +209,14 @@ def select_top_k(records, direction, top_k):
     selected = []
     seen_artifacts = set()
     for record in ordered:
-        artifact_hash = record.get("metrics", {}).get("artifact_sha256")
+        metrics = record.get("metrics", {})
+        # For Python candidates the normalized manifest can be identical while
+        # the training algorithm differs.  Deduplicate by the source-bundle
+        # identity first; legacy Feature IR records continue to use their
+        # normalized artifact hash.
+        artifact_hash = metrics.get("algorithm_bundle_sha256") or metrics.get(
+            "artifact_sha256"
+        )
         if not isinstance(artifact_hash, str) or artifact_hash in seen_artifacts:
             continue
         seen_artifacts.add(artifact_hash)
@@ -92,7 +234,19 @@ def _freeze_candidates(
         raise RuntimeError(
             "final audit freeze directory already exists; refusing to reuse it"
         )
-    destination.mkdir(parents=True)
+    # The freeze contains candidate source code and private audit inputs; it
+    # is not a public export directory.  Keep it owner-only while retaining
+    # write access for the trusted evaluator's per-candidate working roots.
+    destination.mkdir(mode=0o700, parents=True)
+    algorithm_mode = (
+        getattr(task, "candidate_mode", "legacy") == "algorithm_bundle"
+    )
+    # Resolve the configured list once, before creating any candidate slots.
+    # This makes a malformed task fail before the freeze can be mistaken for a
+    # completed snapshot and keeps every candidate on one canonical allowlist.
+    algorithm_source_files = (
+        _algorithm_source_files(task) if algorithm_mode else ()
+    )
     candidates = []
     for rank, record in enumerate(records, start=1):
         record_id = record.get("id")
@@ -150,11 +304,11 @@ def _freeze_candidates(
                 f"{record_id} artifact provenance mismatch before audit freeze"
             )
         frozen_dir = destination / record_id
-        frozen_dir.mkdir()
+        frozen_dir.mkdir(mode=0o700)
         frozen_artifact = frozen_dir / "solution.json"
         frozen_artifact.write_bytes(artifact_bytes)
         frozen_artifact.chmod(0o400)
-        candidates.append({
+        candidate = {
             "rank": rank,
             "id": record_id,
             "search_score": float(record["score"]),
@@ -163,7 +317,56 @@ def _freeze_candidates(
             "frozen_artifact": (
                 Path(record_id) / "solution.json"
             ).as_posix(),
-        })
+        }
+        if algorithm_mode:
+            metrics_bundle_hash = metrics.get("algorithm_bundle_sha256")
+            metadata_bundle_hash = (
+                metadata.get("algorithm_bundle_sha256")
+                if isinstance(metadata, dict) else None
+            )
+            declared_hashes = {
+                value for value in (metrics_bundle_hash, metadata_bundle_hash)
+                if value not in (None, "")
+            }
+            if len(declared_hashes) > 1:
+                raise RuntimeError(
+                    f"{record_id} has conflicting algorithm bundle provenance"
+                )
+            if not declared_hashes:
+                raise RuntimeError(
+                    f"{record_id} lacks algorithm bundle provenance"
+                )
+            declared_bundle_hash = next(iter(declared_hashes))
+            if (
+                not isinstance(declared_bundle_hash, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", declared_bundle_hash)
+            ):
+                raise RuntimeError(
+                    f"{record_id} has an invalid algorithm bundle digest"
+                )
+            frozen_source = frozen_dir / "source"
+            actual_bundle_hash = _copy_algorithm_source(
+                record_dir, frozen_source, task,
+            )
+            if actual_bundle_hash != declared_bundle_hash:
+                raise RuntimeError(
+                    f"{record_id} algorithm bundle provenance mismatch before "
+                    "audit freeze"
+                )
+            # Keep the allowlist and digest in the freeze manifest itself.  A
+            # later audit process can therefore locate the source without
+            # consulting the mutable EB record or task configuration.
+            candidate.update({
+                "candidate_mode": "algorithm_bundle",
+                "source_files": list(algorithm_source_files),
+                "algorithm_bundle_sha256": actual_bundle_hash,
+                "artifact_protocol": _source_artifact_protocol(frozen_source),
+                "frozen_source": (
+                    Path(record_id) / "source"
+                ).as_posix(),
+            })
+            frozen_dir.chmod(0o500)
+        candidates.append(candidate)
     manifest = {
         "schema": FREEZE_MANIFEST_SCHEMA,
         "frozen_at": now,
@@ -288,6 +491,12 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
         "candidates": [],
         "winner": None,
     }
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        report.update({
+            "candidate_mode": "algorithm_bundle",
+            "source_files": list(_algorithm_source_files(task)),
+            "artifact_protocol": getattr(task, "artifact_protocol", None),
+        })
     _write_private_json(report_path, report)
 
     try:
@@ -331,12 +540,61 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
 
         results = []
         for candidate in freeze_manifest["candidates"]:
-            result = evaluate_trusted_artifact(
+            candidate_source_dir = None
+            if candidate.get("candidate_mode") == "algorithm_bundle":
+                # ``evaluate_trusted_artifact`` recreates its trusted working
+                # directory on every call.  The frozen source therefore lives
+                # beside (not inside) that directory and remains available for
+                # the evaluator subprocess.
+                candidate_source_dir = (
+                    freeze_dir / candidate["frozen_source"]
+                )
+                try:
+                    observed_bundle_hash = _algorithm_bundle_digest(
+                        candidate_source_dir, task,
+                    )
+                except (OSError, ValueError, RuntimeError) as exc:
+                    raise RuntimeError(
+                        f"{candidate['id']} frozen algorithm source is invalid: "
+                        f"{exc}"
+                    ) from exc
+                if observed_bundle_hash != candidate.get(
+                        "algorithm_bundle_sha256"):
+                    raise RuntimeError(
+                        f"{candidate['id']} frozen algorithm source changed "
+                        "before audit"
+                    )
+            evaluate_args = (
                 task,
                 freeze_dir / candidate["frozen_artifact"],
                 freeze_dir / ".trusted" / candidate["id"],
                 request,
             )
+            if candidate_source_dir is None:
+                # Preserve the historical positional call shape for legacy
+                # evaluators and lightweight test doubles.
+                result = evaluate_trusted_artifact(*evaluate_args)
+            else:
+                result = evaluate_trusted_artifact(
+                    *evaluate_args,
+                    candidate_source_dir=candidate_source_dir,
+                )
+            if candidate_source_dir is not None:
+                try:
+                    after_bundle_hash = _algorithm_bundle_digest(
+                        candidate_source_dir, task,
+                    )
+                except (OSError, ValueError, RuntimeError) as exc:
+                    raise RuntimeError(
+                        f"{candidate['id']} frozen algorithm source became "
+                        f"unreadable during audit: {exc}"
+                    ) from exc
+                if after_bundle_hash != candidate.get(
+                        "algorithm_bundle_sha256"):
+                    raise RuntimeError(
+                        f"{candidate['id']} frozen algorithm source changed "
+                        "during audit"
+                    )
             normalized = result.get("normalized_solution")
             evidence = result.get("evidence")
             normalized_sha256 = (
@@ -356,6 +614,44 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
                 "evidence_sha256": evidence_sha256,
                 "evidence": evidence,
             }
+            if candidate.get("candidate_mode") == "algorithm_bundle":
+                evaluated_bundle_hash = result.get("metrics", {}).get(
+                    "algorithm_bundle_sha256"
+                )
+                evaluated_artifact_protocol = result.get("metrics", {}).get(
+                    "artifact_protocol"
+                ) or candidate.get("artifact_protocol")
+                if (
+                    result.get("status") == "ok"
+                    and evaluated_bundle_hash != candidate.get(
+                        "algorithm_bundle_sha256")
+                ):
+                    raise RuntimeError(
+                        f"{candidate['id']} evaluator algorithm provenance "
+                        "does not match the frozen source"
+                    )
+                if evaluated_bundle_hash is None:
+                    # A failed evaluator may not have had a chance to emit
+                    # metrics.  Preserve the frozen identity in the private
+                    # report while leaving the candidate failure visible to
+                    # the normal all-candidates gate below.
+                    result["metrics"] = dict(result.get("metrics", {}))
+                    result["metrics"]["algorithm_bundle_sha256"] = (
+                        candidate["algorithm_bundle_sha256"]
+                    )
+                    evaluated_bundle_hash = candidate[
+                        "algorithm_bundle_sha256"
+                    ]
+                    result_record["metrics"] = result["metrics"]
+                result_record.update({
+                    "candidate_mode": "algorithm_bundle",
+                    "source_files": candidate.get("source_files", []),
+                    "algorithm_bundle_sha256": evaluated_bundle_hash,
+                    "frozen_source": candidate["frozen_source"],
+                    # This comes from the evaluator-loaded frozen
+                    # manifest, not the task's default artifact protocol.
+                    "artifact_protocol": evaluated_artifact_protocol,
+                })
             results.append(result_record)
             report["candidates"] = results
             _write_private_json(report_path, report)
