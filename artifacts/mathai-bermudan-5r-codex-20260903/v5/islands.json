@@ -1,0 +1,79 @@
+{
+  "epoch_records": {
+    "island_00_epoch_00": [
+      "sol_0008",
+      "sol_0010",
+      "sol_0011",
+      "sol_0012"
+    ],
+    "island_01_epoch_00": [
+      "sol_0005",
+      "sol_0006",
+      "sol_0007",
+      "sol_0009",
+      "sol_0013",
+      "sol_0014",
+      "sol_0015",
+      "sol_0016",
+      "sol_0017",
+      "sol_0018",
+      "sol_0019",
+      "sol_0020"
+    ],
+    "island_02_epoch_00": [],
+    "island_03_epoch_00": [
+      "sol_0001",
+      "sol_0002",
+      "sol_0003",
+      "sol_0004"
+    ]
+  },
+  "epochs": [
+    {
+      "epoch": 0,
+      "island_id": "island_00",
+      "proposal_seed": 1729,
+      "schema": "openhyra-island-epoch.v1",
+      "seed_record_ids": [
+        "sol_0000"
+      ],
+      "started_after_context_round": 0,
+      "status": "active"
+    },
+    {
+      "epoch": 0,
+      "island_id": "island_01",
+      "proposal_seed": 11729,
+      "schema": "openhyra-island-epoch.v1",
+      "seed_record_ids": [
+        "sol_0000"
+      ],
+      "started_after_context_round": 0,
+      "status": "active"
+    },
+    {
+      "epoch": 0,
+      "island_id": "island_02",
+      "proposal_seed": 21729,
+      "schema": "openhyra-island-epoch.v1",
+      "seed_record_ids": [
+        "sol_0000"
+      ],
+      "started_after_context_round": 0,
+      "status": "active"
+    },
+    {
+      "epoch": 0,
+      "island_id": "island_03",
+      "proposal_seed": 31729,
+      "schema": "openhyra-island-epoch.v1",
+      "seed_record_ids": [
+        "sol_0000"
+      ],
+      "started_after_context_round": 0,
+      "status": "active"
+    }
+  ],
+  "last_review_round": 0,
+  "schema": "openhyra-island-state.v1"
+}

@@ -54,6 +54,34 @@ production price. The complete protocols, financial model, scoring rules, and
 claim boundaries are in the [feature task specification](tasks/bermudan_optimal_stopping/TASK.md)
 and [Python task specification](tasks/bermudan_python_search/TASK.md).
 
+The feedback protocol can also be exercised without an LLM or a financial
+simulation:
+
+```bash
+python3 experiments/feedback_ablation.py
+```
+
+This writes a four-arm, equal-budget synthetic ablation under
+`artifacts/feedback-ablation-20260904/`. It is a wiring and reproducibility
+check for scalar versus directional/adaptive feedback, not evidence of a
+better pricing algorithm.
+
+### Task-independent discovery protocol
+
+[`algorithm_discovery.py`](algorithm_discovery.py) exposes a small reusable
+protocol for complete finite candidates: `AlgorithmSpec`, `SearchSpace`,
+`EvaluationResult`, `FeedbackOracle`, deterministic acquisition, a round
+barrier, and an append-only discovery ledger. An adaptive task receives the
+same evaluator feedback and `ProblemState` with or without V5 islands; V5 adds
+population scheduling, behavior retrieval, and richer lineage rather than
+being required for recursion.
+
+This is an integration surface, not a claim that OpenHyra already performs
+unrestricted AlphaEvolve-style Python discovery. A new domain still has to
+provide a task-owned search space, executable candidate contract, evaluator,
+and held-out verification. The current Bermudan task admits only its three
+registered continuation-policy protocols.
+
 ## How it works
 
 ```
@@ -72,15 +100,26 @@ committed as independent records whether it succeeded, crashed, or scored low.
 
 **Context Agent** — an LLM that reads a structured summary of all records,
 recent logs, recent failures and the current-best implementation, writes a
-short situation analysis (persisted as cross-round memory), and picks the next
-experiment direction. It does not yet retrieve arbitrary historical source
-trees or artifacts.
+short situation analysis (persisted as cross-round memory), proposes a small
+portfolio of mechanisms with predictions and falsifiers, and names a primary
+direction. It does not yet retrieve arbitrary historical source trees or
+artifacts.
 
 **Proposal Agents** — headless Claude Code or Codex CLI processes that edit the
 solver inside dedicated draft directories using backend-specific permissions;
 these directories organize and validate changes but are not a uniform OpenHyra
 OS security boundary. Each Context briefing fans out to several independent
-candidates, and proposal generation overlaps evaluation.
+candidates with distinct mechanism slots; when enabled, guided/control arms
+share a parent and seed. Candidates may introduce a new structure inside a
+registered runner, and proposal generation overlaps evaluation.
+
+**Algorithm-design loop** — on `bermudan_python_search`, Context hypotheses are
+frozen into traceable candidate slots, V5 persists the hypothesis/analogy
+lineage, and the trusted evaluator adds behavior descriptors from independent
+pricing paths. Paired contrasts are written to
+`research/matched_controls.jsonl`, making the Workshop story “propose several
+structures, test a counterfactual, and verify independently” rather than a
+single best-score claim.
 
 **Sandbox + trusted evaluation** — candidates run under macOS Seatbelt with no
 network and writes confined to the sandbox. Most host reads remain allowed, so
@@ -188,11 +227,11 @@ python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
 # Additive Python AlgorithmBundle search (MLP/linear/expression runners).
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --init --workers 1 --trial-seed 1729
+  --v5 --init --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --iterations 5 --workers 1 --trial-seed 1729
+  --v5 --iterations 5 --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
-  --final-audit
+  --v5 --final-audit
 ```
 
 Pass the same `--backend`, `--model`, `--workers`, candidate count and trial

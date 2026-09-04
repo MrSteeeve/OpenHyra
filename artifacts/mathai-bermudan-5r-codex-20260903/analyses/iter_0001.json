@@ -1,0 +1,103 @@
+{
+  "iteration": 1,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 1730,
+  "direction": "Implement residual_continuation_v1 in train.py: compute a deterministic intrinsic-value baseline per exercise step, train the unchanged 16-16 tanh MLP on backward-target residuals with the baseline included in emitted predictions, and write only the unchanged manifest-declared MLP artifacts.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Only the deterministic MLP baseline has been evaluated, scoring -0.003420; no mechanism-specific evidence exists yet. Boundary-weighted loss is already in flight, so the next experiment should isolate a different representation mechanism under the same architecture, seed, data, and update budget. Residualizing continuation targets against an intrinsic baseline is most directly testable and may reduce regression difficulty, especially for low-volatility one-asset puts. Results should be judged by paired public LCB and finite artifact validation.",
+    "reason": "Run a materially different residual-target representation experiment.",
+    "expected_gain": 0.001,
+    "confidence": 0.2,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "The residual-policy candidate has a finite valid artifact and paired_lower_bound_lcb greater than -0.003420352499235219 on the frozen public suite.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "residual_continuation_v1",
+        "family": "representation",
+        "mechanism": "Train the fixed MLP on backward continuation targets minus a deterministic intrinsic or affine baseline, then reconstruct the continuation value before emission.",
+        "prediction": "Improves sample efficiency and paired LCB on low-volatility, one-asset put cells where continuation is close to a simple baseline.",
+        "failure_condition": "It loses to the raw-target MLP under identical initialization, data, optimizer, and update budget, or reconstruction is systematically biased.",
+        "matched_control": "Raw-target MLP with identical architecture, paths, seed, optimizer, initialization, and update count.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "adaptive_normalization_v1",
+        "family": "preprocessing",
+        "mechanism": "Use payoff-relevant per-step normalization with deterministic log-space state features where valid, while preserving the fixed MLP artifact protocol.",
+        "prediction": "Improves conditioning on heterogeneous correlated baskets and high-dimensional raw-scale states.",
+        "failure_condition": "No gain on targeted slices or degradation on raw-scale contracts.",
+        "matched_control": "Same parent, architecture, seed, and compute using current per-step mean/std normalization.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "robust_target_loss_v1",
+        "family": "optimization",
+        "mechanism": "Fit backward cash-flow targets with deterministic Huber loss or explicitly clipped residuals.",
+        "prediction": "Reduces tail-driven policy variance on high-volatility and multi-asset cells.",
+        "failure_condition": "Lower paired LCB, higher failure rate, or no repeat-to-repeat variance reduction.",
+        "matched_control": "Identical MLP training with ordinary squared loss and the same update count.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      }
+    ],
+    "next": "Implement residual_continuation_v1 in train.py: compute a deterministic intrinsic-value baseline per exercise step, train the unchanged 16-16 tanh MLP on backward-target residuals with the baseline included in emitted predictions, and write only the unchanged manifest-declared MLP artifacts."
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "residual_continuation_v1",
+      "family": "representation",
+      "mechanism": "Train the fixed MLP on backward continuation targets minus a deterministic intrinsic or affine baseline, then reconstruct the continuation value before emission.",
+      "prediction": "Improves sample efficiency and paired LCB on low-volatility, one-asset put cells where continuation is close to a simple baseline.",
+      "failure_condition": "It loses to the raw-target MLP under identical initialization, data, optimizer, and update budget, or reconstruction is systematically biased.",
+      "matched_control": "Raw-target MLP with identical architecture, paths, seed, optimizer, initialization, and update count.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "adaptive_normalization_v1",
+      "family": "preprocessing",
+      "mechanism": "Use payoff-relevant per-step normalization with deterministic log-space state features where valid, while preserving the fixed MLP artifact protocol.",
+      "prediction": "Improves conditioning on heterogeneous correlated baskets and high-dimensional raw-scale states.",
+      "failure_condition": "No gain on targeted slices or degradation on raw-scale contracts.",
+      "matched_control": "Same parent, architecture, seed, and compute using current per-step mean/std normalization.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "robust_target_loss_v1",
+      "family": "optimization",
+      "mechanism": "Fit backward cash-flow targets with deterministic Huber loss or explicitly clipped residuals.",
+      "prediction": "Reduces tail-driven policy variance on high-volatility and multi-asset cells.",
+      "failure_condition": "Lower paired LCB, higher failure rate, or no repeat-to-repeat variance reduction.",
+      "matched_control": "Identical MLP training with ordinary squared loss and the same update count.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    }
+  ],
+  "result_ids": [
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0009"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Only the deterministic MLP baseline has been evaluated, scoring -0.003420; no mechanism-specific evidence exists yet. Boundary-weighted loss is already in flight, so the next experiment should isolate a different representation mechanism under the same architecture, seed, data, and update budget. Residualizing continuation targets against an intrinsic baseline is most directly testable and may reduce regression difficulty, especially for low-volatility one-asset puts. Results should be judged by paired public LCB and finite artifact validation.\", \"reason\": \"Run a materially different residual-target representation experiment.\", \"expected_gain\": 0.001, \"confidence\": 0.2, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"The residual-policy candidate has a finite valid artifact and paired_lower_bound_lcb greater than -0.003420352499235219 on the frozen public suite.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"residual_continuation_v1\", \"family\": \"representation\", \"mechanism\": \"Train the fixed MLP on backward continuation targets minus a deterministic intrinsic or affine baseline, then reconstruct the continuation value before emission.\", \"prediction\": \"Improves sample efficiency and paired LCB on low-volatility, one-asset put cells where continuation is close to a simple baseline.\", \"failure_condition\": \"It loses to the raw-target MLP under identical initialization, data, optimizer, and update budget, or reconstruction is systematically biased.\", \"matched_control\": \"Raw-target MLP with identical architecture, paths, seed, optimizer, initialization, and update count.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"adaptive_normalization_v1\", \"family\": \"preprocessing\", \"mechanism\": \"Use payoff-relevant per-step normalization with deterministic log-space state features where valid, while preserving the fixed MLP artifact protocol.\", \"prediction\": \"Improves conditioning on heterogeneous correlated baskets and high-dimensional raw-scale states.\", \"failure_condition\": \"No gain on targeted slices or degradation on raw-scale contracts.\", \"matched_control\": \"Same parent, architecture, seed, and compute using current per-step mean/std normalization.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"robust_target_loss_v1\", \"family\": \"optimization\", \"mechanism\": \"Fit backward cash-flow targets with deterministic Huber loss or explicitly clipped residuals.\", \"prediction\": \"Reduces tail-driven policy variance on high-volatility and multi-asset cells.\", \"failure_condition\": \"Lower paired LCB, higher failure rate, or no repeat-to-repeat variance reduction.\", \"matched_control\": \"Identical MLP training with ordinary squared loss and the same update count.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}], \"next\": \"Implement residual_continuation_v1 in train.py: compute a deterministic intrinsic-value baseline per exercise step, train the unchanged 16-16 tanh MLP on backward-target residuals with the baseline included in emitted predictions, and write only the unchanged manifest-declared MLP artifacts.\"}"
+}

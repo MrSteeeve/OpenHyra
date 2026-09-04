@@ -11,22 +11,75 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
+import shutil
+import stat
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import NormalDist
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import numpy as np
+
+# ``sandbox._trusted_score`` may launch this file with a candidate/sandbox cwd,
+# so the repository root is not guaranteed to be on ``sys.path``.  Insert it
+# before importing evaluator-owned helper modules (not after them), which also
+# keeps direct ``python tasks/.../evaluator.py`` invocation working.
+_EVALUATOR_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_EVALUATOR_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_EVALUATOR_REPO_ROOT))
+
+from feedback import (
+    NOT_OBSERVED,
+    DirectionalFeedback,
+    FeedbackPacket,
+    not_observed,
+)
 
 
 TASK_NAME = "bermudan_optimal_stopping"
 TASK_PROTOCOL = "bermudan-lsmc-feature-ir.v1"
+# The Python-training protocol is additive.  Keep the historical protocol
+# constant above so old requests and archived records remain readable, while
+# accepting the explicit bundle protocol used by the open algorithm track.
+ALGORITHM_TASK_PROTOCOL = "bermudan-lsmc-python.v1"
+ALGORITHM_BUNDLE_PROTOCOL = "bermudan-lsmc-algorithm-bundle.v1"
+SUPPORTED_TASK_PROTOCOLS = frozenset({
+    TASK_PROTOCOL, ALGORITHM_TASK_PROTOCOL, ALGORITHM_BUNDLE_PROTOCOL,
+})
+# The Python track is an additive task surface.  Keeping the legacy name in
+# this module preserves archived requests, while the explicit alias lets the
+# harness give Python-bundle runs their own run directory and provenance.
+SUPPORTED_TASK_NAMES = frozenset({TASK_NAME, "bermudan_python_search"})
+ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
+ALGORITHM_BUNDLE_SCHEMAS = frozenset({
+    "openhyra-algorithm-bundle.v1",
+    "openhyra-candidate-algorithm-bundle.v1",
+})
+# These fields are the executable/source declarations in the current
+# AlgorithmBundle envelope.  Lineage fields are intentionally not required by
+# this low-level evaluator: archived ``candidate-algorithm`` records predate
+# the current envelope and remain readable, while the current v1 spelling is
+# required to make its execution boundary explicit.
+ALGORITHM_BUNDLE_DECLARATION_FIELDS = (
+    "entrypoint",
+    "source_files",
+    "artifact_protocol",
+)
 FEATURE_SCHEMA = "openhyra-feature-program.v1"
 REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 EVIDENCE_SCHEMA = "openhyra-bermudan-evidence.v1"
+
+# Candidate training is deliberately bounded per instance.  These defaults
+# mirror the standalone training bridge; task/request configuration can lower
+# them for a cheap smoke run, but cannot silently make them unbounded.
+DEFAULT_TRAINING_TIMEOUT_S = 60.0
+DEFAULT_TRAINING_MEMORY_BYTES = 1024 * 1024 * 1024
+DEFAULT_TRAINING_FILE_SIZE_BYTES = 64 * 1024 * 1024
 
 MAX_FEATURES = 16
 MAX_AST_NODES = 128
@@ -572,6 +625,48 @@ class FrozenPolicy:
         return np.maximum(immediate, self.continuation(time_index, states))
 
 
+@dataclass(frozen=True)
+class TrustedRunnerPolicy:
+    """Bind a protocol runner to one evaluator-owned contract instance.
+
+    ``policy_artifact.MLPContinuationRunner`` intentionally knows nothing
+    about payoffs or exercise dates.  The stopping evaluator does.  This
+    small adapter gives the existing ``apply_policy`` and dual code the same
+    interface as :class:`FrozenPolicy`, while keeping all decisions in this
+    module.  Candidate code is never imported here; only the data-only runner
+    object returned by the training bridge is retained.
+    """
+
+    runner: Any
+    instance: BSInstance
+    runner_type: str = "mlp"
+    policy_artifact_sha256: str | None = None
+
+    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        values = self.runner.continuation(time_index, states, self.instance)
+        result = np.asarray(values, dtype=np.float64)
+        expected_shape = np.asarray(states).shape[:-1]
+        if result.shape != expected_shape:
+            raise ValueError(
+                "trusted runner returned shape "
+                f"{result.shape}, expected {expected_shape}"
+            )
+        if not np.all(np.isfinite(result)):
+            raise ValueError("trusted runner returned NaN or infinity")
+        # The protocol runner normally performs this clip itself.  Retaining
+        # the bound at the adapter boundary protects future registered
+        # runners and keeps the stopping/dual arithmetic total.
+        return np.clip(result, -1_000_000.0, 1_000_000.0)
+
+    def approximate_value(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        immediate = payoff(states, self.instance) * math.exp(
+            -self.instance.rate * self.instance.exercise_times[time_index]
+        )
+        if time_index == len(self.instance.exercise_times) - 1:
+            return immediate
+        return np.maximum(immediate, self.continuation(time_index, states))
+
+
 def _fit_ridge(features: np.ndarray, target: np.ndarray, ridge_alpha: float) -> RidgeStep:
     x = np.asarray(features, dtype=float)
     y = np.asarray(target, dtype=float)
@@ -699,6 +794,444 @@ def _mean_se(samples: np.ndarray) -> tuple[float, float]:
     return mean, se
 
 
+def _policy_behavior_metrics(
+    values: np.ndarray,
+    stopping_times: np.ndarray,
+    n_times: int,
+) -> dict[str, Any]:
+    """Return a small, evaluator-owned descriptor of a frozen policy.
+
+    The descriptor is deliberately about the *observed policy outcome* on the
+    independent pricing paths, not about candidate internals.  ``exercise_rate``
+    means the fraction of paths exercised before maturity (maturity settlement
+    is excluded), which gives BehaviorProfile a useful scalar instead of the
+    trivial fraction that would result from counting every terminal stop.
+    ``exercise_rate_by_time`` and the normalized stopping-time moments retain a
+    little more geometry for mechanism comparisons while remaining compact.
+    """
+    rewards = np.asarray(values, dtype=float).reshape(-1)
+    stops = np.asarray(stopping_times).reshape(-1)
+    if rewards.size == 0 or stops.size == 0 or rewards.size != stops.size:
+        raise ValueError("policy behavior samples must be non-empty and aligned")
+    if n_times < 2:
+        raise ValueError("n_times must be at least two")
+
+    # ``apply_policy`` returns integer, in-range stopping indices.  Keep the
+    # descriptor total for direct callers as well: invalid indices are marked
+    # in the finite/valid flag and omitted from the histogram rather than
+    # causing a secondary metrics failure.
+    finite_values = bool(np.all(np.isfinite(rewards)))
+    integer_stops = np.issubdtype(stops.dtype, np.integer)
+    finite_stops = bool(np.all(np.isfinite(stops))) if np.issubdtype(stops.dtype, np.number) else False
+    valid_stops = (
+        integer_stops
+        and finite_stops
+        and bool(np.all((stops >= 0) & (stops < n_times)))
+    )
+    if valid_stops:
+        integer_indices = stops.astype(np.int64, copy=False)
+        counts = np.bincount(integer_indices, minlength=n_times)[:n_times]
+        rates = counts.astype(float) / float(stops.size)
+        normalized_stops = integer_indices.astype(float) / float(n_times - 1)
+        exercise_rate = float(np.mean(integer_indices < n_times - 1))
+        stop_time_mean = float(np.mean(normalized_stops))
+        stop_time_std = float(np.std(normalized_stops))
+    else:
+        # This branch is only defensive telemetry; the trusted policy path
+        # should never produce invalid indices.  Returning finite placeholders
+        # keeps diagnostics serializable if a future runner violates the
+        # interface and lets its validity flag explain the issue.
+        rates = np.zeros(n_times, dtype=float)
+        exercise_rate = 0.0
+        stop_time_mean = 0.0
+        stop_time_std = 0.0
+
+    return {
+        "exercise_rate": exercise_rate,
+        "exercise_rate_by_time": rates.tolist(),
+        "stop_time_mean": stop_time_mean,
+        "stop_time_std": stop_time_std,
+        "finite": bool(finite_values and valid_stops),
+        "valid_stop_rate": 1.0 if valid_stops else 0.0,
+    }
+
+
+def _aggregate_behavior_metrics(summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate compact per-cell behavior descriptors by instance.
+
+    Repeated cells are averaged per instance.  The standard deviation of the
+    exercise rate across repeats is retained as a lightweight stability signal
+    for the V5 behavior profile; with one repeat it is exactly zero.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for summary in summaries:
+        instance_id = summary.get("instance_id")
+        if isinstance(instance_id, str) and instance_id:
+            grouped.setdefault(instance_id, []).append(summary)
+
+    def numeric_by_instance(field: str) -> dict[str, float]:
+        result: dict[str, float] = {}
+        for instance_id in sorted(grouped):
+            values = [float(row[field]) for row in grouped[instance_id] if field in row]
+            if values:
+                result[instance_id] = float(np.mean(values))
+        return result
+
+    def std_by_instance(field: str) -> dict[str, float]:
+        result: dict[str, float] = {}
+        for instance_id in sorted(grouped):
+            values = [float(row[field]) for row in grouped[instance_id] if field in row]
+            if values:
+                result[instance_id] = float(np.std(values))
+        return result
+
+    finite_rates: dict[str, float] = {}
+    for instance_id in sorted(grouped):
+        flags = [bool(row.get("candidate_finite", False)) for row in grouped[instance_id]]
+        finite_rates[instance_id] = float(np.mean(flags)) if flags else 0.0
+
+    exercise_rates = numeric_by_instance("candidate_exercise_rate")
+    result: dict[str, Any] = {
+        # These score projections are useful to callers that do not want to
+        # re-parse summaries (including the V5 adapter).  They preserve the
+        # historical, unnormalized lower-bound units; normalized improvements
+        # remain available in each summary and below.
+        "per_instance_scores": numeric_by_instance("candidate_lower_bound"),
+        "baseline_scores": numeric_by_instance("baseline_lower_bound"),
+        "per_instance_normalized_improvements": numeric_by_instance(
+            "paired_normalized_improvement"
+        ),
+        "per_instance_exercise_rates": exercise_rates,
+        "baseline_exercise_rates": numeric_by_instance("baseline_exercise_rate"),
+        "per_instance_exercise_rate_std": std_by_instance(
+            "candidate_exercise_rate"
+        ),
+        "baseline_exercise_rate_std": std_by_instance("baseline_exercise_rate"),
+        "per_instance_finite_rates": finite_rates,
+        "behavior_finite": bool(
+            summaries
+            and all(bool(row.get("candidate_finite", False)) for row in summaries)
+        ),
+        "behavior_exercise_rate_mean": (
+            float(np.mean(list(exercise_rates.values()))) if exercise_rates else 0.0
+        ),
+        "behavior_exercise_rate_std": (
+            float(np.std(list(exercise_rates.values()))) if exercise_rates else 0.0
+        ),
+        "behavior_descriptor": {
+            "exercise_rate": "fraction_of_pricing_paths_stopped_before_maturity",
+            "stability": "standard_deviation_of_exercise_rate_across_repeats",
+            "finite": "all_candidate_values_and_stopping_indices_finite_and_valid",
+        },
+    }
+    return result
+
+
+def _feedback_direction(value: Any, *, lower_is_better: bool = False) -> str:
+    """Map an observed effect to a deliberately coarse direction label."""
+
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return "uncertain"
+    value = float(value)
+    if not math.isfinite(value) or abs(value) <= 1e-15:
+        return "uncertain"
+    if lower_is_better:
+        value = -value
+    return "positive" if value > 0.0 else "negative"
+
+
+def _feedback_marker(reason: str) -> dict[str, str]:
+    """Short local spelling keeps the projection readable at call sites."""
+
+    return not_observed(reason)
+
+
+def _build_domain_feedback_packet(
+    *,
+    stage: str,
+    task: str,
+    suite_id: str,
+    request: Mapping[str, Any],
+    score: float,
+    summaries: list[dict[str, Any]],
+    confidence_level: float,
+    aggregate_effect: float | None = None,
+    aggregate_standard_error: float | None = None,
+    runtime_seconds: float | None = None,
+    candidate_id: str = "",
+) -> FeedbackPacket:
+    """Project trusted Bermudan outcomes into a reusable feedback packet.
+
+    This is a sidecar projection: it reads values already produced by the
+    evaluator and never participates in score calculation or candidate
+    validation.  Missing probes are explicit ``not_observed`` markers rather
+    than zero-filled pseudo-measurements.
+    """
+
+    if stage not in {"search", "audit"}:
+        raise ValueError("feedback stage must be search or audit")
+    if aggregate_effect is None:
+        if stage == "search":
+            aggregate_effect = float(np.mean([
+                float(row["paired_normalized_improvement"])
+                for row in summaries
+                if isinstance(row.get("paired_normalized_improvement"), (int, float))
+            ])) if summaries else None
+        else:
+            aggregate_effect = float(-np.mean([
+                float(row["normalized_primal_dual_confidence_gap"])
+                for row in summaries
+                if isinstance(row.get("normalized_primal_dual_confidence_gap"), (int, float))
+            ])) if summaries else None
+
+    finite_flags = [
+        bool(row.get("candidate_finite"))
+        for row in summaries
+        if "candidate_finite" in row
+    ]
+    failure_rate: Any = (
+        float(1.0 - np.mean(finite_flags)) if finite_flags else
+        _feedback_marker("candidate validity was not emitted for this stage")
+    )
+    runtime_value: Any = (
+        float(runtime_seconds) if runtime_seconds is not None and math.isfinite(float(runtime_seconds))
+        else _feedback_marker("stage runtime is filled by the outer evaluator")
+    )
+    training_seconds = [
+        float(row["candidate_training_seconds"])
+        for row in summaries
+        if isinstance(row.get("candidate_training_seconds"), (int, float))
+        and math.isfinite(float(row["candidate_training_seconds"]))
+    ]
+
+    if stage == "search":
+        primary_metric = "paired_normalized_improvement"
+        objective_direction = "max"
+        tail_value = {
+            "loss_definition": "negative_paired_normalized_improvement",
+            "var95_by_cell": [
+                row.get("paired_loss_var95", _feedback_marker("missing"))
+                for row in summaries
+            ],
+            "cvar95_by_cell": [
+                row.get("paired_loss_cvar95", _feedback_marker("missing"))
+                for row in summaries
+            ],
+        }
+        bound_value: Any = _feedback_marker(
+            "boundary agreement and monotonicity probes are not run"
+        )
+    else:
+        primary_metric = "normalized_primal_dual_confidence_gap"
+        objective_direction = "min"
+        tail_value = {
+            "normalized_confidence_gap": [
+                row.get("normalized_primal_dual_confidence_gap", _feedback_marker("missing"))
+                for row in summaries
+            ],
+            "raw_gap": [
+                row.get("raw_primal_dual_gap", _feedback_marker("missing"))
+                for row in summaries
+            ],
+        }
+        bound_value = {
+            "raw_bound_order_ok": [
+                row.get("raw_bound_order_ok", _feedback_marker("missing"))
+                for row in summaries
+            ],
+            "all_ok": all(bool(row.get("raw_bound_order_ok", False)) for row in summaries)
+            if summaries else _feedback_marker("no audit cells")
+        }
+
+    observed: dict[str, Any] = {
+        "primary_score": float(score),
+        "primary_metric": primary_metric,
+        "objective_direction": objective_direction,
+        "aggregate_effect": (
+            float(aggregate_effect)
+            if aggregate_effect is not None and math.isfinite(float(aggregate_effect))
+            else _feedback_marker("no finite aggregate effect")
+        ),
+        "aggregate_standard_error": (
+            float(aggregate_standard_error)
+            if aggregate_standard_error is not None and math.isfinite(float(aggregate_standard_error))
+            else _feedback_marker("aggregate standard error unavailable")
+        ),
+        "cell_count": len(summaries),
+        "failure_rate": failure_rate,
+        "runtime_seconds": runtime_value,
+        "training_seconds_by_cell": training_seconds or _feedback_marker(
+            "candidate training runtime is unavailable for this runner"
+        ),
+        "tail_risk": tail_value,
+        "boundary_diagnostics": bound_value,
+        # This field used to be a hard-coded true flag in the legacy metrics.
+        # A sidecar must state that no independent replay was actually run.
+        "independent_reproduction": _feedback_marker(
+            "independent replay is not part of this evaluation stage"
+        ),
+    }
+
+    directional: list[DirectionalFeedback] = []
+    for index, row in enumerate(summaries):
+        instance_id = str(row.get("instance_id", f"cell-{index}"))
+        repeat = row.get("repeat", index)
+        if stage == "search":
+            raw_effect = row.get("paired_normalized_improvement")
+            raw_se = row.get("paired_normalized_standard_error")
+            metric = "paired_normalized_improvement"
+            lower_is_better = False
+        else:
+            gap = row.get("normalized_primal_dual_confidence_gap")
+            raw_effect = (-float(gap)) if isinstance(gap, (int, float)) else None
+            raw_se = row.get("upper_bound_standard_error")
+            metric = "negative_normalized_primal_dual_confidence_gap"
+            lower_is_better = False
+        direction = _feedback_direction(raw_effect, lower_is_better=lower_is_better)
+        if direction == "positive":
+            recommendation = {
+                "action": "exploit",
+                "scope": "mechanism_or_representation",
+                "target_slice": f"instance:{instance_id}",
+                "next_probe": "held_out_regime",
+            }
+        elif direction == "negative":
+            recommendation = {
+                "action": "falsify_or_switch",
+                "scope": "mechanism_family",
+                "target_slice": f"instance:{instance_id}",
+                "next_probe": "matched_control_or_counterexample",
+            }
+        else:
+            recommendation = {
+                "action": "probe",
+                "scope": "slice",
+                "target_slice": f"instance:{instance_id}",
+                "next_probe": "repeat_or_held_out_regime",
+            }
+        observed_row: dict[str, Any] = {
+            "metric": metric,
+            "effect": (
+                float(raw_effect)
+                if isinstance(raw_effect, (int, float)) and math.isfinite(float(raw_effect))
+                else _feedback_marker("effect was not emitted")
+            ),
+            "standard_error": (
+                float(raw_se)
+                if isinstance(raw_se, (int, float)) and math.isfinite(float(raw_se))
+                else _feedback_marker("standard error was not emitted")
+            ),
+        }
+        # These fields are evaluator-owned and already present in search
+        # summaries.  Audit rows legitimately lack exercise geometry.
+        for field_name in (
+            "candidate_exercise_rate", "baseline_exercise_rate",
+            "candidate_stop_time_mean", "baseline_stop_time_mean",
+            "candidate_stop_time_std", "baseline_stop_time_std",
+            "candidate_finite", "baseline_finite",
+            "candidate_training_seconds",
+            "raw_primal_dual_gap", "raw_bound_order_ok",
+        ):
+            observed_field = row.get(field_name)
+            observed_row[field_name] = (
+                observed_field if observed_field is not None else
+                _feedback_marker(f"{field_name} is not observed in {stage} stage")
+            )
+        # Emit one instance-level item plus a handful of stable domain strata.
+        # All share the same measured cell effect; the strata are for routing
+        # and coverage, never extra contributions to the primary score.
+        slice_keys = [f"instance:{instance_id}"]
+        raw_labels = row.get("slice_labels", [])
+        if isinstance(raw_labels, (list, tuple)):
+            for label in raw_labels:
+                if isinstance(label, str) and label and label not in slice_keys:
+                    slice_keys.append(label)
+        for slice_index, slice_key in enumerate(slice_keys):
+            directional.append(DirectionalFeedback(
+                id=f"{suite_id}:{stage}:{instance_id}:{repeat}:{slice_index}",
+                candidate_id=candidate_id,
+                mechanism_id=(
+                    "candidate_vs_baseline" if stage == "search"
+                    else "candidate_vs_dual"
+                ),
+                slice_key=slice_key,
+                direction=direction,
+                prediction=NOT_OBSERVED,
+                confidence=NOT_OBSERVED,
+                observed=observed_row,
+                recommendation={**recommendation, "target_slice": slice_key},
+                evidence={
+                    "source": "trusted_evaluator",
+                    "request_sha256": _sha256_json(request),
+                    "record_ids": [],
+                },
+                probe={
+                    "probe_version": "bermudan-domain-probe.v1",
+                    "stage": stage,
+                    "metric": metric,
+                    "slice_source": "instance_contract_descriptor",
+                },
+                data={
+                    "split": "private" if stage == "audit" else "public",
+                    "task": task,
+                    "suite_id": suite_id,
+                    "instance_id": instance_id,
+                    "repeat": repeat,
+                    "slice_label": slice_key,
+                },
+                falsifier=(
+                    "paired_effect_ci_upper_le_0" if stage == "search"
+                    else "negative_primal_dual_gap_or_bound_order_failure"
+                ),
+            ))
+
+    packet_payload = {
+        "stage": stage,
+        "task": task,
+        "suite_id": suite_id,
+        "request": request,
+        "summary_ids": [item.id for item in directional],
+    }
+    packet = FeedbackPacket(
+        packet_id=_canonical_feedback_id(packet_payload),
+        candidate_id=candidate_id,
+        mechanism_id="candidate_vs_baseline" if stage == "search" else "candidate_vs_dual",
+        directional=directional,
+        observed=observed,
+        recommendation={
+            "policy": "deterministic_projection_only",
+            "action": "use_directional_items_with_router",
+            "primary_metric": primary_metric,
+        },
+        evidence={
+            "source": "trusted_evaluator",
+            "evidence_version": "bermudan-evidence.v1",
+            "request_sha256": _sha256_json(request),
+            "candidate_supplied_telemetry_ignored": True,
+        },
+        probe={
+            "probe_version": "bermudan-domain-probe.v1",
+            "stage": stage,
+            "confidence_level": confidence_level,
+            "observed_fields": sorted(observed),
+        },
+        data={
+            "split": "private" if stage == "audit" else "public",
+            "task": task,
+            "suite_id": suite_id,
+            "candidate_boundary": "evaluator_owned",
+        },
+    )
+    packet.validate()
+    return packet
+
+
+def _canonical_feedback_id(payload: Mapping[str, Any]) -> str:
+    """Stable packet id without exposing candidate source contents."""
+
+    return f"feedback_{_sha256_json(payload)[:20]}"
+
+
 def _fixed_suite_lcb(
     cell_means: list[float],
     cell_standard_errors: list[float],
@@ -739,42 +1272,582 @@ def _instance_digest(instance: BSInstance) -> str:
     return _sha256_json(payload)
 
 
+def _instance_slice_labels(instance: BSInstance) -> list[str]:
+    """Return stable, evaluator-owned domain slices for directional feedback.
+
+    These labels are descriptive strata, not additional score terms.  They
+    let the Context distinguish a mechanism that helps (say) high-volatility
+    baskets from one that only improves a particular instance, without
+    exposing paths or candidate internals.
+    """
+    mean_moneyness = float(np.mean(np.asarray(instance.spots, dtype=float))) / float(instance.strike)
+    mean_vol = float(np.mean(np.asarray(instance.volatilities, dtype=float)))
+    corr = np.asarray(instance.correlation, dtype=float)
+    off_diag = corr[~np.eye(instance.dimension, dtype=bool)]
+    mean_corr = float(np.mean(off_diag)) if off_diag.size else 0.0
+    if mean_moneyness < 0.95:
+        moneyness = "deep_itm_or_low_spot"
+    elif mean_moneyness > 1.05:
+        moneyness = "deep_otm_or_high_spot"
+    else:
+        moneyness = "near_atm"
+    volatility = "high_volatility" if mean_vol >= 0.30 else (
+        "low_volatility" if mean_vol <= 0.20 else "medium_volatility"
+    )
+    correlation = "high_correlation" if mean_corr >= 0.35 else (
+        "low_correlation" if mean_corr <= 0.15 else "medium_correlation"
+    )
+    times = np.asarray(instance.exercise_times, dtype=float)
+    gaps = np.diff(times)
+    grid = "irregular_grid" if gaps.size and not np.allclose(gaps, gaps[0]) else "regular_grid"
+    return [
+        f"payoff:{instance.payoff_type}",
+        f"dimension:{instance.dimension}d",
+        f"moneyness:{moneyness}",
+        f"volatility:{volatility}",
+        f"correlation:{correlation}",
+        f"exercise_grid:{grid}",
+    ]
+
+
+def _regular_source_file(path: Path, label: str) -> None:
+    """Require a candidate bundle entry to be a stable ordinary file.
+
+    The parent harness normally supplies a sealed source tree.  The evaluator
+    still performs this small check because it is also callable directly (for
+    example from a task runner or a unit test), and passing a symlink here
+    would make the training bridge's provenance ambiguous.
+    """
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError as exc:
+        raise ValueError(f"candidate {label} not found") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise ValueError(f"candidate {label} must be a regular file")
+
+
+def _validate_algorithm_source_tree(source: Path) -> None:
+    """Require the standalone evaluator source root to match the v1 allowlist.
+
+    The harness keeps solver plumbing (for example ``solve.sh``) beside the
+    candidate files, then passes a filtered root here.  Enforcing the same
+    two-file contract at this lower-level API prevents an untracked helper
+    module from changing training behavior without changing the bundle digest.
+    """
+    allowed = set(ALGORITHM_SOURCE_FILES)
+    try:
+        entries = list(os.scandir(source))
+    except OSError as exc:
+        raise ValueError(f"could not inspect candidate source: {exc}") from exc
+    actual = set()
+    for entry in entries:
+        relative = entry.name
+        if entry.is_symlink():
+            raise ValueError(
+                f"candidate source entry {relative} must not be a symbolic link"
+            )
+        if not entry.is_file(follow_symlinks=False):
+            raise ValueError(
+                f"candidate source entry {relative} must be one of: "
+                + ", ".join(ALGORITHM_SOURCE_FILES)
+            )
+        actual.add(relative)
+    unexpected = sorted(actual - allowed)
+    if unexpected:
+        raise ValueError(
+            "candidate source contains undeclared file(s): "
+            + ", ".join(unexpected)
+        )
+    missing = sorted(allowed - actual)
+    if missing:
+        raise ValueError(
+            "candidate source is missing file(s): " + ", ".join(missing)
+        )
+
+
+def _candidate_source_manifest(
+    source_dir: str | os.PathLike[str],
+    submission: Any = None,
+) -> tuple[Path, Any]:
+    """Validate a Python algorithm source directory and its manifest.
+
+    ``solution.json`` is intentionally only a transport envelope.  The
+    authoritative manifest is the sealed ``manifest.json`` beside
+    ``train.py``; if the envelope itself contains a manifest, the two must
+    describe the same protocol.  We accept both schema spellings used by the
+    V5 records, as well as a bare policy manifest copied by ``solve.sh``.
+    """
+    from tasks.bermudan_optimal_stopping.policy_protocols import (
+        load_continuation_manifest,
+        validate_continuation_manifest,
+    )
+
+    raw = Path(source_dir)
+    try:
+        info = os.lstat(raw)
+    except FileNotFoundError as exc:
+        raise ValueError("candidate source directory not found") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise ValueError("candidate source must be a directory")
+    if raw.is_symlink() or not raw.is_dir():
+        raise ValueError("candidate source must be a real directory")
+    source = raw.resolve(strict=True)
+    _validate_algorithm_source_tree(source)
+    _regular_source_file(source / "train.py", "train.py")
+    _regular_source_file(source / "manifest.json", "manifest.json")
+    manifest = load_continuation_manifest(source / "manifest.json")
+
+    if isinstance(submission, Mapping):
+        schema = submission.get("schema")
+        if schema in {
+            "openhyra-policy-spec.v1",
+            "continuation-linear.v1",
+            "continuation-expression.v1",
+        }:
+            supplied = validate_continuation_manifest(dict(submission))
+            if _manifest_payload_for_metrics(supplied) != _manifest_payload_for_metrics(manifest):
+                raise ValueError(
+                    "solution manifest does not match candidate manifest.json"
+                )
+        elif schema in ALGORITHM_BUNDLE_SCHEMAS:
+            # A bundle envelope is metadata, not an alternate source of
+            # executable bytes.  For the current v1 schema require its three
+            # execution-boundary declarations and bind each one to what the
+            # evaluator actually runs.  The older candidate-algorithm spelling
+            # is kept readable for archived callers; if it carries any of
+            # these declarations, they are still checked rather than trusted.
+            if schema == "openhyra-algorithm-bundle.v1":
+                missing = [
+                    field for field in ALGORITHM_BUNDLE_DECLARATION_FIELDS
+                    if field not in submission
+                ]
+                if missing:
+                    raise ValueError(
+                        "algorithm bundle envelope is missing required field(s): "
+                        + ", ".join(missing)
+                    )
+
+            entrypoint = submission.get("entrypoint")
+            if "entrypoint" in submission and entrypoint != "train.py":
+                raise ValueError(
+                    "algorithm bundle entrypoint must be train.py"
+                )
+
+            source_files = submission.get("source_files")
+            if "source_files" in submission:
+                if (
+                    not isinstance(source_files, (list, tuple))
+                    or any(not isinstance(name, str) for name in source_files)
+                    or len(source_files) != len(ALGORITHM_SOURCE_FILES)
+                    or set(source_files) != set(ALGORITHM_SOURCE_FILES)
+                ):
+                    raise ValueError(
+                        "algorithm bundle source_files must contain exactly "
+                        "train.py and manifest.json"
+                    )
+
+            artifact_protocol = submission.get("artifact_protocol")
+            if (
+                "artifact_protocol" in submission
+                and artifact_protocol != manifest.schema
+            ):
+                raise ValueError(
+                    "algorithm bundle artifact_protocol does not match manifest"
+                )
+            supplied_manifest = submission.get("manifest")
+            if supplied_manifest is not None:
+                supplied = validate_continuation_manifest(supplied_manifest)
+                if _manifest_payload_for_metrics(supplied) != _manifest_payload_for_metrics(manifest):
+                    raise ValueError(
+                        "algorithm bundle manifest does not match manifest.json"
+                    )
+        elif schema is not None:
+            raise ValueError(
+                "algorithm candidate solution must be a policy manifest or "
+                "algorithm bundle envelope"
+            )
+    return source, manifest
+
+
+def _manifest_payload_for_metrics(value: Any) -> dict[str, Any]:
+    """Canonical JSON-like representation for every registered manifest."""
+    config = value.inference_config
+    config_payload: dict[str, Any] = {
+        "input_dim": config.input_dim,
+        "output_dim": config.output_dim,
+        "output_clip": list(config.output_clip),
+    }
+    # MLP manifests carry architecture fields; linear/expression manifests do
+    # not.  Keeping this representation local avoids relying on a private MLP
+    # serializer when the active runner is expression or linear.
+    if hasattr(config, "layers"):
+        config_payload["layers"] = list(config.layers)
+        config_payload["activation"] = config.activation
+    return {
+        "schema": value.schema,
+        "runner_type": value.runner_type,
+        "inference_config": config_payload,
+        "output_semantics": value.output_semantics,
+        "normalization": value.normalization,
+        "weight_pattern": value.weight_pattern,
+    }
+
+
+def _source_bundle_digest(
+    source_dir: Path,
+    source_files: Iterable[str] = ALGORITHM_SOURCE_FILES,
+) -> str:
+    """Compute a deterministic digest for source provenance/metrics.
+
+    This is not used as an authorization token (the harness seals the source
+    separately); it simply makes algorithm results distinguishable from the
+    legacy feature-program hash and gives EB a compact reproducibility key.
+    """
+    from sandbox import read_regular_file
+
+    files = []
+    for name in sorted(set(source_files)):
+        if (
+            not isinstance(name, str)
+            or not name
+            or Path(name).is_absolute()
+            or ".." in Path(name).parts
+            or "\\" in name
+        ):
+            raise ValueError("algorithm source file path is unsafe")
+        data = read_regular_file(
+            source_dir / name,
+            64 * 1024 * 1024,
+            label=f"candidate algorithm file {name}",
+        )
+        files.append({
+            "path": name,
+            "size_bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    return _sha256_json({
+        "schema": "openhyra-algorithm-bundle.v1",
+        "files": files,
+    })
+
+
+def _training_runtime_roots() -> tuple[Path, ...]:
+    """Return narrow, non-overlapping roots needed by the candidate runtime."""
+    import sysconfig
+
+    prefix = Path(sys.prefix)
+    exec_prefix = Path(getattr(sys, "exec_prefix", sys.prefix))
+    candidates = [
+        # ``sys.prefix`` itself can be a protected broad root (notably
+        # ``/usr/local`` on Linux).  Expose the versioned stdlib/site-packages
+        # directories and the binary/lib directories instead.
+        prefix / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}",
+        exec_prefix / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}",
+        prefix / "lib",
+        exec_prefix / "lib",
+        Path(sys.executable).resolve().parent,
+    ]
+    # The macOS framework build links the interpreter against a sibling
+    # ``Python`` dynamic library (``$prefix/Python``), not merely the files
+    # under ``lib/pythonX.Y`` and ``bin``.  Allow that *versioned* framework
+    # directory as one narrow root when the library is present.  Do not add
+    # ``sys.prefix`` on Linux/Unix installations where it is commonly the
+    # broad ``/usr/local`` root rejected by the training sandbox.
+    if (
+        sys.platform == "darwin"
+        and (prefix / "Python").is_file()
+    ):
+        candidates.insert(0, prefix)
+    for key in ("stdlib", "platstdlib", "purelib", "platlib"):
+        configured = sysconfig.get_path(key)
+        if configured:
+            candidates.append(Path(configured))
+    roots: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            continue
+        if not resolved.is_dir():
+            continue
+        if any(
+            resolved == existing
+            or resolved in existing.parents
+            or existing in resolved.parents
+            for existing in roots
+        ):
+            continue
+        roots.append(resolved)
+    if not roots:
+        raise ValueError("no usable Python runtime root for candidate training")
+    return tuple(roots)
+
+
+def _training_result_metrics(result: Any) -> dict[str, Any]:
+    """Convert a TrainingCellResult into bounded JSON-friendly diagnostics."""
+    def hash_records(value: Any) -> list[dict[str, str]] | None:
+        if value is None:
+            return None
+        return [
+            {"path": str(name), "sha256": str(digest)}
+            for name, digest in value
+        ]
+
+    return {
+        "status": result.status,
+        "returncode": result.returncode,
+        "isolation": result.isolation,
+        "wall_seconds": float(result.wall_seconds),
+        "peak_memory_bytes": int(result.peak_memory_bytes),
+        "output_entries": int(result.output_entries),
+        "output_bytes": int(result.output_bytes),
+        "train_seed": int(result.train_seed),
+        # Keep per-file identities alongside the compact bundle digests.  They
+        # are supervisor-produced telemetry and never become candidate input.
+        "input_file_sha256": hash_records(result.input_file_sha256),
+        "input_bundle_sha256": result.input_bundle_sha256,
+        "policy_file_sha256": hash_records(result.policy_file_sha256),
+        "policy_artifact_sha256": result.policy_artifact_sha256,
+        "log_tail": str(result.log_tail)[-2000:],
+    }
+
+
+def _fit_algorithm_policy(
+    source_dir: Path,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    *,
+    train_seed: int,
+    cell_dir: Path,
+    config: Mapping[str, Any],
+) -> tuple[TrustedRunnerPolicy, dict[str, Any]]:
+    """Run one candidate ``train.py`` in a fresh sandbox and load its runner."""
+    # Import lazily: training_pipeline imports this evaluator's BSInstance for
+    # its input serializer, and eager import would create a script/module
+    # cycle when evaluator.py is launched as ``__main__``.
+    from tasks.bermudan_optimal_stopping.training_pipeline import (
+        run_per_instance_training,
+    )
+
+    timeout_s = float(config.get("training_timeout_s", DEFAULT_TRAINING_TIMEOUT_S))
+    memory_bytes = int(config.get("training_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES))
+    file_size_bytes = int(config.get("training_file_size_bytes", DEFAULT_TRAINING_FILE_SIZE_BYTES))
+    result = run_per_instance_training(
+        instance=instance,
+        training_paths=training_paths,
+        candidate_source_dir=source_dir,
+        cell_dir=cell_dir,
+        # ``_derive_seed`` intentionally uses the full 64-bit digest for the
+        # simulator.  The training bridge's public contract is a non-negative
+        # 63-bit seed, so fold the derived value without changing the legacy
+        # simulator streams.
+        train_seed=train_seed & ((1 << 63) - 1),
+        runtime_roots=_training_runtime_roots(),
+        timeout_s=timeout_s,
+        cpu_seconds=config.get("training_cpu_seconds"),
+        memory_bytes=memory_bytes,
+        file_size_bytes=file_size_bytes,
+        externally_isolated=sys.platform != "darwin",
+    )
+    details = _training_result_metrics(result)
+    if result.status != "ok" or result.runner is None:
+        note = result.log_tail.strip() or "candidate training failed"
+        raise ValueError(
+            f"candidate training failed for {instance.instance_id}: "
+            f"{result.status}: {note[-1000:]}"
+        )
+    policy = TrustedRunnerPolicy(
+        runner=result.runner,
+        instance=instance,
+        runner_type=getattr(manifest, "runner_type", "mlp"),
+        policy_artifact_sha256=result.policy_artifact_sha256,
+    )
+    return policy, details
+
+
+def _fit_candidate_policy(
+    program: dict[str, Any] | None,
+    source_dir: Path | None,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    *,
+    train_seed: int,
+    cell_dir: Path | None,
+    config: Mapping[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Fit either the legacy in-process Ridge policy or a bundle runner."""
+    if source_dir is None:
+        if program is None:
+            raise ValueError("legacy candidate is missing feature program")
+        return (
+            fit_lsmc(
+                program, instance, training_paths,
+                ridge_alpha=config["ridge_alpha"],
+            ),
+            {"status": "builtin", "runner_type": "ridge_lsmc"},
+        )
+    if manifest is None or cell_dir is None:
+        raise ValueError("algorithm candidate is missing manifest or training cell")
+    policy, details = _fit_algorithm_policy(
+        source_dir,
+        manifest,
+        instance,
+        training_paths,
+        train_seed=train_seed,
+        cell_dir=cell_dir,
+        config=config,
+    )
+    details["runner_type"] = getattr(manifest, "runner_type", "mlp")
+    return policy, details
+
+
 def _evaluate_search(
-    program: dict[str, Any],
+    program: dict[str, Any] | None,
     request: dict[str, Any],
     config: dict[str, Any],
+    *,
+    candidate_source_dir: Path | None = None,
+    candidate_manifest: Any = None,
 ) -> tuple[float, dict[str, Any], dict[str, Any]]:
+    if candidate_source_dir is not None:
+        candidate_source_dir, loaded_manifest = _candidate_source_manifest(
+            candidate_source_dir,
+        )
+        if candidate_manifest is None:
+            candidate_manifest = loaded_manifest
     suite = public_suite()[: config["instance_count"]]
     summaries: list[dict[str, Any]] = []
     cluster_improvements: list[float] = []
     cluster_standard_errors: list[float] = []
-    for instance_index, instance in enumerate(suite):
-        for repeat in range(config["repeats"]):
-            train_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "train")
-            pricing_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "pricing")
-            training = simulate_paths(instance, config["training_paths"], train_seed)
-            pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
-            candidate_policy = fit_lsmc(program, instance, training, ridge_alpha=config["ridge_alpha"])
-            baseline_policy = fit_lsmc(BASELINE_PROGRAM, instance, training, ridge_alpha=config["ridge_alpha"])
-            candidate_values, _ = apply_policy(candidate_policy, pricing)
-            baseline_values, _ = apply_policy(baseline_policy, pricing)
-            paired = (candidate_values - baseline_values) / instance.strike
-            improvement, paired_se = _mean_se(paired)
-            cluster_improvements.append(improvement)
-            cluster_standard_errors.append(paired_se)
-            candidate_mean, candidate_se = _mean_se(candidate_values)
-            baseline_mean, baseline_se = _mean_se(baseline_values)
-            summaries.append({
-                "instance_id": instance.instance_id,
-                "instance_sha256": _instance_digest(instance),
-                "repeat": repeat,
-                "candidate_lower_bound": candidate_mean,
-                "candidate_lower_bound_standard_error": candidate_se,
-                "baseline_lower_bound": baseline_mean,
-                "baseline_lower_bound_standard_error": baseline_se,
-                "paired_normalized_improvement": improvement,
-                "paired_normalized_standard_error": paired_se,
-            })
+    training_cells: list[dict[str, Any]] = []
+    training_root: Path | None = None
+    if candidate_source_dir is not None:
+        # A single root is used only as a parent; every cell remains a fresh
+        # directory and is removed after this stage.  The candidate source is
+        # never copied into it or imported by this process.
+        training_root = Path(tempfile.mkdtemp(prefix="openhyra-bermudan-train-"))
+    try:
+        for instance_index, instance in enumerate(suite):
+            for repeat in range(config["repeats"]):
+                train_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "train",
+                )
+                pricing_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "pricing",
+                )
+                training = simulate_paths(instance, config["training_paths"], train_seed)
+                pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
+                cell_dir = (
+                    training_root / f"search-{instance_index:03d}-{repeat:03d}"
+                    if training_root is not None else None
+                )
+                candidate_policy, train_details = _fit_candidate_policy(
+                    program,
+                    candidate_source_dir,
+                    candidate_manifest,
+                    instance,
+                    training,
+                    train_seed=train_seed,
+                    cell_dir=cell_dir,
+                    config=config,
+                )
+                if candidate_source_dir is not None:
+                    training_cells.append({
+                        "instance_id": instance.instance_id,
+                        "repeat": repeat,
+                        **train_details,
+                    })
+                baseline_policy = fit_lsmc(
+                    BASELINE_PROGRAM, instance, training,
+                    ridge_alpha=config["ridge_alpha"],
+                )
+                candidate_values, candidate_stops = apply_policy(candidate_policy, pricing)
+                baseline_values, baseline_stops = apply_policy(baseline_policy, pricing)
+                candidate_behavior = _policy_behavior_metrics(
+                    candidate_values,
+                    candidate_stops,
+                    len(instance.exercise_times),
+                )
+                baseline_behavior = _policy_behavior_metrics(
+                    baseline_values,
+                    baseline_stops,
+                    len(instance.exercise_times),
+                )
+                paired = (candidate_values - baseline_values) / instance.strike
+                improvement, paired_se = _mean_se(paired)
+                # The tail probe is descriptive only; it is not part of the
+                # fixed-suite primary LCB.  ``loss`` is the negative paired
+                # improvement, so larger values mean a worse tail outcome.
+                paired_losses = -np.asarray(paired, dtype=float).reshape(-1)
+                paired_loss_q95 = float(np.quantile(paired_losses, 0.95))
+                paired_loss_tail = paired_losses[paired_losses >= paired_loss_q95]
+                paired_loss_cvar95 = float(np.mean(paired_loss_tail))
+                cluster_improvements.append(improvement)
+                cluster_standard_errors.append(paired_se)
+                candidate_mean, candidate_se = _mean_se(candidate_values)
+                baseline_mean, baseline_se = _mean_se(baseline_values)
+                summaries.append({
+                    "instance_id": instance.instance_id,
+                    "instance_sha256": _instance_digest(instance),
+                    "payoff_type": instance.payoff_type,
+                    "dimension": instance.dimension,
+                    "moneyness": float(np.mean(np.asarray(instance.spots, dtype=float)) / instance.strike),
+                    "mean_volatility": float(np.mean(np.asarray(instance.volatilities, dtype=float))),
+                    "mean_correlation": float(
+                        np.mean(np.asarray(instance.correlation, dtype=float)[
+                            ~np.eye(instance.dimension, dtype=bool)
+                        ])
+                    ) if instance.dimension > 1 else 0.0,
+                    "slice_labels": _instance_slice_labels(instance),
+                    "repeat": repeat,
+                    "candidate_lower_bound": candidate_mean,
+                    "candidate_lower_bound_standard_error": candidate_se,
+                    "baseline_lower_bound": baseline_mean,
+                    "baseline_lower_bound_standard_error": baseline_se,
+                    "paired_normalized_improvement": improvement,
+                    "paired_normalized_standard_error": paired_se,
+                    "paired_loss_var95": paired_loss_q95,
+                    "paired_loss_cvar95": paired_loss_cvar95,
+                    # Compact policy-geometry descriptors used by V5's
+                    # BehaviorProfile and by the mechanism critic.  These are
+                    # computed from evaluator-owned pricing outcomes, never
+                    # from candidate-reported telemetry.
+                    "candidate_exercise_rate": candidate_behavior["exercise_rate"],
+                    "candidate_exercise_rate_by_time": candidate_behavior[
+                        "exercise_rate_by_time"
+                    ],
+                    "candidate_stop_time_mean": candidate_behavior[
+                        "stop_time_mean"
+                    ],
+                    "candidate_stop_time_std": candidate_behavior[
+                        "stop_time_std"
+                    ],
+                    "candidate_finite": candidate_behavior["finite"],
+                    "candidate_valid_stop_rate": candidate_behavior[
+                        "valid_stop_rate"
+                    ],
+                    "baseline_exercise_rate": baseline_behavior["exercise_rate"],
+                    "baseline_exercise_rate_by_time": baseline_behavior[
+                        "exercise_rate_by_time"
+                    ],
+                    "baseline_stop_time_mean": baseline_behavior[
+                        "stop_time_mean"
+                    ],
+                    "baseline_stop_time_std": baseline_behavior[
+                        "stop_time_std"
+                    ],
+                    "baseline_finite": baseline_behavior["finite"],
+                    "candidate_training_seconds": train_details.get(
+                        "wall_seconds"
+                    ),
+                })
+    finally:
+        if training_root is not None:
+            shutil.rmtree(training_root, ignore_errors=True)
     score, mean_improvement, aggregate_se = _fixed_suite_lcb(
         cluster_improvements,
         cluster_standard_errors,
@@ -794,11 +1867,60 @@ def _evaluate_search(
         "test_path_count": config["pricing_paths"],
         "total_training_path_budget": config["training_paths"] * cell_count,
         "total_test_path_budget": config["pricing_paths"] * cell_count,
-        "failure_rate": 0.0,
-        "lookahead_violation": False,
-        "deterministic_reproduction_passed": True,
+        "failure_rate": (
+            float(1.0 - np.mean([
+                bool(row.get("candidate_finite", False)) for row in summaries
+            ])) if summaries else None
+        ),
+        "failure_rate_observed": bool(summaries),
+        # Adaptedness is a property of the candidate source/training trace;
+        # this evaluator run does not execute an independent look-ahead probe.
+        # Keep the legacy key nullable rather than presenting an unmeasured
+        # ``False`` as a scientific result.
+        "lookahead_violation": None,
+        "lookahead_violation_observed": False,
+        # No independent replay is run inside one search evaluation.  Keep
+        # this nullable instead of claiming that the fixed-cell execution is
+        # a reproduction experiment.
+        "deterministic_reproduction_passed": None,
+        "deterministic_reproduction_observed": False,
         "summaries": summaries,
     }
+    # Emit direct projections so downstream V5 code can build a profile
+    # without reimplementing repeat aggregation.  The legacy summary fields
+    # above remain unchanged and are still the source of truth for old
+    # consumers.
+    metrics.update(_aggregate_behavior_metrics(summaries))
+    if candidate_source_dir is not None:
+        metrics.update({
+            "candidate_kind": "algorithm_bundle",
+            "runner_type": getattr(candidate_manifest, "runner_type", "mlp"),
+            "training_cell_count": len(training_cells),
+            "training_cells": training_cells,
+            "mean_training_seconds_per_instance": (
+                float(np.mean([item["wall_seconds"] for item in training_cells]))
+                if training_cells else 0.0
+            ),
+            "max_training_seconds_per_instance": (
+                float(max(item["wall_seconds"] for item in training_cells))
+                if training_cells else 0.0
+            ),
+        })
+    # Sidecar only: the primary score above remains exactly the historical
+    # fixed-suite LCB.  The packet gives Context a typed projection of the
+    # evaluator-owned outcome geometry and explicit not-observed markers.
+    feedback_packet = _build_domain_feedback_packet(
+        stage="search",
+        task=request["task"],
+        suite_id=request["suite_id"],
+        request=request,
+        score=score,
+        summaries=summaries,
+        confidence_level=config["confidence_level"],
+        aggregate_effect=mean_improvement,
+        aggregate_standard_error=aggregate_se,
+    )
+    metrics["feedback_packet"] = feedback_packet.to_dict()
     evidence = {
         "search": {
             "status": "paired_oos_checked",
@@ -806,62 +1928,133 @@ def _evaluate_search(
             "common_random_numbers": True,
             "training_pricing_independent": True,
             "cluster_unit": "instance_repeat",
+            "candidate_kind": (
+                "algorithm_bundle" if candidate_source_dir is not None
+                else "feature_ir"
+            ),
+            "feedback_packet_id": feedback_packet.packet_id,
+            "feedback_packet_schema": feedback_packet.schema,
+            "independent_reproduction": {
+                "status": "not_observed",
+                "reason": "search stage does not run an independent replay",
+            },
         }
     }
     return score, metrics, evidence
 
 
 def _evaluate_audit(
-    program: dict[str, Any],
+    program: dict[str, Any] | None,
     request: dict[str, Any],
     config: dict[str, Any],
+    *,
+    candidate_source_dir: Path | None = None,
+    candidate_manifest: Any = None,
 ) -> tuple[float, dict[str, Any], dict[str, Any]]:
+    if candidate_source_dir is not None:
+        candidate_source_dir, loaded_manifest = _candidate_source_manifest(
+            candidate_source_dir,
+        )
+        if candidate_manifest is None:
+            candidate_manifest = loaded_manifest
     suite = derive_hidden_suite(request["seed"], config["instance_count"])
     summaries: list[dict[str, Any]] = []
     confidence_gaps: list[float] = []
+    training_cells: list[dict[str, Any]] = []
+    training_root: Path | None = None
+    if candidate_source_dir is not None:
+        training_root = Path(tempfile.mkdtemp(prefix="openhyra-bermudan-audit-"))
     # Allocate alpha/2 to each of the upper and lower one-sided endpoint
     # failures.  The union bound then gives at least (1-alpha) simultaneous
     # coverage without assuming independence between the estimators.
     z = _bonferroni_gap_z(config["confidence_level"])
     all_bound_order_ok = True
-    for instance_index, instance in enumerate(suite):
-        for repeat in range(config["repeats"]):
-            train_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-train")
-            pricing_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-pricing")
-            outer_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-outer")
-            inner_seed = _derive_seed(request["seed"], request["suite_id"], instance_index, repeat, "audit-inner")
-            training = simulate_paths(instance, config["training_paths"], train_seed)
-            pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
-            outer = simulate_paths(instance, config["outer_paths"], outer_seed)
-            policy = fit_lsmc(program, instance, training, ridge_alpha=config["ridge_alpha"])
-            lower_samples, _ = apply_policy(policy, pricing)
-            upper_samples, martingale_terminal = dual_upper_bound_samples(
-                policy, outer, inner_paths=config["inner_paths"], inner_seed=inner_seed,
-            )
-            lower_mean, lower_se = _mean_se(lower_samples)
-            upper_mean, upper_se = _mean_se(upper_samples)
-            raw_gap = upper_mean - lower_mean
-            confidence_gap = raw_gap + z * (upper_se + lower_se)
-            normalized_gap = confidence_gap / instance.strike
-            confidence_gaps.append(normalized_gap)
-            bound_order_ok = upper_mean >= lower_mean
-            all_bound_order_ok = all_bound_order_ok and bound_order_ok
-            martingale_mean, martingale_se = _mean_se(martingale_terminal)
-            summaries.append({
-                "instance_id": instance.instance_id,
-                "instance_sha256": _instance_digest(instance),
-                "repeat": repeat,
-                "lower_bound": lower_mean,
-                "lower_bound_standard_error": lower_se,
-                "upper_bound": upper_mean,
-                "upper_bound_standard_error": upper_se,
-                "raw_primal_dual_gap": raw_gap,
-                "confidence_gap": confidence_gap,
-                "normalized_primal_dual_confidence_gap": normalized_gap,
-                "raw_bound_order_ok": bound_order_ok,
-                "martingale_terminal_mean": martingale_mean,
-                "martingale_terminal_standard_error": martingale_se,
-            })
+    try:
+        for instance_index, instance in enumerate(suite):
+            for repeat in range(config["repeats"]):
+                train_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "audit-train",
+                )
+                pricing_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "audit-pricing",
+                )
+                outer_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "audit-outer",
+                )
+                inner_seed = _derive_seed(
+                    request["seed"], request["suite_id"], instance_index,
+                    repeat, "audit-inner",
+                )
+                training = simulate_paths(instance, config["training_paths"], train_seed)
+                pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
+                outer = simulate_paths(instance, config["outer_paths"], outer_seed)
+                cell_dir = (
+                    training_root / f"audit-{instance_index:03d}-{repeat:03d}"
+                    if training_root is not None else None
+                )
+                policy, train_details = _fit_candidate_policy(
+                    program,
+                    candidate_source_dir,
+                    candidate_manifest,
+                    instance,
+                    training,
+                    train_seed=train_seed,
+                    cell_dir=cell_dir,
+                    config=config,
+                )
+                if candidate_source_dir is not None:
+                    training_cells.append({
+                        "instance_id": instance.instance_id,
+                        "repeat": repeat,
+                        **train_details,
+                    })
+                lower_samples, _ = apply_policy(policy, pricing)
+                upper_samples, martingale_terminal = dual_upper_bound_samples(
+                    policy, outer, inner_paths=config["inner_paths"], inner_seed=inner_seed,
+                )
+                lower_mean, lower_se = _mean_se(lower_samples)
+                upper_mean, upper_se = _mean_se(upper_samples)
+                raw_gap = upper_mean - lower_mean
+                confidence_gap = raw_gap + z * (upper_se + lower_se)
+                normalized_gap = confidence_gap / instance.strike
+                confidence_gaps.append(normalized_gap)
+                bound_order_ok = upper_mean >= lower_mean
+                all_bound_order_ok = all_bound_order_ok and bound_order_ok
+                martingale_mean, martingale_se = _mean_se(martingale_terminal)
+                summaries.append({
+                    "instance_id": instance.instance_id,
+                    "instance_sha256": _instance_digest(instance),
+                    "payoff_type": instance.payoff_type,
+                    "dimension": instance.dimension,
+                    "moneyness": float(np.mean(np.asarray(instance.spots, dtype=float)) / instance.strike),
+                    "mean_volatility": float(np.mean(np.asarray(instance.volatilities, dtype=float))),
+                    "mean_correlation": float(
+                        np.mean(np.asarray(instance.correlation, dtype=float)[
+                            ~np.eye(instance.dimension, dtype=bool)
+                        ])
+                    ) if instance.dimension > 1 else 0.0,
+                    "slice_labels": _instance_slice_labels(instance),
+                    "repeat": repeat,
+                    "lower_bound": lower_mean,
+                    "lower_bound_standard_error": lower_se,
+                    "upper_bound": upper_mean,
+                    "upper_bound_standard_error": upper_se,
+                    "raw_primal_dual_gap": raw_gap,
+                    "confidence_gap": confidence_gap,
+                    "normalized_primal_dual_confidence_gap": normalized_gap,
+                    "raw_bound_order_ok": bound_order_ok,
+                    "martingale_terminal_mean": martingale_mean,
+                    "martingale_terminal_standard_error": martingale_se,
+                    "candidate_training_seconds": train_details.get(
+                        "wall_seconds"
+                    ),
+                })
+    finally:
+        if training_root is not None:
+            shutil.rmtree(training_root, ignore_errors=True)
     mean_gap = float(np.mean(confidence_gaps))
     q90_gap = float(np.quantile(confidence_gaps, 0.9))
     score = mean_gap + 0.25 * q90_gap
@@ -891,11 +2084,44 @@ def _evaluate_audit(
             * (len(instance.exercise_times) - 1) * config["repeats"]
             for instance in suite
         ),
-        "failure_rate": 0.0,
-        "lookahead_violation": False,
-        "deterministic_reproduction_passed": True,
+        # A failed audit cell aborts the trusted evaluation before a complete
+        # summary is emitted, so this stage cannot estimate a failure rate from
+        # its current contract.  ``None`` is intentional and is mirrored by
+        # the packet's not_observed marker.
+        "failure_rate": None,
+        "failure_rate_observed": False,
+        "lookahead_violation": None,
+        "lookahead_violation_observed": False,
+        "deterministic_reproduction_passed": None,
+        "deterministic_reproduction_observed": False,
         "summaries": summaries,
     }
+    if candidate_source_dir is not None:
+        metrics.update({
+            "candidate_kind": "algorithm_bundle",
+            "runner_type": getattr(candidate_manifest, "runner_type", "mlp"),
+            "training_cell_count": len(training_cells),
+            "training_cells": training_cells,
+            "mean_training_seconds_per_instance": (
+                float(np.mean([item["wall_seconds"] for item in training_cells]))
+                if training_cells else 0.0
+            ),
+            "max_training_seconds_per_instance": (
+                float(max(item["wall_seconds"] for item in training_cells))
+                if training_cells else 0.0
+            ),
+        })
+    feedback_packet = _build_domain_feedback_packet(
+        stage="audit",
+        task=request["task"],
+        suite_id=request["suite_id"],
+        request=request,
+        score=score,
+        summaries=summaries,
+        confidence_level=config["confidence_level"],
+        aggregate_effect=-mean_gap,
+    )
+    metrics["feedback_packet"] = feedback_packet.to_dict()
     evidence = {
         "audit": {
             "status": "private_primal_dual_checked",
@@ -909,6 +2135,16 @@ def _evaluate_audit(
                 "finite_inner_estimator_conditionally_unbiased": True,
             },
             "negative_raw_gaps_clipped": False,
+            "candidate_kind": (
+                "algorithm_bundle" if candidate_source_dir is not None
+                else "feature_ir"
+            ),
+            "feedback_packet_id": feedback_packet.packet_id,
+            "feedback_packet_schema": feedback_packet.schema,
+            "independent_reproduction": {
+                "status": "not_observed",
+                "reason": "audit evaluates hidden cells but does not replay them independently",
+            },
         }
     }
     return score, metrics, evidence
@@ -918,6 +2154,10 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
     common_allowed = {
         "suite_id", "direction", "metric", "confidence_level", "instance_count",
         "repeats", "training_paths", "pricing_paths", "ridge_alpha",
+        # Open algorithm-track limits.  They are optional and intentionally
+        # omitted from the legacy task's canonical request unless supplied.
+        "training_timeout_s", "training_cpu_seconds",
+        "training_memory_bytes", "training_file_size_bytes",
     }
     allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else set())
     _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
@@ -948,6 +2188,26 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         "pricing_paths": _strict_int(raw.get("pricing_paths", defaults["pricing_paths"]), path="config.pricing_paths", minimum=64, maximum=50_000),
         "ridge_alpha": _strict_float(raw.get("ridge_alpha", defaults["ridge_alpha"]), path="config.ridge_alpha", minimum=1e-12, maximum=1.0),
     }
+    if "training_timeout_s" in raw:
+        result["training_timeout_s"] = _strict_float(
+            raw["training_timeout_s"], path="config.training_timeout_s",
+            minimum=0.1, maximum=600.0,
+        )
+    if "training_cpu_seconds" in raw:
+        result["training_cpu_seconds"] = _strict_float(
+            raw["training_cpu_seconds"], path="config.training_cpu_seconds",
+            minimum=0.1, maximum=600.0,
+        )
+    if "training_memory_bytes" in raw:
+        result["training_memory_bytes"] = _strict_int(
+            raw["training_memory_bytes"], path="config.training_memory_bytes",
+            minimum=16 * 1024 * 1024, maximum=8 * 1024 * 1024 * 1024,
+        )
+    if "training_file_size_bytes" in raw:
+        result["training_file_size_bytes"] = _strict_int(
+            raw["training_file_size_bytes"], path="config.training_file_size_bytes",
+            minimum=1024, maximum=256 * 1024 * 1024,
+        )
     if "suite_id" in raw:
         suite_id = raw["suite_id"]
         if not isinstance(suite_id, str) or not suite_id or len(suite_id) > MAX_SUITE_ID_CHARS:
@@ -966,10 +2226,16 @@ def validate_evaluation_request(raw: Any) -> tuple[dict[str, Any], dict[str, Any
         raise ValueError(f"evaluation request.schema must be {REQUEST_SCHEMA}")
     if raw["stage"] not in {"search", "audit"}:
         raise ValueError("evaluation request.stage must be search or audit")
-    if raw["task"] != TASK_NAME:
-        raise ValueError(f"evaluation request.task must be {TASK_NAME}")
-    if raw["protocol"] != TASK_PROTOCOL:
-        raise ValueError(f"evaluation request.protocol must be {TASK_PROTOCOL}")
+    if raw["task"] not in SUPPORTED_TASK_NAMES:
+        raise ValueError(
+            "evaluation request.task must be one of: "
+            + ", ".join(sorted(SUPPORTED_TASK_NAMES))
+        )
+    if raw["protocol"] not in SUPPORTED_TASK_PROTOCOLS:
+        raise ValueError(
+            "evaluation request.protocol must be one of: "
+            + ", ".join(sorted(SUPPORTED_TASK_PROTOCOLS))
+        )
     seed = _strict_int(raw["seed"], path="evaluation request.seed", minimum=0, maximum=MAX_REQUEST_SEED)
     suite_id = raw["suite_id"]
     if not isinstance(suite_id, str) or not suite_id or len(suite_id) > MAX_SUITE_ID_CHARS or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", suite_id):
@@ -980,8 +2246,8 @@ def validate_evaluation_request(raw: Any) -> tuple[dict[str, Any], dict[str, Any
     normalized = {
         "schema": REQUEST_SCHEMA,
         "stage": raw["stage"],
-        "task": TASK_NAME,
-        "protocol": TASK_PROTOCOL,
+        "task": raw["task"],
+        "protocol": raw["protocol"],
         "seed": seed,
         "suite_id": suite_id,
         "config": config,
@@ -991,13 +2257,18 @@ def validate_evaluation_request(raw: Any) -> tuple[dict[str, Any], dict[str, Any
 
 def default_search_request() -> dict[str, Any]:
     """Manual smoke-test request; production harnesses pass a sealed argv[2]."""
+    suite_id = (
+        "bermudan-python-public-v1"
+        if TASK_NAME == "bermudan_python_search"
+        else "bermudan-public-v1"
+    )
     raw = {
         "schema": REQUEST_SCHEMA,
         "stage": "search",
         "task": TASK_NAME,
         "protocol": TASK_PROTOCOL,
         "seed": 1729,
-        "suite_id": "bermudan-public-v1",
+        "suite_id": suite_id,
         "config": {},
     }
     return validate_evaluation_request(raw)[0]
@@ -1006,8 +2277,24 @@ def default_search_request() -> dict[str, Any]:
 def evaluate_submission(
     submission: Any,
     request: dict[str, Any] | None = None,
+    *,
+    candidate_source_dir: str | os.PathLike[str] | None = None,
 ) -> tuple[float, dict[str, Any], dict[str, Any], dict[str, Any]]:
-    program = validate_feature_program(submission)
+    algorithm_source: Path | None = None
+    algorithm_manifest: Any = None
+    if candidate_source_dir is not None:
+        algorithm_source, algorithm_manifest = _candidate_source_manifest(
+            candidate_source_dir, submission,
+        )
+        program = None
+        normalized_candidate = _manifest_payload_for_metrics(algorithm_manifest)
+        candidate_hash = _source_bundle_digest(algorithm_source)
+        feature_hash = None
+    else:
+        program = validate_feature_program(submission)
+        normalized_candidate = program
+        feature_hash = _sha256_json(program)
+        candidate_hash = feature_hash
     if request is None:
         request = default_search_request()
         config = _validate_config("search", request["config"])
@@ -1015,31 +2302,103 @@ def evaluate_submission(
         request, config = validate_evaluation_request(request)
     started = time.perf_counter()
     if request["stage"] == "search":
-        score, stage_metrics, stage_evidence = _evaluate_search(program, request, config)
+        score, stage_metrics, stage_evidence = _evaluate_search(
+            program,
+            request,
+            config,
+            candidate_source_dir=algorithm_source,
+            candidate_manifest=algorithm_manifest,
+        )
     else:
-        score, stage_metrics, stage_evidence = _evaluate_audit(program, request, config)
-    feature_hash = _sha256_json(program)
+        score, stage_metrics, stage_evidence = _evaluate_audit(
+            program,
+            request,
+            config,
+            candidate_source_dir=algorithm_source,
+            candidate_manifest=algorithm_manifest,
+        )
     request_hash = _sha256_json(request)
     metrics = {
         "stage": request["stage"],
         "suite_id": request["suite_id"],
         "evaluation_request_sha256": request_hash,
         "feature_program_sha256": feature_hash,
-        "candidate_hash": feature_hash,
-        "feature_count": len(program["features"]),
+        "candidate_hash": candidate_hash,
+        "candidate_kind": (
+            "algorithm_bundle" if algorithm_source is not None else "feature_ir"
+        ),
+        "feature_count": len(program["features"]) if program is not None else None,
+        "algorithm_bundle_sha256": candidate_hash if algorithm_source is not None else None,
+        "runner_type": (
+            getattr(algorithm_manifest, "runner_type", None)
+            if algorithm_source is not None else "ridge_lsmc"
+        ),
         "runtime_seconds": time.perf_counter() - started,
         **stage_metrics,
     }
+    if algorithm_source is not None:
+        # ``protocol`` identifies the task/evaluation envelope.  The V5
+        # mechanism card needs the separate wire protocol of the frozen policy
+        # artifact so MLP, linear, and expression candidates remain
+        # distinguishable.  The training entrypoint is part of the trusted
+        # AlgorithmBundle contract and is not candidate-reported telemetry.
+        metrics.update({
+            "artifact_protocol": algorithm_manifest.schema,
+            "entrypoint": "train.py",
+        })
+    # Complete the packet's evaluator-side identity/runtime fields only after
+    # the stage has returned.  This keeps the stage helpers reusable while
+    # ensuring Context sees measured runtime rather than a zero placeholder.
+    feedback_payload = metrics.get("feedback_packet")
+    if isinstance(feedback_payload, dict):
+        feedback_payload["candidate_id"] = candidate_hash
+        # The stage helper cannot know the submitted candidate digest.  Make
+        # packet and directional identities candidate-specific here so the
+        # append-only ProblemState does not deduplicate observations from
+        # different algorithms evaluated on the same suite/request.
+        feedback_payload["packet_id"] = _canonical_feedback_id({
+            "stage": request["stage"],
+            "suite_id": request["suite_id"],
+            "request_sha256": request_hash,
+            "candidate_hash": candidate_hash,
+        })
+        observed_payload = feedback_payload.get("observed")
+        if isinstance(observed_payload, dict):
+            # Wall-clock timing is intentionally kept in the outer metrics and
+            # runtime object.  It is host-load dependent, so embedding it in
+            # the content-addressed feedback packet would make fixed-seed
+            # replay differ for a reason unrelated to the algorithm.
+            observed_payload["runtime_seconds"] = _feedback_marker(
+                "wall-clock runtime is recorded outside the deterministic packet"
+            )
+        for directional_payload in feedback_payload.get("directional", []):
+            if isinstance(directional_payload, dict):
+                directional_payload["candidate_id"] = candidate_hash
+                directional_payload["id"] = (
+                    f"{candidate_hash}:" + str(
+                        directional_payload.get("id", "observation")
+                    )
+                )
+        evidence_payload = feedback_payload.get("evidence")
+        if isinstance(evidence_payload, dict):
+            evidence_payload["candidate_hash"] = candidate_hash
+        stage_evidence_payload = stage_evidence.get(request["stage"])
+        if isinstance(stage_evidence_payload, dict):
+            stage_evidence_payload["feedback_packet_id"] = feedback_payload[
+                "packet_id"
+            ]
     evidence = {
         "schema": EVIDENCE_SCHEMA,
         "stage": request["stage"],
         "suite_id": request["suite_id"],
         "evaluation_request_sha256": request_hash,
         "feature_program_sha256": feature_hash,
+        "candidate_hash": candidate_hash,
+        "candidate_kind": metrics["candidate_kind"],
         "candidate_supplied_prices_ignored": True,
         **stage_evidence,
     }
-    return score, metrics, program, evidence
+    return score, metrics, normalized_candidate, evidence
 
 
 def fail(message: str) -> None:
@@ -1048,22 +2407,64 @@ def fail(message: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) not in {2, 3}:
-        fail("usage: evaluator.py ARTIFACT_JSON [EVALUATION_REQUEST_JSON]")
-    artifact_path = Path(sys.argv[1])
-    if artifact_path.is_dir():
-        artifact_path = artifact_path / "solution.json"
-    if not artifact_path.is_file():
-        fail("artifact JSON not found")
+    if len(sys.argv) < 2:
+        fail(
+            "usage: evaluator.py ARTIFACT_JSON [EVALUATION_REQUEST_JSON] "
+            "[--candidate-source SOURCE_DIR]"
+        )
     try:
-        submission = json.loads(artifact_path.read_text(), object_pairs_hook=_unique_object)
+        artifact_path = Path(sys.argv[1])
+        candidate_source_dir = None
+        request_path = None
+        positional: list[str] = []
+        index = 2
+        while index < len(sys.argv):
+            argument = sys.argv[index]
+            if argument == "--candidate-source":
+                if index + 1 >= len(sys.argv) or candidate_source_dir is not None:
+                    raise ValueError("--candidate-source requires exactly one path")
+                candidate_source_dir = sys.argv[index + 1]
+                index += 2
+                continue
+            if argument.startswith("--candidate-source="):
+                if candidate_source_dir is not None:
+                    raise ValueError("--candidate-source may only be supplied once")
+                candidate_source_dir = argument.split("=", 1)[1]
+                if not candidate_source_dir:
+                    raise ValueError("--candidate-source requires a path")
+                index += 1
+                continue
+            positional.append(argument)
+            index += 1
+        if len(positional) > 1:
+            raise ValueError("at most one evaluation request path is allowed")
+        if artifact_path.is_dir():
+            if candidate_source_dir is None and (
+                (artifact_path / "manifest.json").is_file()
+                and (artifact_path / "train.py").is_file()
+            ):
+                candidate_source_dir = str(artifact_path)
+            artifact_path = artifact_path / "solution.json"
+            if not artifact_path.is_file() and candidate_source_dir is not None:
+                artifact_path = Path(candidate_source_dir) / "manifest.json"
+        if not artifact_path.is_file():
+            fail("artifact JSON not found")
+        submission = json.loads(
+            artifact_path.read_text(), object_pairs_hook=_unique_object,
+        )
         request = None
-        if len(sys.argv) == 3:
-            request_path = Path(sys.argv[2])
+        if positional:
+            request_path = Path(positional[0])
             if not request_path.is_file():
                 raise ValueError("evaluation request JSON not found")
-            request = json.loads(request_path.read_text(), object_pairs_hook=_unique_object)
-        score, metrics, normalized, evidence = evaluate_submission(submission, request)
+            request = json.loads(
+                request_path.read_text(), object_pairs_hook=_unique_object,
+            )
+        score, metrics, normalized, evidence = evaluate_submission(
+            submission,
+            request,
+            candidate_source_dir=candidate_source_dir,
+        )
     except (OSError, RecursionError, ValueError, TypeError, np.linalg.LinAlgError) as exc:
         fail(str(exc))
     print(json.dumps({

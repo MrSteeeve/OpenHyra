@@ -1,0 +1,196 @@
+{
+  "schema": "openhyra-seed-sweep-summary.v1",
+  "planned_seed_count": 20,
+  "planned_family_count": 4,
+  "planned_candidate_evaluations": 160,
+  "families": {
+    "representation": {
+      "mechanism_id": "residual_continuation_v1",
+      "description": "data-only residual continuation representation",
+      "guided_source": "sol_0004",
+      "control_source": "sol_0003",
+      "shared_parent": "sol_0000",
+      "planned_seed_blocks": 20,
+      "complete_pairs": 20,
+      "failed_or_missing_pairs": 0,
+      "positive_transfer_rate": 0.45,
+      "guided_vs_ridge": {
+        "n": 20,
+        "mean": -0.0024285185767936716,
+        "se": 8.999185957267407e-05,
+        "ci95": [
+          -0.002604899380457899,
+          -0.002252137773129444
+        ]
+      },
+      "control_vs_ridge": {
+        "n": 20,
+        "mean": -0.0024977762832910978,
+        "se": 0.00012859776965297846,
+        "ci95": [
+          -0.0027498232803031134,
+          -0.002245729286279082
+        ]
+      },
+      "seed_level_transfer_gain": {
+        "n": 20,
+        "mean": 6.92577064974267e-05,
+        "se": 0.0001242414117335139,
+        "ci95": [
+          -0.00017425098588867263,
+          0.00031276639888352606
+        ]
+      },
+      "lcb_score_difference": {
+        "n": 20,
+        "mean": 5.805054648470259e-05,
+        "se": 0.0001261109892047196,
+        "ci95": [
+          -0.00018912245041126735,
+          0.0003052235433806725
+        ]
+      }
+    },
+    "estimation": {
+      "mechanism_id": "cross_fitted_targets",
+      "description": "cross-fitted backward targets",
+      "guided_source": "sol_0009",
+      "control_source": "sol_0007",
+      "shared_parent": "sol_0000",
+      "planned_seed_blocks": 20,
+      "complete_pairs": 20,
+      "failed_or_missing_pairs": 0,
+      "positive_transfer_rate": 0.0,
+      "guided_vs_ridge": {
+        "n": 20,
+        "mean": -0.004226534762402379,
+        "se": 0.0003024243659341013,
+        "ci95": [
+          -0.004819275627680579,
+          -0.003633793897124178
+        ]
+      },
+      "control_vs_ridge": {
+        "n": 20,
+        "mean": -0.0024977762832910978,
+        "se": 0.00012859776965297846,
+        "ci95": [
+          -0.0027498232803031134,
+          -0.002245729286279082
+        ]
+      },
+      "seed_level_transfer_gain": {
+        "n": 20,
+        "mean": -0.00172875847911128,
+        "se": 0.0002129708692219977,
+        "ci95": [
+          -0.0021461737125425856,
+          -0.0013113432456799748
+        ]
+      },
+      "lcb_score_difference": {
+        "n": 20,
+        "mean": -0.0018207631197154715,
+        "se": 0.00021747341745671225,
+        "ci95": [
+          -0.0022470031855254717,
+          -0.0013945230539054712
+        ]
+      }
+    },
+    "optimization": {
+      "mechanism_id": "boundary_weighted_loss_v1",
+      "description": "boundary-weighted continuation loss",
+      "guided_source": "sol_0001",
+      "control_source": "sol_0002",
+      "shared_parent": "sol_0000",
+      "planned_seed_blocks": 20,
+      "complete_pairs": 20,
+      "failed_or_missing_pairs": 0,
+      "positive_transfer_rate": 0.0,
+      "guided_vs_ridge": {
+        "n": 20,
+        "mean": -0.005448867712329877,
+        "se": 0.00020326528600223074,
+        "ci95": [
+          -0.005847260352201483,
+          -0.005050475072458271
+        ]
+      },
+      "control_vs_ridge": {
+        "n": 20,
+        "mean": -0.0024977762832910978,
+        "se": 0.00012859776965297846,
+        "ci95": [
+          -0.0027498232803031134,
+          -0.002245729286279082
+        ]
+      },
+      "seed_level_transfer_gain": {
+        "n": 20,
+        "mean": -0.0029510914290387796,
+        "se": 0.00014947962083420444,
+        "ci95": [
+          -0.0032440661022965236,
+          -0.0026581167557810357
+        ]
+      },
+      "lcb_score_difference": {
+        "n": 20,
+        "mean": -0.003040651238403798,
+        "se": 0.00015201264173536982,
+        "ci95": [
+          -0.0033385905413999134,
+          -0.002742711935407683
+        ]
+      }
+    },
+    "inductive_bias": {
+      "mechanism_id": "symbolic_affine_switch",
+      "description": "holdout-gated affine/constant runner switch",
+      "guided_source": "sol_0020",
+      "control_source": "sol_0019",
+      "shared_parent": "sol_0004",
+      "planned_seed_blocks": 20,
+      "complete_pairs": 20,
+      "failed_or_missing_pairs": 0,
+      "positive_transfer_rate": 1.0,
+      "guided_vs_ridge": {
+        "n": 20,
+        "mean": -0.00024748841667219374,
+        "se": 0.00012203741377968654,
+        "ci95": [
+          -0.00048667735244679145,
+          -8.29948089759602e-06
+        ]
+      },
+      "control_vs_ridge": {
+        "n": 20,
+        "mean": -0.002284192473442407,
+        "se": 0.00013493694613715438,
+        "ci95": [
+          -0.0025486640280550504,
+          -0.002019720918829763
+        ]
+      },
+      "seed_level_transfer_gain": {
+        "n": 20,
+        "mean": 0.002036704056770213,
+        "se": 8.431481932687107e-05,
+        "ci95": [
+          0.0018714500475265439,
+          0.002201958066013882
+        ]
+      },
+      "lcb_score_difference": {
+        "n": 20,
+        "mean": 0.0021427175454145956,
+        "se": 8.726682112980361e-05,
+        "ci95": [
+          0.0019716777189548815,
+          0.0023137573718743096
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "schema": "openhyra-feedback-ablation.v1",
+  "objective_schema": "openhyra-synthetic-landscape.v1",
+  "arms": {
+    "score_only": {
+      "candidate_count": 160,
+      "best_score": 0.2357221282697101,
+      "simple_regret": 0.07919964608029853,
+      "mean_final_state_cells": 0.0,
+      "per_seed": [
+        {
+          "seed": 11,
+          "best_score": 0.8293518274028195,
+          "oracle_score": 0.8518762528825286,
+          "simple_regret": 0.02252442547970901,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 23,
+          "best_score": 0.11164113852874763,
+          "oracle_score": 0.27476590599125983,
+          "simple_regret": 0.1631247674625122,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 37,
+          "best_score": 0.028783139630027543,
+          "oracle_score": 0.1918632502661184,
+          "simple_regret": 0.16308011063609085,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 41,
+          "best_score": 0.0975067849814567,
+          "oracle_score": 0.12042023440071348,
+          "simple_regret": 0.02291344941925677,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 53,
+          "best_score": 0.11132775080549895,
+          "oracle_score": 0.1356832282094228,
+          "simple_regret": 0.024355477403923853,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        }
+      ]
+    },
+    "static_directional": {
+      "candidate_count": 160,
+      "best_score": 0.2993356040522713,
+      "simple_regret": 0.015586170297737345,
+      "mean_final_state_cells": 0.0,
+      "per_seed": [
+        {
+          "seed": 11,
+          "best_score": 0.8293518274028195,
+          "oracle_score": 0.8518762528825286,
+          "simple_regret": 0.02252442547970901,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 23,
+          "best_score": 0.27000219588359053,
+          "oracle_score": 0.27476590599125983,
+          "simple_regret": 0.0047637101076692945,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 37,
+          "best_score": 0.18685306520546813,
+          "oracle_score": 0.1918632502661184,
+          "simple_regret": 0.005010185060650263,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 41,
+          "best_score": 0.0975067849814567,
+          "oracle_score": 0.12042023440071348,
+          "simple_regret": 0.02291344941925677,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        },
+        {
+          "seed": 53,
+          "best_score": 0.11296414678802141,
+          "oracle_score": 0.1356832282094228,
+          "simple_regret": 0.022719081421401388,
+          "candidate_count": 32,
+          "final_state_cells": 0
+        }
+      ]
+    },
+    "adaptive_directional": {
+      "candidate_count": 160,
+      "best_score": 0.3149217743500086,
+      "simple_regret": 0.0,
+      "mean_final_state_cells": 48.0,
+      "per_seed": [
+        {
+          "seed": 11,
+          "best_score": 0.8518762528825286,
+          "oracle_score": 0.8518762528825286,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 23,
+          "best_score": 0.27476590599125983,
+          "oracle_score": 0.27476590599125983,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 37,
+          "best_score": 0.1918632502661184,
+          "oracle_score": 0.1918632502661184,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 41,
+          "best_score": 0.12042023440071348,
+          "oracle_score": 0.12042023440071348,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 53,
+          "best_score": 0.1356832282094228,
+          "oracle_score": 0.1356832282094228,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        }
+      ]
+    },
+    "adaptive_matched_control": {
+      "candidate_count": 160,
+      "best_score": 0.3149217743500086,
+      "simple_regret": 0.0,
+      "mean_final_state_cells": 48.0,
+      "per_seed": [
+        {
+          "seed": 11,
+          "best_score": 0.8518762528825286,
+          "oracle_score": 0.8518762528825286,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 23,
+          "best_score": 0.27476590599125983,
+          "oracle_score": 0.27476590599125983,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 37,
+          "best_score": 0.1918632502661184,
+          "oracle_score": 0.1918632502661184,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 41,
+          "best_score": 0.12042023440071348,
+          "oracle_score": 0.12042023440071348,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        },
+        {
+          "seed": 53,
+          "best_score": 0.1356832282094228,
+          "oracle_score": 0.1356832282094228,
+          "simple_regret": 0.0,
+          "candidate_count": 32,
+          "final_state_cells": 48
+        }
+      ]
+    }
+  },
+  "seeds": [
+    11,
+    23,
+    37,
+    41,
+    53
+  ],
+  "rounds": 8,
+  "candidates_per_round": 4,
+  "total_candidate_evaluations": 640,
+  "objective_calls_per_candidate": 2
+}

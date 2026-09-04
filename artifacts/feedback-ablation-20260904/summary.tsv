@@ -1,0 +1,5 @@
+arm	candidate_count	best_score	simple_regret	mean_final_state_cells
+score_only	160	0.2357221282697101	0.07919964608029853	0.0
+static_directional	160	0.2993356040522713	0.015586170297737345	0.0
+adaptive_directional	160	0.3149217743500086	0.0	48.0
+adaptive_matched_control	160	0.3149217743500086	0.0	48.0

@@ -19,6 +19,8 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from sandbox import read_regular_file as _read_regular_file
+
 
 POLICY_SCHEMA = "openhyra-policy-spec.v1"
 OUTPUT_SEMANTICS = "discounted_continuation_value_t0"
@@ -37,7 +39,6 @@ MAX_HIDDEN_LAYERS = 8
 MAX_LAYER_WIDTH = 4096
 MAX_PARAMETERS_PER_STEP = (MAX_STEP_FILE_BYTES - 256) // 8
 NORMALIZATION_EPSILON = 1e-10
-READ_CHUNK_BYTES = 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,24 @@ def _canonical_json_bytes(value: Any) -> bytes:
 
 def _manifest_payload(manifest: PolicyManifest) -> dict[str, Any]:
     config = manifest.inference_config
+    # Continuation protocol adapters (linear/expression) intentionally share
+    # the provenance helper but do not have MLP ``layers``/``activation``.
+    # Keep the historical MLP payload byte-for-byte unchanged while allowing
+    # the generic evaluator to canonicalize those adapters without importing
+    # their module here (and without creating a circular import).
+    if not hasattr(config, "layers"):
+        return {
+            "schema": manifest.schema,
+            "runner_type": manifest.runner_type,
+            "inference_config": {
+                "input_dim": config.input_dim,
+                "output_dim": config.output_dim,
+                "output_clip": list(config.output_clip),
+            },
+            "output_semantics": manifest.output_semantics,
+            "normalization": manifest.normalization,
+            "weight_pattern": manifest.weight_pattern,
+        }
     return {
         "schema": manifest.schema,
         "runner_type": manifest.runner_type,
@@ -299,56 +318,6 @@ def validate_policy_manifest(raw: Any) -> PolicyManifest:
         normalization=NORMALIZATION_MODE,
         weight_pattern=WEIGHT_PATTERN,
     )
-
-
-def _read_regular_file(path: Path, max_bytes: int, *, label: str) -> bytes:
-    """Read one untrusted file without following links or accepting hard links."""
-    try:
-        before = os.lstat(path)
-    except FileNotFoundError as exc:
-        raise ValueError(f"{label} not found") from exc
-    if stat.S_ISLNK(before.st_mode):
-        raise ValueError(f"{label} must not be a symbolic link")
-
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
-    flags |= getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise ValueError(f"could not safely open {label}: {exc}") from exc
-    try:
-        info = os.fstat(descriptor)
-        if not stat.S_ISREG(info.st_mode):
-            raise ValueError(f"{label} must be a regular file")
-        if info.st_nlink != 1:
-            raise ValueError(f"{label} must have exactly one hard link")
-        if info.st_size > max_bytes:
-            raise ValueError(f"{label} exceeds the {max_bytes}-byte limit")
-        chunks: list[bytes] = []
-        remaining = max_bytes + 1
-        while remaining:
-            chunk = os.read(descriptor, min(READ_CHUNK_BYTES, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        data = b"".join(chunks)
-        if len(data) > max_bytes:
-            raise ValueError(f"{label} exceeds the {max_bytes}-byte limit")
-        after = os.fstat(descriptor)
-        identity_before = (
-            info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size,
-            info.st_mtime_ns, info.st_ctime_ns,
-        )
-        identity_after = (
-            after.st_dev, after.st_ino, after.st_mode, after.st_nlink, after.st_size,
-            after.st_mtime_ns, after.st_ctime_ns,
-        )
-        if identity_before != identity_after or len(data) != info.st_size:
-            raise ValueError(f"{label} changed while it was being read")
-        return data
-    finally:
-        os.close(descriptor)
 
 
 def load_policy_manifest(path: str | os.PathLike[str]) -> PolicyManifest:
@@ -665,12 +634,22 @@ class MLPContinuationRunner:
         if not isinstance(self.artifact, PolicyArtifact):
             raise TypeError("artifact must be a validated PolicyArtifact")
 
-    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
+    def continuation(
+        self,
+        time_index: int,
+        states: np.ndarray,
+        instance: Any | None = None,
+    ) -> np.ndarray:
         """Return t0-discounted continuation values with the protocol clip.
 
         Each sample follows an identical scalar float64 operation sequence.
         In particular, affine reductions never enter a batch-shaped BLAS call,
         so splitting or reordering a batch cannot change reduction grouping.
+
+        ``instance`` is accepted for the common continuation-runner protocol.
+        The MLP wire format already fixes its input semantics, so the argument
+        is intentionally ignored; expression runners use it for payoff-aware
+        terminals.
         """
         if isinstance(time_index, bool) or not isinstance(time_index, int):
             raise ValueError("time_index must be an integer")

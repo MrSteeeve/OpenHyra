@@ -1,0 +1,127 @@
+{
+  "iteration": 0,
+  "eb_version": 1,
+  "visible_solution_ids": [
+    "sol_0000"
+  ],
+  "trial_seed": 1729,
+  "direction": "Implement boundary_weighted_loss_v1 in train.py with deterministic weights derived only from supplied payoffs and backward targets; keep manifest.json unchanged and compare against a uniform-loss matched control using the same architecture, seed, updates, and artifact protocol.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Only the deterministic MLP baseline has been evaluated, scoring -0.003420, so there is no comparative evidence yet. The next round should establish mechanism contrasts under identical data, architecture, initialization, and compute budgets. Prioritize changes likely to affect stopping-boundary accuracy or target variance, while retaining registered artifact protocols and deterministic training.",
+    "reason": "No mechanism has yet been tested against a matched control.",
+    "expected_gain": 0.001,
+    "confidence": 0.25,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "At least one guided candidate exceeds its matched control in paired_lower_bound_lcb on the frozen public suite with finite status.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "boundary_weighted_loss_v1",
+        "family": "optimization",
+        "mechanism": "Weight continuation regression more heavily when discounted immediate payoff is close to the backward target.",
+        "prediction": "Improves exercise decisions near the stopping boundary, especially for out-of-money puts, without increasing model size.",
+        "failure_condition": "No gain in boundary slices, unstable exercise rates, or lower paired confidence bound than uniform loss.",
+        "matched_control": "Same parent, paths, seed, architecture, updates, and optimizer with uniform squared loss.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "residual_continuation_v1",
+        "family": "representation",
+        "mechanism": "Train the fixed MLP on continuation residuals relative to a simple intrinsic or affine baseline, then reconstruct the continuation value.",
+        "prediction": "Improves sample efficiency and stability on low-volatility one-asset puts with near-simple continuation surfaces.",
+        "failure_condition": "Residual policy loses to raw-target MLP under identical compute or reconstruction produces finite but systematically biased values.",
+        "matched_control": "Same MLP, initialization, data, optimizer, and update budget trained directly on raw backward targets.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "robust_target_loss_v1",
+        "family": "optimization",
+        "mechanism": "Use deterministic Huber or clipped regression for noisy backward cash-flow targets.",
+        "prediction": "Reduces tail-driven policy variance on high-volatility and multi-asset contracts, improving repeat stability.",
+        "failure_condition": "Worse paired lower-bound LCB, materially higher failure rate, or no variance reduction across repeats.",
+        "matched_control": "Identical MLP training with ordinary squared loss, initialization, seed, and update count.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "adaptive_normalization_v1",
+        "family": "preprocessing",
+        "mechanism": "Use payoff-relevant per-step normalization, including deterministic log-space state features where valid, while emitting the unchanged MLP protocol.",
+        "prediction": "Improves conditioning for heterogeneous correlated baskets relative to ordinary per-step mean/std scaling.",
+        "failure_condition": "No conditioning or public gain, or degradation on raw-scale contracts.",
+        "matched_control": "Same parent, paths, seed, architecture, and compute using current per-step mean/std normalization.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      }
+    ],
+    "next": "Implement boundary_weighted_loss_v1 in train.py with deterministic weights derived only from supplied payoffs and backward targets; keep manifest.json unchanged and compare against a uniform-loss matched control using the same architecture, seed, updates, and artifact protocol."
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "boundary_weighted_loss_v1",
+      "family": "optimization",
+      "mechanism": "Weight continuation regression more heavily when discounted immediate payoff is close to the backward target.",
+      "prediction": "Improves exercise decisions near the stopping boundary, especially for out-of-money puts, without increasing model size.",
+      "failure_condition": "No gain in boundary slices, unstable exercise rates, or lower paired confidence bound than uniform loss.",
+      "matched_control": "Same parent, paths, seed, architecture, updates, and optimizer with uniform squared loss.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "residual_continuation_v1",
+      "family": "representation",
+      "mechanism": "Train the fixed MLP on continuation residuals relative to a simple intrinsic or affine baseline, then reconstruct the continuation value.",
+      "prediction": "Improves sample efficiency and stability on low-volatility one-asset puts with near-simple continuation surfaces.",
+      "failure_condition": "Residual policy loses to raw-target MLP under identical compute or reconstruction produces finite but systematically biased values.",
+      "matched_control": "Same MLP, initialization, data, optimizer, and update budget trained directly on raw backward targets.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "robust_target_loss_v1",
+      "family": "optimization",
+      "mechanism": "Use deterministic Huber or clipped regression for noisy backward cash-flow targets.",
+      "prediction": "Reduces tail-driven policy variance on high-volatility and multi-asset contracts, improving repeat stability.",
+      "failure_condition": "Worse paired lower-bound LCB, materially higher failure rate, or no variance reduction across repeats.",
+      "matched_control": "Identical MLP training with ordinary squared loss, initialization, seed, and update count.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "adaptive_normalization_v1",
+      "family": "preprocessing",
+      "mechanism": "Use payoff-relevant per-step normalization, including deterministic log-space state features where valid, while emitting the unchanged MLP protocol.",
+      "prediction": "Improves conditioning for heterogeneous correlated baskets relative to ordinary per-step mean/std scaling.",
+      "failure_condition": "No conditioning or public gain, or degradation on raw-scale contracts.",
+      "matched_control": "Same parent, paths, seed, architecture, and compute using current per-step mean/std normalization.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    }
+  ],
+  "result_ids": [
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Only the deterministic MLP baseline has been evaluated, scoring -0.003420, so there is no comparative evidence yet. The next round should establish mechanism contrasts under identical data, architecture, initialization, and compute budgets. Prioritize changes likely to affect stopping-boundary accuracy or target variance, while retaining registered artifact protocols and deterministic training.\", \"reason\": \"No mechanism has yet been tested against a matched control.\", \"expected_gain\": 0.001, \"confidence\": 0.25, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"At least one guided candidate exceeds its matched control in paired_lower_bound_lcb on the frozen public suite with finite status.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"boundary_weighted_loss_v1\", \"family\": \"optimization\", \"mechanism\": \"Weight continuation regression more heavily when discounted immediate payoff is close to the backward target.\", \"prediction\": \"Improves exercise decisions near the stopping boundary, especially for out-of-money puts, without increasing model size.\", \"failure_condition\": \"No gain in boundary slices, unstable exercise rates, or lower paired confidence bound than uniform loss.\", \"matched_control\": \"Same parent, paths, seed, architecture, updates, and optimizer with uniform squared loss.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"residual_continuation_v1\", \"family\": \"representation\", \"mechanism\": \"Train the fixed MLP on continuation residuals relative to a simple intrinsic or affine baseline, then reconstruct the continuation value.\", \"prediction\": \"Improves sample efficiency and stability on low-volatility one-asset puts with near-simple continuation surfaces.\", \"failure_condition\": \"Residual policy loses to raw-target MLP under identical compute or reconstruction produces finite but systematically biased values.\", \"matched_control\": \"Same MLP, initialization, data, optimizer, and update budget trained directly on raw backward targets.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"robust_target_loss_v1\", \"family\": \"optimization\", \"mechanism\": \"Use deterministic Huber or clipped regression for noisy backward cash-flow targets.\", \"prediction\": \"Reduces tail-driven policy variance on high-volatility and multi-asset contracts, improving repeat stability.\", \"failure_condition\": \"Worse paired lower-bound LCB, materially higher failure rate, or no variance reduction across repeats.\", \"matched_control\": \"Identical MLP training with ordinary squared loss, initialization, seed, and update count.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"adaptive_normalization_v1\", \"family\": \"preprocessing\", \"mechanism\": \"Use payoff-relevant per-step normalization, including deterministic log-space state features where valid, while emitting the unchanged MLP protocol.\", \"prediction\": \"Improves conditioning for heterogeneous correlated baskets relative to ordinary per-step mean/std scaling.\", \"failure_condition\": \"No conditioning or public gain, or degradation on raw-scale contracts.\", \"matched_control\": \"Same parent, paths, seed, architecture, and compute using current per-step mean/std normalization.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}], \"next\": \"Implement boundary_weighted_loss_v1 in train.py with deterministic weights derived only from supplied payoffs and backward targets; keep manifest.json unchanged and compare against a uniform-loss matched control using the same architecture, seed, updates, and artifact protocol.\"}"
+}

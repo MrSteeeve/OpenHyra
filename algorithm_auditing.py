@@ -614,14 +614,15 @@ def _select_top_k_declared(
         records: list[Mapping[str, Any]],
         *,
         direction: str,
-        top_k: int,
-        run_manifest_sha256: str) -> list[Mapping[str, Any]]:
-    """Select by immutable EB declarations before touching candidate sources."""
+        top_k: int) -> list[Mapping[str, Any]]:
+    """Select by immutable EB declarations before touching candidate sources.
+
+    Callers validate the run-manifest binding for the complete snapshot first;
+    keeping that check in one place avoids re-validating every selected record.
+    """
     selected: list[Mapping[str, Any]] = []
     seen_hashes: set[str] = set()
     for record in _ordered_records(records, direction):
-        if _record_run_manifest_sha256(record) != run_manifest_sha256:
-            raise ValueError("record run manifest provenance mismatch")
         declared = _declared_algorithm_hash(record)
         if declared is None:
             raise ValueError("record lacks declared algorithm_bundle_sha256 provenance")
@@ -769,7 +770,6 @@ def freeze_top_k_algorithm_bundles(
         materialized,
         direction=direction,
         top_k=top_k,
-        run_manifest_sha256=run_manifest_sha256,
     )
     selected: list[tuple[Mapping[str, Any], _BundleSnapshot]] = []
     for record in selected_records:
@@ -1120,7 +1120,6 @@ def verify_frozen_algorithm_bundles(
         materialized,
         direction=manifest.direction,
         top_k=manifest.requested_top_k,
-        run_manifest_sha256=expected_run,
     )
     expected_selection = [
         (

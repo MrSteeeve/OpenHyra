@@ -9,6 +9,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ SOURCE_TREE_IGNORES = {
     "run.log", "train.log", "solution.json", "solution.snapshot.json",
     "evidence.json",
 }
+ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
 HEX_DIGITS = frozenset("0123456789abcdef")
 EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 NUMERIC_THREAD_ENV = {
@@ -49,6 +51,8 @@ TRAINING_SANDBOX_DEFAULT_MEMORY_BYTES = 1024 * 1024 * 1024
 TRAINING_SANDBOX_DEFAULT_FILE_SIZE_BYTES = 64 * 1024 * 1024
 TRAINING_SANDBOX_DEFAULT_TOTAL_OUTPUT_BYTES = 64 * 1024 * 1024
 TRAINING_SANDBOX_DEFAULT_OUTPUT_ENTRIES = 256
+PROCESS_GROUP_PS_TIMEOUT_SECONDS = 0.5
+PROCESS_GROUP_PS_ATTEMPTS = 2
 TRAINING_SANDBOX_DEVICE_READS = (
     Path("/dev/null"),
     Path("/dev/random"),
@@ -409,23 +413,32 @@ def _read_log_tail(stream, max_bytes=TRAINING_SANDBOX_LOG_BYTES):
 
 def _process_group_rss_bytes(process_group):
     """Return aggregate resident bytes for a process group via trusted ps."""
-    try:
-        result = subprocess.run(
-            ["/bin/ps", "-axo", "pgid=,rss="],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=0.2,
-            check=False,
+    last_error = None
+    result = None
+    for _attempt in range(PROCESS_GROUP_PS_ATTEMPTS):
+        try:
+            result = subprocess.run(
+                ["/bin/ps", "-axo", "pgid=,rss="],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=PROCESS_GROUP_PS_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            last_error = exc
+            continue
+        if result.returncode == 0:
+            break
+        last_error = RuntimeError(
+            "ps returned non-zero status: " + result.stderr.strip()[:300]
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(f"could not inspect training memory: {exc}") from exc
-    if result.returncode != 0:
+        result = None
+    if result is None:
         raise RuntimeError(
-            "could not inspect training memory: "
-            + result.stderr.strip()[:300]
-        )
+            f"could not inspect training memory: {last_error}"
+        ) from last_error
     total_kib = 0
     for line in result.stdout.splitlines():
         fields = line.split()
@@ -840,9 +853,86 @@ def read_regular_file(path, max_bytes, *, label=None):
             raise ValueError(
                 f"{label} exceeds the {max_bytes}-byte limit"
             )
+        after = os.fstat(fd)
+        identity_before = (
+            info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns,
+        )
+        identity_after = (
+            after.st_dev, after.st_ino, after.st_mode, after.st_nlink, after.st_size,
+            after.st_mtime_ns, after.st_ctime_ns,
+        )
+        if identity_before != identity_after or len(data) != info.st_size:
+            raise ValueError(f"{label} changed while it was being read")
         return data
     finally:
         os.close(fd)
+
+
+def _configured_algorithm_source_files(task):
+    """Return the task-owned source allowlist for an AlgorithmBundle.
+
+    The harness validates real task specifications before execution, but this
+    helper also protects the lower-level sandbox API when it is called with a
+    lightweight task object or from a standalone test.
+    """
+    configured = getattr(task, "candidate_source_files", None)
+    if configured is None:
+        configured = ALGORITHM_SOURCE_FILES
+    if not isinstance(configured, (list, tuple)) or not configured:
+        raise ValueError("algorithm bundle source_files must be a non-empty list")
+    result = []
+    for name in configured:
+        if (
+            not isinstance(name, str)
+            or not name
+            or "\x00" in name
+            or Path(name).is_absolute()
+            or ".." in Path(name).parts
+            or "\\" in name
+            or name in result
+        ):
+            raise ValueError("algorithm bundle source_files contains an unsafe path")
+        result.append(name)
+    return tuple(result)
+
+
+def snapshot_algorithm_source(source_dir, destination, task, max_bytes):
+    """Copy only declared AlgorithmBundle source files into a trusted root.
+
+    Solver plumbing may need task-owned files such as ``solve.sh``.  The
+    evaluator/training bridge does not: it should receive only the declared
+    algorithm source, so search and final-audit use the same source set and
+    source identity cannot change through an untracked helper file.
+    """
+    source = Path(source_dir)
+    target_root = Path(destination)
+    if target_root.exists() or target_root.is_symlink():
+        raise ValueError("algorithm source destination must be fresh")
+    names = _configured_algorithm_source_files(task)
+    target_root.mkdir(mode=0o700, parents=True)
+    try:
+        for name in sorted(names):
+            data = read_regular_file(
+                source / name,
+                int(max_bytes),
+                label=f"algorithm source file {name}",
+            )
+            target = target_root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            target.chmod(0o400)
+        for directory in sorted(
+            (path for path in target_root.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            directory.chmod(0o500)
+        target_root.chmod(0o500)
+    except Exception:
+        shutil.rmtree(target_root, ignore_errors=True)
+        raise
+    return target_root
 
 
 def _source_tree_entries(source_dir, max_bytes):
@@ -972,7 +1062,16 @@ def _wait_process(proc, timeout_s, cancel_event=None):
 
 def _trusted_score(
         task, snapshot_path, cancel_event=None, *, evaluation_request=None,
-        trusted_dir=None):
+        trusted_dir=None, candidate_source_dir=None):
+    """Run the trusted evaluator for one frozen artifact.
+
+    Legacy evaluators receive exactly the historical ``solution.json`` (and,
+    when configured, the evaluation request).  Algorithm-bundle tasks may
+    additionally receive a parent-controlled, sealed source directory.  The
+    directory is passed as an explicit argv value rather than imported here;
+    arbitrary candidate code is still launched only by the evaluator's own
+    training sandbox.
+    """
     started = time.perf_counter()
     timeout_s = int(getattr(task, "evaluator_timeout_s", 300))
     memory_mb = int(getattr(task, "evaluator_max_memory_mb", 512))
@@ -990,6 +1089,12 @@ def _trusted_score(
             request_path, evaluation_request,
         )
         command.append(str(request_path))
+    if candidate_source_dir is not None:
+        source = Path(candidate_source_dir)
+        # Do not resolve or inspect an untrusted path here: callers pass only
+        # the source snapshot created in ``trusted_dir``.  The evaluator is
+        # responsible for validating the directory before using it.
+        command.extend(("--candidate-source", str(source)))
     limited = [
         sys.executable, "-c", LIMIT_WRAPPER,
         str(memory_mb * 1024 * 1024),
@@ -1000,9 +1105,29 @@ def _trusted_score(
     evaluator_env = os.environ.copy()
     evaluator_env.update(NUMERIC_THREAD_ENV)
     evaluator_env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # The evaluator verdict is a deliberately rich JSON sidecar.  It can be
+    # larger than a platform pipe buffer (the directional feedback projection
+    # includes one compact row per domain slice).  Sending it to PIPE while
+    # waiting for process completion can therefore deadlock before
+    # ``communicate`` gets a chance to drain it.  Capture to parent-owned files
+    # instead; this keeps the polling/cancellation semantics and leaves the
+    # candidate process with no writable handle to the capture files.
+    capture_dir = Path(trusted_dir) if trusted_dir is not None else Path(
+        tempfile.mkdtemp(prefix="openhyra-evaluator-")
+    )
+    capture_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = capture_dir / ".evaluator.stdout"
+    stderr_path = capture_dir / ".evaluator.stderr"
+    for capture_path in (stdout_path, stderr_path):
+        try:
+            capture_path.unlink()
+        except FileNotFoundError:
+            pass
+    stdout_stream = stdout_path.open("wb")
+    stderr_stream = stderr_path.open("wb")
     proc = subprocess.Popen(
-        limited, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, start_new_session=True, env=evaluator_env,
+        limited, stdout=stdout_stream, stderr=stderr_stream,
+        start_new_session=True, env=evaluator_env,
     )
     try:
         try:
@@ -1015,8 +1140,36 @@ def _trusted_score(
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 pass
-        stdout, stderr = proc.communicate()
+        stdout_stream.close()
+        stderr_stream.close()
+        max_capture_bytes = max(1, output_mb * 1024 * 1024)
+        try:
+            stdout = read_regular_file(
+                stdout_path, max_capture_bytes,
+                label="trusted evaluator stdout",
+            ).decode("utf-8", errors="replace")
+        except (OSError, ValueError) as exc:
+            stdout = ""
+            stderr = f"could not read evaluator stdout: {exc}"
+        try:
+            stderr = read_regular_file(
+                stderr_path, max_capture_bytes,
+                label="trusted evaluator stderr",
+            ).decode("utf-8", errors="replace")
+        except (OSError, ValueError) as exc:
+            if not stderr:
+                stderr = f"could not read evaluator stderr: {exc}"
     finally:
+        for capture_path in (stdout_path, stderr_path):
+            try:
+                capture_path.unlink()
+            except OSError:
+                pass
+        if trusted_dir is None:
+            try:
+                capture_dir.rmdir()
+            except OSError:
+                pass
         if request_path is not None:
             try:
                 request_path.chmod(0o600)
@@ -1082,7 +1235,7 @@ def _trusted_score(
 
 def evaluate_trusted_artifact(
         task, artifact_path, trusted_dir, evaluation_request,
-        cancel_event=None):
+        cancel_event=None, candidate_source_dir=None):
     """Evaluate an already-frozen artifact without running candidate code."""
     trusted_dir = Path(trusted_dir)
     if trusted_dir.exists():
@@ -1112,6 +1265,7 @@ def evaluate_trusted_artifact(
         task, snapshot, cancel_event,
         evaluation_request=evaluation_request,
         trusted_dir=trusted_dir,
+        candidate_source_dir=candidate_source_dir,
     )
     metrics = dict(metrics)
     metrics.update({
@@ -1558,7 +1712,8 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     }
     try:
         command = _limited_cmd(task, _sandboxed_cmd(
-            sandbox_dir, task.evaluator, ["bash", "solve.sh"],
+            sandbox_dir, task.evaluator,
+            ["bash", getattr(task, "solve_entrypoint", "solve.sh")],
         ))
     except RuntimeError as exc:
         return None, "crash", str(exc), {}
@@ -1612,6 +1767,25 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         return None, "crash", (log_tail + f"\n{exc}").strip(), base_metrics
     candidate_artifact_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
 
+    candidate_source_dir = None
+    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+        # The solver snapshot may contain task-owned plumbing such as
+        # ``solve.sh`` and the one-line proposal note.  The evaluator/training
+        # bridge receives a filtered, parent-controlled copy containing only
+        # the declared AlgorithmBundle source files, matching final-audit
+        # freezing and closing the untracked-helper identity gap.
+        try:
+            candidate_source_dir = snapshot_algorithm_source(
+                trusted_dir / "source",
+                trusted_dir / "algorithm_source",
+                task,
+                max_source_bytes,
+            )
+        except (OSError, ValueError) as exc:
+            return None, "crash", (
+                log_tail + f"\ncould not prepare algorithm source: {exc}"
+            ).strip(), base_metrics
+
     (
         score, status, metrics, note, evaluator_seconds, normalized, evidence,
         request_sha256,
@@ -1619,6 +1793,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         task, snapshot, cancel_event,
         evaluation_request=getattr(task, "search_evaluation_request", None),
         trusted_dir=trusted_dir,
+        candidate_source_dir=candidate_source_dir,
     )
     if normalized is not None and evidence is not None:
         _apply_formalization_verdict(

@@ -1,0 +1,107 @@
+{
+  "iteration": 3,
+  "eb_version": 5,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004"
+  ],
+  "trial_seed": 1732,
+  "direction": "Implement robust_target_loss_v1 in train.py using a deterministic finite Huber or clipped-residual objective; keep manifest.json and the 16-16 MLP artifact protocol unchanged, and compare against an identical uniform squared-loss control.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Boundary weighting was clearly harmful (-0.00285 versus its matched control). Residualization produced a tiny public improvement (+0.00019), but transfer was refuted, so it is not reliable evidence. The deterministic MLP remains the strongest established reference at -0.003420; adaptive normalization, robust loss, and cross-fitting remain untested. Choose robust loss as a materially different optimization mechanism targeting noisy high-volatility and multi-asset backward targets, with identical architecture, seed, data, optimizer, and update budget.",
+    "reason": "Robust target handling is untested and directly addresses likely tail-driven continuation-target variance.",
+    "expected_gain": 0.0005,
+    "confidence": 0.3,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "The robust-loss candidate has finite status and a higher paired_lower_bound_lcb than its matched uniform-squared-loss control on the frozen public suite.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "robust_target_loss_v1",
+        "family": "optimization",
+        "mechanism": "Train the fixed 16-16 tanh MLP with deterministic Huber loss or explicitly clipped residuals for backward continuation targets.",
+        "prediction": "Reduces tail-driven target variance and improves paired lower-bound performance on high-volatility and multi-asset cells.",
+        "failure_condition": "Lower paired_lower_bound_lcb, higher failure rate, or no repeat-to-repeat stability improvement versus the matched control.",
+        "matched_control": "Same parent, paths, seed, initialization, architecture, optimizer, and update count using ordinary squared loss.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "adaptive_normalization_v1",
+        "family": "preprocessing",
+        "mechanism": "Use payoff-relevant per-step scaling, including deterministic log-space state features where valid, while preserving the registered MLP artifact.",
+        "prediction": "Improves conditioning for heterogeneous correlated baskets and reduces scale-induced fitting error.",
+        "failure_condition": "No targeted-slice gain or degradation on raw-scale contracts.",
+        "matched_control": "Same parent, seed, architecture, and compute using ordinary per-step mean/std normalization.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "cross_fitted_targets_v1",
+        "family": "estimation",
+        "mechanism": "Generate fold-excluded backward cash-flow targets using deterministic path folds, then train the unchanged MLP.",
+        "prediction": "Reduces target reuse bias and improves held-out stopping decisions near exercise boundaries.",
+        "failure_condition": "No paired gain after matching total updates or degradation on a payoff family.",
+        "matched_control": "Ordinary backward targets from the same parent, paths, seed, architecture, optimizer, and update budget.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      }
+    ],
+    "next": "Implement robust_target_loss_v1 in train.py using a deterministic finite Huber or clipped-residual objective; keep manifest.json and the 16-16 MLP artifact protocol unchanged, and compare against an identical uniform squared-loss control."
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "robust_target_loss_v1",
+      "family": "optimization",
+      "mechanism": "Train the fixed 16-16 tanh MLP with deterministic Huber loss or explicitly clipped residuals for backward continuation targets.",
+      "prediction": "Reduces tail-driven target variance and improves paired lower-bound performance on high-volatility and multi-asset cells.",
+      "failure_condition": "Lower paired_lower_bound_lcb, higher failure rate, or no repeat-to-repeat stability improvement versus the matched control.",
+      "matched_control": "Same parent, paths, seed, initialization, architecture, optimizer, and update count using ordinary squared loss.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "adaptive_normalization_v1",
+      "family": "preprocessing",
+      "mechanism": "Use payoff-relevant per-step scaling, including deterministic log-space state features where valid, while preserving the registered MLP artifact.",
+      "prediction": "Improves conditioning for heterogeneous correlated baskets and reduces scale-induced fitting error.",
+      "failure_condition": "No targeted-slice gain or degradation on raw-scale contracts.",
+      "matched_control": "Same parent, seed, architecture, and compute using ordinary per-step mean/std normalization.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "cross_fitted_targets_v1",
+      "family": "estimation",
+      "mechanism": "Generate fold-excluded backward cash-flow targets using deterministic path folds, then train the unchanged MLP.",
+      "prediction": "Reduces target reuse bias and improves held-out stopping decisions near exercise boundaries.",
+      "failure_condition": "No paired gain after matching total updates or degradation on a payoff family.",
+      "matched_control": "Ordinary backward targets from the same parent, paths, seed, architecture, optimizer, and update budget.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    }
+  ],
+  "result_ids": [
+    "sol_0013",
+    "sol_0014",
+    "sol_0015",
+    "sol_0016"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Boundary weighting was clearly harmful (-0.00285 versus its matched control). Residualization produced a tiny public improvement (+0.00019), but transfer was refuted, so it is not reliable evidence. The deterministic MLP remains the strongest established reference at -0.003420; adaptive normalization, robust loss, and cross-fitting remain untested. Choose robust loss as a materially different optimization mechanism targeting noisy high-volatility and multi-asset backward targets, with identical architecture, seed, data, optimizer, and update budget.\", \"reason\": \"Robust target handling is untested and directly addresses likely tail-driven continuation-target variance.\", \"expected_gain\": 0.0005, \"confidence\": 0.3, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"The robust-loss candidate has finite status and a higher paired_lower_bound_lcb than its matched uniform-squared-loss control on the frozen public suite.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"robust_target_loss_v1\", \"family\": \"optimization\", \"mechanism\": \"Train the fixed 16-16 tanh MLP with deterministic Huber loss or explicitly clipped residuals for backward continuation targets.\", \"prediction\": \"Reduces tail-driven target variance and improves paired lower-bound performance on high-volatility and multi-asset cells.\", \"failure_condition\": \"Lower paired_lower_bound_lcb, higher failure rate, or no repeat-to-repeat stability improvement versus the matched control.\", \"matched_control\": \"Same parent, paths, seed, initialization, architecture, optimizer, and update count using ordinary squared loss.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"adaptive_normalization_v1\", \"family\": \"preprocessing\", \"mechanism\": \"Use payoff-relevant per-step scaling, including deterministic log-space state features where valid, while preserving the registered MLP artifact.\", \"prediction\": \"Improves conditioning for heterogeneous correlated baskets and reduces scale-induced fitting error.\", \"failure_condition\": \"No targeted-slice gain or degradation on raw-scale contracts.\", \"matched_control\": \"Same parent, seed, architecture, and compute using ordinary per-step mean/std normalization.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"cross_fitted_targets_v1\", \"family\": \"estimation\", \"mechanism\": \"Generate fold-excluded backward cash-flow targets using deterministic path folds, then train the unchanged MLP.\", \"prediction\": \"Reduces target reuse bias and improves held-out stopping decisions near exercise boundaries.\", \"failure_condition\": \"No paired gain after matching total updates or degradation on a payoff family.\", \"matched_control\": \"Ordinary backward targets from the same parent, paths, seed, architecture, optimizer, and update budget.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}], \"next\": \"Implement robust_target_loss_v1 in train.py using a deterministic finite Huber or clipped-residual objective; keep manifest.json and the 16-16 MLP artifact protocol unchanged, and compare against an identical uniform squared-loss control.\"}"
+}

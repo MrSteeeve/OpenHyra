@@ -1,0 +1,14 @@
+{
+  "schema": "openhyra-policy-spec.v1",
+  "runner_type": "mlp",
+  "inference_config": {
+    "input_dim": "n_assets",
+    "layers": [16, 16],
+    "activation": "tanh",
+    "output_dim": 1,
+    "output_clip": [-1000000.0, 1000000.0]
+  },
+  "output_semantics": "discounted_continuation_value_t0",
+  "normalization": "per_step",
+  "weight_pattern": "step_{:03d}.npy"
+}

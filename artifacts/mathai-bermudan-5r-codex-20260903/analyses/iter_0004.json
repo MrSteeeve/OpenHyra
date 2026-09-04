@@ -1,0 +1,112 @@
+{
+  "iteration": 4,
+  "eb_version": 10,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006",
+    "sol_0007",
+    "sol_0008",
+    "sol_0009"
+  ],
+  "trial_seed": 1733,
+  "direction": "Implement adaptive_normalization_v1 in train.py: derive deterministic per-step payoff-relevant means and scales from the supplied training bundle and instance parameters, train the unchanged 16-16 tanh MLP with identical updates and seed handling, and emit only normalization.json plus step_*.npy under the unchanged manifest.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Baseline scored -0.003420. Residual continuation improved modestly to -0.003231, the current best, but evidence is weak. Boundary weighting, robust loss, and cross-fitting all degraded materially; their predicted benefits are refuted on this suite, though not universally. The next distinct mechanism should test preprocessing, especially heterogeneous correlated baskets, while preserving the fixed 16-16 MLP protocol and compute budget. Avoid log-space feature expansion because the manifest fixes input_dim to n_assets.",
+    "reason": "Test the strongest untried registered direction: adaptive per-step normalization.",
+    "expected_gain": 0.0003,
+    "confidence": 0.18,
+    "phase": "numeric",
+    "target_claim_id": null,
+    "success_criterion": "Produce a finite valid MLP artifact whose paired_lower_bound_lcb exceeds -0.003231424465847859 on the frozen public suite.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "adaptive_normalization_v1",
+        "family": "preprocessing",
+        "mechanism": "Estimate deterministic payoff-relevant per-step centering and scaling from supplied states, payoffs, and instance parameters while retaining n_assets inputs and the unchanged MLP manifest.",
+        "prediction": "Improves conditioning and paired LCB on heterogeneous correlated-basket and raw-scale cells.",
+        "failure_condition": "No targeted-slice gain, lower public LCB, or degradation on raw-scale contracts.",
+        "matched_control": "Current per-step mean/std normalization with identical parent, paths, seed, architecture, optimizer, and update budget.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "fold_ensemble_v1",
+        "family": "estimation",
+        "mechanism": "Average several deterministic fold-trained MLP parameter sets within the same artifact vector format and total update budget.",
+        "prediction": "Reduces repeat-to-repeat policy variance and improves the public LCB.",
+        "failure_condition": "No variance reduction or worse score under matched total compute.",
+        "matched_control": "One MLP trained with the same total optimizer updates, data, seed, and architecture.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "time_conditioned_representation_v1",
+        "family": "representation",
+        "mechanism": "Use causal exercise-time information through per-step normalization or target scaling without changing the fixed n_assets artifact input dimension.",
+        "prediction": "Helps irregular-grid and long-maturity contracts.",
+        "failure_condition": "No irregular-grid gain or runtime-adjusted degradation.",
+        "matched_control": "Same MLP and training budget with time omitted from preprocessing.",
+        "target_slices": [],
+        "implementation_hint": "",
+        "source": "context"
+      }
+    ],
+    "next": "Implement adaptive_normalization_v1 in train.py: derive deterministic per-step payoff-relevant means and scales from the supplied training bundle and instance parameters, train the unchanged 16-16 tanh MLP with identical updates and seed handling, and emit only normalization.json plus step_*.npy under the unchanged manifest."
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "adaptive_normalization_v1",
+      "family": "preprocessing",
+      "mechanism": "Estimate deterministic payoff-relevant per-step centering and scaling from supplied states, payoffs, and instance parameters while retaining n_assets inputs and the unchanged MLP manifest.",
+      "prediction": "Improves conditioning and paired LCB on heterogeneous correlated-basket and raw-scale cells.",
+      "failure_condition": "No targeted-slice gain, lower public LCB, or degradation on raw-scale contracts.",
+      "matched_control": "Current per-step mean/std normalization with identical parent, paths, seed, architecture, optimizer, and update budget.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "fold_ensemble_v1",
+      "family": "estimation",
+      "mechanism": "Average several deterministic fold-trained MLP parameter sets within the same artifact vector format and total update budget.",
+      "prediction": "Reduces repeat-to-repeat policy variance and improves the public LCB.",
+      "failure_condition": "No variance reduction or worse score under matched total compute.",
+      "matched_control": "One MLP trained with the same total optimizer updates, data, seed, and architecture.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "time_conditioned_representation_v1",
+      "family": "representation",
+      "mechanism": "Use causal exercise-time information through per-step normalization or target scaling without changing the fixed n_assets artifact input dimension.",
+      "prediction": "Helps irregular-grid and long-maturity contracts.",
+      "failure_condition": "No irregular-grid gain or runtime-adjusted degradation.",
+      "matched_control": "Same MLP and training budget with time omitted from preprocessing.",
+      "target_slices": [],
+      "implementation_hint": "",
+      "source": "context"
+    }
+  ],
+  "result_ids": [
+    "sol_0017",
+    "sol_0018",
+    "sol_0019",
+    "sol_0020"
+  ],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Baseline scored -0.003420. Residual continuation improved modestly to -0.003231, the current best, but evidence is weak. Boundary weighting, robust loss, and cross-fitting all degraded materially; their predicted benefits are refuted on this suite, though not universally. The next distinct mechanism should test preprocessing, especially heterogeneous correlated baskets, while preserving the fixed 16-16 MLP protocol and compute budget. Avoid log-space feature expansion because the manifest fixes input_dim to n_assets.\", \"reason\": \"Test the strongest untried registered direction: adaptive per-step normalization.\", \"expected_gain\": 0.0003, \"confidence\": 0.18, \"phase\": \"numeric\", \"target_claim_id\": null, \"success_criterion\": \"Produce a finite valid MLP artifact whose paired_lower_bound_lcb exceeds -0.003231424465847859 on the frozen public suite.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"adaptive_normalization_v1\", \"family\": \"preprocessing\", \"mechanism\": \"Estimate deterministic payoff-relevant per-step centering and scaling from supplied states, payoffs, and instance parameters while retaining n_assets inputs and the unchanged MLP manifest.\", \"prediction\": \"Improves conditioning and paired LCB on heterogeneous correlated-basket and raw-scale cells.\", \"failure_condition\": \"No targeted-slice gain, lower public LCB, or degradation on raw-scale contracts.\", \"matched_control\": \"Current per-step mean/std normalization with identical parent, paths, seed, architecture, optimizer, and update budget.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"fold_ensemble_v1\", \"family\": \"estimation\", \"mechanism\": \"Average several deterministic fold-trained MLP parameter sets within the same artifact vector format and total update budget.\", \"prediction\": \"Reduces repeat-to-repeat policy variance and improves the public LCB.\", \"failure_condition\": \"No variance reduction or worse score under matched total compute.\", \"matched_control\": \"One MLP trained with the same total optimizer updates, data, seed, and architecture.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"time_conditioned_representation_v1\", \"family\": \"representation\", \"mechanism\": \"Use causal exercise-time information through per-step normalization or target scaling without changing the fixed n_assets artifact input dimension.\", \"prediction\": \"Helps irregular-grid and long-maturity contracts.\", \"failure_condition\": \"No irregular-grid gain or runtime-adjusted degradation.\", \"matched_control\": \"Same MLP and training budget with time omitted from preprocessing.\", \"target_slices\": [], \"implementation_hint\": \"\", \"source\": \"context\"}], \"next\": \"Implement adaptive_normalization_v1 in train.py: derive deterministic per-step payoff-relevant means and scales from the supplied training bundle and instance parameters, train the unchanged 16-16 tanh MLP with identical updates and seed handling, and emit only normalization.json plus step_*.npy under the unchanged manifest.\"}"
+}
