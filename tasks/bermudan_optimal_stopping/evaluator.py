@@ -1811,7 +1811,8 @@ def _training_provenance(
     return {
         **dict(train_details),
         "instance_id": instance.instance_id,
-        "train_seed": int(train_seed),
+        "path_seed": int(train_seed),
+        "train_seed": int(train_details.get("train_seed", train_seed)),
         "training_path_count": int(paths.shape[0]),
         "training_paths_shape": list(paths.shape),
         "training_paths_sha256": _sha256_array(paths),
@@ -2014,7 +2015,9 @@ def _independent_validation(
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Run one fresh replay and a causal lookahead probe for a top candidate."""
+    probe_started = time.perf_counter()
     lookahead = _lookahead_probe(policy, instance, train_seed ^ 0x5EED)
+    probe_seconds = time.perf_counter() - probe_started
     result: dict[str, Any] = {
         "schema": "openhyra-bermudan-independent-validation.v1",
         "observed": True,
@@ -2074,11 +2077,9 @@ def _independent_validation(
                 "prediction_equal": False,
                 "reason": f"{type(exc).__name__}: {exc}"[:1000],
             }
-    # Wall-clock values are retained in the per-cell training details.  Keep
-    # this compact validation projection deterministic so a fixed seed can be
-    # compared byte-for-byte across repeated evaluator calls.
-    result["cost"]["replay_wall_seconds"] = 0.0
-    result["cost"]["probe_wall_seconds"] = 0.0
+    # Timing is an observed cost, not part of numerical replay identity.
+    result["cost"]["replay_wall_seconds"] = time.perf_counter() - started
+    result["cost"]["probe_wall_seconds"] = probe_seconds
     return result
 
 
@@ -2208,6 +2209,10 @@ def _evaluate_search(
                     "paired_normalized_standard_error": paired_se,
                     "paired_loss_var95": paired_loss_q95,
                     "paired_loss_cvar95": paired_loss_cvar95,
+                    **({
+                        "pricing_paths_sha256": _sha256_array(pricing),
+                        "paired_pathwise_improvements": paired.tolist(),
+                    } if config.get("public_pathwise_samples", False) else {}),
                     # Compact policy-geometry descriptors used by V5's
                     # BehaviorProfile and by the mechanism critic.  These are
                     # computed from evaluator-owned pricing outcomes, never
@@ -2686,7 +2691,7 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         # score, suite, seed, causal inputs, or evaluator-owned arithmetic.
         "research_mode", "independent_validation",
     }
-    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else set())
+    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else {"public_pathwise_samples"})
     _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
     expected_direction = "max" if stage == "search" else "min"
     direction = raw.get("direction", expected_direction)
@@ -2709,9 +2714,8 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         "direction": direction,
         "metric": metric,
         "confidence_level": confidence,
-        # Research mode is an explicit provenance bit.  It can enable the
-        # documented host fallback on managed macOS, but never changes the
-        # evaluator-owned score or causal input boundary.
+        # Research mode labels the experiment; it never bypasses isolation or
+        # changes the evaluator-owned score or causal input boundary.
         "research_mode": bool(raw.get("research_mode", False)),
         "independent_validation": bool(raw.get("independent_validation", True)),
         "instance_count": _strict_int(raw.get("instance_count", defaults["instance_count"]), path="config.instance_count", minimum=1, maximum=4 if stage == "search" else 8),
@@ -2720,7 +2724,7 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         "pricing_paths": _strict_int(raw.get("pricing_paths", defaults["pricing_paths"]), path="config.pricing_paths", minimum=64, maximum=50_000),
         "ridge_alpha": _strict_float(raw.get("ridge_alpha", defaults["ridge_alpha"]), path="config.ridge_alpha", minimum=1e-12, maximum=1.0),
     }
-    for key in ("research_mode", "independent_validation"):
+    for key in ("research_mode", "independent_validation", "public_pathwise_samples"):
         if key in raw:
             if not isinstance(raw[key], bool):
                 raise ValueError(f"config.{key} must be boolean")

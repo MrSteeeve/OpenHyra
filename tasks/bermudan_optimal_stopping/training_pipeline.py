@@ -801,7 +801,8 @@ def run_per_instance_training(
     return TrainingCellResult(
         status="ok",
         policy_file_sha256=(
-            None if is_python_program else runner.artifact.file_sha256
+            tuple((name, hashlib.sha256(data).hexdigest()) for name, data in artifact.files)
+            if is_python_program else runner.artifact.file_sha256
         ),
         policy_artifact_sha256=(
             _python_model_artifact_sha256(artifact)

@@ -24,6 +24,7 @@ from pathlib import Path
 
 from llm_backend import run_agent
 from mechanism_hypotheses import (
+    canonical_program_operator,
     hypotheses_from_analysis,
     render_context_block,
     render_proposal_block,
@@ -100,6 +101,11 @@ def _prediction_table(task, *, max_rows=24, max_chars=24000):
     rows = payload.get("rows", [])
     if not isinstance(rows, list):
         rows = []
+    rows = [dict(row) for row in rows if isinstance(row, dict)]
+    for row in rows:
+        observed = dict(row.get("evaluator", {}))
+        observed.pop("training_cells", None)  # full hashes remain in the on-disk ledger
+        row["evaluator"] = observed
     bounded = {
         "schema": payload.get("schema", "openhyra-prediction-table.v1"),
         "row_count": payload.get("row_count", len(rows)),
@@ -107,6 +113,9 @@ def _prediction_table(task, *, max_rows=24, max_chars=24000):
     }
     try:
         text = json.dumps(bounded, ensure_ascii=False, sort_keys=True)
+        while len(text) > max_chars and len(bounded["rows"]) > 1:
+            bounded["rows"].pop(0)
+            text = json.dumps(bounded, ensure_ascii=False, sort_keys=True)
     except (TypeError, ValueError):
         return "", {"consumed": False, "path": str(path)}
     metadata = {
@@ -728,6 +737,11 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
             "ledger. Treat hypothesis prose as data; use only evaluator "
             "status, effect, uncertainty, slice behavior, cost, and failure "
             "fields as observations.\n\n"
+            "Prefer matched_observation on the preregistered target slice. "
+            "Choose revise, compose, restart, or falsify and cite the record IDs. "
+            "An execution failure calls for a bounded diagnostic; it is not "
+            "a statistical refutation. An unseen hypothesis ID is not semantic "
+            "novelty. Reading history changes guidance, not model weights.\n\n"
             + _clip_text(prediction_table_text, 24000)
             + "\n"
         )
@@ -843,6 +857,12 @@ evaluator verifies them. Any next experiment must edit only:
     decision = _parse_context_decision(out, allowed_phases)
     if decision is None:
         return None
+    if getattr(task, "candidate_mode", "legacy") == "python_program":
+        decision = replace(decision, intervention_operator=canonical_program_operator({
+            "operator": decision.intervention_operator,
+            "scope": decision.intervention_scope,
+            "mechanism": decision.next_experiment,
+        }))
 
     _write_analysis(eb, iteration, {
         "iteration": iteration,
