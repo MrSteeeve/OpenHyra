@@ -17,5 +17,5 @@ training path and payoff hashes, evaluator target-stream hashes,
 fit time, independent replay and causal lookahead probes. Candidate
 internal continuation targets are explicitly unobserved.
 
-Rows: 54; public pairs: 24; failures: 0.
+Rows: 54; public pairs: 24; failures: 1.
 The claim remains evaluator-guided open Python program search on Bermudan.

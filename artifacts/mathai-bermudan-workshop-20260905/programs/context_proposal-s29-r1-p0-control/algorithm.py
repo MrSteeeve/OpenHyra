@@ -1,108 +1,49 @@
 #!/usr/bin/env python3
-"""Complete fit/predict seed for the open Python-program track.
-
-This is deliberately just one ordinary starting program. Search candidates
-may replace every function, model representation, objective, and update rule.
-"""
-
+"""Small one-hidden-layer MLP continuation program trained in NumPy."""
 from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path
-
 import numpy as np
 
+def features(states, immediate):
+    z=np.log(np.maximum(np.asarray(states,float),1e-12))
+    return np.column_stack([np.ones(len(z)),z,z*z,np.mean(z,1),np.asarray(immediate,float)])
 
-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
-    states = np.asarray(states, dtype=np.float64)
-    logged = np.log(np.maximum(states, 1e-12))
-    columns = [
-        np.ones(states.shape[0], dtype=np.float64),
-        *[logged[:, index] for index in range(logged.shape[1])],
-        *[logged[:, index] ** 2 for index in range(logged.shape[1])],
-        np.mean(logged, axis=1),
-        np.min(logged, axis=1),
-        np.max(logged, axis=1),
-        np.asarray(immediate, dtype=np.float64),
-    ]
-    return np.column_stack(columns)
+def fit(input_dir:Path,output_dir:Path,seed:int)->None:
+    rng=np.random.default_rng(int(seed)); paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False); steps=paths.shape[1]-1
+    d=features(paths[:,0,:],payoffs[:,0]).shape[1]; hidden=min(24,max(8,2*d))
+    w1s=[]; b1s=[]; w2s=[]; b2s=[]; cash=np.asarray(payoffs[:,-1],float).copy()
+    for t in range(steps-1,-1,-1):
+        x=features(paths[:,t,:],payoffs[:,t]); mean=x.mean(0); scale=x.std(0); mean[0]=0.; scale[scale<1e-10]=1.; x=(x-mean)/scale
+        w1=rng.normal(0,0.15,(d,hidden)); b1=np.zeros(hidden); w2=rng.normal(0,0.15,hidden); b2=float(cash.mean())
+        for _ in range(36):
+            h=np.tanh(x@w1+b1); pred=h@w2+b2; err=pred-cash
+            grad=2.0*err/len(x); gw2=h.T@grad; gb2=grad.sum(); gh=(grad[:,None]*w2)*(1-h*h)
+            w1-=0.04*(x.T@gh); b1-=0.04*gh.sum(0); w2-=0.04*gw2; b2-=0.04*gb2
+        pred=np.tanh(x@w1+b1)@w2+b2; cash=np.where(payoffs[:,t]>=pred,payoffs[:,t],cash)
+        w1s.append(w1); b1s.append(b1); w2s.append(w2); b2s.append(b2)
+    w1s=w1s[::-1]; b1s=b1s[::-1]; w2s=w2s[::-1]; b2s=b2s[::-1]
+    # Recompute and store normalizers in a deterministic second pass.
+    means=[]; scales=[]
+    for t in range(steps):
+        x=features(paths[:,t,:],payoffs[:,t]); m=x.mean(0); s=x.std(0); m[0]=0.; s[s<1e-10]=1.; means.append(m); scales.append(s)
+    output_dir.mkdir(parents=True,exist_ok=True)
+    np.savez(output_dir/"model.npz",w1=np.asarray(w1s),b1=np.asarray(b1s),w2=np.asarray(w2s),b2=np.asarray(b2s),means=np.asarray(means),scales=np.asarray(scales))
 
+def predict(model_dir:Path,input_dir:Path,output_dir:Path)->None:
+    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+    with np.load(model_dir/"model.npz",allow_pickle=False) as m:
+        x=features(states,immediate); x=(x-m["means"][t])/m["scales"][t]; out=np.tanh(x@m["w1"][t]+m["b1"][t])@m["w2"][t]+m["b2"][t]
+    output_dir.mkdir(parents=True,exist_ok=True); np.save(output_dir/"predictions.npy",np.asarray(out,float),allow_pickle=False)
 
-def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
-    del seed
-    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
-    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
-    n_steps = paths.shape[1] - 1
-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
-    means = np.zeros_like(coefficients)
-    scales = np.ones_like(coefficients)
-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
-
-    for time_index in range(n_steps - 1, -1, -1):
-        design = features(paths[:, time_index, :], payoffs[:, time_index])
-        mean = np.mean(design, axis=0)
-        scale = np.std(design, axis=0)
-        mean[0] = 0.0
-        scale[scale < 1e-10] = 1.0
-        normalized = (design - mean) / scale
-        gram = normalized.T @ normalized
-        gram.flat[:: feature_count + 1] += 1e-6
-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
-        continuation = normalized @ coefficient
-        exercise = payoffs[:, time_index] >= continuation
-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
-        coefficients[time_index] = coefficient
-        means[time_index] = mean
-        scales[time_index] = scale
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        output_dir / "model.npz",
-        coefficients=coefficients,
-        means=means,
-        scales=scales,
-    )
-
-
-def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
-    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
-    time_index = int(request["time_index"])
-    states = np.load(input_dir / "states.npy", allow_pickle=False)
-    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
-    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
-        design = features(states, immediate)
-        normalized = (
-            design - model["means"][time_index]
-        ) / model["scales"][time_index]
-        predictions = normalized @ model["coefficients"][time_index]
-    output_dir.mkdir(parents=True, exist_ok=True)
-    np.save(
-        output_dir / "predictions.npy",
-        np.asarray(predictions, dtype=np.float64),
-        allow_pickle=False,
-    )
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    fit_parser = subparsers.add_parser("fit")
-    fit_parser.add_argument("--input", required=True)
-    fit_parser.add_argument("--output", required=True)
-    fit_parser.add_argument("--seed", required=True, type=int)
-    predict_parser = subparsers.add_parser("predict")
-    predict_parser.add_argument("--model", required=True)
-    predict_parser.add_argument("--input", required=True)
-    predict_parser.add_argument("--output", required=True)
-    args = parser.parse_args()
-
-    if args.command == "fit":
-        fit(Path(args.input), Path(args.output), args.seed)
-    else:
-        predict(Path(args.model), Path(args.input), Path(args.output))
-
-
-if __name__ == "__main__":
-    main()
+def main():
+    p=argparse.ArgumentParser(); s=p.add_subparsers(dest="command",required=True)
+    f=s.add_parser("fit"); f.add_argument("--input",required=True); f.add_argument("--output",required=True); f.add_argument("--seed",type=int,required=True)
+    q=s.add_parser("predict"); q.add_argument("--model",required=True); q.add_argument("--input",required=True); q.add_argument("--output",required=True)
+    a=p.parse_args()
+    if a.command=="fit": fit(Path(a.input),Path(a.output),a.seed)
+    else: predict(Path(a.model),Path(a.input),Path(a.output))
+if __name__=="__main__": main()

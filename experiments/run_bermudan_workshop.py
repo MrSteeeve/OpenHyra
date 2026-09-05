@@ -62,8 +62,9 @@ def evaluate(path, stage, seed):
                     wall_seconds=time.perf_counter()-started,
                     failure_reason=type(exc).__name__ + ": " + str(exc)[:2000])
 
-def generated_source(operator, seed, secondary_family):
-    parent_source = source("linear_ridge")
+def generated_source(operator, seed, secondary_family, parent_source=None):
+    parent_source = dict(parent_source or source("linear_ridge"))
+    parent_ref = "source:" + digest(parent_source)[:12]
     if operator == "whole_program_restart":
         # The generator callback has no parent program in its request.
         def generator(_request):
@@ -73,14 +74,17 @@ def generated_source(operator, seed, secondary_family):
         space = PythonProgramSearchSpace(generator=generator, seeds=[parent_source],
                                          required_symbol="predict")
         child = space.propose(context={"operator": "llm_generate"}, slot=seed)
-        return dict(child.implementation["source"]), [], {"generator": "deterministic_repository_program"}
+        return dict(child.implementation["source"]), [parent_ref], {"generator": "deterministic_repository_program", "discarded_parent": True}
     if operator in {"ast_mutation", "ast_crossover"}:
         seeds = [parent_source, source(secondary_family)]
         space = PythonProgramSearchSpace(seeds=seeds, required_symbol="predict")
         left, right = space.candidates[:2]
         child = (space.mutate(left, slot=seed) if operator == "ast_mutation" else
                  space.crossover(left, right, slot=seed))
-        return dict(child.implementation["source"]), list(child.parent_ids), dict(child.metadata)
+        lineage = [parent_ref]
+        if operator == "ast_crossover":
+            lineage.append("source:" + digest(source(secondary_family))[:12])
+        return dict(child.implementation["source"]), lineage, dict(child.metadata)
     # Replace the complete fit body while the parent predict/CLI stays intact.
     # The two regime fits emit their mean coefficients under the parent's
     # model contract, so the subsystem replacement is executable by that same
@@ -89,7 +93,7 @@ def generated_source(operator, seed, secondary_family):
         'coefficients_lo=lo_coef, coefficients_hi=hi_coef,',
         'coefficients=(lo_coef + hi_coef) * 0.5, coefficients_lo=lo_coef, coefficients_hi=hi_coef,')
     rebuilt = _rebuild_program_subsystem(parent_source["algorithm.py"], proposed, "fit")
-    return {**parent_source, "algorithm.py": rebuilt}, ["linear_ridge"], {"subsystem": "fit", "untouched_subsystem": "predict"}
+    return {**parent_source, "algorithm.py": rebuilt}, [parent_ref], {"subsystem": "fit", "untouched_subsystem": "predict"}
 
 def summarize_pair(pair):
     guided, control = pair
@@ -119,6 +123,7 @@ def run(output):
         for seed in SEEDS:
             prior_effect = None
             successful = []
+            context_parent = dict(baseline)
             for round_index in range(2):
                 if round_index == 0:
                     operators = ("whole_program_restart", "ast_mutation")
@@ -127,10 +132,16 @@ def run(output):
                     operators = ("ast_crossover", "subsystem_rewrite")
                     secondary = ("residual_hybrid" if prior_effect is not None and prior_effect > 0 else "mlp") if mode == "context_proposal" else "pca_ridge"
                 round_pairs = []
+                round_guided = []
                 for pair_index, operator in enumerate(operators):
                     trial_seed = seed*1000 + round_index*10 + pair_index
                     pair_id = f"{mode}-s{seed}-r{round_index}-p{pair_index}"
-                    child_source, lineage, operator_detail = generated_source(operator, trial_seed, secondary)
+                    parent_source = (
+                        context_parent if mode == "context_proposal" else baseline
+                    )
+                    child_source, lineage, operator_detail = generated_source(
+                        operator, trial_seed, secondary, parent_source
+                    )
                     hypothesis = dict(id=pair_id, mechanism=f"{operator} with {secondary}",
                                       prediction="the guided program improves the matched public score",
                                       falsifier="the unchanged parent control is at least as good",
@@ -139,7 +150,7 @@ def run(output):
                                       previous_effect=prior_effect,
                                       next_probe="private hidden audit after both public rounds")
                     pair = []
-                    for arm, files in (("guided", child_source), ("control", baseline)):
+                    for arm, files in (("guided", child_source), ("control", parent_source)):
                         candidate_id = pair_id+"-"+arm
                         path = materialize(output/"programs"/candidate_id, files)
                         result = evaluate(path, "search", seed+round_index*100+pair_index)
@@ -149,16 +160,26 @@ def run(output):
                                    candidate_seed=trial_seed, hypothesis=hypothesis,
                                    proposal=dict(operator=operator if arm=="guided" else "identity_control",
                                                  executed=(arm == "guided"), source_digest=digest(files),
-                                                 baseline_parent_digest=digest(baseline),
+                                   baseline_parent_digest=digest(parent_source),
                                                  parent_lineage=lineage if arm=="guided" else ["linear_ridge"],
                                                  operator_detail=operator_detail if arm=="guided" else {}),
                                    result=result)
                         rows.append(row); pair.append(row)
                         if arm=="guided" and result["status"]=="ok":
                             successful.append((row,path))
+                            round_guided.append((row, child_source))
                     summary = summarize_pair(pair); pairs.append(summary); round_pairs.append(summary)
                 observed = [p["effect_guided_minus_control"] for p in round_pairs if p["effect_guided_minus_control"] is not None]
                 prior_effect = max(observed) if observed else None
+                if mode == "context_proposal" and round_guided:
+                    # Context feedback changes the parent source for the next
+                    # round; direct generation intentionally keeps its frozen
+                    # baseline parent schedule.
+                    chosen, chosen_source = max(
+                        round_guided,
+                        key=lambda item: item[0]["result"]["score"],
+                    )
+                    context_parent = dict(chosen_source)
             winner, path = max(successful, key=lambda x: x[0]["result"]["score"])
             audit = evaluate(path, "audit", seed+9000)
             rows.append(dict(schema="openhyra-bermudan-workshop-audit.v1",

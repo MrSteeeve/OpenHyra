@@ -1,19 +1,13 @@
-"""Complete fit/predict seed for the open Python-program track.
-
-This is deliberately just one ordinary starting program. Search candidates
-may replace every function, model representation, objective, and update rule.
-"""
+"""Small one-hidden-layer MLP continuation program trained in NumPy."""
 from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
 import numpy as np
 
-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
-    states = np.asarray(states, dtype=np.float64)
-    logged = np.log(np.maximum(states, 1e-12))
-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
-    return np.column_stack(columns)
+def features(states, immediate):
+    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), np.asarray(immediate, float)])
 
 def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
     paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
@@ -49,32 +43,32 @@ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
     np.savez(output_dir / 'model.npz', coefficients=(lo_coef + hi_coef) * 0.5, coefficients_lo=lo_coef, coefficients_hi=hi_coef, means=means, scales=scales, thresholds=thresholds)
 
 def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
-    time_index = int(request['time_index'])
+    req = json.loads((input_dir / 'request.json').read_text())
+    t = int(req['time_index'])
     states = np.load(input_dir / 'states.npy', allow_pickle=False)
     immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
-        design = features(states, immediate)
-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
-        predictions = normalized @ model['coefficients'][time_index]
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+        x = features(states, immediate)
+        x = (x - m['means'][t]) / m['scales'][t]
+        out = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
     output_dir.mkdir(parents=True, exist_ok=True)
-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+    np.save(output_dir / 'predictions.npy', np.asarray(out, float), allow_pickle=False)
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest='command', required=True)
-    fit_parser = subparsers.add_parser('fit')
-    fit_parser.add_argument('--input', required=True)
-    fit_parser.add_argument('--output', required=True)
-    fit_parser.add_argument('--seed', required=True, type=int)
-    predict_parser = subparsers.add_parser('predict')
-    predict_parser.add_argument('--model', required=True)
-    predict_parser.add_argument('--input', required=True)
-    predict_parser.add_argument('--output', required=True)
-    args = parser.parse_args()
-    if args.command == 'fit':
-        fit(Path(args.input), Path(args.output), args.seed)
+def main():
+    p = argparse.ArgumentParser()
+    s = p.add_subparsers(dest='command', required=True)
+    f = s.add_parser('fit')
+    f.add_argument('--input', required=True)
+    f.add_argument('--output', required=True)
+    f.add_argument('--seed', type=int, required=True)
+    q = s.add_parser('predict')
+    q.add_argument('--model', required=True)
+    q.add_argument('--input', required=True)
+    q.add_argument('--output', required=True)
+    a = p.parse_args()
+    if a.command == 'fit':
+        fit(Path(a.input), Path(a.output), a.seed)
     else:
-        predict(Path(args.model), Path(args.input), Path(args.output))
+        predict(Path(a.model), Path(a.input), Path(a.output))
 if __name__ == '__main__':
     main()

@@ -20,7 +20,7 @@
   },
   "candidate_count_per_round": 4,
   "claim_boundary": "evaluator-guided open Python program search on Bermudan; LLM search effect, novelty and out-of-suite superiority remain unobserved",
-  "failed_rows": 0,
+  "failed_rows": 1,
   "modes": [
     "context_proposal",
     "direct_generation"
@@ -133,12 +133,12 @@
       "uncertainty_note": "max of arm standard errors; pilot diagnostic, not an independent paired estimator"
     },
     {
-      "effect_guided_minus_control": -0.00147244369241902,
+      "effect_guided_minus_control": 0.02294626316539307,
       "mode": "context_proposal",
-      "next_action": "revise",
+      "next_action": "compose",
       "operator": "ast_crossover",
       "pair_id": "context_proposal-s29-r1-p0",
-      "prediction_verdict": "inconclusive",
+      "prediction_verdict": "supported",
       "round": 1,
       "same_baseline_parent": true,
       "same_candidate_seed": true,
@@ -146,16 +146,16 @@
       "same_evaluator_request": true,
       "schema": "openhyra-bermudan-workshop-pair.v1",
       "seed": 29,
-      "standard_error": 0.004470499581651251,
+      "standard_error": 0.007013319323924844,
       "uncertainty_note": "max of arm standard errors; pilot diagnostic, not an independent paired estimator"
     },
     {
-      "effect_guided_minus_control": -0.00906906476143529,
+      "effect_guided_minus_control": null,
       "mode": "context_proposal",
-      "next_action": "revise",
+      "next_action": "restart",
       "operator": "subsystem_rewrite",
       "pair_id": "context_proposal-s29-r1-p1",
-      "prediction_verdict": "inconclusive",
+      "prediction_verdict": "execution_failed",
       "round": 1,
       "same_baseline_parent": true,
       "same_candidate_seed": true,
@@ -163,7 +163,7 @@
       "same_evaluator_request": true,
       "schema": "openhyra-bermudan-workshop-pair.v1",
       "seed": 29,
-      "standard_error": 0.007461192785965585,
+      "standard_error": 0.0026877978361694774,
       "uncertainty_note": "max of arm standard errors; pilot diagnostic, not an independent paired estimator"
     },
     {
@@ -462,5 +462,5 @@
     29,
     41
   ],
-  "successful_rows": 54
+  "successful_rows": 53
 }
