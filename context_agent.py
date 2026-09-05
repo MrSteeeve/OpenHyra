@@ -118,7 +118,29 @@ def _candidate_contract_block(task):
     ``train.py`` is source code and ``manifest.json`` is a declaration, while
     generated per-instance weights remain evaluator-owned outputs.
     """
-    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+    candidate_mode = getattr(task, "candidate_mode", "legacy")
+    if candidate_mode == "python_program":
+        source_files = getattr(task, "candidate_source_files", ())
+        files = ", ".join(f"`{name}`" for name in source_files)
+        entrypoint = getattr(task, "candidate_entrypoint", "algorithm.py")
+        protocol = getattr(task, "artifact_protocol", "openhyra-python-program.v1")
+        return (
+            "\nOpen Python program contract:\n"
+            f"- mode: `python_program`; editable source files: {files}\n"
+            f"- entrypoint: `{entrypoint}`; manifest schema: `{protocol}`\n"
+            f"- `{entrypoint} fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER` "
+            "may implement any finite training, search, representation, data structure, "
+            "or model-building algorithm and may write an opaque model tree.\n"
+            f"- `{entrypoint} predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR` "
+            "must emit `predictions.npy` for the current causal query.\n"
+            "- Keep top-level `fit(...)` and `predict(...)` functions behind the CLI "
+            "so structural crossover can compose both executable function graphs.\n"
+            "- `manifest.json` declares only `interface`: either `continuation` values "
+            "or direct `decision` outputs. Both are first-class program interfaces.\n"
+            "- Propose and revise complete Python algorithm structures. The search space "
+            "is not a menu of registered model families.\n"
+        )
+    if candidate_mode != "algorithm_bundle":
         return ""
     source_files = getattr(task, "candidate_source_files", ())
     files = ", ".join(f"`{name}`" for name in source_files)
@@ -600,7 +622,9 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
     # the legacy single-direction ``next`` field.  The task-owned evaluator
     # remains the authority; this only widens the proposal vocabulary.
     open_mechanism_task = (
-        getattr(task, "candidate_mode", "legacy") == "algorithm_bundle"
+        getattr(task, "candidate_mode", "legacy") in {
+            "algorithm_bundle", "python_program",
+        }
         or bool(getattr(task, "adaptive_feedback", False))
     )
     mechanism_output_field = (

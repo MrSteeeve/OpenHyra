@@ -220,6 +220,7 @@ def get_metrics_adapter(protocol: str):
         # fields instead of falling back to generic passthrough metrics.
         "bermudan-lsmc-python.v1": adapt_bermudan_metrics,
         "bermudan-lsmc-algorithm-bundle.v1": adapt_bermudan_metrics,
+        "bermudan-python-program-search.v1": adapt_bermudan_metrics,
     }
     adapter = _ADAPTERS.get(protocol)
     if adapter is not None:

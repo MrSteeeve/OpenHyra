@@ -1,7 +1,6 @@
 #!/bin/bash
-# ``solution.json`` is only the manifest transport envelope.  The trusted
-# evaluator executes train.py separately for each instance and loads the
-# resulting data-only policy artifact through its registered MLP runner.
+# ``solution.json`` transports the program interface declaration.  The
+# evaluator invokes algorithm.py fit/predict separately for each instance.
 set -eu
 cd "$(dirname "$0")"
 cp manifest.json solution.json

@@ -5,6 +5,9 @@ folder; the harness then runs the draft in a sandbox, scores it with the trusted
 evaluator, and commits the result to the Experience Bank.
 """
 
+import ast
+import copy
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -15,6 +18,257 @@ RUN_ARTIFACTS = [".venv", "__pycache__", ".git", "run.log", "train.log",
                  "PROPOSAL.md", "solution.json", "evidence.json"]
 
 MAX_REPAIR_FEEDBACK_CHARS = 6000
+
+
+def _embedded_parent_sources(source: str):
+    """Return the two source snapshots embedded by program crossover."""
+    try:
+        module = ast.parse(source)
+    except SyntaxError:
+        return None
+    embedded = {}
+    for node in module.body:
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if (
+            isinstance(target, ast.Name)
+            and target.id in {"_PARENT_A_SOURCE", "_PARENT_B_SOURCE"}
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            embedded[target.id] = node.value.value
+    if set(embedded) != {"_PARENT_A_SOURCE", "_PARENT_B_SOURCE"}:
+        return None
+    return embedded["_PARENT_A_SOURCE"], embedded["_PARENT_B_SOURCE"]
+
+
+def _subsystem_rewrite_target(intervention):
+    """Return the explicitly selected fit/predict subsystem, if any."""
+    if not isinstance(intervention, dict):
+        return None
+    operator = intervention.get(
+        "intervention_operator", intervention.get("operator", "")
+    )
+    if operator not in {"replace", "subsystem_rewrite"}:
+        return None
+
+    scope = intervention.get(
+        "intervention_scope", intervention.get("scope", "")
+    )
+    scope = scope.strip().lower() if isinstance(scope, str) else ""
+    target = next(
+        (
+            intervention.get(name)
+            for name in ("target_subsystem", "target", "subsystem")
+            if intervention.get(name) not in (None, "")
+        ),
+        None,
+    )
+    target = target.strip().lower() if isinstance(target, str) else ""
+    if scope in {"fit", "predict"}:
+        if target and target != scope:
+            raise ValueError("subsystem rewrite scope and target disagree")
+        return scope
+    if scope != "subsystem" and not target:
+        return None
+    if target not in {"fit", "predict"}:
+        raise ValueError(
+            "subsystem rewrite requires target 'fit' or 'predict'"
+        )
+    return target
+
+
+def _top_level_sync_function(module: ast.Module, name: str) -> ast.FunctionDef:
+    matches = [
+        node
+        for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == name
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"program must define exactly one top-level {name}()")
+    function = matches[0]
+    if isinstance(function, ast.AsyncFunctionDef):
+        raise ValueError(f"program {name}() must be synchronous")
+    return function
+
+
+def _blank_program_subsystem(source: str, target: str) -> str:
+    """Clear one algorithm body while keeping the surrounding program usable."""
+    module = ast.parse(source)
+    function = _top_level_sync_function(module, target)
+    function.body = [
+        ast.Raise(
+            exc=ast.Call(
+                func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
+                args=[ast.Constant(value=f"rewrite the {target} subsystem")],
+                keywords=[],
+            ),
+            cause=None,
+        )
+    ]
+    ast.fix_missing_locations(module)
+    return ast.unparse(module) + "\n"
+
+
+def _rebuild_program_subsystem(
+    parent_source: str,
+    proposed_source: str,
+    target: str,
+) -> str:
+    """Take only the proposed target body and rebuild around the parent AST.
+
+    Imports needed by a replacement belong inside the target function.  The
+    other subsystem, module state, and CLI remain the parent's implementation.
+    """
+    parent_module = ast.parse(parent_source)
+    proposed_module = ast.parse(proposed_source)
+    parent_function = _top_level_sync_function(parent_module, target)
+    proposed_function = _top_level_sync_function(proposed_module, target)
+    parent_function.body = copy.deepcopy(proposed_function.body)
+    ast.fix_missing_locations(parent_module)
+    rebuilt = ast.unparse(parent_module) + "\n"
+    compile(rebuilt, "<subsystem-rewrite>", "exec")
+    return rebuilt
+
+
+def _apply_python_program_operator(
+    draft_dir: Path,
+    *,
+    entrypoint: str,
+    source_files,
+    intervention,
+) -> str:
+    """Apply a requested executable search operator before the LLM rewrite.
+
+    The Context mechanism remains free-form, but explicit AST mutation and
+    two-parent crossover have concrete semantics in the live Harness path. A
+    control arm keeps the parent unchanged.
+    """
+    if not isinstance(intervention, dict):
+        return ""
+    operator = intervention.get(
+        "intervention_operator", intervention.get("operator", "")
+    )
+    if intervention.get("matched_arm") == "control":
+        return ""
+    subsystem_target = _subsystem_rewrite_target(intervention)
+    if (
+        operator not in {
+            "ast_mutation", "ast_crossover", "restart", "whole_program_restart",
+            "replace", "subsystem_rewrite",
+        }
+    ):
+        return ""
+
+    from program_search import PythonProgramSearchSpace
+
+    files = source_files or (entrypoint, "manifest.json")
+    source = {
+        name: (draft_dir / name).read_text(encoding="utf-8")
+        for name in files
+        if (draft_dir / name).is_file()
+    }
+    if subsystem_target:
+        program = source.get(entrypoint)
+        if program is None:
+            raise ValueError(f"Python program parent is missing {entrypoint}")
+        # Both functions are part of the task interface. Validate the untouched
+        # side before handing the cleared target to the Proposal Agent.
+        module = ast.parse(program, filename=entrypoint)
+        _top_level_sync_function(module, "fit")
+        _top_level_sync_function(module, "predict")
+        (draft_dir / entrypoint).write_text(
+            _blank_program_subsystem(program, subsystem_target),
+            encoding="utf-8",
+        )
+        return f"subsystem_rewrite:{subsystem_target}"
+    if operator in {"replace", "subsystem_rewrite"}:
+        # A generic replace proposal is still a normal LLM rewrite. Only the
+        # explicit subsystem form receives system-enforced isolation.
+        return ""
+    if operator in {"restart", "whole_program_restart"}:
+        (draft_dir / entrypoint).write_text(
+            '"""Blank whole-program restart scaffold."""\n\n'
+            "def fit(input_dir, output_dir, seed):\n"
+            "    raise NotImplementedError(\"implement a new fit algorithm\")\n\n"
+            "def predict(model_dir, input_dir, output_dir):\n"
+            "    raise NotImplementedError(\"implement a new predict algorithm\")\n",
+            encoding="utf-8",
+        )
+        return "whole_program_restart"
+    # Fit/predict is the program-level contract. Require those actual top-level
+    # composition hooks instead of falling back to a CLI main() that cannot be
+    # combined without silently dropping command dispatch.
+    entrypoint_tree = ast.parse(source.get(entrypoint, ""), filename=entrypoint)
+    functions = {
+        node.name: node
+        for node in entrypoint_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    missing = {"fit", "predict"} - functions.keys()
+    if missing:
+        raise ValueError(
+            "Python program parent is missing top-level function(s): "
+            + ", ".join(sorted(missing))
+        )
+    asynchronous = {
+        name
+        for name in ("fit", "predict")
+        if isinstance(functions[name], ast.AsyncFunctionDef)
+    }
+    if asynchronous:
+        raise ValueError(
+            "Python program fit/predict functions must be synchronous: "
+            + ", ".join(sorted(asynchronous))
+        )
+    required_symbol = "predict"
+    seeds = [source]
+    if operator == "ast_crossover":
+        secondary_value = intervention.get("secondary_parent_path", "")
+        if not isinstance(secondary_value, str) or not secondary_value:
+            raise ValueError("ast_crossover requires a second program parent")
+        secondary = Path(secondary_value)
+        if not secondary.is_dir():
+            raise ValueError("ast_crossover second parent directory is missing")
+        secondary_source = {
+            name: (secondary / name).read_text(encoding="utf-8")
+            for name in files
+            if (secondary / name).is_file()
+        }
+        if set(secondary_source) != set(source):
+            raise ValueError("crossover parents do not expose the same source files")
+        left_manifest = json.loads(source.get("manifest.json", "{}"))
+        right_manifest = json.loads(secondary_source.get("manifest.json", "{}"))
+        if left_manifest.get("interface") != right_manifest.get("interface"):
+            raise ValueError(
+                "crossover parents must expose the same prediction interface"
+            )
+        seeds.append(secondary_source)
+    space = PythonProgramSearchSpace(
+        seeds=seeds,
+        entrypoint=entrypoint,
+        required_symbol=required_symbol,
+    )
+    slot = intervention.get("slot", 0)
+    slot = slot if isinstance(slot, int) and not isinstance(slot, bool) else 0
+    child = (
+        space.crossover(
+            space.candidates[0],
+            space.candidates[1],
+            slot=slot,
+            context=intervention,
+        )
+        if operator == "ast_crossover" and len(space.candidates) == 2
+        else space.mutate(space.candidates[0], slot=slot, context=intervention)
+    )
+    space.materialize(child, draft_dir)
+    return str(
+        child.metadata.get("crossover")
+        or child.metadata.get("mutation")
+        or operator
+    )
 
 
 def _intervention_prompt_block(intervention):
@@ -72,6 +326,30 @@ def _protocol_prompt_block(
     candidate_mode="legacy", *, entrypoint=None, artifact_protocol=None,
     source_files=None,
 ):
+    if candidate_mode == "python_program":
+        files = source_files or ("algorithm.py", "manifest.json")
+        rendered = ", ".join(f"`{name}`" for name in files)
+        program = entrypoint or "algorithm.py"
+        schema = artifact_protocol or "openhyra-python-program.v1"
+        return f"""
+
+Open Python program contract:
+- Required source anchors: {rendered}; entrypoint: `{program}`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `{schema}` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `{program} fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `{program} predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+"""
     if candidate_mode != "algorithm_bundle":
         return ""
     files = source_files or ("train.py", "manifest.json")
@@ -126,11 +404,79 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
         f: (draft_dir / f).read_bytes()
         for f in editable_files if (draft_dir / f).is_file()
     }
+    applied_operator = ""
+    expected_parent_sources = None
+    crossover_decision_interface = False
+    subsystem_target = None
+    parent_program_source = None
+    if candidate_mode == "python_program":
+        try:
+            program_path = draft_dir / (entrypoint or "algorithm.py")
+            if program_path.is_file():
+                parent_program_source = program_path.read_text(encoding="utf-8")
+            applied_operator = _apply_python_program_operator(
+                draft_dir,
+                entrypoint=entrypoint or "algorithm.py",
+                source_files=source_files,
+                intervention=intervention,
+            )
+            if applied_operator.startswith("subsystem_rewrite:"):
+                subsystem_target = applied_operator.rsplit(":", 1)[-1]
+            if applied_operator == "fit_predict_program_composition":
+                materialized = (draft_dir / (entrypoint or "algorithm.py")).read_text(
+                    encoding="utf-8"
+                )
+                expected_parent_sources = _embedded_parent_sources(materialized)
+                if expected_parent_sources is None:
+                    return False, "could not materialize both crossover parents"
+                manifest = json.loads(
+                    (draft_dir / "manifest.json").read_text(encoding="utf-8")
+                )
+                crossover_decision_interface = manifest.get("interface") == "decision"
+        except (OSError, SyntaxError, ValueError) as exc:
+            return False, f"could not apply Python program operator: {exc}"
     if protocol_block:
         prompt = prompt.rstrip() + protocol_block + "\n"
     intervention_block = _intervention_prompt_block(intervention)
     if intervention_block:
         prompt = prompt.rstrip() + intervention_block
+    if applied_operator:
+        if applied_operator == "whole_program_restart":
+            prompt = (
+                prompt.rstrip()
+                + "\n\nThe inherited implementation has been removed and replaced "
+                "with a blank fit/predict scaffold. Build a complete new program "
+                "from the proposed principle; do not reconstruct the parent by "
+                "default.\n"
+            )
+        elif applied_operator == "fit_predict_program_composition":
+            prompt = (
+                prompt.rstrip()
+                + "\n\nA two-parent dispatcher has been materialized. Evolve only "
+                "the self-contained `_combine_predictions(left, right)` function; "
+                "the parent loader and fit/predict dispatcher will be rebuilt "
+                "after this call. Put any helper logic or imports inside that "
+                "function.\n"
+            )
+        elif subsystem_target:
+            prompt = (
+                prompt.rstrip()
+                + f"\n\nThe `{subsystem_target}(...)` subsystem has been cleared. "
+                f"Rewrite only the body of the top-level `{subsystem_target}` "
+                "function. Put any new imports or helper functions inside that "
+                "function: after this call the system will keep only its body "
+                "and rebuild every other function, module definition, source "
+                "file, and CLI from the parent program.\n"
+            )
+        else:
+            prompt = (
+                prompt.rstrip()
+                + "\n\nA concrete "
+                + applied_operator
+                + " child has already been materialized in the draft. Inspect and "
+                "repair that executable composition while preserving contributions "
+                "from its recorded parent program(s).\n"
+            )
     try:
         res = run_agent(
             prompt, cwd=draft_dir, writable=True, timeout_s=timeout_s,
@@ -145,6 +491,52 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
         detail = res.stderr.strip().splitlines()[-1] if res.stderr.strip() else ""
         suffix = f": {detail[:300]}" if detail else ""
         return False, f"proposal agent ({backend}) exited with code {res.returncode}{suffix}"
+
+    if subsystem_target:
+        final_path = draft_dir / (entrypoint or "algorithm.py")
+        try:
+            if parent_program_source is None:
+                raise ValueError("parent program source is missing")
+            rebuilt = _rebuild_program_subsystem(
+                parent_program_source,
+                final_path.read_text(encoding="utf-8"),
+                subsystem_target,
+            )
+            final_path.write_text(rebuilt, encoding="utf-8")
+            for name, content in before.items():
+                if name != (entrypoint or "algorithm.py"):
+                    (draft_dir / name).write_bytes(content)
+        except (OSError, SyntaxError, UnicodeError, ValueError) as exc:
+            return False, (
+                f"proposal agent produced an invalid {subsystem_target} "
+                f"subsystem rewrite: {exc}"
+            )
+
+    if applied_operator == "fit_predict_program_composition":
+        final_program = (draft_dir / (entrypoint or "algorithm.py")).read_text(
+            encoding="utf-8"
+        )
+        try:
+            from program_search import (
+                _crossover_fit_predict_program,
+                _extract_crossover_combiner,
+            )
+
+            combiner = _extract_crossover_combiner(final_program)
+            rebuilt = _crossover_fit_predict_program(
+                expected_parent_sources[0],
+                expected_parent_sources[1],
+                decision_interface=crossover_decision_interface,
+                combiner_source=combiner,
+            )
+            (draft_dir / (entrypoint or "algorithm.py")).write_text(
+                rebuilt, encoding="utf-8"
+            )
+        except (OSError, SyntaxError, ValueError) as exc:
+            return False, (
+                "proposal agent produced an invalid crossover combination hook: "
+                f"{exc}"
+            )
 
     after = {
         f: (draft_dir / f).read_bytes()
@@ -172,6 +564,8 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
         summary = " ".join(res.stdout.split())[:500]
         proposal_md.write_text(summary + "\n")
     description = proposal_md.read_text().strip().splitlines()[0] if proposal_md.exists() else "(no description)"
+    if applied_operator:
+        description = f"{applied_operator}: {description}"
     return True, description
 
 

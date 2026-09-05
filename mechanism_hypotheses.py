@@ -404,6 +404,23 @@ def mechanism_generation_operator(
     normalized = _normalize_hypothesis(hypothesis, source="context")
     if normalized is None:
         return "local_mutation"
+    if isinstance(hypothesis, dict):
+        raw_explicit = hypothesis.get(
+            "intervention_operator", hypothesis.get("operator")
+        )
+    else:
+        raw_explicit = hypothesis.intervention_operator
+    explicit = (
+        raw_explicit.lower()
+        if isinstance(raw_explicit, str) and raw_explicit
+        else ""
+    )
+    if explicit in {"restart", "whole_program_restart"}:
+        return "restart_from_skeleton"
+    if explicit in {"ast_crossover", "crossover", "compose"}:
+        return "composition"
+    if explicit in {"ast_mutation", "mutate"}:
+        return "local_mutation"
     family = normalized.family.lower()
     text = normalized.mechanism.lower()
     if any(token in family or token in text for token in ("ablat", "control")):

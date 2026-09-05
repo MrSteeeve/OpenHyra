@@ -78,9 +78,15 @@ MIN_CANDIDATES_PER_CONTEXT = 1
 MAX_STORED_LOG_CHARS = 6000
 REPAIRABLE_STATUSES = {"crash", "timeout"}
 V5_PACKET_TRUNCATION_MARKER = "\n\n[V5 packet clipped to fit the prompt budget]"
-CANDIDATE_MODES = frozenset({"legacy", "algorithm_bundle"})
+CANDIDATE_MODES = frozenset({"legacy", "algorithm_bundle", "python_program"})
+PROGRAM_CANDIDATE_MODES = frozenset({"algorithm_bundle", "python_program"})
 ALGORITHM_BUNDLE_SCHEMA = "openhyra-algorithm-bundle.v1"
 DEFAULT_ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
+DEFAULT_PYTHON_PROGRAM_SOURCE_FILES = ("algorithm.py", "manifest.json")
+
+
+def _is_program_candidate(task):
+    return getattr(task, "candidate_mode", "legacy") in PROGRAM_CANDIDATE_MODES
 
 
 def _safe_relative_source_files(value, *, label):
@@ -143,7 +149,8 @@ class Task:
             sys.exit("task candidate must be an object")
         # ``candidate_mode`` is intentionally optional.  Existing tasks keep
         # the historical solve.sh/solution.json path byte-for-byte; new tasks
-        # opt into an AlgorithmBundle explicitly.
+        # can opt into either a data-artifact bundle or a complete Python
+        # program explicitly.
         candidate_mode = cfg.get(
             "candidate_mode", candidate_cfg.get("mode", "legacy"),
         )
@@ -153,11 +160,24 @@ class Task:
                 + ", ".join(sorted(CANDIDATE_MODES))
             )
         self.candidate_mode = candidate_mode
+        # Open Python candidates may submit a bounded source tree.  The
+        # manifest remains deliberately minimal; this task-owned switch keeps
+        # the tree policy out of candidate input and lets legacy bundles retain
+        # their exact two-file contract.
+        source_tree = cfg.get("source_tree", candidate_cfg.get("source_tree", False))
+        if not isinstance(source_tree, bool):
+            sys.exit("task source_tree must be boolean")
+        self.candidate_source_tree = source_tree
 
         configured_editable = cfg.get("editable_files")
-        if configured_editable is None and candidate_mode == "algorithm_bundle":
+        if configured_editable is None and candidate_mode in PROGRAM_CANDIDATE_MODES:
+            default_sources = (
+                DEFAULT_ALGORITHM_SOURCE_FILES
+                if candidate_mode == "algorithm_bundle"
+                else DEFAULT_PYTHON_PROGRAM_SOURCE_FILES
+            )
             configured_editable = candidate_cfg.get(
-                "editable_files", list(DEFAULT_ALGORITHM_SOURCE_FILES),
+                "editable_files", list(default_sources),
             )
         if configured_editable is None:
             # Preserve the old error shape for malformed legacy task specs.
@@ -190,11 +210,26 @@ class Task:
                 "algorithm_bundle v1 source_files must be exactly train.py "
                 "and manifest.json"
             )
+        if (
+            candidate_mode == "python_program"
+            and "manifest.json" not in self.candidate_source_files
+        ):
+            sys.exit("python_program source_files must include manifest.json")
+        if candidate_mode == "python_program" and self.candidate_source_tree:
+            # The explicit entrypoint and manifest are required anchors; other
+            # source files are admitted by the recursive policy in sandbox and
+            # the trusted evaluator.
+            if "algorithm.py" not in self.candidate_source_files:
+                sys.exit("python_program source_tree must include algorithm.py")
         self.candidate_entrypoint = cfg.get(
             "entrypoint",
             candidate_cfg.get(
                 "entrypoint",
-                "train.py" if candidate_mode == "algorithm_bundle" else "solve.sh",
+                (
+                    "train.py" if candidate_mode == "algorithm_bundle"
+                    else "algorithm.py" if candidate_mode == "python_program"
+                    else "solve.sh"
+                ),
             ),
         )
         if (
@@ -212,6 +247,11 @@ class Task:
             sys.exit(
                 "algorithm_bundle v1 currently requires entrypoint train.py"
             )
+        if (
+            candidate_mode == "python_program"
+            and self.candidate_entrypoint not in self.candidate_source_files
+        ):
+            sys.exit("python_program entrypoint must be included in source_files")
         self.solve_entrypoint = cfg.get(
             "solve_entrypoint",
             candidate_cfg.get("solve_entrypoint", "solve.sh"),
@@ -228,8 +268,13 @@ class Task:
             "artifact_protocol",
             candidate_cfg.get(
                 "artifact_protocol",
-                "openhyra-policy-spec.v1"
-                if candidate_mode == "algorithm_bundle" else self.protocol,
+                (
+                    "openhyra-policy-spec.v1"
+                    if candidate_mode == "algorithm_bundle"
+                    else "openhyra-python-program.v1"
+                    if candidate_mode == "python_program"
+                    else self.protocol
+                ),
             ),
         )
         if (
@@ -470,11 +515,27 @@ def solution_files(directory):
     return output
 
 
-def check_frozen(parent_dir, draft_dir, editable):
+def check_frozen(parent_dir, draft_dir, editable, *, allow_source_tree=False):
     before, after = solution_files(parent_dir), solution_files(draft_dir)
+    source_extensions = {".py", ".json", ".toml"}
+
+    def is_source_tree_file(relative):
+        path = Path(relative)
+        # solve.sh and other task plumbing remain parent-owned even when a
+        # Python candidate is allowed to add helper modules/configuration.
+        return (
+            path.name != "solve.sh"
+            and not any(part.startswith(".") for part in path.parts)
+            and path.suffix in source_extensions
+        )
+
     return [
         relative for relative in sorted(set(before) | set(after))
-        if relative not in editable and before.get(relative) != after.get(relative)
+        if (
+            relative not in editable
+            and not (allow_source_tree and is_source_tree_file(relative))
+            and before.get(relative) != after.get(relative)
+        )
     ]
 
 
@@ -647,8 +708,8 @@ def _controlled_failure_result(item, task, exc, *, cancelled=False):
     # A controlled failure has no usable bundle, but retaining the configured
     # mode lets downstream provenance distinguish it from a legacy solver
     # crash without inventing a digest.
-    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
-        failed_metrics["candidate_mode"] = "algorithm_bundle"
+    if _is_program_candidate(task):
+        failed_metrics["candidate_mode"] = task.candidate_mode
     return {
         "item": failed_item,
         "score": None,
@@ -696,6 +757,13 @@ def _known_solver_issues(draft_dir, editable_files):
             continue
         issues.extend(_known_file_issues(Path(draft_dir) / name, name))
     return issues
+
+
+def _candidate_preflight_issues(task, draft_dir):
+    """Keep legacy solver hints out of the open Python program space."""
+    if getattr(task, "candidate_mode", "legacy") == "python_program":
+        return []
+    return _known_solver_issues(draft_dir, task.editable_files)
 
 
 def _known_file_issues(path, name):
@@ -800,7 +868,7 @@ def _v5_metrics_input(task, raw_metrics):
     metrics.
     """
     payload = dict(raw_metrics or {})
-    if getattr(task, "candidate_mode", "legacy") != "algorithm_bundle":
+    if not _is_program_candidate(task):
         return payload
     artifact_protocol = payload.get("artifact_protocol") or getattr(
         task, "artifact_protocol", ""
@@ -813,7 +881,7 @@ def _v5_metrics_input(task, raw_metrics):
     payload.setdefault(
         "entrypoint", getattr(task, "candidate_entrypoint", "train.py")
     )
-    payload.setdefault("candidate_mode", "algorithm_bundle")
+    payload.setdefault("candidate_mode", task.candidate_mode)
     return payload
 
 
@@ -1432,8 +1500,9 @@ def _evaluate_candidate(item, task, print_lock):
     else:
         violations = check_frozen(
             item["parent"]["path"], sealed, task.editable_files,
+            allow_source_tree=bool(getattr(task, "candidate_source_tree", False)),
         )
-        issues = _known_solver_issues(sealed, task.editable_files)
+        issues = _candidate_preflight_issues(task, sealed)
         if violations:
             score, status, log_tail, metrics = (
                 None,
@@ -1564,8 +1633,9 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
         else:
             violations = check_frozen(
                 item["parent"]["path"], repair_draft, task.editable_files,
+                allow_source_tree=bool(getattr(task, "candidate_source_tree", False)),
             )
-            issues = _known_solver_issues(repair_draft, task.editable_files)
+            issues = _candidate_preflight_issues(task, repair_draft)
             if violations:
                 repair_item.update({
                     "failure": f"repair modified non-editable file(s): {violations}",
@@ -1674,10 +1744,9 @@ def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
                 item["parent"]["path"],
                 revision_draft,
                 task.editable_files,
+                allow_source_tree=bool(getattr(task, "candidate_source_tree", False)),
             )
-            issues = _known_solver_issues(
-                revision_draft, task.editable_files,
-            )
+            issues = _candidate_preflight_issues(task, revision_draft)
             if violations:
                 revision_item.update({
                     "failure": (
@@ -1840,6 +1909,75 @@ def _mechanism_generation_operator(mechanism):
     the Context round's primary plan label.
     """
     return mechanism_generation_operator(mechanism)
+
+
+def _secondary_program_parent(
+    eb, primary, direction, *, entrypoint="algorithm.py",
+):
+    """Choose a distinct, behaviorally complementary executable parent."""
+    alternatives = []
+    primary_id = str(primary.get("id", ""))
+    primary_metrics = primary.get("metrics", {})
+    primary_candidate_hash = primary_metrics.get("candidate_hash")
+    primary_rates = primary_metrics.get("per_instance_exercise_rates", {})
+    if not isinstance(primary_rates, dict):
+        primary_rates = {}
+    try:
+        primary_interface = json.loads(
+            (Path(primary.get("path", "")) / "manifest.json").read_text()
+        ).get("interface")
+    except (OSError, ValueError, AttributeError):
+        primary_interface = None
+    for record in eb.records():
+        score = record.get("score")
+        path = Path(record.get("path", ""))
+        metadata = record.get("metadata", {})
+        metrics = record.get("metrics", {})
+        if (
+            record.get("id") == primary_id
+            or record.get("status") != "ok"
+            or isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not path.is_dir()
+            or not (path / entrypoint).is_file()
+            or (isinstance(metadata, dict) and bool(metadata.get("duplicate_of")))
+            or (
+                isinstance(primary_candidate_hash, str)
+                and primary_candidate_hash
+                and metrics.get("candidate_hash") == primary_candidate_hash
+            )
+        ):
+            continue
+        try:
+            interface = json.loads(
+                (path / "manifest.json").read_text()
+            ).get("interface")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if interface != primary_interface:
+            continue
+        rates = metrics.get("per_instance_exercise_rates", {})
+        common = (
+            sorted(set(primary_rates).intersection(rates))
+            if isinstance(rates, dict) else []
+        )
+        behavior_distance = (
+            sum(
+                abs(float(primary_rates[key]) - float(rates[key]))
+                for key in common
+            ) / len(common)
+            if common else 0.0
+        )
+        alternatives.append((behavior_distance, record))
+    alternatives.sort(
+        key=lambda item: (
+            -item[0],
+            -float(item[1]["score"])
+            if direction == "max" else float(item[1]["score"]),
+            str(item[1].get("id", "")),
+        )
+    )
+    return alternatives[0][1] if alternatives else None
 
 
 def _build_experiment_plan(
@@ -2038,6 +2176,16 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             commit_dir, task.editable_files,
         ),
     })
+    lineage_parent_ids = [parent_id or parent["id"]]
+    secondary_parent = item.get("secondary_parent")
+    if (
+        isinstance(secondary_parent, dict)
+        and secondary_parent.get("id")
+        and secondary_parent["id"] not in lineage_parent_ids
+    ):
+        lineage_parent_ids.append(secondary_parent["id"])
+    metadata["parent_ids"] = lineage_parent_ids
+    metadata["lineage_semantics"] = "proposal_ancestry"
     # Mechanism/arm labels are assigned by the Harness from task + Context
     # configuration.  They are useful lineage metadata for the EB and are not
     # inferred from candidate-authored prose.
@@ -2072,7 +2220,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
         metadata["generation_operator"] = _mechanism_generation_operator(
             mechanism
         )
-    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+    if _is_program_candidate(task):
         # The evaluator validates the sealed source manifest and reports its
         # schema (MLP, linear, or expression).  Preserve that actual protocol
         # in EB metadata; the task default is only a fallback for preflight or
@@ -2086,10 +2234,11 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             "solve_entrypoint": task.solve_entrypoint,
             "artifact_protocol": actual_artifact_protocol,
             "source_files": list(task.candidate_source_files),
-            "algorithm_bundle_sha256": metrics.get(
-                "algorithm_bundle_sha256"
-            ) or "",
         })
+        if task.candidate_mode == "algorithm_bundle":
+            metadata["algorithm_bundle_sha256"] = metrics.get(
+                "algorithm_bundle_sha256"
+            ) or ""
 
     previous_best = eb.best()
     record = eb.commit(
@@ -2127,7 +2276,7 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
             score=result["score"],
             status=result["status"],
             description=item["description"],
-            parent_ids=[parent_id] if parent_id else [],
+            parent_ids=list(metadata.get("parent_ids", ())),
             metrics=v5_metrics,
         )
     best = eb.best()
@@ -2591,6 +2740,18 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                             f"mechanisms={context_meta.get('mechanism_portfolio_count', 0)}, "
                             f"next={short}"
                         )
+                    secondary_program_parent = (
+                        _secondary_program_parent(
+                            eb,
+                            baseline,
+                            task.direction,
+                            entrypoint=getattr(
+                                task, "candidate_entrypoint", "algorithm.py"
+                            ),
+                        )
+                        if getattr(task, "candidate_mode", "legacy") == "python_program"
+                        else None
+                    )
                     for candidate_index in range(candidates_per_context):
                         slot = (
                             mechanism_slots[candidate_index]
@@ -2600,6 +2761,15 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                             "matched_seed"
                         ) is not None else _candidate_seed(
                             context_meta["trial_seed"], candidate_index
+                        )
+                        mechanism = slot.get("mechanism")
+                        wants_crossover = (
+                            isinstance(mechanism, dict)
+                            and mechanism.get(
+                                "intervention_operator",
+                                mechanism.get("operator"),
+                            ) == "ast_crossover"
+                            and slot.get("matched_arm") != "control"
                         )
                         inspiration_queue.put({
                             "iteration": iteration,
@@ -2630,6 +2800,12 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                             "candidate_index": candidate_index,
                             "candidate_count": candidates_per_context,
                             "candidate_seed": seed,
+                            **(
+                                {"secondary_parent": secondary_program_parent}
+                                if wants_crossover
+                                and secondary_program_parent is not None
+                                else {}
+                            ),
                             **slot,
                         })
                 except Exception:
@@ -2712,13 +2888,34 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     artifact_protocol=getattr(task, "artifact_protocol", None),
                     source_files=getattr(task, "candidate_source_files", None),
                     allow_no_change=(
-                        getattr(task, "candidate_mode", "legacy") == "algorithm_bundle"
+                        _is_program_candidate(task)
                         and item.get("matched_arm") == "control"
                         and bool(item.get("matched_control_enabled"))
                     ),
                     intervention=(
-                        item.get("mechanism")
-                        or item.get("context_meta", {}).get("context_decision", {}).get("intervention")
+                        {
+                            **item["mechanism"],
+                            "matched_arm": item.get("matched_arm", ""),
+                            "slot": candidate_index,
+                            **(
+                                {
+                                    "secondary_parent_id": item[
+                                        "secondary_parent"
+                                    ].get("id", ""),
+                                    "secondary_parent_path": item[
+                                        "secondary_parent"
+                                    ].get("path", ""),
+                                }
+                                if isinstance(
+                                    item.get("secondary_parent"), dict
+                                )
+                                else {}
+                            ),
+                        }
+                        if isinstance(item.get("mechanism"), dict)
+                        else item.get("context_meta", {}).get(
+                            "context_decision", {}
+                        ).get("intervention")
                     ),
                 )
                 failure = None
@@ -2730,12 +2927,17 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                 elif not ok:
                     failure, failure_status = description, "crash"
                 else:
-                    violations = check_frozen(parent["path"], draft, task.editable_files)
+                    violations = check_frozen(
+                        parent["path"], draft, task.editable_files,
+                        allow_source_tree=bool(
+                            getattr(task, "candidate_source_tree", False)
+                        ),
+                    )
                     if violations:
                         failure = f"modified non-editable file(s): {violations}"
                         failure_status = "violation"
                 if failure is None:
-                    issues = _known_solver_issues(draft, task.editable_files)
+                    issues = _candidate_preflight_issues(task, draft)
                     if issues:
                         feedback = "Engineering preflight rejected the draft:\n- " + "\n- ".join(issues)
                         preflight_notes.append(feedback)
@@ -3070,7 +3272,7 @@ def init_seed(task, eb):
             seed_candidate, task.editable_files,
         ),
     }
-    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
+    if _is_program_candidate(task):
         actual_artifact_protocol = metrics.get("artifact_protocol") or (
             task.artifact_protocol
         )
@@ -3080,10 +3282,11 @@ def init_seed(task, eb):
             "solve_entrypoint": task.solve_entrypoint,
             "artifact_protocol": actual_artifact_protocol,
             "source_files": list(task.candidate_source_files),
-            "algorithm_bundle_sha256": metrics.get(
-                "algorithm_bundle_sha256"
-            ) or "",
         })
+        if task.candidate_mode == "algorithm_bundle":
+            seed_metadata["algorithm_bundle_sha256"] = metrics.get(
+                "algorithm_bundle_sha256"
+            ) or ""
     record = eb.commit(
         seed_candidate, score, status, task.seed_description,
         None, log_tail, metrics,

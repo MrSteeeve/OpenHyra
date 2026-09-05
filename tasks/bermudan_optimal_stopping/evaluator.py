@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Trusted evaluator for bounded Bermudan stopping feature programs.
+"""Evaluator for Bermudan feature baselines and whole Python policy programs.
 
-Candidates submit data, not executable pricing code.  This module owns the
-Black--Scholes simulator, payoff definitions, Ridge LSMC implementation,
-out-of-sample lower-bound experiment, and the nested primal--dual audit.
+The evaluator owns the Black--Scholes problem, path samples, payoff, stopping
+application, scores, and hidden audit.  The open track supplies an executable
+fit/predict algorithm while the historical tracks keep their data-only
+continuation representations.
 """
 
 from __future__ import annotations
@@ -48,14 +49,21 @@ TASK_PROTOCOL = "bermudan-lsmc-feature-ir.v1"
 # accepting the explicit bundle protocol used by the open algorithm track.
 ALGORITHM_TASK_PROTOCOL = "bermudan-lsmc-python.v1"
 ALGORITHM_BUNDLE_PROTOCOL = "bermudan-lsmc-algorithm-bundle.v1"
+PYTHON_PROGRAM_TASK_PROTOCOL = "bermudan-python-program-search.v1"
 SUPPORTED_TASK_PROTOCOLS = frozenset({
     TASK_PROTOCOL, ALGORITHM_TASK_PROTOCOL, ALGORITHM_BUNDLE_PROTOCOL,
+    PYTHON_PROGRAM_TASK_PROTOCOL,
 })
 # The Python track is an additive task surface.  Keeping the legacy name in
 # this module preserves archived requests, while the explicit alias lets the
 # harness give Python-bundle runs their own run directory and provenance.
 SUPPORTED_TASK_NAMES = frozenset({TASK_NAME, "bermudan_python_search"})
 ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
+PYTHON_PROGRAM_SOURCE_FILES = ("algorithm.py", "manifest.json")
+PYTHON_PROGRAM_SCHEMA = "openhyra-python-program.v1"
+PYTHON_PROGRAM_SOURCE_MAX_FILES = 64
+PYTHON_PROGRAM_SOURCE_MAX_ENTRIES = 128
+PYTHON_PROGRAM_SOURCE_EXTENSIONS = frozenset({".py", ".json", ".toml"})
 ALGORITHM_BUNDLE_SCHEMAS = frozenset({
     "openhyra-algorithm-bundle.v1",
     "openhyra-candidate-algorithm-bundle.v1",
@@ -640,10 +648,29 @@ class TrustedRunnerPolicy:
     runner: Any
     instance: BSInstance
     runner_type: str = "mlp"
+    policy_interface: str = "continuation"
     policy_artifact_sha256: str | None = None
 
-    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
-        values = self.runner.continuation(time_index, states, self.instance)
+    def continuation(
+        self,
+        time_index: int,
+        states: np.ndarray,
+        *,
+        history: np.ndarray | None = None,
+        immediate_payoffs: np.ndarray | None = None,
+    ) -> np.ndarray:
+        if self.policy_interface != "continuation":
+            raise ValueError("policy exposes direct decisions, not continuation")
+        if self.runner_type == "python_program":
+            values = self.runner.continuation(
+                time_index,
+                states,
+                self.instance,
+                history=history,
+                immediate_payoffs=immediate_payoffs,
+            )
+        else:
+            values = self.runner.continuation(time_index, states, self.instance)
         result = np.asarray(values, dtype=np.float64)
         expected_shape = np.asarray(states).shape[:-1]
         if result.shape != expected_shape:
@@ -658,7 +685,37 @@ class TrustedRunnerPolicy:
         # runners and keeps the stopping/dual arithmetic total.
         return np.clip(result, -1_000_000.0, 1_000_000.0)
 
+    def decision(
+        self,
+        time_index: int,
+        states: np.ndarray,
+        *,
+        history: np.ndarray,
+        immediate_payoffs: np.ndarray,
+    ) -> np.ndarray:
+        if self.policy_interface != "decision":
+            raise ValueError("policy exposes continuation, not direct decisions")
+        values = self.runner.decision(
+            time_index,
+            states,
+            self.instance,
+            history=history,
+            immediate_payoffs=immediate_payoffs,
+        )
+        result = np.asarray(values)
+        expected_shape = np.asarray(states).shape[:-1]
+        if result.shape != expected_shape:
+            raise ValueError(
+                "trusted runner returned decision shape "
+                f"{result.shape}, expected {expected_shape}"
+            )
+        if result.dtype != np.dtype(np.bool_):
+            raise ValueError("trusted runner decisions must have boolean dtype")
+        return result
+
     def approximate_value(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        if self.policy_interface != "continuation":
+            raise ValueError("direct-decision policy has no continuation value")
         immediate = payoff(states, self.instance) * math.exp(
             -self.instance.rate * self.instance.exercise_times[time_index]
         )
@@ -722,7 +779,7 @@ def fit_lsmc(
     return FrozenPolicy(program=program, instance=instance, steps=tuple(step_models), ridge_alpha=ridge_alpha)  # type: ignore[arg-type]
 
 
-def apply_policy(policy: FrozenPolicy, paths: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def apply_policy(policy: Any, paths: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Execute a frozen causal policy and return discounted payoffs and stops."""
     state_paths = np.asarray(paths, dtype=float)
     rewards = discounted_rewards(state_paths, policy.instance)
@@ -735,8 +792,29 @@ def apply_policy(policy: FrozenPolicy, paths: np.ndarray) -> tuple[np.ndarray, n
         if not len(indices):
             break
         immediate = rewards[indices, time_index]
-        continuation = policy.continuation(time_index, state_paths[indices, time_index, :])
-        exercise = (immediate > 0.0) & (immediate >= continuation)
+        current_states = state_paths[indices, time_index, :]
+        history = state_paths[indices, : time_index + 1, :]
+        if getattr(policy, "policy_interface", "continuation") == "decision":
+            requested = policy.decision(
+                time_index,
+                current_states,
+                history=history,
+                immediate_payoffs=immediate,
+            )
+            # Zero-payoff exercise is evaluator-owned and always dominated by
+            # continuing to the next date, even for a direct decision program.
+            exercise = (immediate > 0.0) & requested
+        elif getattr(policy, "runner_type", "") == "python_program":
+            continuation = policy.continuation(
+                time_index,
+                current_states,
+                history=history,
+                immediate_payoffs=immediate,
+            )
+            exercise = (immediate > 0.0) & (immediate >= continuation)
+        else:
+            continuation = policy.continuation(time_index, current_states)
+            exercise = (immediate > 0.0) & (immediate >= continuation)
         chosen = indices[exercise]
         realized[chosen] = immediate[exercise]
         stopping_times[chosen] = time_index
@@ -1326,7 +1404,36 @@ def _regular_source_file(path: Path, label: str) -> None:
         raise ValueError(f"candidate {label} must be a regular file")
 
 
-def _validate_algorithm_source_tree(source: Path) -> None:
+def _is_python_program_manifest(manifest: Any) -> bool:
+    return getattr(manifest, "schema", None) == PYTHON_PROGRAM_SCHEMA
+
+
+def _candidate_source_files(manifest: Any) -> tuple[str, ...]:
+    return (
+        PYTHON_PROGRAM_SOURCE_FILES
+        if _is_python_program_manifest(manifest)
+        else ALGORITHM_SOURCE_FILES
+    )
+
+
+def _candidate_entrypoint(manifest: Any) -> str:
+    return "algorithm.py" if _is_python_program_manifest(manifest) else "train.py"
+
+
+def _candidate_kind(manifest: Any) -> str:
+    return "python_program" if _is_python_program_manifest(manifest) else "algorithm_bundle"
+
+
+def _candidate_runner_type(manifest: Any) -> str:
+    return "python_program" if _is_python_program_manifest(manifest) else getattr(
+        manifest, "runner_type", "mlp"
+    )
+
+
+def _validate_algorithm_source_tree(
+    source: Path,
+    allowed_files: Iterable[str] = ALGORITHM_SOURCE_FILES,
+) -> None:
     """Require the standalone evaluator source root to match the v1 allowlist.
 
     The harness keeps solver plumbing (for example ``solve.sh``) beside the
@@ -1334,7 +1441,64 @@ def _validate_algorithm_source_tree(source: Path) -> None:
     two-file contract at this lower-level API prevents an untracked helper
     module from changing training behavior without changing the bundle digest.
     """
-    allowed = set(ALGORITHM_SOURCE_FILES)
+    # Whole-program candidates use a task-owned recursive policy.  The two
+    # anchor files are mandatory, while helper modules/configuration may live
+    # below nested directories.  Legacy AlgorithmBundle callers retain the
+    # exact allowlist behavior below.
+    if tuple(allowed_files) == PYTHON_PROGRAM_SOURCE_FILES:
+        try:
+            files = []
+            entries_seen = 0
+            for current, directories, filenames in os.walk(source, topdown=True, followlinks=False):
+                kept_dirs = []
+                for dirname in sorted(directories):
+                    if dirname in {".git", "__pycache__"}:
+                        continue
+                    entries_seen += 1
+                    if entries_seen > PYTHON_PROGRAM_SOURCE_MAX_ENTRIES:
+                        raise ValueError(
+                            f"python program source tree exceeds {PYTHON_PROGRAM_SOURCE_MAX_ENTRIES} entries"
+                        )
+                    dinfo = os.lstat(Path(current) / dirname)
+                    if stat.S_ISLNK(dinfo.st_mode) or not stat.S_ISDIR(dinfo.st_mode):
+                        raise ValueError(f"python program source directory {Path(current, dirname).relative_to(source)} must be a real directory")
+                    kept_dirs.append(dirname)
+                directories[:] = kept_dirs
+                for name in sorted(filenames):
+                    path = Path(current) / name
+                    # Task transport files are present in some direct
+                    # evaluator invocations but are not candidate code.
+                    if path.relative_to(source).as_posix() == "solve.sh":
+                        continue
+                    entries_seen += 1
+                    if entries_seen > PYTHON_PROGRAM_SOURCE_MAX_ENTRIES:
+                        raise ValueError(
+                            f"python program source tree exceeds {PYTHON_PROGRAM_SOURCE_MAX_ENTRIES} entries"
+                        )
+                    finfo = os.lstat(path)
+                    if stat.S_ISLNK(finfo.st_mode) or not stat.S_ISREG(finfo.st_mode):
+                        raise ValueError(f"python program source file {path.relative_to(source)} must be a regular file")
+                    relative = path.relative_to(source).as_posix()
+                    if name in {"manifest.json", "algorithm.py"} or Path(name).suffix in PYTHON_PROGRAM_SOURCE_EXTENSIONS:
+                        files.append(relative)
+                    else:
+                        raise ValueError(
+                            f"python program source file {relative} has an unsupported extension"
+                        )
+            if len(files) > PYTHON_PROGRAM_SOURCE_MAX_FILES:
+                raise ValueError(
+                    f"python program source tree exceeds {PYTHON_PROGRAM_SOURCE_MAX_FILES} files"
+                )
+            required = set(PYTHON_PROGRAM_SOURCE_FILES)
+            missing = sorted(required - set(files))
+            if missing:
+                raise ValueError("candidate source is missing file(s): " + ", ".join(missing))
+            return
+        except OSError as exc:
+            raise ValueError(f"could not inspect candidate source: {exc}") from exc
+
+    allowed_names = tuple(allowed_files)
+    allowed = set(allowed_names)
     try:
         entries = list(os.scandir(source))
     except OSError as exc:
@@ -1349,7 +1513,7 @@ def _validate_algorithm_source_tree(source: Path) -> None:
         if not entry.is_file(follow_symlinks=False):
             raise ValueError(
                 f"candidate source entry {relative} must be one of: "
-                + ", ".join(ALGORITHM_SOURCE_FILES)
+                + ", ".join(allowed_names)
             )
         actual.add(relative)
     unexpected = sorted(actual - allowed)
@@ -1378,8 +1542,9 @@ def _candidate_source_manifest(
     V5 records, as well as a bare policy manifest copied by ``solve.sh``.
     """
     from tasks.bermudan_optimal_stopping.policy_protocols import (
-        load_continuation_manifest,
-        validate_continuation_manifest,
+        canonical_candidate_manifest_payload,
+        load_candidate_manifest,
+        validate_candidate_manifest,
     )
 
     raw = Path(source_dir)
@@ -1392,10 +1557,12 @@ def _candidate_source_manifest(
     if raw.is_symlink() or not raw.is_dir():
         raise ValueError("candidate source must be a real directory")
     source = raw.resolve(strict=True)
-    _validate_algorithm_source_tree(source)
-    _regular_source_file(source / "train.py", "train.py")
     _regular_source_file(source / "manifest.json", "manifest.json")
-    manifest = load_continuation_manifest(source / "manifest.json")
+    manifest = load_candidate_manifest(source / "manifest.json")
+    expected_source_files = _candidate_source_files(manifest)
+    expected_entrypoint = _candidate_entrypoint(manifest)
+    _validate_algorithm_source_tree(source, expected_source_files)
+    _regular_source_file(source / expected_entrypoint, expected_entrypoint)
 
     if isinstance(submission, Mapping):
         schema = submission.get("schema")
@@ -1403,9 +1570,10 @@ def _candidate_source_manifest(
             "openhyra-policy-spec.v1",
             "continuation-linear.v1",
             "continuation-expression.v1",
+            PYTHON_PROGRAM_SCHEMA,
         }:
-            supplied = validate_continuation_manifest(dict(submission))
-            if _manifest_payload_for_metrics(supplied) != _manifest_payload_for_metrics(manifest):
+            supplied = validate_candidate_manifest(dict(submission))
+            if canonical_candidate_manifest_payload(supplied) != canonical_candidate_manifest_payload(manifest):
                 raise ValueError(
                     "solution manifest does not match candidate manifest.json"
                 )
@@ -1428,9 +1596,9 @@ def _candidate_source_manifest(
                     )
 
             entrypoint = submission.get("entrypoint")
-            if "entrypoint" in submission and entrypoint != "train.py":
+            if "entrypoint" in submission and entrypoint != expected_entrypoint:
                 raise ValueError(
-                    "algorithm bundle entrypoint must be train.py"
+                    f"algorithm bundle entrypoint must be {expected_entrypoint}"
                 )
 
             source_files = submission.get("source_files")
@@ -1438,12 +1606,12 @@ def _candidate_source_manifest(
                 if (
                     not isinstance(source_files, (list, tuple))
                     or any(not isinstance(name, str) for name in source_files)
-                    or len(source_files) != len(ALGORITHM_SOURCE_FILES)
-                    or set(source_files) != set(ALGORITHM_SOURCE_FILES)
+                    or len(source_files) != len(expected_source_files)
+                    or set(source_files) != set(expected_source_files)
                 ):
                     raise ValueError(
                         "algorithm bundle source_files must contain exactly "
-                        "train.py and manifest.json"
+                        + " and ".join(expected_source_files)
                     )
 
             artifact_protocol = submission.get("artifact_protocol")
@@ -1456,8 +1624,8 @@ def _candidate_source_manifest(
                 )
             supplied_manifest = submission.get("manifest")
             if supplied_manifest is not None:
-                supplied = validate_continuation_manifest(supplied_manifest)
-                if _manifest_payload_for_metrics(supplied) != _manifest_payload_for_metrics(manifest):
+                supplied = validate_candidate_manifest(supplied_manifest)
+                if canonical_candidate_manifest_payload(supplied) != canonical_candidate_manifest_payload(manifest):
                     raise ValueError(
                         "algorithm bundle manifest does not match manifest.json"
                     )
@@ -1471,31 +1639,16 @@ def _candidate_source_manifest(
 
 def _manifest_payload_for_metrics(value: Any) -> dict[str, Any]:
     """Canonical JSON-like representation for every registered manifest."""
-    config = value.inference_config
-    config_payload: dict[str, Any] = {
-        "input_dim": config.input_dim,
-        "output_dim": config.output_dim,
-        "output_clip": list(config.output_clip),
-    }
-    # MLP manifests carry architecture fields; linear/expression manifests do
-    # not.  Keeping this representation local avoids relying on a private MLP
-    # serializer when the active runner is expression or linear.
-    if hasattr(config, "layers"):
-        config_payload["layers"] = list(config.layers)
-        config_payload["activation"] = config.activation
-    return {
-        "schema": value.schema,
-        "runner_type": value.runner_type,
-        "inference_config": config_payload,
-        "output_semantics": value.output_semantics,
-        "normalization": value.normalization,
-        "weight_pattern": value.weight_pattern,
-    }
+    from tasks.bermudan_optimal_stopping.policy_protocols import (
+        canonical_candidate_manifest_payload,
+    )
+
+    return canonical_candidate_manifest_payload(value)
 
 
 def _source_bundle_digest(
     source_dir: Path,
-    source_files: Iterable[str] = ALGORITHM_SOURCE_FILES,
+    source_files: Iterable[str] | None = ALGORITHM_SOURCE_FILES,
 ) -> str:
     """Compute a deterministic digest for source provenance/metrics.
 
@@ -1506,25 +1659,38 @@ def _source_bundle_digest(
     from sandbox import read_regular_file
 
     files = []
-    for name in sorted(set(source_files)):
-        if (
-            not isinstance(name, str)
-            or not name
-            or Path(name).is_absolute()
-            or ".." in Path(name).parts
-            or "\\" in name
-        ):
-            raise ValueError("algorithm source file path is unsafe")
-        data = read_regular_file(
-            source_dir / name,
-            64 * 1024 * 1024,
-            label=f"candidate algorithm file {name}",
-        )
-        files.append({
-            "path": name,
-            "size_bytes": len(data),
-            "sha256": hashlib.sha256(data).hexdigest(),
-        })
+    if source_files is None:
+        _validate_algorithm_source_tree(source_dir, PYTHON_PROGRAM_SOURCE_FILES)
+        from sandbox import read_source_tree
+        _tree_hash, hashes, _payloads = read_source_tree(source_dir, 64 * 1024 * 1024)
+        for name in sorted(hashes):
+            if name == "solve.sh":
+                continue
+            data = read_regular_file(
+                source_dir / name, 64 * 1024 * 1024,
+                label=f"candidate algorithm file {name}",
+            )
+            files.append({"path": name, "size_bytes": len(data), "sha256": hashes[name]})
+    else:
+        for name in sorted(set(source_files)):
+            if (
+                not isinstance(name, str)
+                or not name
+                or Path(name).is_absolute()
+                or ".." in Path(name).parts
+                or "\\" in name
+            ):
+                raise ValueError("algorithm source file path is unsafe")
+            data = read_regular_file(
+                source_dir / name,
+                64 * 1024 * 1024,
+                label=f"candidate algorithm file {name}",
+            )
+            files.append({
+                "path": name,
+                "size_bytes": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            })
     return _sha256_json({
         "schema": "openhyra-algorithm-bundle.v1",
         "files": files,
@@ -1648,6 +1814,14 @@ def _fit_algorithm_policy(
         cpu_seconds=config.get("training_cpu_seconds"),
         memory_bytes=memory_bytes,
         file_size_bytes=file_size_bytes,
+        prediction_timeout_s=float(config.get("prediction_timeout_s", 5.0)),
+        prediction_cpu_seconds=config.get("prediction_cpu_seconds"),
+        prediction_memory_bytes=int(config.get(
+            "prediction_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES,
+        )),
+        prediction_file_size_bytes=int(config.get(
+            "prediction_file_size_bytes", 16 * 1024 * 1024,
+        )),
         externally_isolated=sys.platform != "darwin",
     )
     details = _training_result_metrics(result)
@@ -1660,7 +1834,8 @@ def _fit_algorithm_policy(
     policy = TrustedRunnerPolicy(
         runner=result.runner,
         instance=instance,
-        runner_type=getattr(manifest, "runner_type", "mlp"),
+        runner_type=_candidate_runner_type(manifest),
+        policy_interface=getattr(manifest, "interface", "continuation"),
         policy_artifact_sha256=result.policy_artifact_sha256,
     )
     return policy, details
@@ -1699,7 +1874,8 @@ def _fit_candidate_policy(
         cell_dir=cell_dir,
         config=config,
     )
-    details["runner_type"] = getattr(manifest, "runner_type", "mlp")
+    details["runner_type"] = _candidate_runner_type(manifest)
+    details["policy_interface"] = getattr(manifest, "interface", "continuation")
     return policy, details
 
 
@@ -1893,8 +2069,11 @@ def _evaluate_search(
     metrics.update(_aggregate_behavior_metrics(summaries))
     if candidate_source_dir is not None:
         metrics.update({
-            "candidate_kind": "algorithm_bundle",
-            "runner_type": getattr(candidate_manifest, "runner_type", "mlp"),
+            "candidate_kind": _candidate_kind(candidate_manifest),
+            "runner_type": _candidate_runner_type(candidate_manifest),
+            "policy_interface": getattr(
+                candidate_manifest, "interface", "continuation",
+            ),
             "training_cell_count": len(training_cells),
             "training_cells": training_cells,
             "mean_training_seconds_per_instance": (
@@ -1929,7 +2108,7 @@ def _evaluate_search(
             "training_pricing_independent": True,
             "cluster_unit": "instance_repeat",
             "candidate_kind": (
-                "algorithm_bundle" if candidate_source_dir is not None
+                _candidate_kind(candidate_manifest) if candidate_source_dir is not None
                 else "feature_ir"
             ),
             "feedback_packet_id": feedback_packet.packet_id,
@@ -1961,6 +2140,7 @@ def _evaluate_audit(
     summaries: list[dict[str, Any]] = []
     confidence_gaps: list[float] = []
     training_cells: list[dict[str, Any]] = []
+    dual_verifiers: set[str] = set()
     training_root: Path | None = None
     if candidate_source_dir is not None:
         training_root = Path(tempfile.mkdtemp(prefix="openhyra-bermudan-audit-"))
@@ -2012,8 +2192,30 @@ def _evaluate_audit(
                         **train_details,
                     })
                 lower_samples, _ = apply_policy(policy, pricing)
+                # Open Python programs may return direct decisions and may use
+                # full causal history.  Neither output is a value function for
+                # the nested martingale.  Use one deterministic,
+                # evaluator-owned continuation approximation for every Python
+                # program so decision and continuation interfaces have the same
+                # independent upper-bound verifier.  Legacy frozen runners keep
+                # their historical candidate-specific dual unchanged.
+                if getattr(policy, "runner_type", "") == "python_program":
+                    dual_policy = fit_lsmc(
+                        BASELINE_PROGRAM,
+                        instance,
+                        training,
+                        ridge_alpha=config["ridge_alpha"],
+                    )
+                    dual_verifier = "evaluator_owned_ridge_lsmc"
+                else:
+                    dual_policy = policy
+                    dual_verifier = "candidate_continuation"
+                dual_verifiers.add(dual_verifier)
                 upper_samples, martingale_terminal = dual_upper_bound_samples(
-                    policy, outer, inner_paths=config["inner_paths"], inner_seed=inner_seed,
+                    dual_policy,
+                    outer,
+                    inner_paths=config["inner_paths"],
+                    inner_seed=inner_seed,
                 )
                 lower_mean, lower_se = _mean_se(lower_samples)
                 upper_mean, upper_se = _mean_se(upper_samples)
@@ -2048,6 +2250,7 @@ def _evaluate_audit(
                     "raw_bound_order_ok": bound_order_ok,
                     "martingale_terminal_mean": martingale_mean,
                     "martingale_terminal_standard_error": martingale_se,
+                    "dual_verifier": dual_verifier,
                     "candidate_training_seconds": train_details.get(
                         "wall_seconds"
                     ),
@@ -2095,11 +2298,17 @@ def _evaluate_audit(
         "deterministic_reproduction_passed": None,
         "deterministic_reproduction_observed": False,
         "summaries": summaries,
+        "dual_verifier": (
+            next(iter(dual_verifiers)) if len(dual_verifiers) == 1 else "mixed"
+        ),
     }
     if candidate_source_dir is not None:
         metrics.update({
-            "candidate_kind": "algorithm_bundle",
-            "runner_type": getattr(candidate_manifest, "runner_type", "mlp"),
+            "candidate_kind": _candidate_kind(candidate_manifest),
+            "runner_type": _candidate_runner_type(candidate_manifest),
+            "policy_interface": getattr(
+                candidate_manifest, "interface", "continuation",
+            ),
             "training_cell_count": len(training_cells),
             "training_cells": training_cells,
             "mean_training_seconds_per_instance": (
@@ -2136,8 +2345,11 @@ def _evaluate_audit(
             },
             "negative_raw_gaps_clipped": False,
             "candidate_kind": (
-                "algorithm_bundle" if candidate_source_dir is not None
+                _candidate_kind(candidate_manifest) if candidate_source_dir is not None
                 else "feature_ir"
+            ),
+            "dual_verifier": (
+                next(iter(dual_verifiers)) if len(dual_verifiers) == 1 else "mixed"
             ),
             "feedback_packet_id": feedback_packet.packet_id,
             "feedback_packet_schema": feedback_packet.schema,
@@ -2158,6 +2370,8 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         # omitted from the legacy task's canonical request unless supplied.
         "training_timeout_s", "training_cpu_seconds",
         "training_memory_bytes", "training_file_size_bytes",
+        "prediction_timeout_s", "prediction_cpu_seconds",
+        "prediction_memory_bytes", "prediction_file_size_bytes",
     }
     allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else set())
     _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
@@ -2206,6 +2420,26 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
     if "training_file_size_bytes" in raw:
         result["training_file_size_bytes"] = _strict_int(
             raw["training_file_size_bytes"], path="config.training_file_size_bytes",
+            minimum=1024, maximum=256 * 1024 * 1024,
+        )
+    if "prediction_timeout_s" in raw:
+        result["prediction_timeout_s"] = _strict_float(
+            raw["prediction_timeout_s"], path="config.prediction_timeout_s",
+            minimum=0.05, maximum=60.0,
+        )
+    if "prediction_cpu_seconds" in raw:
+        result["prediction_cpu_seconds"] = _strict_float(
+            raw["prediction_cpu_seconds"], path="config.prediction_cpu_seconds",
+            minimum=0.05, maximum=60.0,
+        )
+    if "prediction_memory_bytes" in raw:
+        result["prediction_memory_bytes"] = _strict_int(
+            raw["prediction_memory_bytes"], path="config.prediction_memory_bytes",
+            minimum=16 * 1024 * 1024, maximum=8 * 1024 * 1024 * 1024,
+        )
+    if "prediction_file_size_bytes" in raw:
+        result["prediction_file_size_bytes"] = _strict_int(
+            raw["prediction_file_size_bytes"], path="config.prediction_file_size_bytes",
             minimum=1024, maximum=256 * 1024 * 1024,
         )
     if "suite_id" in raw:
@@ -2258,7 +2492,7 @@ def validate_evaluation_request(raw: Any) -> tuple[dict[str, Any], dict[str, Any
 def default_search_request() -> dict[str, Any]:
     """Manual smoke-test request; production harnesses pass a sealed argv[2]."""
     suite_id = (
-        "bermudan-python-public-v1"
+        "bermudan-python-public-v2"
         if TASK_NAME == "bermudan_python_search"
         else "bermudan-public-v1"
     )
@@ -2274,6 +2508,34 @@ def default_search_request() -> dict[str, Any]:
     return validate_evaluation_request(raw)[0]
 
 
+def _validate_candidate_protocol_binding(
+    request: Mapping[str, Any],
+    candidate_source: Path | None,
+    candidate_manifest: Any,
+) -> None:
+    """Bind the whole-program task protocol to its executable program contract."""
+    is_python_program = (
+        candidate_source is not None
+        and _is_python_program_manifest(candidate_manifest)
+    )
+    if request["protocol"] != PYTHON_PROGRAM_TASK_PROTOCOL:
+        if is_python_program:
+            raise ValueError(
+                f"{PYTHON_PROGRAM_SCHEMA} requires protocol "
+                f"{PYTHON_PROGRAM_TASK_PROTOCOL}"
+            )
+        return
+    if request["task"] != "bermudan_python_search":
+        raise ValueError(
+            f"{PYTHON_PROGRAM_TASK_PROTOCOL} requires task bermudan_python_search"
+        )
+    if not is_python_program:
+        raise ValueError(
+            f"{PYTHON_PROGRAM_TASK_PROTOCOL} requires "
+            f"{PYTHON_PROGRAM_SCHEMA} with entrypoint algorithm.py"
+        )
+
+
 def evaluate_submission(
     submission: Any,
     request: dict[str, Any] | None = None,
@@ -2282,13 +2544,30 @@ def evaluate_submission(
 ) -> tuple[float, dict[str, Any], dict[str, Any], dict[str, Any]]:
     algorithm_source: Path | None = None
     algorithm_manifest: Any = None
+    candidate_source_names: list[str] | None = None
     if candidate_source_dir is not None:
         algorithm_source, algorithm_manifest = _candidate_source_manifest(
             candidate_source_dir, submission,
         )
         program = None
         normalized_candidate = _manifest_payload_for_metrics(algorithm_manifest)
-        candidate_hash = _source_bundle_digest(algorithm_source)
+        candidate_hash = _source_bundle_digest(
+            algorithm_source,
+            None if _is_python_program_manifest(algorithm_manifest)
+            else _candidate_source_files(algorithm_manifest),
+        )
+        if _is_python_program_manifest(algorithm_manifest):
+            from sandbox import read_source_tree
+            _tree_hash, _hashes, _files = read_source_tree(
+                algorithm_source, 64 * 1024 * 1024,
+            )
+            candidate_source_names = sorted(
+                name for name in _files if name != "solve.sh"
+            )
+        else:
+            candidate_source_names = list(
+                _candidate_source_files(algorithm_manifest)
+            )
         feature_hash = None
     else:
         program = validate_feature_program(submission)
@@ -2300,6 +2579,11 @@ def evaluate_submission(
         config = _validate_config("search", request["config"])
     else:
         request, config = validate_evaluation_request(request)
+    _validate_candidate_protocol_binding(
+        request,
+        algorithm_source,
+        algorithm_manifest,
+    )
     started = time.perf_counter()
     if request["stage"] == "search":
         score, stage_metrics, stage_evidence = _evaluate_search(
@@ -2324,11 +2608,18 @@ def evaluate_submission(
         "evaluation_request_sha256": request_hash,
         "feature_program_sha256": feature_hash,
         "candidate_hash": candidate_hash,
+        "source_files": candidate_source_names,
         "candidate_kind": (
-            "algorithm_bundle" if algorithm_source is not None else "feature_ir"
+            _candidate_kind(algorithm_manifest)
+            if algorithm_source is not None else "feature_ir"
         ),
         "feature_count": len(program["features"]) if program is not None else None,
-        "algorithm_bundle_sha256": candidate_hash if algorithm_source is not None else None,
+        "algorithm_bundle_sha256": (
+            candidate_hash
+            if algorithm_source is not None
+            and not _is_python_program_manifest(algorithm_manifest)
+            else None
+        ),
         "runner_type": (
             getattr(algorithm_manifest, "runner_type", None)
             if algorithm_source is not None else "ridge_lsmc"
@@ -2344,7 +2635,7 @@ def evaluate_submission(
         # AlgorithmBundle contract and is not candidate-reported telemetry.
         metrics.update({
             "artifact_protocol": algorithm_manifest.schema,
-            "entrypoint": "train.py",
+            "entrypoint": _candidate_entrypoint(algorithm_manifest),
         })
     # Complete the packet's evaluator-side identity/runtime fields only after
     # the stage has returned.  This keeps the stage helpers reusable while
@@ -2395,6 +2686,7 @@ def evaluate_submission(
         "feature_program_sha256": feature_hash,
         "candidate_hash": candidate_hash,
         "candidate_kind": metrics["candidate_kind"],
+        "source_files": candidate_source_names,
         "candidate_supplied_prices_ignored": True,
         **stage_evidence,
     }
@@ -2441,7 +2733,10 @@ def main() -> None:
         if artifact_path.is_dir():
             if candidate_source_dir is None and (
                 (artifact_path / "manifest.json").is_file()
-                and (artifact_path / "train.py").is_file()
+                and (
+                    (artifact_path / "train.py").is_file()
+                    or (artifact_path / "algorithm.py").is_file()
+                )
             ):
                 candidate_source_dir = str(artifact_path)
             artifact_path = artifact_path / "solution.json"
