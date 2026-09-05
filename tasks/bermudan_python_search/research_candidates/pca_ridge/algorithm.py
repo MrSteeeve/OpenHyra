@@ -20,7 +20,7 @@ def transform(states, immediate, center, components):
 def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
     paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
     payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
-    z = np.log(np.maximum(paths[:, 0, :], 1e-12))
+    z = np.log(np.maximum(paths[:, 1:, :].reshape(-1, paths.shape[-1]), 1e-12))
     center = z.mean(axis=0)
     _, _, vh = np.linalg.svd(z - center, full_matrices=False)
     components = vh[:min(3, vh.shape[0])]

@@ -14,7 +14,7 @@ the source-tree contract.
 | `linear_ridge` | continuation | standardized log-state ridge baseline |
 | `pca_ridge` | continuation | learned low-rank state representation + ridge |
 | `gated_ridge` | continuation | two ridge policies selected by a state gate |
-| `residual_hybrid` | continuation | ridge plus nonlinear residual features |
+| `residual_hybrid` | continuation | ridge plus a trained one-hidden-layer MLP residual |
 | `mlp` | continuation | one-hidden-layer NumPy network trained by gradient descent |
 | `direct_decision` | decision | evaluator-applied exercise decision threshold |
 | `policy_iteration` | continuation | repeated backward Bellman policy sweeps |

@@ -23,6 +23,7 @@ def fit(input_dir:Path,output_dir:Path,seed:int)->None:
     # Two policy-evaluation/improvement sweeps make the update rule explicit.
     cash=np.asarray(payoffs[:,-1],float).copy()
     for sweep in range(2):
+        cash=np.asarray(payoffs[:,-1],float).copy()
         for t in range(steps-1,-1,-1):
             x=features(paths[:,t,:],payoffs[:,t]); y=cash.copy()
             c,m,s=ridge(x,y,1e-6*(sweep+1)); coefficients[t],means[t],scales[t]=c,m,s
