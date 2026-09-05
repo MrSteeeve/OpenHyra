@@ -1,0 +1,28 @@
+{
+  "evidence": {},
+  "failure_reason": "proposal agent (codex) exited with code 124: ERROR: Reconnecting... 2/5",
+  "metrics": {},
+  "request": {
+    "config": {
+      "independent_validation": false,
+      "instance_count": 2,
+      "pricing_paths": 512,
+      "public_pathwise_samples": true,
+      "repeats": 2,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 29,
+    "stage": "search",
+    "suite_id": "bermudan-python-public-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": null,
+  "source_digest": "55d71ef58af6bc2a7ae9f317105400f91a0ac9b806d236745f07f4f9be77908c",
+  "source_unchanged": true,
+  "status": "error",
+  "wall_seconds": 0.0
+}

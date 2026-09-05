@@ -1,0 +1,1557 @@
+{
+  "evidence": {
+    "audit": {
+      "candidate_kind": "python_program",
+      "discounted_reward": true,
+      "dual_verifier": "evaluator_owned_ridge_lsmc",
+      "feedback_packet_id": "feedback_6a58070f6c6065d4febb",
+      "feedback_packet_schema": "openhyra-feedback-packet.v1",
+      "hidden_suite_derived_from_request_seed": true,
+      "independent_reproduction": {
+        "lookahead_probe": {
+          "future_a_sha256": "ae073790c8b3a3b074d8206c7e0b77f4ae882f612196ebfcb419627bcb68b0ce",
+          "future_b_sha256": "27aeb09668becb5bebb6e3c3b523a801e5083321cfc5d2e5eb42336b6feb0cf1",
+          "future_changed": true,
+          "observed": true,
+          "prediction_equal": true,
+          "prefix_equal": true,
+          "status": "passed",
+          "time_index": 1
+        },
+        "reason": "one fresh top-candidate replay and causal probe",
+        "status": "passed"
+      },
+      "martingale": {
+        "finite_inner_estimator_conditionally_unbiased": true,
+        "increment": "f_m(S_outer)-mean_b(f_m(S_inner_b))",
+        "inner_conditioning_state": "S_outer[m-1]",
+        "m0": 0.0
+      },
+      "negative_raw_gaps_clipped": false,
+      "status": "private_primal_dual_checked",
+      "training_pricing_outer_inner_streams_independent": true
+    },
+    "candidate_hash": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+    "candidate_kind": "python_program",
+    "candidate_supplied_prices_ignored": true,
+    "evaluation_request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+    "feature_program_sha256": null,
+    "schema": "openhyra-bermudan-evidence.v1",
+    "source_files": [
+      "algorithm.py",
+      "manifest.json"
+    ],
+    "stage": "audit",
+    "suite_id": "bermudan-python-hidden-v2"
+  },
+  "failure_reason": null,
+  "metrics": {
+    "algorithm_bundle_sha256": null,
+    "artifact_protocol": "openhyra-python-program.v1",
+    "candidate_hash": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+    "candidate_kind": "python_program",
+    "confidence_component_z": 1.9599639845400536,
+    "confidence_construction": "bonferroni_one_sided_components",
+    "confidence_level": 0.95,
+    "deterministic_reproduction_observed": true,
+    "deterministic_reproduction_passed": true,
+    "dual_inner_path_count": 4,
+    "dual_outer_path_count": 128,
+    "dual_verifier": "evaluator_owned_ridge_lsmc",
+    "entrypoint": "algorithm.py",
+    "estimator_scope": "fixed_hidden_suite_and_repeat_mean",
+    "evaluation_cell_count": 2,
+    "evaluation_request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+    "failure_rate": null,
+    "failure_rate_observed": false,
+    "feature_count": null,
+    "feature_program_sha256": null,
+    "feedback_packet": {
+      "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+      "created_at": "",
+      "data": {
+        "candidate_boundary": "evaluator_owned",
+        "split": "private",
+        "suite_id": "bermudan-python-hidden-v2",
+        "task": "bermudan_python_search"
+      },
+      "directional": [
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "instance:hidden-000",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:0",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "instance:hidden-000"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "instance:hidden-000",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "payoff:put",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:1",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "payoff:put"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "payoff:put",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "dimension:1d",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:2",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "dimension:1d"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "dimension:1d",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "moneyness:near_atm",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:3",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "moneyness:near_atm"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "moneyness:near_atm",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "volatility:high_volatility",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:4",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "volatility:high_volatility"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "volatility:high_volatility",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "correlation:low_correlation",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:5",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "correlation:low_correlation"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "correlation:low_correlation",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-000",
+            "repeat": 0,
+            "slice_label": "exercise_grid:regular_grid",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-000:0:6",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12977087500621565,
+            "effect": -0.6987765669632974,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.38278835821063256,
+            "standard_error": 0.152049823706594
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "exercise_grid:regular_grid"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "exercise_grid:regular_grid",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "instance:hidden-001",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:0",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "instance:hidden-001"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "instance:hidden-001",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "payoff:max_call",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:1",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "payoff:max_call"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "payoff:max_call",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "dimension:2d",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:2",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "dimension:2d"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "dimension:2d",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "moneyness:near_atm",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:3",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "moneyness:near_atm"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "moneyness:near_atm",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "volatility:medium_volatility",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:4",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "volatility:medium_volatility"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "volatility:medium_volatility",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "correlation:low_correlation",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:5",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "correlation:low_correlation"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "correlation:low_correlation",
+          "version": "openhyra-directional-feedback.v1"
+        },
+        {
+          "candidate_id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+          "confidence": "not_observed",
+          "created_at": "",
+          "data": {
+            "instance_id": "hidden-001",
+            "repeat": 0,
+            "slice_label": "exercise_grid:regular_grid",
+            "split": "private",
+            "suite_id": "bermudan-python-hidden-v2",
+            "task": "bermudan_python_search"
+          },
+          "direction": "negative",
+          "evidence": {
+            "record_ids": [],
+            "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+            "source": "trusted_evaluator"
+          },
+          "falsifier": "negative_primal_dual_gap_or_bound_order_failure",
+          "id": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1:bermudan-python-hidden-v2:audit:hidden-001:0:6",
+          "mechanism_id": "candidate_vs_dual",
+          "observed": {
+            "baseline_exercise_rate": {
+              "reason": "baseline_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_finite": {
+              "reason": "baseline_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_mean": {
+              "reason": "baseline_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "baseline_stop_time_std": {
+              "reason": "baseline_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_exercise_rate": {
+              "reason": "candidate_exercise_rate is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_finite": {
+              "reason": "candidate_finite is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_mean": {
+              "reason": "candidate_stop_time_mean is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_stop_time_std": {
+              "reason": "candidate_stop_time_std is not observed in audit stage",
+              "status": "not_observed"
+            },
+            "candidate_training_seconds": 0.12647366599412635,
+            "effect": -0.21582143482178523,
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "raw_bound_order_ok": true,
+            "raw_primal_dual_gap": 0.15847187620505238,
+            "standard_error": 0.017778564230881252
+          },
+          "prediction": "not_observed",
+          "probe": {
+            "metric": "negative_normalized_primal_dual_confidence_gap",
+            "probe_version": "bermudan-domain-probe.v1",
+            "slice_source": "instance_contract_descriptor",
+            "stage": "audit"
+          },
+          "recommendation": {
+            "action": "falsify_or_switch",
+            "next_probe": "matched_control_or_counterexample",
+            "scope": "mechanism_family",
+            "target_slice": "exercise_grid:regular_grid"
+          },
+          "schema": "openhyra-directional-feedback.v1",
+          "slice_key": "exercise_grid:regular_grid",
+          "version": "openhyra-directional-feedback.v1"
+        }
+      ],
+      "evidence": {
+        "candidate_hash": "340ba21eb6867338253f1089fec8900e052bb6ccafa0d013e7112d7b829ff4d1",
+        "candidate_supplied_telemetry_ignored": true,
+        "evidence_version": "bermudan-evidence.v1",
+        "request_sha256": "c4d58afbf46d6982c77328fd8552609ff4ef7d4d1de02da6351803b5d1b465c8",
+        "source": "trusted_evaluator"
+      },
+      "mechanism_id": "candidate_vs_dual",
+      "observed": {
+        "aggregate_effect": -0.4572990008925413,
+        "aggregate_standard_error": {
+          "reason": "aggregate standard error unavailable",
+          "status": "not_observed"
+        },
+        "boundary_diagnostics": {
+          "all_ok": true,
+          "raw_bound_order_ok": [
+            true,
+            true
+          ]
+        },
+        "cell_count": 2,
+        "failure_rate": {
+          "reason": "candidate validity was not emitted for this stage",
+          "status": "not_observed"
+        },
+        "independent_reproduction": {
+          "lookahead_probe": {
+            "future_a_sha256": "ae073790c8b3a3b074d8206c7e0b77f4ae882f612196ebfcb419627bcb68b0ce",
+            "future_b_sha256": "27aeb09668becb5bebb6e3c3b523a801e5083321cfc5d2e5eb42336b6feb0cf1",
+            "future_changed": true,
+            "observed": true,
+            "prediction_equal": true,
+            "prefix_equal": true,
+            "status": "passed",
+            "time_index": 1
+          },
+          "status": "passed"
+        },
+        "objective_direction": "min",
+        "primary_metric": "normalized_primal_dual_confidence_gap",
+        "primary_score": 0.6199192643298278,
+        "runtime_seconds": {
+          "reason": "wall-clock runtime is recorded outside the deterministic packet",
+          "status": "not_observed"
+        },
+        "tail_risk": {
+          "normalized_confidence_gap": [
+            0.6987765669632974,
+            0.21582143482178523
+          ],
+          "raw_gap": [
+            0.38278835821063256,
+            0.15847187620505238
+          ]
+        },
+        "training_seconds_by_cell": [
+          0.12977087500621565,
+          0.12647366599412635
+        ]
+      },
+      "packet_id": "feedback_6a58070f6c6065d4febb",
+      "probe": {
+        "confidence_level": 0.95,
+        "observed_fields": [
+          "aggregate_effect",
+          "aggregate_standard_error",
+          "boundary_diagnostics",
+          "cell_count",
+          "failure_rate",
+          "independent_reproduction",
+          "objective_direction",
+          "primary_metric",
+          "primary_score",
+          "runtime_seconds",
+          "tail_risk",
+          "training_seconds_by_cell"
+        ],
+        "probe_version": "bermudan-domain-probe.v1",
+        "stage": "audit"
+      },
+      "recommendation": {
+        "action": "use_directional_items_with_router",
+        "policy": "deterministic_projection_only",
+        "primary_metric": "normalized_primal_dual_confidence_gap"
+      },
+      "schema": "openhyra-feedback-packet.v1",
+      "version": "openhyra-feedback-packet.v1"
+    },
+    "independent_validation": {
+      "cost": {
+        "probe_wall_seconds": 0.20329304100596346,
+        "replay_wall_seconds": 0.33055191600578837
+      },
+      "deterministic_replay": {
+        "model_equal": true,
+        "model_sha256": "40941b4d4088e0b463b5214564631c14b9ee6f43a7e74a32f24cf6c6aa1bf5d2",
+        "observed": true,
+        "prediction_equal": true,
+        "replay_model_sha256": "40941b4d4088e0b463b5214564631c14b9ee6f43a7e74a32f24cf6c6aa1bf5d2",
+        "replay_training": {
+          "input_bundle_sha256": "2dc40692da00826e65c0546598fb029a51a055bc533df53d787cf28eb451c94f",
+          "input_file_sha256": [
+            {
+              "path": "discount_factors.npy",
+              "sha256": "89857a3212356802314920196a87bd310f6d53bc859c398aaf839ccecada0c89"
+            },
+            {
+              "path": "instance.json",
+              "sha256": "2200835ac5db31de90ebee15dabb741d222df1ac71769b6a47e5421cc80d9463"
+            },
+            {
+              "path": "payoffs.npy",
+              "sha256": "6dd3ba61f2a2b8e0e3f0466e2b960840c884ead126a7f31808cbfc261b2615eb"
+            },
+            {
+              "path": "training_paths.npy",
+              "sha256": "2faa08b0bf49f012c53f9e712d0db4e8d87fedbca2639173f232e6a5c00e04fd"
+            }
+          ],
+          "isolation": "seatbelt",
+          "log_tail": "",
+          "output_bytes": 13806,
+          "output_entries": 1,
+          "peak_memory_bytes": 4030464,
+          "policy_artifact_sha256": "40941b4d4088e0b463b5214564631c14b9ee6f43a7e74a32f24cf6c6aa1bf5d2",
+          "policy_file_sha256": [
+            {
+              "path": "model.npz",
+              "sha256": "eae13bb8b7b4a932df1fe25043f45485cf6ae8de46b9e4a0769cdfa10ec8932e"
+            }
+          ],
+          "policy_interface": "continuation",
+          "research_fallback": false,
+          "returncode": 0,
+          "runner_type": "python_program",
+          "status": "ok",
+          "train_seed": 7176625384621597949,
+          "wall_seconds": 0.1271991249959683
+        },
+        "status": "passed"
+      },
+      "lookahead_probe": {
+        "future_a_sha256": "ae073790c8b3a3b074d8206c7e0b77f4ae882f612196ebfcb419627bcb68b0ce",
+        "future_b_sha256": "27aeb09668becb5bebb6e3c3b523a801e5083321cfc5d2e5eb42336b6feb0cf1",
+        "future_changed": true,
+        "observed": true,
+        "prediction_equal": true,
+        "prefix_equal": true,
+        "status": "passed",
+        "time_index": 1
+      },
+      "observed": true,
+      "schema": "openhyra-bermudan-independent-validation.v1"
+    },
+    "independent_validation_enabled": true,
+    "instance_count": 2,
+    "lookahead_violation": false,
+    "lookahead_violation_observed": true,
+    "max_training_seconds_per_instance": 0.12977087500621565,
+    "mean_normalized_confidence_gap": 0.4572990008925413,
+    "mean_training_seconds_per_instance": 0.128122270500171,
+    "metric": "normalized_primal_dual_confidence_gap",
+    "normalized_primal_dual_confidence_gap": 0.6199192643298278,
+    "policy_interface": "continuation",
+    "q90_normalized_confidence_gap": 0.6504810537491462,
+    "raw_bound_order_all_ok": true,
+    "repeat_count": 1,
+    "research_mode": true,
+    "runner_type": "python_program",
+    "runtime_seconds": 2.1992546249966836,
+    "source_files": [
+      "algorithm.py",
+      "manifest.json"
+    ],
+    "stage": "audit",
+    "suite_id": "bermudan-python-hidden-v2",
+    "summaries": [
+      {
+        "candidate_training_seconds": 0.12977087500621565,
+        "confidence_gap": 0.6987765669632974,
+        "dimension": 1,
+        "dual_verifier": "evaluator_owned_ridge_lsmc",
+        "instance_id": "hidden-000",
+        "instance_sha256": "a3656de8c0d1dac4039ce0c68b8869d9221992ee1a8f5822395e2add4f124550",
+        "lower_bound": 0.19366281645264422,
+        "lower_bound_standard_error": 0.009171612628532328,
+        "martingale_terminal_mean": -0.018614229189873557,
+        "martingale_terminal_standard_error": 0.17442469445573938,
+        "mean_correlation": 0.0,
+        "mean_volatility": 0.38796355439621155,
+        "moneyness": 1.0450924635556615,
+        "normalized_primal_dual_confidence_gap": 0.6987765669632974,
+        "payoff_type": "put",
+        "raw_bound_order_ok": true,
+        "raw_primal_dual_gap": 0.38278835821063256,
+        "repeat": 0,
+        "slice_labels": [
+          "payoff:put",
+          "dimension:1d",
+          "moneyness:near_atm",
+          "volatility:high_volatility",
+          "correlation:low_correlation",
+          "exercise_grid:regular_grid"
+        ],
+        "upper_bound": 0.5764511746632768,
+        "upper_bound_standard_error": 0.152049823706594
+      },
+      {
+        "candidate_training_seconds": 0.12647366599412635,
+        "confidence_gap": 0.21582143482178523,
+        "dimension": 2,
+        "dual_verifier": "evaluator_owned_ridge_lsmc",
+        "instance_id": "hidden-001",
+        "instance_sha256": "42dbda7fcba2042686ae2b40d95ff7416c9a3afc9bbe993777a125e7eb0425e7",
+        "lower_bound": 0.1790239052379784,
+        "lower_bound_standard_error": 0.011481952324065096,
+        "martingale_terminal_mean": 0.02694022982647925,
+        "martingale_terminal_standard_error": 0.044681039000525974,
+        "mean_correlation": 0.14687290257761237,
+        "mean_volatility": 0.23410211586565166,
+        "moneyness": 0.9666930153607969,
+        "normalized_primal_dual_confidence_gap": 0.21582143482178523,
+        "payoff_type": "max_call",
+        "raw_bound_order_ok": true,
+        "raw_primal_dual_gap": 0.15847187620505238,
+        "repeat": 0,
+        "slice_labels": [
+          "payoff:max_call",
+          "dimension:2d",
+          "moneyness:near_atm",
+          "volatility:medium_volatility",
+          "correlation:low_correlation",
+          "exercise_grid:regular_grid"
+        ],
+        "upper_bound": 0.3374957814430308,
+        "upper_bound_standard_error": 0.017778564230881252
+      }
+    ],
+    "test_path_count": 512,
+    "total_dual_inner_draw_budget": 7168,
+    "total_dual_outer_path_budget": 256,
+    "total_test_path_budget": 1024,
+    "total_training_path_budget": 512,
+    "training_cell_count": 2,
+    "training_cells": [
+      {
+        "candidate_target_observed": false,
+        "fit_wall_seconds": 0.12977087500621565,
+        "input_bundle_sha256": "2dc40692da00826e65c0546598fb029a51a055bc533df53d787cf28eb451c94f",
+        "input_file_sha256": [
+          {
+            "path": "discount_factors.npy",
+            "sha256": "89857a3212356802314920196a87bd310f6d53bc859c398aaf839ccecada0c89"
+          },
+          {
+            "path": "instance.json",
+            "sha256": "2200835ac5db31de90ebee15dabb741d222df1ac71769b6a47e5421cc80d9463"
+          },
+          {
+            "path": "payoffs.npy",
+            "sha256": "6dd3ba61f2a2b8e0e3f0466e2b960840c884ead126a7f31808cbfc261b2615eb"
+          },
+          {
+            "path": "training_paths.npy",
+            "sha256": "2faa08b0bf49f012c53f9e712d0db4e8d87fedbca2639173f232e6a5c00e04fd"
+          }
+        ],
+        "instance_id": "hidden-000",
+        "isolation": "seatbelt",
+        "log_tail": "",
+        "model_file_sha256": "40941b4d4088e0b463b5214564631c14b9ee6f43a7e74a32f24cf6c6aa1bf5d2",
+        "output_bytes": 13806,
+        "output_entries": 1,
+        "path_seed": 16399997421476373757,
+        "payoffs_sha256": "db7ba67d82f79f326b7e3bbf3aa1cf177c44d39215ef7da917d8c374bcb01567",
+        "peak_memory_bytes": 4030464,
+        "policy_artifact_sha256": "40941b4d4088e0b463b5214564631c14b9ee6f43a7e74a32f24cf6c6aa1bf5d2",
+        "policy_file_sha256": [
+          {
+            "path": "model.npz",
+            "sha256": "eae13bb8b7b4a932df1fe25043f45485cf6ae8de46b9e4a0769cdfa10ec8932e"
+          }
+        ],
+        "policy_interface": "continuation",
+        "repeat": 0,
+        "research_fallback": false,
+        "returncode": 0,
+        "runner_type": "python_program",
+        "status": "ok",
+        "target_kind": "evaluator_discounted_payoff_stream",
+        "target_sha256": "db7ba67d82f79f326b7e3bbf3aa1cf177c44d39215ef7da917d8c374bcb01567",
+        "train_seed": 7176625384621597949,
+        "training_path_count": 256,
+        "training_paths_sha256": "e6c3d8afac70927f79db7c5b54e443d6dd54055890e0e6dab42486abd0ba01de",
+        "training_paths_shape": [
+          256,
+          8,
+          1
+        ],
+        "wall_seconds": 0.12977087500621565
+      },
+      {
+        "candidate_target_observed": false,
+        "fit_wall_seconds": 0.12647366599412635,
+        "input_bundle_sha256": "2991e8ffdc494de1f66be6c29c3fefc62898fd4e00975ef08e6a16221f03af84",
+        "input_file_sha256": [
+          {
+            "path": "discount_factors.npy",
+            "sha256": "17d450fa99f5e2b3a737e9e7968673cd0f0cfdf39c2673dec1d89748a45c3497"
+          },
+          {
+            "path": "instance.json",
+            "sha256": "63cc01875fbc09998e7515bfa4b2ecfc5de30b143c7713bfdf34698675292f60"
+          },
+          {
+            "path": "payoffs.npy",
+            "sha256": "6cc8d63efea3ec3d1cc4961c142ae25d90a6388b2ab006c1d891753bd73a0949"
+          },
+          {
+            "path": "training_paths.npy",
+            "sha256": "e2a82318ba6421ede187a9c6a44d0877412ede3857a1efd3ab9dec1a83920ab7"
+          }
+        ],
+        "instance_id": "hidden-001",
+        "isolation": "seatbelt",
+        "log_tail": "",
+        "model_file_sha256": "ef0d0bc094dc70448540b9fa0fc47918af63627bddc4c4f1f82c5b41777b97d1",
+        "output_bytes": 17262,
+        "output_entries": 1,
+        "path_seed": 5149459654142166245,
+        "payoffs_sha256": "7d0213db53314785f4b8172e001dfd5d6e9e5bca7e3978a21bf3a82738f1951f",
+        "peak_memory_bytes": 4030464,
+        "policy_artifact_sha256": "ef0d0bc094dc70448540b9fa0fc47918af63627bddc4c4f1f82c5b41777b97d1",
+        "policy_file_sha256": [
+          {
+            "path": "model.npz",
+            "sha256": "16813aa49a10c20e4a677c6c2a740ec59781c46eabd72c9bf1a31b25fc8ebf8f"
+          }
+        ],
+        "policy_interface": "continuation",
+        "repeat": 0,
+        "research_fallback": false,
+        "returncode": 0,
+        "runner_type": "python_program",
+        "status": "ok",
+        "target_kind": "evaluator_discounted_payoff_stream",
+        "target_sha256": "7d0213db53314785f4b8172e001dfd5d6e9e5bca7e3978a21bf3a82738f1951f",
+        "train_seed": 5149459654142166245,
+        "training_path_count": 256,
+        "training_paths_sha256": "5f4de3b8dcffdbb2ada65032fd47cb6f3c1d5621812aad7a0e413c7836c21d35",
+        "training_paths_shape": [
+          256,
+          8,
+          2
+        ],
+        "wall_seconds": 0.12647366599412635
+      }
+    ],
+    "training_path_count": 256
+  },
+  "request": {
+    "config": {
+      "independent_validation": true,
+      "inner_paths": 4,
+      "instance_count": 2,
+      "outer_paths": 128,
+      "pricing_paths": 512,
+      "repeats": 1,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 9041,
+    "stage": "audit",
+    "suite_id": "bermudan-python-hidden-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": 0.6199192643298278,
+  "source_digest": "345ce802cfbb4f31618349d0e6ee4cb08c45ebd1b454c8cf5c8a7352e9ae96d4",
+  "source_unchanged": true,
+  "status": "ok",
+  "wall_seconds": 2.285816250005155
+}

@@ -1,0 +1,1 @@
+{"instance":{"correlation":[[1.0]],"dimension":1,"dividends":[0.0],"exercise_times":[0.0,0.2,0.4,0.6000000000000001,0.8,1.0],"maturity":1.0,"payoff_type":"put","rate":0.05,"schema":"openhyra-bermudan-training-instance.v1","spots":[1.0],"strike":1.0,"volatilities":[0.2],"weights":null},"interface":"continuation","schema":"openhyra-python-program-predict.v1","time_index":1}

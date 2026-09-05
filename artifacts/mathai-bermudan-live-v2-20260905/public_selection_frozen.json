@@ -1,0 +1,32 @@
+[
+  {
+    "mode": "context_proposal",
+    "seed": 17,
+    "winner": "sol_0007"
+  },
+  {
+    "mode": "context_proposal",
+    "seed": 29,
+    "winner": "sol_0005"
+  },
+  {
+    "mode": "context_proposal",
+    "seed": 41,
+    "winner": "sol_0009"
+  },
+  {
+    "mode": "direct_generation",
+    "seed": 17,
+    "winner": "sol_0003"
+  },
+  {
+    "mode": "direct_generation",
+    "seed": 29,
+    "winner": "sol_0007"
+  },
+  {
+    "mode": "direct_generation",
+    "seed": 41,
+    "winner": "sol_0009"
+  }
+]

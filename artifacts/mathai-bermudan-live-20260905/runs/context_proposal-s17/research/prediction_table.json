@@ -1,0 +1,1214 @@
+{
+  "row_count": 6,
+  "rows": [
+    {
+      "candidate_id": "sol_0003",
+      "evaluator": {
+        "cost": {},
+        "effect": null,
+        "failure_reason": "ValueError: candidate training failed for public-put-atm: invalid_artifact: trusted policy artifact rejected: Python program fit produced no model files",
+        "per_slice": [],
+        "score": null,
+        "standard_error": null,
+        "status": "error",
+        "training_cells": []
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0001",
+          "sol_0002"
+        ],
+        "falsifier": "The executed decisions reproduce sol_0002 behavior, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+        "mechanism": "Replace the inherited program with a decision-interface algorithm that works backward through exercise dates. At each date, generate causal features from current prices, running extrema, log returns, realized covariance, moneyness, and time; create labels by comparing immediate payoff with cross-fitted future cashflows; fit a depth-limited cost-sensitive classification tree ensemble; calibrate its exercise threshold by out-of-fold realized discounted payoff; persist trees and",
+        "mechanism_id": "restart_crossfit_policy_tree",
+        "operator": "whole_program_restart",
+        "prediction": "Relative to unchanged sol_0002 with identical seeds and evaluator budget, the restart yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol.",
+        "target_slice": "instance:public-put-high-vol"
+      },
+      "iteration": 0,
+      "matched_observation": {
+        "next_action": "falsify",
+        "prediction_verdict": "execution_failed",
+        "reason": "candidate failed before a paired effect could be estimated"
+      },
+      "next_action": "falsify",
+      "prediction_basis": "guided_vs_matched_control_on_target_slice",
+      "prediction_verdict": "execution_failed",
+      "proposal": {
+        "candidate_seed": 17000051,
+        "execution": {
+          "applied_operator": "whole_program_restart",
+          "declared_operator": "whole_program_restart",
+          "executed": true,
+          "materialized_source_sha256": "889d7aa9f83be9321fcfec327fe1748724d1c18adde739feac4f77fc64c8bab7"
+        },
+        "matched_arm": "guided",
+        "matched_pair_id": "pair_0000_00_restart_crossfit_policy_tree",
+        "operator": "whole_program_restart",
+        "parent_ids": [
+          "sol_0002"
+        ],
+        "parent_lineage": null,
+        "source_digest": "d0826d22928f5ec94d3de0a115e1251b30729845d06be093f52519705a7ebc6f",
+        "source_files": []
+      },
+      "record_id": "sol_0003",
+      "schema": "openhyra-prediction-observation.v1"
+    },
+    {
+      "candidate_id": "sol_0004",
+      "evaluator": {
+        "cost": {
+          "mean_training_seconds_per_instance": 0.12913968750217464
+        },
+        "effect": 0.0007504101051411407,
+        "failure_reason": null,
+        "per_slice": [
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.373046875,
+              "baseline_stop_time_mean": 0.8902343749999999,
+              "candidate_exercise_rate": 0.255859375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.9488281250000001
+            },
+            "effect": -0.00036452188504679174,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0013428965647959191
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.279296875,
+              "baseline_stop_time_mean": 0.9292968750000001,
+              "candidate_exercise_rate": 0.271484375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.8796875
+            },
+            "effect": 0.0002043438023522279,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0014168995968362366
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.365234375,
+              "baseline_stop_time_mean": 0.90771484375,
+              "candidate_exercise_rate": 0.3046875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.923583984375
+            },
+            "effect": -6.789903614946413e-05,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0016826686611830161
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.16796875,
+              "baseline_stop_time_mean": 0.932861328125,
+              "candidate_exercise_rate": 0.232421875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.942138671875
+            },
+            "effect": 0.0032297175394085907,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0020422100496788618
+          }
+        ],
+        "score": -0.0008608313458621906,
+        "standard_error": 0.0008220770706567053,
+        "status": "ok",
+        "training_cells": [
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12772333300381433,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "payoffs_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "policy_artifact_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "train_seed": 4887630000059086954,
+            "training_path_count": 256,
+            "training_paths_sha256": "b4038fc3f4c68093a8a7410d673db0f3110b6e00be13eb606ed03a5228a1a293",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.12772333300381433
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13132687500910833,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "payoffs_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "policy_artifact_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "train_seed": 7345088458041455578,
+            "training_path_count": 256,
+            "training_paths_sha256": "7b3375e249bbb75adbacfeed3880da2ec6025ada947afcab374e2016ad753b49",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13132687500910833
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12890237499959767,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "payoffs_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "policy_artifact_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "train_seed": 7477545058192305354,
+            "training_path_count": 256,
+            "training_paths_sha256": "95354e63d78b26393594d01ce0b38d1317ca454ae455f89b2bc9f59b8d285553",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.12890237499959767
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12860616699617822,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "payoffs_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "policy_artifact_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "train_seed": 4859560375304537881,
+            "training_path_count": 256,
+            "training_paths_sha256": "f190931bb237715c9bb47f34db5575317528c025dec1bb76234c737f9280c0d9",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.12860616699617822
+          }
+        ]
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0001",
+          "sol_0002"
+        ],
+        "falsifier": "The executed decisions reproduce sol_0002 behavior, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+        "mechanism": "Replace the inherited program with a decision-interface algorithm that works backward through exercise dates. At each date, generate causal features from current prices, running extrema, log returns, realized covariance, moneyness, and time; create labels by comparing immediate payoff with cross-fitted future cashflows; fit a depth-limited cost-sensitive classification tree ensemble; calibrate its exercise threshold by out-of-fold realized discounted payoff; persist trees and",
+        "mechanism_id": "restart_crossfit_policy_tree",
+        "operator": "whole_program_restart",
+        "prediction": "Relative to unchanged sol_0002 with identical seeds and evaluator budget, the restart yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol.",
+        "target_slice": "instance:public-put-high-vol"
+      },
+      "iteration": 0,
+      "next_action": "revise",
+      "prediction_basis": "candidate_vs_evaluator_baseline",
+      "prediction_verdict": "inconclusive",
+      "proposal": {
+        "candidate_seed": 17000051,
+        "execution": {},
+        "matched_arm": "control",
+        "matched_pair_id": "pair_0000_00_restart_crossfit_policy_tree",
+        "operator": "whole_program_restart",
+        "parent_ids": [
+          "sol_0002"
+        ],
+        "parent_lineage": null,
+        "source_digest": "5702b3a8bb0156cb7c92c62e15aa7e91f83f78471ae0b0d3bd429dcc2674a26c",
+        "source_files": [
+          "algorithm.py",
+          "manifest.json"
+        ]
+      },
+      "record_id": "sol_0004",
+      "schema": "openhyra-prediction-observation.v1"
+    },
+    {
+      "candidate_id": "sol_0005",
+      "evaluator": {
+        "cost": {
+          "mean_training_seconds_per_instance": 0.13368903125228826
+        },
+        "effect": 0.0007504101051411407,
+        "failure_reason": null,
+        "per_slice": [
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.373046875,
+              "baseline_stop_time_mean": 0.8902343749999999,
+              "candidate_exercise_rate": 0.255859375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.9488281250000001
+            },
+            "effect": -0.00036452188504679174,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0013428965647959191
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.279296875,
+              "baseline_stop_time_mean": 0.9292968750000001,
+              "candidate_exercise_rate": 0.271484375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.8796875
+            },
+            "effect": 0.0002043438023522279,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0014168995968362366
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.365234375,
+              "baseline_stop_time_mean": 0.90771484375,
+              "candidate_exercise_rate": 0.3046875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.923583984375
+            },
+            "effect": -6.789903614946413e-05,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0016826686611830161
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.16796875,
+              "baseline_stop_time_mean": 0.932861328125,
+              "candidate_exercise_rate": 0.232421875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.942138671875
+            },
+            "effect": 0.0032297175394085907,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0020422100496788618
+          }
+        ],
+        "score": -0.0008608313458621906,
+        "standard_error": 0.0008220770706567053,
+        "status": "ok",
+        "training_cells": [
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13649254199117422,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "payoffs_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "policy_artifact_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "train_seed": 4887630000059086954,
+            "training_path_count": 256,
+            "training_paths_sha256": "b4038fc3f4c68093a8a7410d673db0f3110b6e00be13eb606ed03a5228a1a293",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13649254199117422
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12900287500815466,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "payoffs_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "policy_artifact_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "train_seed": 7345088458041455578,
+            "training_path_count": 256,
+            "training_paths_sha256": "7b3375e249bbb75adbacfeed3880da2ec6025ada947afcab374e2016ad753b49",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.12900287500815466
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13160804100334644,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "payoffs_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "policy_artifact_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "train_seed": 7477545058192305354,
+            "training_path_count": 256,
+            "training_paths_sha256": "95354e63d78b26393594d01ce0b38d1317ca454ae455f89b2bc9f59b8d285553",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.13160804100334644
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.1376526670064777,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "payoffs_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "policy_artifact_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "train_seed": 4859560375304537881,
+            "training_path_count": 256,
+            "training_paths_sha256": "f190931bb237715c9bb47f34db5575317528c025dec1bb76234c737f9280c0d9",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.1376526670064777
+          }
+        ]
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002"
+        ],
+        "falsifier": "The mutation leaves predictions behaviorally unchanged, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below 0.",
+        "mechanism": "Mutate sol_0002's executable fit subtree so each backward step partitions in-the-money samples by moneyness and realized-volatility quantiles, fits robust Huber residual corrections within populated cells, and shrinks each correction toward the original residual-hybrid continuation estimate using validation-selected weights. Mutate predict control flow to apply the corresponding persisted cell correction with the original estimate as the sparse-cell fallback.",
+        "mechanism_id": "mutate_residual_tail_gate",
+        "operator": "ast_mutation",
+        "prediction": "Relative to unchanged sol_0002 under matched seeds and budget, the structural child yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm while preserving finite continuation outputs.",
+        "target_slice": "instance:public-put-atm"
+      },
+      "iteration": 0,
+      "matched_observation": {
+        "cells": [
+          {
+            "behavior": {
+              "control_exercise_rate": 0.255859375,
+              "control_stop_time_mean": 0.9488281250000001,
+              "guided_exercise_rate": 0.255859375,
+              "guided_stop_time_mean": 0.9488281250000001
+            },
+            "effect": 0.0,
+            "instance_id": "public-put-atm",
+            "pricing_paths_sha256": "78a3250cf8fb128b0a560dacb92fdff1ffdb074ec03a700cc6afd4df5851fcfe",
+            "repeat": 0,
+            "standard_error": 0.0,
+            "uncertainty_method": "common_random_numbers_pathwise"
+          },
+          {
+            "behavior": {
+              "control_exercise_rate": 0.271484375,
+              "control_stop_time_mean": 0.8796875,
+              "guided_exercise_rate": 0.271484375,
+              "guided_stop_time_mean": 0.8796875
+            },
+            "effect": 0.0,
+            "instance_id": "public-put-atm",
+            "pricing_paths_sha256": "07471a750e3efd1059aaec43463ca42b51ba02f24e627dd2771a9f75d3818973",
+            "repeat": 1,
+            "standard_error": 0.0,
+            "uncertainty_method": "common_random_numbers_pathwise"
+          }
+        ],
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "effect": 0.0,
+        "next_action": "revise",
+        "prediction_direction_correct": false,
+        "prediction_verdict": "inconclusive",
+        "scope": "fixed_public_suite_conditional_monte_carlo",
+        "standard_error": 0.0,
+        "status": "observed",
+        "target_slice": "instance:public-put-atm",
+        "test": "positive_guided_minus_control_mean_on_preregistered_slice"
+      },
+      "next_action": "revise",
+      "prediction_basis": "guided_vs_matched_control_on_target_slice",
+      "prediction_verdict": "inconclusive",
+      "proposal": {
+        "candidate_seed": 17000052,
+        "execution": {
+          "applied_operator": "control_flow_guard",
+          "declared_operator": "ast_mutation",
+          "executed": true,
+          "materialized_source_sha256": "b0577bd12383c73d37f2a14030c7abb06d603f43e7e5cd9455f1f8e58e54a620"
+        },
+        "matched_arm": "guided",
+        "matched_pair_id": "pair_0000_01_mutate_residual_tail_gate",
+        "operator": "ast_mutation",
+        "parent_ids": [
+          "sol_0002"
+        ],
+        "parent_lineage": null,
+        "source_digest": "f6dc61f4a655ee0d4e7725b631eb8a6b171e2de81c0df538581e42023fe68902",
+        "source_files": [
+          "algorithm.py",
+          "manifest.json"
+        ]
+      },
+      "record_id": "sol_0005",
+      "schema": "openhyra-prediction-observation.v1"
+    },
+    {
+      "candidate_id": "sol_0006",
+      "evaluator": {
+        "cost": {
+          "mean_training_seconds_per_instance": 0.13903739575471263
+        },
+        "effect": 0.0007504101051411407,
+        "failure_reason": null,
+        "per_slice": [
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.373046875,
+              "baseline_stop_time_mean": 0.8902343749999999,
+              "candidate_exercise_rate": 0.255859375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.9488281250000001
+            },
+            "effect": -0.00036452188504679174,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0013428965647959191
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.279296875,
+              "baseline_stop_time_mean": 0.9292968750000001,
+              "candidate_exercise_rate": 0.271484375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.8796875
+            },
+            "effect": 0.0002043438023522279,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0014168995968362366
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.365234375,
+              "baseline_stop_time_mean": 0.90771484375,
+              "candidate_exercise_rate": 0.3046875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.923583984375
+            },
+            "effect": -6.789903614946413e-05,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0016826686611830161
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.16796875,
+              "baseline_stop_time_mean": 0.932861328125,
+              "candidate_exercise_rate": 0.232421875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.942138671875
+            },
+            "effect": 0.0032297175394085907,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0020422100496788618
+          }
+        ],
+        "score": -0.0008608313458621906,
+        "standard_error": 0.0008220770706567053,
+        "status": "ok",
+        "training_cells": [
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.16556970900273882,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "payoffs_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "policy_artifact_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "train_seed": 4887630000059086954,
+            "training_path_count": 256,
+            "training_paths_sha256": "b4038fc3f4c68093a8a7410d673db0f3110b6e00be13eb606ed03a5228a1a293",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.16556970900273882
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13039350000326522,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "payoffs_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "policy_artifact_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "train_seed": 7345088458041455578,
+            "training_path_count": 256,
+            "training_paths_sha256": "7b3375e249bbb75adbacfeed3880da2ec6025ada947afcab374e2016ad753b49",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13039350000326522
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13062304101185873,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "payoffs_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "policy_artifact_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "train_seed": 7477545058192305354,
+            "training_path_count": 256,
+            "training_paths_sha256": "95354e63d78b26393594d01ce0b38d1317ca454ae455f89b2bc9f59b8d285553",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.13062304101185873
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12956333300098777,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "payoffs_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "policy_artifact_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "train_seed": 4859560375304537881,
+            "training_path_count": 256,
+            "training_paths_sha256": "f190931bb237715c9bb47f34db5575317528c025dec1bb76234c737f9280c0d9",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.12956333300098777
+          }
+        ]
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002"
+        ],
+        "falsifier": "The mutation leaves predictions behaviorally unchanged, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below 0.",
+        "mechanism": "Mutate sol_0002's executable fit subtree so each backward step partitions in-the-money samples by moneyness and realized-volatility quantiles, fits robust Huber residual corrections within populated cells, and shrinks each correction toward the original residual-hybrid continuation estimate using validation-selected weights. Mutate predict control flow to apply the corresponding persisted cell correction with the original estimate as the sparse-cell fallback.",
+        "mechanism_id": "mutate_residual_tail_gate",
+        "operator": "ast_mutation",
+        "prediction": "Relative to unchanged sol_0002 under matched seeds and budget, the structural child yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm while preserving finite continuation outputs.",
+        "target_slice": "instance:public-put-atm"
+      },
+      "iteration": 0,
+      "next_action": "revise",
+      "prediction_basis": "candidate_vs_evaluator_baseline",
+      "prediction_verdict": "inconclusive",
+      "proposal": {
+        "candidate_seed": 17000052,
+        "execution": {},
+        "matched_arm": "control",
+        "matched_pair_id": "pair_0000_01_mutate_residual_tail_gate",
+        "operator": "ast_mutation",
+        "parent_ids": [
+          "sol_0002"
+        ],
+        "parent_lineage": null,
+        "source_digest": "5702b3a8bb0156cb7c92c62e15aa7e91f83f78471ae0b0d3bd429dcc2674a26c",
+        "source_files": [
+          "algorithm.py",
+          "manifest.json"
+        ]
+      },
+      "record_id": "sol_0006",
+      "schema": "openhyra-prediction-observation.v1"
+    },
+    {
+      "candidate_id": "sol_0007",
+      "evaluator": {
+        "cost": {
+          "mean_training_seconds_per_instance": 0.13166863500373438
+        },
+        "effect": 0.0009784844460301342,
+        "failure_reason": null,
+        "per_slice": [
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.373046875,
+              "baseline_stop_time_mean": 0.8902343749999999,
+              "candidate_exercise_rate": 0.265625,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.9140625
+            },
+            "effect": 0.0009509588490860103,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0016978178380788152
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.279296875,
+              "baseline_stop_time_mean": 0.9292968750000001,
+              "candidate_exercise_rate": 0.26953125,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.8832031250000001
+            },
+            "effect": 0.0010116865306741421,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.001559700907577199
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.365234375,
+              "baseline_stop_time_mean": 0.90771484375,
+              "candidate_exercise_rate": 0.310546875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.907958984375
+            },
+            "effect": 4.90877587593975e-06,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0019363346209605684
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.16796875,
+              "baseline_stop_time_mean": 0.932861328125,
+              "candidate_exercise_rate": 0.3203125,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.923095703125
+            },
+            "effect": 0.001946383628484444,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0023134116855056492
+          }
+        ],
+        "score": -0.0008819667622137122,
+        "standard_error": 0.0009492272423977424,
+        "status": "ok",
+        "training_cells": [
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13516258299932815,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "46c9bde8f5d63ad4a3015f2145601b4644478cec86cdf217bd5bf8fbf581e4b3",
+            "payoffs_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "policy_artifact_sha256": "46c9bde8f5d63ad4a3015f2145601b4644478cec86cdf217bd5bf8fbf581e4b3",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "train_seed": 4887630000059086954,
+            "training_path_count": 256,
+            "training_paths_sha256": "b4038fc3f4c68093a8a7410d673db0f3110b6e00be13eb606ed03a5228a1a293",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13516258299932815
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13171804099692963,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "6360644ae60b7e7c975c4c23ebfa8880419113088896c430fa517acb451a3ea8",
+            "payoffs_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "policy_artifact_sha256": "6360644ae60b7e7c975c4c23ebfa8880419113088896c430fa517acb451a3ea8",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "train_seed": 7345088458041455578,
+            "training_path_count": 256,
+            "training_paths_sha256": "7b3375e249bbb75adbacfeed3880da2ec6025ada947afcab374e2016ad753b49",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13171804099692963
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12922166600765195,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "dded38d3297ae99b38c445fac9b251cc267519e325ce9bab618960e494d9e0ec",
+            "payoffs_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "policy_artifact_sha256": "dded38d3297ae99b38c445fac9b251cc267519e325ce9bab618960e494d9e0ec",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "train_seed": 7477545058192305354,
+            "training_path_count": 256,
+            "training_paths_sha256": "95354e63d78b26393594d01ce0b38d1317ca454ae455f89b2bc9f59b8d285553",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.12922166600765195
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.1305722500110278,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "b467a42f94d22fa49c90685b7fb71471a6c3c0a62cadda70d728c413d0fb9c7b",
+            "payoffs_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "policy_artifact_sha256": "b467a42f94d22fa49c90685b7fb71471a6c3c0a62cadda70d728c413d0fb9c7b",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "train_seed": 4859560375304537881,
+            "training_path_count": 256,
+            "training_paths_sha256": "f190931bb237715c9bb47f34db5575317528c025dec1bb76234c737f9280c0d9",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.1305722500110278
+          }
+        ]
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002",
+          "sol_0003"
+        ],
+        "falsifier": "Either parent is dead code, predictions equal sol_0002 on all paired queries, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+        "mechanism": "Compose live fit and predict graphs from sol_0002 and sol_0000 under the continuation interface. Fit both parent estimators at every exercise date and persist their complete states plus robust training quantiles of moneyness and realized volatility. Predict with the residual-hybrid branch in dense central regions and the ridge branch for sparse or volatility-tail states, using a validation-selected smooth gate and clipped finite blending. Both branches must be evaluated and t",
+        "mechanism_id": "crossover_regime_gated_continuation",
+        "operator": "ast_crossover",
+        "prediction": "Relative to unchanged sol_0002 under identical seeds and evaluator budget, the crossover yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol while using both parent branches.",
+        "target_slice": "instance:public-put-high-vol"
+      },
+      "iteration": 1,
+      "next_action": "revise",
+      "prediction_basis": "candidate_vs_evaluator_baseline",
+      "prediction_verdict": "inconclusive",
+      "proposal": {
+        "candidate_seed": 17000051,
+        "execution": {
+          "applied_operator": "fit_predict_program_composition",
+          "declared_operator": "ast_crossover",
+          "executed": true,
+          "materialized_source_sha256": "3d4522d992da585089b9368b2d8dd6c2e1244f0f021d6fd83b0c3e46e2e732d4"
+        },
+        "matched_arm": "guided",
+        "matched_pair_id": "pair_0001_00_crossover_regime_gated_continuation",
+        "operator": "ast_crossover",
+        "parent_ids": [
+          "sol_0002",
+          "sol_0001"
+        ],
+        "parent_lineage": "sol_0001",
+        "source_digest": "af07b25993816f1ee2e4674c7aaa11a93c53c0dc6424f6737688da86e78194e0",
+        "source_files": [
+          "algorithm.py",
+          "manifest.json"
+        ]
+      },
+      "record_id": "sol_0007",
+      "schema": "openhyra-prediction-observation.v1"
+    },
+    {
+      "candidate_id": "sol_0008",
+      "evaluator": {
+        "cost": {
+          "mean_training_seconds_per_instance": 0.13010544775170274
+        },
+        "effect": 0.0007504101051411407,
+        "failure_reason": null,
+        "per_slice": [
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.373046875,
+              "baseline_stop_time_mean": 0.8902343749999999,
+              "candidate_exercise_rate": 0.255859375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.9488281250000001
+            },
+            "effect": -0.00036452188504679174,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0013428965647959191
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.279296875,
+              "baseline_stop_time_mean": 0.9292968750000001,
+              "candidate_exercise_rate": 0.271484375,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.8796875
+            },
+            "effect": 0.0002043438023522279,
+            "slice": "public-put-atm",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:near_atm",
+              "volatility:low_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0014168995968362366
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.365234375,
+              "baseline_stop_time_mean": 0.90771484375,
+              "candidate_exercise_rate": 0.3046875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.923583984375
+            },
+            "effect": -6.789903614946413e-05,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0016826686611830161
+          },
+          {
+            "behavior": {
+              "baseline_exercise_rate": 0.16796875,
+              "baseline_stop_time_mean": 0.932861328125,
+              "candidate_exercise_rate": 0.232421875,
+              "candidate_finite": true,
+              "candidate_stop_time_mean": 0.942138671875
+            },
+            "effect": 0.0032297175394085907,
+            "slice": "public-put-high-vol",
+            "slice_labels": [
+              "payoff:put",
+              "dimension:1d",
+              "moneyness:deep_otm_or_high_spot",
+              "volatility:high_volatility",
+              "correlation:low_correlation",
+              "exercise_grid:regular_grid"
+            ],
+            "standard_error": 0.0020422100496788618
+          }
+        ],
+        "score": -0.0008608313458621906,
+        "standard_error": 0.0008220770706567053,
+        "status": "ok",
+        "training_cells": [
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13098429200181272,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "payoffs_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "policy_artifact_sha256": "fa3d9cd4e2226fdf9014fc5af3d5f82d744b7e784bef4d50ec5bd92236111db9",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "2225818d29e7fde7e7ce3b2b1953a2292c5853a6f9bcaca3c6a85f76de6ca74b",
+            "train_seed": 4887630000059086954,
+            "training_path_count": 256,
+            "training_paths_sha256": "b4038fc3f4c68093a8a7410d673db0f3110b6e00be13eb606ed03a5228a1a293",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13098429200181272
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13201637500606012,
+            "instance_id": "public-put-atm",
+            "model_file_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "payoffs_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "policy_artifact_sha256": "893c6a1723ab13d76d14f2473d45be6c6f321ed84e029ae980326e18405bbc54",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ff444f9f3c49eab4ada3988467f6c9d02dd8811b7be53ab1a810694a3efa7f15",
+            "train_seed": 7345088458041455578,
+            "training_path_count": 256,
+            "training_paths_sha256": "7b3375e249bbb75adbacfeed3880da2ec6025ada947afcab374e2016ad753b49",
+            "training_paths_shape": [
+              256,
+              6,
+              1
+            ],
+            "wall_seconds": 0.13201637500606012
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.13047516599181108,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "payoffs_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "policy_artifact_sha256": "244773838b49949a4eb49990d7f57013f19454c09f0ee8d3eb7302efc39dfc34",
+            "repeat": 0,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "ad70b5eb082abbe847e98567093e5beaa18f98c6e10b83743bc0ca07d5524569",
+            "train_seed": 7477545058192305354,
+            "training_path_count": 256,
+            "training_paths_sha256": "95354e63d78b26393594d01ce0b38d1317ca454ae455f89b2bc9f59b8d285553",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.13047516599181108
+          },
+          {
+            "candidate_target_observed": false,
+            "fit_wall_seconds": 0.12694595800712705,
+            "instance_id": "public-put-high-vol",
+            "model_file_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "payoffs_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "policy_artifact_sha256": "0aa96832d8434872cdea0cf980d70a9a4609fe5ab42b9ff34f8dda53b45ef2e2",
+            "repeat": 1,
+            "research_fallback": false,
+            "status": "ok",
+            "target_kind": "evaluator_discounted_payoff_stream",
+            "target_sha256": "40c01dcc1b05277fb7583701a368cca9bf868ea8d48dfeda94e87fc2465e636e",
+            "train_seed": 4859560375304537881,
+            "training_path_count": 256,
+            "training_paths_sha256": "f190931bb237715c9bb47f34db5575317528c025dec1bb76234c737f9280c0d9",
+            "training_paths_shape": [
+              256,
+              9,
+              1
+            ],
+            "wall_seconds": 0.12694595800712705
+          }
+        ]
+      },
+      "hypothesis": {
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002",
+          "sol_0003"
+        ],
+        "falsifier": "Either parent is dead code, predictions equal sol_0002 on all paired queries, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+        "mechanism": "Compose live fit and predict graphs from sol_0002 and sol_0000 under the continuation interface. Fit both parent estimators at every exercise date and persist their complete states plus robust training quantiles of moneyness and realized volatility. Predict with the residual-hybrid branch in dense central regions and the ridge branch for sparse or volatility-tail states, using a validation-selected smooth gate and clipped finite blending. Both branches must be evaluated and t",
+        "mechanism_id": "crossover_regime_gated_continuation",
+        "operator": "ast_crossover",
+        "prediction": "Relative to unchanged sol_0002 under identical seeds and evaluator budget, the crossover yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol while using both parent branches.",
+        "target_slice": "instance:public-put-high-vol"
+      },
+      "iteration": 1,
+      "next_action": "revise",
+      "prediction_basis": "candidate_vs_evaluator_baseline",
+      "prediction_verdict": "inconclusive",
+      "proposal": {
+        "candidate_seed": 17000051,
+        "execution": {},
+        "matched_arm": "control",
+        "matched_pair_id": "pair_0001_00_crossover_regime_gated_continuation",
+        "operator": "ast_crossover",
+        "parent_ids": [
+          "sol_0002",
+          "sol_0001"
+        ],
+        "parent_lineage": "sol_0001",
+        "source_digest": "5702b3a8bb0156cb7c92c62e15aa7e91f83f78471ae0b0d3bd429dcc2674a26c",
+        "source_files": [
+          "algorithm.py",
+          "manifest.json"
+        ]
+      },
+      "record_id": "sol_0008",
+      "schema": "openhyra-prediction-observation.v1"
+    }
+  ],
+  "schema": "openhyra-prediction-table.v1"
+}

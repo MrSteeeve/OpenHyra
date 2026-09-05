@@ -1,0 +1,778 @@
+2026-09-05T16:30:30.594061Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-05T16:30:32.081521Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.084330Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.087818Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.090043Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.091573Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.093493Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.095331Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.097048Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.099237Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.103844Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.105564Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.107004Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.108806Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.136277Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:30:32.137672Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07268-485f-71e3-a96d-ef5018add2cb
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+## Search semantics
+
+The Context Agent may propose several unrelated mechanisms in one round.
+Proposal may rewrite a whole program, mutate executable AST structure,
+combine two parent programs, or restart from a blank implementation. The
+Experience Bank stores program source, measured outcomes, and full parent
+lineage. Scores and slice feedback guide which structures are revised,
+combined, or abandoned in later rounds.
+
+The old feature, affine, expression, and small-network implementations remain
+useful baselines. They no longer define the admitted search space.
+
+
+Generate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.
+
+## Local candidate identity
+
+This is candidate 1 of 4 generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all 4 candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+
+
+## Mechanism slot
+
+Mechanism id: `direct_r1_0`
+Family: open_program_generation
+Intervention scope: whole_program
+Intervention operator: ast_crossover
+Target slice: instance:public-put-atm
+Proposed mechanism: Use the declared operation to improve the parent program.
+Prediction: positive mean paired payoff on the declared slice
+Falsifier: upper 95% paired CI is below zero
+Matched control: unchanged parent with identical input and budget
+Next probe: 
+Evidence ids: 
+
+This is the GUIDED arm. Implement or materially instantiate the proposed
+mechanism, while keeping the artifact protocol and evaluator-owned boundary
+unchanged. You may synthesize a genuinely new structure when the evidence
+supports it; record the falsifiable prediction and control in PROPOSAL.md.
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: ast_crossover
+- target_slice: instance:public-put-atm
+- prediction: positive mean paired payoff on the declared slice
+- falsifier: upper 95% paired CI is below zero
+
+A two-parent dispatcher has been materialized. Evolve only the self-contained `_combine_predictions(left, right)` function; the parent loader and fit/predict dispatcher will be rebuilt after this call. Put any helper logic or imports inside that function.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 54 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect the materialized dispatcher and protocol, then make the crossover strictly inside `_combine_predictions(left, right)` and record the stated hypothesis/control in `PROPOSAL.md`.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!solve.sh'"' && sed -n '1,240p' algorithm.py && printf '\\n--- manifest ---\\n' && cat manifest.json && printf '\\n--- protocol ---\\n' && sed -n '1,260p' PYTHON_PROGRAM_PROTOCOL_V1.md 2>/dev/null || true && printf '\\n--- proposal ---\\n' && sed -n '1,200p' PROPOSAL.md 2>/dev/null || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0
+manifest.json
+algorithm.py
+
+import argparse as _openhyra_argparse
+from pathlib import Path as _OpenHyraPath
+import shutil as _openhyra_shutil
+import sys as _openhyra_sys
+import types as _openhyra_types
+import numpy as _openhyra_numpy
+
+_PARENT_A_SOURCE = '#!/usr/bin/env python3\n"""Complete fit/predict seed for the open Python-program track.\n\nThis is deliberately just one ordinary starting program. Search candidates\nmay replace every function, model representation, objective, and update rule.\n"""\n\nfrom __future__ import annotations\n\nimport argparse\nimport json\nfrom pathlib import Path\n\nimport numpy as np\n\n\ndef features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:\n    states = np.asarray(states, dtype=np.float64)\n    logged = np.log(np.maximum(states, 1e-12))\n    columns = [\n        np.ones(states.shape[0], dtype=np.float64),\n        *[logged[:, index] for index in range(logged.shape[1])],\n        *[logged[:, index] ** 2 for index in range(logged.shape[1])],\n        np.mean(logged, axis=1),\n        np.min(logged, axis=1),\n        np.max(logged, axis=1),\n        np.asarray(immediate, dtype=np.float64),\n    ]\n    return np.column_stack(columns)\n\n\ndef fit(input_dir: Path, output_dir: Path, seed: int) -> None:\n    del seed\n    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)\n    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)\n    n_steps = paths.shape[1] - 1\n    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]\n    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)\n    means = np.zeros_like(coefficients)\n    scales = np.ones_like(coefficients)\n    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()\n\n    for time_index in range(n_steps - 1, -1, -1):\n        design = features(paths[:, time_index, :], payoffs[:, time_index])\n        mean = np.mean(design, axis=0)\n        scale = np.std(design, axis=0)\n        mean[0] = 0.0\n        scale[scale < 1e-10] = 1.0\n        normalized = (design - mean) / scale\n        gram = normalized.T @ normalized\n        gram.flat[:: feature_count + 1] += 1e-6\n        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)\n        continuation = normalized @ coefficient\n        exercise = payoffs[:, time_index] >= continuation\n        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)\n        coefficients[time_index] = coefficient\n        means[time_index] = mean\n        scales[time_index] = scale\n\n    output_dir.mkdir(parents=True, exist_ok=True)\n    np.savez(\n        output_dir / "model.npz",\n        coefficients=coefficients,\n        means=means,\n        scales=scales,\n    )\n\n\ndef predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:\n    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))\n    time_index = int(request["time_index"])\n    states = np.load(input_dir / "states.npy", allow_pickle=False)\n    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)\n    with np.load(model_dir / "model.npz", allow_pickle=False) as model:\n        design = features(states, immediate)\n        normalized = (\n            design - model["means"][time_index]\n        ) / model["scales"][time_index]\n        predictions = normalized @ model["coefficients"][time_index]\n    output_dir.mkdir(parents=True, exist_ok=True)\n    np.save(\n        output_dir / "predictions.npy",\n        np.asarray(predictions, dtype=np.float64),\n        allow_pickle=False,\n    )\n\n\ndef main() -> None:\n    parser = argparse.ArgumentParser()\n    subparsers = parser.add_subparsers(dest="command", required=True)\n    fit_parser = subparsers.add_parser("fit")\n    fit_parser.add_argument("--input", required=True)\n    fit_parser.add_argument("--output", required=True)\n    fit_parser.add_argument("--seed", required=True, type=int)\n    predict_parser = subparsers.add_parser("predict")\n    predict_parser.add_argument("--model", required=True)\n    predict_parser.add_argument("--input", required=True)\n    predict_parser.add_argument("--output", required=True)\n    args = parser.parse_args()\n\n    if args.command == "fit":\n        fit(Path(args.input), Path(args.output), args.seed)\n    else:\n        predict(Path(args.model), Path(args.input), Path(args.output))\n\n\nif __name__ == "__main__":\n    main()\n'
+_PARENT_B_SOURCE = '#!/usr/bin/env python3\n"""Small one-hidden-layer MLP continuation program trained in NumPy."""\nfrom __future__ import annotations\nimport argparse\nimport json\nfrom pathlib import Path\nimport numpy as np\n\ndef features(states, immediate):\n    z=np.log(np.maximum(np.asarray(states,float),1e-12))\n    return np.column_stack([np.ones(len(z)),z,z*z,np.mean(z,1),np.asarray(immediate,float)])\n\ndef fit(input_dir:Path,output_dir:Path,seed:int)->None:\n    rng=np.random.default_rng(int(seed)); paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)\n    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False); steps=paths.shape[1]-1\n    d=features(paths[:,0,:],payoffs[:,0]).shape[1]; hidden=min(24,max(8,2*d))\n    w1s=[]; b1s=[]; w2s=[]; b2s=[]; cash=np.asarray(payoffs[:,-1],float).copy()\n    targets=np.zeros((steps,len(paths))); losses=np.zeros((steps,2)); updates=np.zeros(steps)\n    for t in range(steps-1,-1,-1):\n        targets[t]=cash.copy()\n        x=features(paths[:,t,:],payoffs[:,t]); mean=x.mean(0); scale=x.std(0); mean[0]=0.; scale[scale<1e-10]=1.; x=(x-mean)/scale\n        w1=rng.normal(0,0.15,(d,hidden)); b1=np.zeros(hidden); w2=rng.normal(0,0.15,hidden); b2=float(cash.mean())\n        initial=w1.copy(); losses[t,0]=np.mean((np.tanh(x@w1+b1)@w2+b2-cash)**2)\n        for _ in range(36):\n            h=np.tanh(x@w1+b1); pred=h@w2+b2; err=pred-cash\n            grad=2.0*err/len(x); gw2=h.T@grad; gb2=grad.sum(); gh=(grad[:,None]*w2)*(1-h*h)\n            w1-=0.04*(x.T@gh); b1-=0.04*gh.sum(0); w2-=0.04*gw2; b2-=0.04*gb2\n        losses[t,1]=np.mean((np.tanh(x@w1+b1)@w2+b2-cash)**2); updates[t]=np.linalg.norm(w1-initial)\n        pred=np.tanh(x@w1+b1)@w2+b2; cash=np.where(payoffs[:,t]>=pred,payoffs[:,t],cash)\n        w1s.append(w1); b1s.append(b1); w2s.append(w2); b2s.append(b2)\n    w1s=w1s[::-1]; b1s=b1s[::-1]; w2s=w2s[::-1]; b2s=b2s[::-1]\n    # Recompute and store normalizers in a deterministic second pass.\n    means=[]; scales=[]\n    for t in range(steps):\n        x=features(paths[:,t,:],payoffs[:,t]); m=x.mean(0); s=x.std(0); m[0]=0.; s[s<1e-10]=1.; means.append(m); scales.append(s)\n    output_dir.mkdir(parents=True,exist_ok=True)\n    np.savez(output_dir/"model.npz",w1=np.asarray(w1s),b1=np.asarray(b1s),w2=np.asarray(w2s),b2=np.asarray(b2s),means=np.asarray(means),scales=np.asarray(scales))\n\n    np.savez(output_dir/"training_trace.npz",backward_targets=targets,loss_before_after=losses,first_layer_update_norm=updates,seed=np.array(seed))\n\ndef predict(model_dir:Path,input_dir:Path,output_dir:Path)->None:\n    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])\n    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)\n    with np.load(model_dir/"model.npz",allow_pickle=False) as m:\n        x=features(states,immediate); x=(x-m["means"][t])/m["scales"][t]; out=np.tanh(x@m["w1"][t]+m["b1"][t])@m["w2"][t]+m["b2"][t]\n    output_dir.mkdir(parents=True,exist_ok=True); np.save(output_dir/"predictions.npy",np.asarray(out,float),allow_pickle=False)\n\ndef main():\n    p=argparse.ArgumentParser(); s=p.add_subparsers(dest="command",required=True)\n    f=s.add_parser("fit"); f.add_argument("--input",required=True); f.add_argument("--output",required=True); f.add_argument("--seed",type=int,required=True)\n    q=s.add_parser("predict"); q.add_argument("--model",required=True); q.add_argument("--input",required=True); q.add_argument("--output",required=True)\n    a=p.parse_args()\n    if a.command=="fit": fit(Path(a.input),Path(a.output),a.seed)\n    else: predict(Path(a.model),Path(a.input),Path(a.output))\nif __name__=="__main__": main()\n'
+
+def _load_parent_module(name, source):
+    module = _openhyra_types.ModuleType(name)
+    module.__file__ = name + ".py"
+    module.__package__ = name.rpartition(".")[0]
+    _openhyra_sys.modules[name] = module
+    exec(compile(source, module.__file__, "exec"), module.__dict__)
+    return module
+
+_PARENT_A_MODULE = "_openhyra_parent_a"
+_PARENT_B_MODULE = "_openhyra_parent_b"
+_parent_namespace = globals().get("__name__", "_openhyra_composite")
+_parent_a = _load_parent_module(
+    _parent_namespace + "." + _PARENT_A_MODULE, _PARENT_A_SOURCE
+)
+_parent_b = _load_parent_module(
+    _parent_namespace + "." + _PARENT_B_MODULE, _PARENT_B_SOURCE
+)
+_parent_a_fit = _parent_a.fit
+_parent_b_fit = _parent_b.fit
+_parent_a_predict = _parent_a.predict
+_parent_b_predict = _parent_b.predict
+
+def _combine_predictions(left, right):
+    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+        return _openhyra_numpy.logical_or(left, right)
+    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
+
+def fit(input_dir, output_dir, seed):
+    output_root = _OpenHyraPath(output_dir)
+    left_model = output_root / "parent_a"
+    right_model = output_root / "parent_b"
+    left_model.mkdir(parents=True, exist_ok=True)
+    right_model.mkdir(parents=True, exist_ok=True)
+    _parent_a_fit(_OpenHyraPath(input_dir), left_model, seed)
+    _parent_b_fit(_OpenHyraPath(input_dir), right_model, seed)
+
+def predict(model_dir, input_dir, output_dir):
+    model_root = _OpenHyraPath(model_dir)
+    output_root = _OpenHyraPath(output_dir)
+    scratch = output_root / "_parent_predictions"
+    left_output = scratch / "parent_a"
+    right_output = scratch / "parent_b"
+    left_output.mkdir(parents=True, exist_ok=True)
+    right_output.mkdir(parents=True, exist_ok=True)
+    _parent_a_predict(model_root / "parent_a", _OpenHyraPath(input_dir), left_output)
+    _parent_b_predict(model_root / "parent_b", _OpenHyraPath(input_dir), right_output)
+    left = _openhyra_numpy.load(left_output / "predictions.npy", allow_pickle=False)
+    right = _openhyra_numpy.load(right_output / "predictions.npy", allow_pickle=False)
+    if left.shape != right.shape:
+        raise ValueError("parent prediction shapes differ")
+    combined = _combine_predictions(left, right)
+    _openhyra_shutil.rmtree(scratch)
+    _openhyra_numpy.save(
+        output_root / "predictions.npy", combined, allow_pickle=False
+    )
+
+def main():
+    parser = _openhyra_argparse.ArgumentParser()
+    commands = parser.add_subparsers(dest="command", required=True)
+    fit_parser = commands.add_parser("fit")
+    fit_parser.add_argument("--input", required=True)
+    fit_parser.add_argument("--output", required=True)
+    fit_parser.add_argument("--seed", required=True, type=int)
+    predict_parser = commands.add_parser("predict")
+    predict_parser.add_argument("--model", required=True)
+    predict_parser.add_argument("--input", required=True)
+    predict_parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    if args.command == "fit":
+        fit(_OpenHyraPath(args.input), _OpenHyraPath(args.output), args.seed)
+    else:
+        predict(
+            _OpenHyraPath(args.model),
+            _OpenHyraPath(args.input),
+            _OpenHyraPath(args.output),
+        )
+
+if __name__ == "__main__":
+    main()
+
+--- manifest ---
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+--- protocol ---
+
+--- proposal ---
+
+codex
+The two parents are a stable ridge continuation model and a higher-variance NumPy MLP. I’m instantiating the crossover as a robust, disagreement-gated blend: retain useful nonlinear corrections when the parents agree, but fall back toward the ridge parent on large or non-finite MLP deviations. This is aimed at the ATM put slice, where decisions are especially sensitive near the exercise boundary.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..1ef1959a229f81418885cfab0326d019a143e6e5
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.maximum(np.abs(anchor), np.abs(nonlinear))
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..1ef1959a229f81418885cfab0326d019a143e6e5
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.maximum(np.abs(anchor), np.abs(nonlinear))
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+2026-09-05T16:31:11.015800Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+from pathlib import Path
+import ast
+import numpy as np
+source = Path('algorithm.py').read_text()
+compile(source, 'algorithm.py', 'exec')
+module = ast.parse(source)
+fn = next(n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == '_combine_predictions')
+ns = {}
+exec(compile(ast.Module(body=[fn], type_ignores=[]), '<combine>', 'exec'), ns)
+f = ns['_combine_predictions']
+a = np.array([1.0, 2.0, np.nan, -1.0])
+b = np.array([1.2, 20.0, 3.0, np.inf])
+out = f(a, b)
+assert out.shape == a.shape and out.dtype == np.float64
+assert np.all(np.isfinite(out)) and np.all(out >= 0)
+assert np.array_equal(f(np.array([True, False]), np.array([False, True])), np.array([True, True]))
+print('syntax and crossover checks passed:', out)
+PY
+find . -maxdepth 2 -type f -print | sort
+git diff -- algorithm.py PROPOSAL.md 2>/dev/null || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0
+ succeeded in 0ms:
+syntax and crossover checks passed: [1.06942623 5.63176471 0.672      0.        ]
+./PROPOSAL.md
+./algorithm.py
+./manifest.json
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..1ef1959a229f81418885cfab0326d019a143e6e5
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.maximum(np.abs(anchor), np.abs(nonlinear))
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+2026-09-05T16:31:22.292361Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The edge-case check exposed that scaling disagreement by the larger parent could let an extreme MLP value define its own tolerance. I’m tightening the gate so its scale comes only from the stable anchor; this makes the fallback behavior genuine.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..e55d7d40c5bb8e63ce609126c377d66f6ce09ab9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.abs(anchor)
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..e55d7d40c5bb8e63ce609126c377d66f6ce09ab9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.abs(anchor)
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+2026-09-05T16:31:30.904296Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc "PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+from pathlib import Path
+import ast
+import numpy as np
+source = Path('algorithm.py').read_text()
+compile(source, 'algorithm.py', 'exec')
+node = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == '_combine_predictions')
+ns = {}
+exec(compile(ast.Module(body=[node], type_ignores=[]), '<combine>', 'exec'), ns)
+f = ns['_combine_predictions']
+anchor = np.array([1., 2., np.nan, -1.])
+other = np.array([1.2, 20., 3., np.inf])
+out = f(anchor, other)
+assert out.shape == anchor.shape
+assert np.all(np.isfinite(out)) and np.all(out >= 0)
+assert out[1] < 2.5
+assert np.array_equal(f(np.array([True, False]), np.array([False, True])), [True, True])
+print('verified:', out)
+PY
+[ \""'$(find . -type d -name '"'__pycache__' -print -quit)\" = \"\" ]
+" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0
+ succeeded in 0ms:
+verified: [1.06930693 2.17027027 0.105      0.        ]
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..e55d7d40c5bb8e63ce609126c377d66f6ce09ab9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.abs(anchor)
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+2026-09-05T16:31:40.052097Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+Implemented the guided AST crossover candidate.
+
+- Evolved only `_combine_predictions(left, right)` in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py).
+- Added a ridge-anchored, disagreement-gated nonlinear blend with finite-value handling and nonnegative continuation projection.
+- Recorded the prediction, falsifier, and matched control in [PROPOSAL.md](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md).
+- Verified syntax, numerical edge cases, boolean composition, and absence of runtime cache artifacts.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00f68ce8b217520b8c7316cd30b9df4549c99545
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/PROPOSAL.md
+@@ -0,0 +1,13 @@
++# Proposal: disagreement-gated AST crossover
++
++The crossover uses parent A's ridge continuation prediction as an anchor and
++adds up to 35% of parent B's nonlinear correction. The correction is smoothly
++suppressed as scale-normalized parent disagreement grows. Non-finite outputs
++fall back to the anchor and continuation values are projected to the
++nonnegative payoff domain.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired payoff on the declared slice.
++- Falsifier: the upper 95% paired confidence bound is below zero.
++- Matched control: the unchanged parent program under identical evaluator
++  inputs, seeds, and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+index e05bae0a4627e62a5968c457f2945e7dd33e4515..e55d7d40c5bb8e63ce609126c377d66f6ce09ab9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c0/algorithm.py
+@@ -32,9 +32,30 @@
+ _parent_b_predict = _parent_b.predict
+ 
+ def _combine_predictions(left, right):
+-    if left.dtype == _openhyra_numpy.bool_ and right.dtype == _openhyra_numpy.bool_:
+-        return _openhyra_numpy.logical_or(left, right)
+-    return _openhyra_numpy.asarray(left, dtype=_openhyra_numpy.float64) / 2.0 + _openhyra_numpy.asarray(right, dtype=_openhyra_numpy.float64) / 2.0
++    import numpy as np
++
++    # Preserve a sensible composition if these parents are later crossed with
++    # decision-valued programs.  For the present continuation parents, use the
++    # linear model as a robust anchor and admit the nonlinear parent's local
++    # correction only in proportion to parent agreement.  The scale is local
++    # to each prediction, so the gate remains meaningful across contracts and
++    # exercise dates without evaluator-owned parameters.
++    left_array = np.asarray(left)
++    right_array = np.asarray(right)
++    if left_array.dtype == np.bool_ and right_array.dtype == np.bool_:
++        return np.logical_or(left_array, right_array)
++
++    anchor = np.asarray(left_array, dtype=np.float64)
++    nonlinear = np.asarray(right_array, dtype=np.float64)
++    anchor = np.where(np.isfinite(anchor), anchor, 0.0)
++    nonlinear = np.where(np.isfinite(nonlinear), nonlinear, anchor)
++
++    disagreement = np.abs(nonlinear - anchor)
++    local_scale = 1.0 + np.abs(anchor)
++    agreement = 1.0 / (1.0 + (disagreement / local_scale) ** 2)
++    nonlinear_weight = 0.35 * agreement
++    combined = anchor + nonlinear_weight * (nonlinear - anchor)
++    return np.maximum(combined, 0.0)
+ 
+ def fit(input_dir, output_dir, seed):
+     output_root = _OpenHyraPath(output_dir)
+
+tokens used
+19,384

@@ -1,0 +1,925 @@
+2026-09-05T16:31:54.920124Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-05T16:31:56.623327Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.626475Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.628963Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.631685Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.634440Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.637697Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.640748Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.644053Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.646351Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.649382Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.651375Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.654096Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.658431Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.660586Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:31:56.663275Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07269-92a7-7840-b2fa-2e30dee64948
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+## Search semantics
+
+The Context Agent may propose several unrelated mechanisms in one round.
+Proposal may rewrite a whole program, mutate executable AST structure,
+combine two parent programs, or restart from a blank implementation. The
+Experience Bank stores program source, measured outcomes, and full parent
+lineage. Scores and slice feedback guide which structures are revised,
+combined, or abandoned in later rounds.
+
+The old feature, affine, expression, and small-network implementations remain
+useful baselines. They no longer define the admitted search space.
+
+
+Generate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.
+
+## Local candidate identity
+
+This is candidate 3 of 4 generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all 4 candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+
+
+## Mechanism slot
+
+Mechanism id: `direct_r1_1`
+Family: open_program_generation
+Intervention scope: fit
+Intervention operator: subsystem_rewrite
+Target slice: instance:public-put-atm
+Proposed mechanism: Use the declared operation to improve the parent program.
+Prediction: positive mean paired payoff on the declared slice
+Falsifier: upper 95% paired CI is below zero
+Matched control: unchanged parent with identical input and budget
+Next probe: 
+Evidence ids: 
+
+This is the GUIDED arm. Implement or materially instantiate the proposed
+mechanism, while keeping the artifact protocol and evaluator-owned boundary
+unchanged. You may synthesize a genuinely new structure when the evidence
+supports it; record the falsifiable prediction and control in PROPOSAL.md.
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: fit
+- operator: subsystem_rewrite
+- target_slice: instance:public-put-atm
+- prediction: positive mean paired payoff on the declared slice
+- falsifier: upper 95% paired CI is below zero
+
+The `fit(...)` subsystem has been cleared. Rewrite only the body of the top-level `fit` function. Put any new imports or helper functions inside that function: after this call the system will keep only its body and rebuild every other function, module definition, source file, and CLI from the parent program.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 54 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect the protocol and current parent implementation, then rewrite only the top-level `fit(...)` body and document the hypothesis/control in `PROPOSAL.md`.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!solve.sh'"' | sort && sed -n '1,240p' algorithm.py && sed -n '1,240p' PYTHON_PROGRAM_PROTOCOL_V1.md 2>/dev/null || true && printf '\\n--- manifest ---\\n' && cat manifest.json 2>/dev/null || true && printf '\\n--- proposal ---\\n' && cat PROPOSAL.md 2>/dev/null || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2
+algorithm.py
+manifest.json
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    raise NotImplementedError('rewrite the fit subsystem')
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+
+--- manifest ---
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+--- proposal ---
+
+exec
+/bin/zsh -lc 'find .. -name PYTHON_PROGRAM_PROTOCOL_V1.md -print | head -5; find .. -maxdepth 3 -type f | sort | head -80' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2
+ succeeded in 0ms:
+../r0-c0/PROPOSAL.md
+../r0-c0/__pycache__/algorithm.cpython-312.pyc
+../r0-c0/algorithm.py
+../r0-c0/manifest.json
+../r0-c1/algorithm.py
+../r0-c1/manifest.json
+../r0-c2/PROPOSAL.md
+../r0-c2/__pycache__/algorithm.cpython-312.pyc
+../r0-c2/algorithm.py
+../r0-c2/manifest.json
+../r0-c3/algorithm.py
+../r0-c3/manifest.json
+../r1-c0/PROPOSAL.md
+../r1-c0/algorithm.py
+../r1-c0/manifest.json
+../r1-c1/algorithm.py
+../r1-c1/manifest.json
+../r1-c2/algorithm.py
+../r1-c2/manifest.json
+
+codex
+The retained predictor fixes the representation and model-file schema, so the fit rewrite will supply a robust backward-induction trainer: ITM-focused continuation regression, deterministic fold-based ridge selection, and pathwise stopping targets, while preserving discounted-value semantics.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..84796625e69bcc28bba0b989ef0c38337189d181
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+@@ -0,0 +1,14 @@
++# Proposal: `direct_r1_1`
++
++Rewrite only `fit(...)` as seeded, fold-selected ridge Longstaff--Schwartz
++backward induction. Training concentrates on in-the-money observations, adds a
++small near-the-money support set when that slice is sparse, preserves an
++unpenalized intercept, and treats evaluator payoffs as already discounted.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired discounted payoff on the target
++  slice versus the unchanged parent under identical inputs and budget.
++- Matched control: the unchanged parent program, evaluated with the identical
++  instance paths, seeds, and evaluator budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..9c183af30a60ad3120e2644947166528b17b7631
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+@@ -16,7 +16,124 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep this implementation self-contained: the intervention system retains
++    # the body of fit while rebuilding the surrounding parent program.
++    import numpy as _np
++
++    paths = _np.asarray(
++        _np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    payoffs = _np.asarray(
++        _np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('unexpected training array rank')
++    if paths.shape[:2] != payoffs.shape:
++        raise ValueError('paths and payoffs have incompatible shapes')
++
++    n_paths, n_times, _ = paths.shape
++    if n_paths == 0 or n_times < 2:
++        raise ValueError('training set must contain paths and exercise times')
++
++    # Reproduce the parent's public feature map locally.  In particular, leave
++    # the constant column uncentred, since predict has no separate intercept.
++    def _design(state, immediate):
++        logged = _np.log(_np.maximum(state, 1.0e-12))
++        cols = [_np.ones(state.shape[0], dtype=_np.float64)]
++        cols.extend(logged[:, j] for j in range(logged.shape[1]))
++        cols.extend(logged[:, j] ** 2 for j in range(logged.shape[1]))
++        cols.extend((_np.mean(logged, axis=1), _np.min(logged, axis=1),
++                     _np.max(logged, axis=1), immediate))
++        return _np.column_stack(cols)
++
++    sample = _design(paths[:, 0, :], payoffs[:, 0])
++    n_features = sample.shape[1]
++    coefficients = _np.zeros((n_times, n_features), dtype=_np.float64)
++    means = _np.zeros_like(coefficients)
++    scales = _np.ones_like(coefficients)
++
++    # cash is already discounted by the evaluator.  It is therefore directly
++    # comparable across dates; applying discount_factors again would be wrong.
++    cash = payoffs[:, -1].copy()
++    tiny = 1.0e-12
++
++    def _ridge(x, y, lam):
++        gram = x.T @ x
++        penalty = _np.eye(x.shape[1], dtype=_np.float64) * lam
++        penalty[0, 0] = 0.0                 # never penalize the intercept
++        rhs = x.T @ y
++        try:
++            return _np.linalg.solve(gram + penalty, rhs)
++        except _np.linalg.LinAlgError:
++            return _np.linalg.lstsq(gram + penalty, rhs, rcond=1.0e-10)[0]
++
++    # Backward Longstaff--Schwartz induction.  Models are selected using fixed
++    # folds, but the chosen ridge is finally refit on every useful observation.
++    # The fold assignment depends on seed only to make repeated evaluator seeds
++    # genuinely independent while remaining reproducible.
++    rng = _np.random.default_rng(int(seed))
++    fold = rng.integers(0, 4, size=n_paths)
++    lambdas = (1.0e-8, 1.0e-6, 1.0e-4, 1.0e-2, 1.0e-1, 1.0)
++
++    for time_index in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, time_index]
++        raw = _design(paths[:, time_index, :], immediate)
++        mu = _np.mean(raw, axis=0)
++        sigma = _np.std(raw, axis=0)
++        mu[0] = 0.0
++        sigma[0] = 1.0
++        sigma[~_np.isfinite(sigma) | (sigma < 1.0e-10)] = 1.0
++        x_all = (raw - mu) / sigma
++
++        itm = immediate > tiny
++        useful = _np.flatnonzero(itm)
++        # For very sparse ITM sets, include the most near-the-money paths.  This
++        # avoids a singular, wildly extrapolating continuation surface.
++        minimum = min(n_paths, max(32, 4 * n_features))
++        if useful.size < minimum:
++            order = _np.argsort(immediate, kind='stable')
++            useful = order[-minimum:]
++        x = x_all[useful]
++        y = cash[useful]
++
++        best_lambda = lambdas[2]
++        best_error = _np.inf
++        if useful.size >= max(16, 2 * n_features):
++            for lam in lambdas:
++                error_sum = 0.0
++                error_count = 0
++                for k in range(4):
++                    valid = fold[useful] == k
++                    if not _np.any(valid) or _np.sum(~valid) < n_features:
++                        continue
++                    beta_cv = _ridge(x[~valid], y[~valid], lam)
++                    residual = y[valid] - x[valid] @ beta_cv
++                    error_sum += float(residual @ residual)
++                    error_count += int(valid.sum())
++                if error_count and error_sum / error_count < best_error:
++                    best_error = error_sum / error_count
++                    best_lambda = lam
++
++        beta = _ridge(x, y, best_lambda)
++        beta[~_np.isfinite(beta)] = 0.0
++        continuation = x_all @ beta
++        # Exercise equality is deliberately resolved toward continuation, which
++        # reduces needless early exercise around a flat ATM boundary.
++        exercise = itm & (immediate > continuation)
++        cash[exercise] = immediate[exercise]
++        coefficients[time_index] = beta
++        means[time_index] = mu
++        scales[time_index] = sigma
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    _np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..84796625e69bcc28bba0b989ef0c38337189d181
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+@@ -0,0 +1,14 @@
++# Proposal: `direct_r1_1`
++
++Rewrite only `fit(...)` as seeded, fold-selected ridge Longstaff--Schwartz
++backward induction. Training concentrates on in-the-money observations, adds a
++small near-the-money support set when that slice is sparse, preserves an
++unpenalized intercept, and treats evaluator payoffs as already discounted.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired discounted payoff on the target
++  slice versus the unchanged parent under identical inputs and budget.
++- Matched control: the unchanged parent program, evaluated with the identical
++  instance paths, seeds, and evaluator budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..9c183af30a60ad3120e2644947166528b17b7631
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+@@ -16,7 +16,124 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep this implementation self-contained: the intervention system retains
++    # the body of fit while rebuilding the surrounding parent program.
++    import numpy as _np
++
++    paths = _np.asarray(
++        _np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    payoffs = _np.asarray(
++        _np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('unexpected training array rank')
++    if paths.shape[:2] != payoffs.shape:
++        raise ValueError('paths and payoffs have incompatible shapes')
++
++    n_paths, n_times, _ = paths.shape
++    if n_paths == 0 or n_times < 2:
++        raise ValueError('training set must contain paths and exercise times')
++
++    # Reproduce the parent's public feature map locally.  In particular, leave
++    # the constant column uncentred, since predict has no separate intercept.
++    def _design(state, immediate):
++        logged = _np.log(_np.maximum(state, 1.0e-12))
++        cols = [_np.ones(state.shape[0], dtype=_np.float64)]
++        cols.extend(logged[:, j] for j in range(logged.shape[1]))
++        cols.extend(logged[:, j] ** 2 for j in range(logged.shape[1]))
++        cols.extend((_np.mean(logged, axis=1), _np.min(logged, axis=1),
++                     _np.max(logged, axis=1), immediate))
++        return _np.column_stack(cols)
++
++    sample = _design(paths[:, 0, :], payoffs[:, 0])
++    n_features = sample.shape[1]
++    coefficients = _np.zeros((n_times, n_features), dtype=_np.float64)
++    means = _np.zeros_like(coefficients)
++    scales = _np.ones_like(coefficients)
++
++    # cash is already discounted by the evaluator.  It is therefore directly
++    # comparable across dates; applying discount_factors again would be wrong.
++    cash = payoffs[:, -1].copy()
++    tiny = 1.0e-12
++
++    def _ridge(x, y, lam):
++        gram = x.T @ x
++        penalty = _np.eye(x.shape[1], dtype=_np.float64) * lam
++        penalty[0, 0] = 0.0                 # never penalize the intercept
++        rhs = x.T @ y
++        try:
++            return _np.linalg.solve(gram + penalty, rhs)
++        except _np.linalg.LinAlgError:
++            return _np.linalg.lstsq(gram + penalty, rhs, rcond=1.0e-10)[0]
++
++    # Backward Longstaff--Schwartz induction.  Models are selected using fixed
++    # folds, but the chosen ridge is finally refit on every useful observation.
++    # The fold assignment depends on seed only to make repeated evaluator seeds
++    # genuinely independent while remaining reproducible.
++    rng = _np.random.default_rng(int(seed))
++    fold = rng.integers(0, 4, size=n_paths)
++    lambdas = (1.0e-8, 1.0e-6, 1.0e-4, 1.0e-2, 1.0e-1, 1.0)
++
++    for time_index in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, time_index]
++        raw = _design(paths[:, time_index, :], immediate)
++        mu = _np.mean(raw, axis=0)
++        sigma = _np.std(raw, axis=0)
++        mu[0] = 0.0
++        sigma[0] = 1.0
++        sigma[~_np.isfinite(sigma) | (sigma < 1.0e-10)] = 1.0
++        x_all = (raw - mu) / sigma
++
++        itm = immediate > tiny
++        useful = _np.flatnonzero(itm)
++        # For very sparse ITM sets, include the most near-the-money paths.  This
++        # avoids a singular, wildly extrapolating continuation surface.
++        minimum = min(n_paths, max(32, 4 * n_features))
++        if useful.size < minimum:
++            order = _np.argsort(immediate, kind='stable')
++            useful = order[-minimum:]
++        x = x_all[useful]
++        y = cash[useful]
++
++        best_lambda = lambdas[2]
++        best_error = _np.inf
++        if useful.size >= max(16, 2 * n_features):
++            for lam in lambdas:
++                error_sum = 0.0
++                error_count = 0
++                for k in range(4):
++                    valid = fold[useful] == k
++                    if not _np.any(valid) or _np.sum(~valid) < n_features:
++                        continue
++                    beta_cv = _ridge(x[~valid], y[~valid], lam)
++                    residual = y[valid] - x[valid] @ beta_cv
++                    error_sum += float(residual @ residual)
++                    error_count += int(valid.sum())
++                if error_count and error_sum / error_count < best_error:
++                    best_error = error_sum / error_count
++                    best_lambda = lam
++
++        beta = _ridge(x, y, best_lambda)
++        beta[~_np.isfinite(beta)] = 0.0
++        continuation = x_all @ beta
++        # Exercise equality is deliberately resolved toward continuation, which
++        # reduces needless early exercise around a flat ATM boundary.
++        exercise = itm & (immediate > continuation)
++        cash[exercise] = immediate[exercise]
++        coefficients[time_index] = beta
++        means[time_index] = mu
++        scales[time_index] = sigma
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    _np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+exec
+/bin/zsh -lc 'python3 -m py_compile algorithm.py
+work=$(mktemp -d)
+mkdir -p "$work/in" "$work/model" "$work/query" "$work/result"
+python3 - "$work" <<'"'PY'
+import json, numpy as np, pathlib, sys
+r=pathlib.Path(sys.argv[1]); rng=np.random.default_rng(7)
+n,t,d=400,5,1
+s=100*np.exp(np.cumsum(rng.normal(0,.08,(n,t,d)),axis=1))
+p=np.maximum(100-s[:,:,0],0)*np.exp(-.03*np.arange(t))
+np.save(r/'in/training_paths.npy',s); np.save(r/'in/payoffs.npy',p)
+np.save(r/'in/discount_factors.npy',np.exp(-.03*np.arange(t)))
+(r/'in/instance.json').write_text('{}')
+np.save(r/'query/history.npy',s[:30,:3]); np.save(r/'query/states.npy',s[:30,2]); np.save(r/'query/immediate_payoffs.npy',p[:30,2])
+(r/'query/request.json').write_text(json.dumps({'time_index':2}))
+PY
+python3 algorithm.py fit --input \""'$work/in" --output "$work/model" --seed 11
+python3 algorithm.py predict --model "$work/model" --input "$work/query" --output "$work/result"
+python3 - "$work" <<'"'PY'
+import numpy as np, pathlib, sys
+r=pathlib.Path(sys.argv[1]); a=np.load(r/'result/predictions.npy'); m=np.load(r/'model/model.npz')
+print('predictions', a.shape, 'finite', np.isfinite(a).all(), 'range', (float(a.min()),float(a.max())))
+print('model shapes', {k:m[k].shape for k in m.files})
+PY
+git diff -- algorithm.py PROPOSAL.md 2>/dev/null || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2
+ succeeded in 189ms:
+predictions (30,) finite True range (-3.3514005448715474, 20.89142159561962)
+model shapes {'coefficients': (5, 7), 'means': (5, 7), 'scales': (5, 7)}
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..84796625e69bcc28bba0b989ef0c38337189d181
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+@@ -0,0 +1,14 @@
++# Proposal: `direct_r1_1`
++
++Rewrite only `fit(...)` as seeded, fold-selected ridge Longstaff--Schwartz
++backward induction. Training concentrates on in-the-money observations, adds a
++small near-the-money support set when that slice is sparse, preserves an
++unpenalized intercept, and treats evaluator payoffs as already discounted.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired discounted payoff on the target
++  slice versus the unchanged parent under identical inputs and budget.
++- Matched control: the unchanged parent program, evaluated with the identical
++  instance paths, seeds, and evaluator budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..9c183af30a60ad3120e2644947166528b17b7631
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+@@ -16,7 +16,124 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep this implementation self-contained: the intervention system retains
++    # the body of fit while rebuilding the surrounding parent program.
++    import numpy as _np
++
++    paths = _np.asarray(
++        _np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    payoffs = _np.asarray(
++        _np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('unexpected training array rank')
++    if paths.shape[:2] != payoffs.shape:
++        raise ValueError('paths and payoffs have incompatible shapes')
++
++    n_paths, n_times, _ = paths.shape
++    if n_paths == 0 or n_times < 2:
++        raise ValueError('training set must contain paths and exercise times')
++
++    # Reproduce the parent's public feature map locally.  In particular, leave
++    # the constant column uncentred, since predict has no separate intercept.
++    def _design(state, immediate):
++        logged = _np.log(_np.maximum(state, 1.0e-12))
++        cols = [_np.ones(state.shape[0], dtype=_np.float64)]
++        cols.extend(logged[:, j] for j in range(logged.shape[1]))
++        cols.extend(logged[:, j] ** 2 for j in range(logged.shape[1]))
++        cols.extend((_np.mean(logged, axis=1), _np.min(logged, axis=1),
++                     _np.max(logged, axis=1), immediate))
++        return _np.column_stack(cols)
++
++    sample = _design(paths[:, 0, :], payoffs[:, 0])
++    n_features = sample.shape[1]
++    coefficients = _np.zeros((n_times, n_features), dtype=_np.float64)
++    means = _np.zeros_like(coefficients)
++    scales = _np.ones_like(coefficients)
++
++    # cash is already discounted by the evaluator.  It is therefore directly
++    # comparable across dates; applying discount_factors again would be wrong.
++    cash = payoffs[:, -1].copy()
++    tiny = 1.0e-12
++
++    def _ridge(x, y, lam):
++        gram = x.T @ x
++        penalty = _np.eye(x.shape[1], dtype=_np.float64) * lam
++        penalty[0, 0] = 0.0                 # never penalize the intercept
++        rhs = x.T @ y
++        try:
++            return _np.linalg.solve(gram + penalty, rhs)
++        except _np.linalg.LinAlgError:
++            return _np.linalg.lstsq(gram + penalty, rhs, rcond=1.0e-10)[0]
++
++    # Backward Longstaff--Schwartz induction.  Models are selected using fixed
++    # folds, but the chosen ridge is finally refit on every useful observation.
++    # The fold assignment depends on seed only to make repeated evaluator seeds
++    # genuinely independent while remaining reproducible.
++    rng = _np.random.default_rng(int(seed))
++    fold = rng.integers(0, 4, size=n_paths)
++    lambdas = (1.0e-8, 1.0e-6, 1.0e-4, 1.0e-2, 1.0e-1, 1.0)
++
++    for time_index in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, time_index]
++        raw = _design(paths[:, time_index, :], immediate)
++        mu = _np.mean(raw, axis=0)
++        sigma = _np.std(raw, axis=0)
++        mu[0] = 0.0
++        sigma[0] = 1.0
++        sigma[~_np.isfinite(sigma) | (sigma < 1.0e-10)] = 1.0
++        x_all = (raw - mu) / sigma
++
++        itm = immediate > tiny
++        useful = _np.flatnonzero(itm)
++        # For very sparse ITM sets, include the most near-the-money paths.  This
++        # avoids a singular, wildly extrapolating continuation surface.
++        minimum = min(n_paths, max(32, 4 * n_features))
++        if useful.size < minimum:
++            order = _np.argsort(immediate, kind='stable')
++            useful = order[-minimum:]
++        x = x_all[useful]
++        y = cash[useful]
++
++        best_lambda = lambdas[2]
++        best_error = _np.inf
++        if useful.size >= max(16, 2 * n_features):
++            for lam in lambdas:
++                error_sum = 0.0
++                error_count = 0
++                for k in range(4):
++                    valid = fold[useful] == k
++                    if not _np.any(valid) or _np.sum(~valid) < n_features:
++                        continue
++                    beta_cv = _ridge(x[~valid], y[~valid], lam)
++                    residual = y[valid] - x[valid] @ beta_cv
++                    error_sum += float(residual @ residual)
++                    error_count += int(valid.sum())
++                if error_count and error_sum / error_count < best_error:
++                    best_error = error_sum / error_count
++                    best_lambda = lam
++
++        beta = _ridge(x, y, best_lambda)
++        beta[~_np.isfinite(beta)] = 0.0
++        continuation = x_all @ beta
++        # Exercise equality is deliberately resolved toward continuation, which
++        # reduces needless early exercise around a flat ATM boundary.
++        exercise = itm & (immediate > continuation)
++        cash[exercise] = immediate[exercise]
++        coefficients[time_index] = beta
++        means[time_index] = mu
++        scales[time_index] = sigma
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    _np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+codex
+Implemented candidate 3’s fit-subsystem rewrite.
+
+- Added seeded, cross-validated ridge Longstaff–Schwartz backward induction.
+- Focuses regression on ITM/near-ATM paths.
+- Preserves discounted-payoff semantics and the predictor’s expected model schema.
+- Recorded prediction, control, and falsifier in [PROPOSAL.md](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md).
+- Verified syntax and completed a synthetic fit/predict test with finite outputs.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..84796625e69bcc28bba0b989ef0c38337189d181
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/PROPOSAL.md
+@@ -0,0 +1,14 @@
++# Proposal: `direct_r1_1`
++
++Rewrite only `fit(...)` as seeded, fold-selected ridge Longstaff--Schwartz
++backward induction. Training concentrates on in-the-money observations, adds a
++small near-the-money support set when that slice is sparse, preserves an
++unpenalized intercept, and treats evaluator payoffs as already discounted.
++
++- Target slice: `instance:public-put-atm`
++- Falsifiable prediction: positive mean paired discounted payoff on the target
++  slice versus the unchanged parent under identical inputs and budget.
++- Matched control: the unchanged parent program, evaluated with the identical
++  instance paths, seeds, and evaluator budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..9c183af30a60ad3120e2644947166528b17b7631
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r1-c2/algorithm.py
+@@ -16,7 +16,124 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep this implementation self-contained: the intervention system retains
++    # the body of fit while rebuilding the surrounding parent program.
++    import numpy as _np
++
++    paths = _np.asarray(
++        _np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    payoffs = _np.asarray(
++        _np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=_np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('unexpected training array rank')
++    if paths.shape[:2] != payoffs.shape:
++        raise ValueError('paths and payoffs have incompatible shapes')
++
++    n_paths, n_times, _ = paths.shape
++    if n_paths == 0 or n_times < 2:
++        raise ValueError('training set must contain paths and exercise times')
++
++    # Reproduce the parent's public feature map locally.  In particular, leave
++    # the constant column uncentred, since predict has no separate intercept.
++    def _design(state, immediate):
++        logged = _np.log(_np.maximum(state, 1.0e-12))
++        cols = [_np.ones(state.shape[0], dtype=_np.float64)]
++        cols.extend(logged[:, j] for j in range(logged.shape[1]))
++        cols.extend(logged[:, j] ** 2 for j in range(logged.shape[1]))
++        cols.extend((_np.mean(logged, axis=1), _np.min(logged, axis=1),
++                     _np.max(logged, axis=1), immediate))
++        return _np.column_stack(cols)
++
++    sample = _design(paths[:, 0, :], payoffs[:, 0])
++    n_features = sample.shape[1]
++    coefficients = _np.zeros((n_times, n_features), dtype=_np.float64)
++    means = _np.zeros_like(coefficients)
++    scales = _np.ones_like(coefficients)
++
++    # cash is already discounted by the evaluator.  It is therefore directly
++    # comparable across dates; applying discount_factors again would be wrong.
++    cash = payoffs[:, -1].copy()
++    tiny = 1.0e-12
++
++    def _ridge(x, y, lam):
++        gram = x.T @ x
++        penalty = _np.eye(x.shape[1], dtype=_np.float64) * lam
++        penalty[0, 0] = 0.0                 # never penalize the intercept
++        rhs = x.T @ y
++        try:
++            return _np.linalg.solve(gram + penalty, rhs)
++        except _np.linalg.LinAlgError:
++            return _np.linalg.lstsq(gram + penalty, rhs, rcond=1.0e-10)[0]
++
++    # Backward Longstaff--Schwartz induction.  Models are selected using fixed
++    # folds, but the chosen ridge is finally refit on every useful observation.
++    # The fold assignment depends on seed only to make repeated evaluator seeds
++    # genuinely independent while remaining reproducible.
++    rng = _np.random.default_rng(int(seed))
++    fold = rng.integers(0, 4, size=n_paths)
++    lambdas = (1.0e-8, 1.0e-6, 1.0e-4, 1.0e-2, 1.0e-1, 1.0)
++
++    for time_index in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, time_index]
++        raw = _design(paths[:, time_index, :], immediate)
++        mu = _np.mean(raw, axis=0)
++        sigma = _np.std(raw, axis=0)
++        mu[0] = 0.0
++        sigma[0] = 1.0
++        sigma[~_np.isfinite(sigma) | (sigma < 1.0e-10)] = 1.0
++        x_all = (raw - mu) / sigma
++
++        itm = immediate > tiny
++        useful = _np.flatnonzero(itm)
++        # For very sparse ITM sets, include the most near-the-money paths.  This
++        # avoids a singular, wildly extrapolating continuation surface.
++        minimum = min(n_paths, max(32, 4 * n_features))
++        if useful.size < minimum:
++            order = _np.argsort(immediate, kind='stable')
++            useful = order[-minimum:]
++        x = x_all[useful]
++        y = cash[useful]
++
++        best_lambda = lambdas[2]
++        best_error = _np.inf
++        if useful.size >= max(16, 2 * n_features):
++            for lam in lambdas:
++                error_sum = 0.0
++                error_count = 0
++                for k in range(4):
++                    valid = fold[useful] == k
++                    if not _np.any(valid) or _np.sum(~valid) < n_features:
++                        continue
++                    beta_cv = _ridge(x[~valid], y[~valid], lam)
++                    residual = y[valid] - x[valid] @ beta_cv
++                    error_sum += float(residual @ residual)
++                    error_count += int(valid.sum())
++                if error_count and error_sum / error_count < best_error:
++                    best_error = error_sum / error_count
++                    best_lambda = lam
++
++        beta = _ridge(x, y, best_lambda)
++        beta[~_np.isfinite(beta)] = 0.0
++        continuation = x_all @ beta
++        # Exercise equality is deliberately resolved toward continuation, which
++        # reduces needless early exercise around a flat ATM boundary.
++        exercise = itm & (immediate > continuation)
++        cash[exercise] = immediate[exercise]
++        coefficients[time_index] = beta
++        means[time_index] = mu
++        scales[time_index] = sigma
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    _np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+tokens used
+18,806

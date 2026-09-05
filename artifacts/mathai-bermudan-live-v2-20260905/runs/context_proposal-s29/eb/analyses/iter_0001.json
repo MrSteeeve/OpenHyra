@@ -1,0 +1,156 @@
+{
+  "iteration": 1,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 29,
+  "direction": "Implement and evaluate the boundary-gated ast_crossover as the primary candidate and the fit-only cross-fitted shrinkage rewrite as the second candidate, editing only algorithm.py and manifest.json.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0003 decisively lost on instance:public-put-high-vol because its kNN policy exercised substantially earlier; its matched effect was -0.00785 with CI95 [-0.01224,-0.00346], so that restart is falsified. sol_0005 produced a positive but inconclusive matched ATM effect (+0.000607, CI95 crossing zero) while changing exercise timing aggressively. sol_0000 remains the strongest scored parent. The next round should preserve its stable policy while testing whether sol_0005 contributes only near the exercise boundary, and separately diagnose whether robust fitting—not prediction logic—caused the ambiguous ATM movement.",
+    "reason": "Matched evidence supports cautious composition and subsystem isolation, not another kNN restart.",
+    "expected_gain": 0.0006,
+    "confidence": 0.58,
+    "phase": "transfer",
+    "target_claim_id": "boundary_gated_composition",
+    "success_criterion": "The guided-minus-unchanged-parent effect on instance:public-put-atm has a 95% confidence interval with lower bound greater than zero.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "boundary_gated_ridge_irls_crossover",
+        "family": "ast_crossover",
+        "mechanism": "Compose sol_0000's ridge continuation program with sol_0005's robust calibrated branch: retain the ridge action except when both parents are near the estimated exercise boundary, where an out-of-fold reliability gate selects the branch with lower training regret. Both parent graphs must execute and the gate is learned under a fixed budget.",
+        "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.",
+        "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; unchanged disagreement-path behavior also falsifies executable novelty.",
+        "matched_control": "Unchanged sol_0000 with identical seeds, training paths, pricing paths, and compute budget.",
+        "target_slices": [
+          "instance:public-put-atm"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover",
+        "target_slice": "instance:public-put-atm",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "Report paired effect, gate activation rate, and parent-selection frequency on policy-disagreement paths by exercise date.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "crossfit_shrinkage_fit_rewrite",
+        "family": "subsystem_rewrite",
+        "mechanism": "Preserve sol_0000's prediction subsystem and model-file contract while replacing fit with deterministic fold-wise ridge continuation estimates, fold-aggregated coefficients, and date-specific shrinkage toward the original full-sample ridge fit; select shrinkage using backward-policy payoff on held-out folds without changing features or prediction control flow.",
+        "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.",
+        "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; incompatible or changed unchanged-model prediction behavior invalidates the subsystem isolation.",
+        "matched_control": "Unchanged sol_0000 with identical seeds, features, prediction subsystem, training paths, pricing paths, and compute budget.",
+        "target_slices": [
+          "instance:public-put-atm"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "fit",
+        "intervention_operator": "subsystem_rewrite",
+        "target_slice": "instance:public-put-atm",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "Verify byte-compatible model consumption by the preserved predictor, then compare fold policy-regret, coefficient dispersion, paired payoff, and exercise timing.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "architecture",
+    "intervention_operator": "ast_crossover",
+    "target_slice": "instance:public-put-atm",
+    "prediction": "A boundary-gated composition of sol_0000 and sol_0005 yields positive guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm.",
+    "falsifier": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0005",
+      "sol_0006"
+    ],
+    "next_probe": "Measure paired payoff effect and exercise-rate changes separately for paths where the two parent policies disagree at each exercise date.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Implement and evaluate the boundary-gated ast_crossover as the primary candidate and the fit-only cross-fitted shrinkage rewrite as the second candidate, editing only algorithm.py and manifest.json.",
+    "intervention": {
+      "scope": "architecture",
+      "operator": "ast_crossover",
+      "target_slice": "instance:public-put-atm",
+      "prediction": "A boundary-gated composition of sol_0000 and sol_0005 yields positive guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm.",
+      "falsifier": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Measure paired payoff effect and exercise-rate changes separately for paths where the two parent policies disagree at each exercise date.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "boundary_gated_ridge_irls_crossover",
+      "family": "ast_crossover",
+      "mechanism": "Compose sol_0000's ridge continuation program with sol_0005's robust calibrated branch: retain the ridge action except when both parents are near the estimated exercise boundary, where an out-of-fold reliability gate selects the branch with lower training regret. Both parent graphs must execute and the gate is learned under a fixed budget.",
+      "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.",
+      "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; unchanged disagreement-path behavior also falsifies executable novelty.",
+      "matched_control": "Unchanged sol_0000 with identical seeds, training paths, pricing paths, and compute budget.",
+      "target_slices": [
+        "instance:public-put-atm"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "ast_crossover",
+      "target_slice": "instance:public-put-atm",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Report paired effect, gate activation rate, and parent-selection frequency on policy-disagreement paths by exercise date.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "crossfit_shrinkage_fit_rewrite",
+      "family": "subsystem_rewrite",
+      "mechanism": "Preserve sol_0000's prediction subsystem and model-file contract while replacing fit with deterministic fold-wise ridge continuation estimates, fold-aggregated coefficients, and date-specific shrinkage toward the original full-sample ridge fit; select shrinkage using backward-policy payoff on held-out folds without changing features or prediction control flow.",
+      "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.",
+      "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; incompatible or changed unchanged-model prediction behavior invalidates the subsystem isolation.",
+      "matched_control": "Unchanged sol_0000 with identical seeds, features, prediction subsystem, training paths, pricing paths, and compute budget.",
+      "target_slices": [
+        "instance:public-put-atm"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "fit",
+      "intervention_operator": "subsystem_rewrite",
+      "target_slice": "instance:public-put-atm",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Verify byte-compatible model consumption by the preserved predictor, then compare fold policy-regret, coefficient dispersion, paired payoff, and exercise timing.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0003 decisively lost on instance:public-put-high-vol because its kNN policy exercised substantially earlier; its matched effect was -0.00785 with CI95 [-0.01224,-0.00346], so that restart is falsified. sol_0005 produced a positive but inconclusive matched ATM effect (+0.000607, CI95 crossing zero) while changing exercise timing aggressively. sol_0000 remains the strongest scored parent. The next round should preserve its stable policy while testing whether sol_0005 contributes only near the exercise boundary, and separately diagnose whether robust fitting—not prediction logic—caused the ambiguous ATM movement.\", \"reason\": \"Matched evidence supports cautious composition and subsystem isolation, not another kNN restart.\", \"expected_gain\": 0.0006, \"confidence\": 0.58, \"phase\": \"transfer\", \"target_claim_id\": \"boundary_gated_composition\", \"success_criterion\": \"The guided-minus-unchanged-parent effect on instance:public-put-atm has a 95% confidence interval with lower bound greater than zero.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"boundary_gated_ridge_irls_crossover\", \"family\": \"ast_crossover\", \"mechanism\": \"Compose sol_0000's ridge continuation program with sol_0005's robust calibrated branch: retain the ridge action except when both parents are near the estimated exercise boundary, where an out-of-fold reliability gate selects the branch with lower training regret. Both parent graphs must execute and the gate is learned under a fixed budget.\", \"prediction\": \"Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.\", \"failure_condition\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; unchanged disagreement-path behavior also falsifies executable novelty.\", \"matched_control\": \"Unchanged sol_0000 with identical seeds, training paths, pricing paths, and compute budget.\", \"target_slices\": [\"instance:public-put-atm\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-atm\", \"evidence_ids\": [\"sol_0000\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Report paired effect, gate activation rate, and parent-selection frequency on policy-disagreement paths by exercise date.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"crossfit_shrinkage_fit_rewrite\", \"family\": \"subsystem_rewrite\", \"mechanism\": \"Preserve sol_0000's prediction subsystem and model-file contract while replacing fit with deterministic fold-wise ridge continuation estimates, fold-aggregated coefficients, and date-specific shrinkage toward the original full-sample ridge fit; select shrinkage using backward-policy payoff on held-out folds without changing features or prediction control flow.\", \"prediction\": \"Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm.\", \"failure_condition\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction; incompatible or changed unchanged-model prediction behavior invalidates the subsystem isolation.\", \"matched_control\": \"Unchanged sol_0000 with identical seeds, features, prediction subsystem, training paths, pricing paths, and compute budget.\", \"target_slices\": [\"instance:public-put-atm\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"fit\", \"intervention_operator\": \"subsystem_rewrite\", \"target_slice\": \"instance:public-put-atm\", \"evidence_ids\": [\"sol_0000\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Verify byte-compatible model consumption by the preserved predictor, then compare fold policy-regret, coefficient dispersion, paired payoff, and exercise timing.\", \"state_version\": null}], \"intervention_scope\": \"architecture\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-atm\", \"prediction\": \"A boundary-gated composition of sol_0000 and sol_0005 yields positive guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm.\", \"falsifier\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Measure paired payoff effect and exercise-rate changes separately for paths where the two parent policies disagree at each exercise date.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Implement and evaluate the boundary-gated ast_crossover as the primary candidate and the fit-only cross-fitted shrinkage rewrite as the second candidate, editing only algorithm.py and manifest.json.\", \"intervention\": {\"scope\": \"architecture\", \"operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-atm\", \"prediction\": \"A boundary-gated composition of sol_0000 and sol_0005 yields positive guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm.\", \"falsifier\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Measure paired payoff effect and exercise-rate changes separately for paths where the two parent policies disagree at each exercise date.\", \"state_version\": null, \"state_hash\": null}}"
+}

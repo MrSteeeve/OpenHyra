@@ -1,0 +1,176 @@
+{
+  "context_call_ids": [],
+  "context_seconds": 0,
+  "decision": null,
+  "metadata": {
+    "mechanism_candidates": [
+      {
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "id": "direct_r1_0",
+        "intervention_operator": "ast_crossover",
+        "intervention_scope": "whole_program",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "target_slice": "instance:public-put-atm"
+      },
+      {
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "id": "direct_r1_1",
+        "intervention_operator": "subsystem_rewrite",
+        "intervention_scope": "fit",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "target_slice": "instance:public-put-atm"
+      }
+    ],
+    "selected_mechanism_candidates": [
+      {
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "id": "direct_r1_0",
+        "intervention_operator": "ast_crossover",
+        "intervention_scope": "whole_program",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "target_slice": "instance:public-put-atm"
+      },
+      {
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "id": "direct_r1_1",
+        "intervention_operator": "subsystem_rewrite",
+        "intervention_scope": "fit",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "target_slice": "instance:public-put-atm"
+      }
+    ],
+    "trial_seed": 41
+  },
+  "parent_id": "sol_0002",
+  "proposal_prompt": "# Task: Bermudan whole-program algorithm search\n\nThis track searches complete Python algorithms. A candidate is not a choice\namong registered continuation runners: it owns training, representation,\nmodel state, inference, and either the continuation rule or the stopping\ndecision itself.\n\nThe financial problem remains evaluator-owned so independently generated\nprograms can be compared on the same paths and objective. Reusing the\nBermudan benchmark does not make it a new mathematical task; the research\nquestion here is whether program-level search discovers useful algorithmic\nstructure beyond the historical bounded artifact track.\n\n## Candidate program\n\nThe editable candidate consists of a bounded source tree:\n\n- `algorithm.py`: an arbitrary finite Python program;\n- `manifest.json`: the two-field interface declaration;\n- additional `.py`, `.json`, or `.toml` helper/configuration files at any\n  relative depth (up to 64 files and the task source-byte limit). Symlinks,\n  undeclared binary extensions, and hidden runtime directories are rejected.\n- `solve.sh` remains task-owned and copies the manifest to\n  `solution.json` for the harness transport.\n\nThe complete command and data contract is specified in\n[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).\n\nThe manifest is one of:\n\n```json\n{\"schema\":\"openhyra-python-program.v1\",\"interface\":\"continuation\"}\n```\n\n```json\n{\"schema\":\"openhyra-python-program.v1\",\"interface\":\"decision\"}\n```\n\nThere is no model-family, layer, feature-grammar, optimizer, loss, or artifact\nfile menu in this declaration. `manifest.json` remains the only candidate\ndeclaration; the source-tree policy is task-owned and independently checked by\nthe harness and trusted evaluator.\n\n## Fit lifecycle\n\nFor each evaluator-owned instance and seed:\n\n```text\npython3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER\n```\n\n`INPUT_DIR` contains:\n\n| File | Content |\n| --- | --- |\n| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |\n| `payoffs.npy` | evaluator-computed discounted payoffs |\n| `discount_factors.npy` | discount factors on the exercise grid |\n| `instance.json` | contract and exercise-grid parameters |\n\nThe program may write any model tree beneath `MODEL_DIR`. It may implement\nnew features, objectives, iterative solvers, symbolic or numerical programs,\nensembles, state machines, internal search, or other finite algorithms.\nThe CLI should delegate to top-level `fit(...)` and `predict(...)`\nfunctions; this is the structural composition hook, not a restriction on the\nalgorithm inside those functions.\n\n## Predict lifecycle\n\nAt each non-terminal exercise time the evaluator invokes:\n\n```text\npython3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR\n```\n\n`QUERY_DIR` contains `history.npy`, `states.npy`,\n`immediate_payoffs.npy`, and `request.json`. History stops at the current\nexercise time. The program writes exactly one vector to\n`RESULT_DIR/predictions.npy`:\n\n- `continuation`: finite discounted continuation values;\n- `decision`: booleans or zero/one values indicating exercise now.\n\nThe evaluator applies those predictions on independent paths and owns the\nreported score. Direct-decision programs supply only their lower-bound policy;\nthe hidden upper-bound diagnostic comes from a separate evaluator-owned value\napproximation rather than pretending the candidate implemented continuation.\n\n## Search semantics\n\nThe Context Agent may propose several unrelated mechanisms in one round.\nProposal may rewrite a whole program, mutate executable AST structure,\ncombine two parent programs, or restart from a blank implementation. The\nExperience Bank stores program source, measured outcomes, and full parent\nlineage. Scores and slice feedback guide which structures are revised,\ncombined, or abandoned in later rounds.\n\nThe old feature, affine, expression, and small-network implementations remain\nuseful baselines. They no longer define the admitted search space.\n\n\nGenerate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.",
+  "slots": [
+    {
+      "hypothesis_id": "analogy_0001_direct_r1_0_aae4ff5663",
+      "matched_arm": "guided",
+      "matched_control_enabled": true,
+      "matched_pair_id": "pair_0001_00_direct_r1_0",
+      "matched_seed": 41000123,
+      "mechanism": {
+        "evidence_ids": [],
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "hypothesis_id": "analogy_0001_direct_r1_0_aae4ff5663",
+        "id": "direct_r1_0",
+        "implementation_hint": "",
+        "intervention_operator": "ast_crossover",
+        "intervention_scope": "whole_program",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "next_probe": "",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "source": "context",
+        "state_version": null,
+        "target_slice": "instance:public-put-atm",
+        "target_slices": [
+          "instance:public-put-atm"
+        ]
+      },
+      "mechanism_id": "direct_r1_0"
+    },
+    {
+      "hypothesis_id": "analogy_0001_direct_r1_0_aae4ff5663",
+      "matched_arm": "control",
+      "matched_control_enabled": true,
+      "matched_pair_id": "pair_0001_00_direct_r1_0",
+      "matched_seed": 41000123,
+      "mechanism": {
+        "evidence_ids": [],
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "hypothesis_id": "analogy_0001_direct_r1_0_aae4ff5663",
+        "id": "direct_r1_0",
+        "implementation_hint": "",
+        "intervention_operator": "ast_crossover",
+        "intervention_scope": "whole_program",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "next_probe": "",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "source": "context",
+        "state_version": null,
+        "target_slice": "instance:public-put-atm",
+        "target_slices": [
+          "instance:public-put-atm"
+        ]
+      },
+      "mechanism_id": "direct_r1_0"
+    },
+    {
+      "hypothesis_id": "analogy_0001_direct_r1_1_3c703a502c",
+      "matched_arm": "guided",
+      "matched_control_enabled": true,
+      "matched_pair_id": "pair_0001_01_direct_r1_1",
+      "matched_seed": 41000124,
+      "mechanism": {
+        "evidence_ids": [],
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "hypothesis_id": "analogy_0001_direct_r1_1_3c703a502c",
+        "id": "direct_r1_1",
+        "implementation_hint": "",
+        "intervention_operator": "subsystem_rewrite",
+        "intervention_scope": "fit",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "next_probe": "",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "source": "context",
+        "state_version": null,
+        "target_slice": "instance:public-put-atm",
+        "target_slices": [
+          "instance:public-put-atm"
+        ]
+      },
+      "mechanism_id": "direct_r1_1"
+    },
+    {
+      "hypothesis_id": "analogy_0001_direct_r1_1_3c703a502c",
+      "matched_arm": "control",
+      "matched_control_enabled": true,
+      "matched_pair_id": "pair_0001_01_direct_r1_1",
+      "matched_seed": 41000124,
+      "mechanism": {
+        "evidence_ids": [],
+        "failure_condition": "upper 95% paired CI is below zero",
+        "family": "open_program_generation",
+        "hypothesis_id": "analogy_0001_direct_r1_1_3c703a502c",
+        "id": "direct_r1_1",
+        "implementation_hint": "",
+        "intervention_operator": "subsystem_rewrite",
+        "intervention_scope": "fit",
+        "matched_control": "unchanged parent with identical input and budget",
+        "mechanism": "Use the declared operation to improve the parent program.",
+        "next_probe": "",
+        "prediction": "positive mean paired payoff on the declared slice",
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "source": "context",
+        "state_version": null,
+        "target_slice": "instance:public-put-atm",
+        "target_slices": [
+          "instance:public-put-atm"
+        ]
+      },
+      "mechanism_id": "direct_r1_1"
+    }
+  ]
+}

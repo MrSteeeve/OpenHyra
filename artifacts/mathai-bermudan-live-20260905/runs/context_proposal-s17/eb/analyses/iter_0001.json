@@ -1,0 +1,158 @@
+{
+  "iteration": 1,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 17,
+  "direction": "Create two candidates editing only algorithm.py and manifest.json: first execute the sol_0002/sol_0000 regime-gated continuation AST crossover on instance:public-put-high-vol; second preserve sol_0002 fit and replace only predict with the calibrated margin-hysteresis decision policy on instance:public-put-atm, each against unchanged sol_0002 with common random numbers.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0002 is the strongest scored reference, narrowly exceeding sol_0000, while sol_0001 loses materially. sol_0003 provides no payoff evidence because fit emitted no model artifact. sol_0005 was behaviorally identical to its sol_0002 control on both ATM repeats (paired effect and CI exactly zero), so the intended mutation was not exercised; this supports revision, not statistical falsification. The high-vol observations vary in sign and exercise behavior, motivating a regime-sensitive composition. Next, test one genuine two-parent executable crossover and one isolated predict rewrite, each with persisted nonempty model state and matched seeds.",
+    "reason": "Prior guided candidates either failed structurally or executed unchanged, leaving genuine program composition and isolated prediction-policy revision untested.",
+    "expected_gain": 0.0003,
+    "confidence": 0.58,
+    "phase": "discover",
+    "target_claim_id": null,
+    "success_criterion": "The preregistered target slice has guided-minus-unchanged-parent mean discounted payoff greater than 0, with finite predictions on every query and at least one nonzero paired decision or continuation difference.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "crossover_regime_gated_continuation",
+        "family": "two_parent_composition",
+        "mechanism": "Compose live fit and predict graphs from sol_0002 and sol_0000 under the continuation interface. Fit both parent estimators at every exercise date and persist their complete states plus robust training quantiles of moneyness and realized volatility. Predict with the residual-hybrid branch in dense central regions and the ridge branch for sparse or volatility-tail states, using a validation-selected smooth gate and clipped finite blending. Both branches must be evaluated and t",
+        "prediction": "Relative to unchanged sol_0002 under identical seeds and evaluator budget, the crossover yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol while using both parent branches.",
+        "failure_condition": "Either parent is dead code, predictions equal sol_0002 on all paired queries, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+        "matched_control": "Unchanged sol_0002 evaluated with the same training seed, pricing paths, and budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002",
+          "sol_0003"
+        ],
+        "next_probe": "Measure gate-weight distribution and parent prediction disagreement separately for each high-vol repeat before interpreting payoff.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "rewrite_predict_margin_hysteresis",
+        "family": "subsystem_rewrite",
+        "mechanism": "Preserve sol_0002 fit and its persisted continuation state exactly, but replace predict with a causal margin controller. Convert immediate-payoff minus continuation into a normalized exercise margin, apply time-indexed validation-calibrated thresholds stored during the existing fit lifecycle, impose a conservative no-exercise band near zero, and clip all continuation outputs before emitting direct zero/one decisions. The rewrite changes only inference control flow and declare",
+        "prediction": "Relative to unchanged sol_0002 with matched seeds and paths, the predict-only rewrite yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm and behaviorally distinct stopping decisions.",
+        "failure_condition": "The fitted model tree differs from the preserved parent reference, decisions remain identical on both ATM repeats, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below zero.",
+        "matched_control": "The same sol_0002 fit and original predict subsystem under identical evaluator budget and common random numbers.",
+        "target_slices": [
+          "instance:public-put-atm"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "predict",
+        "intervention_operator": "subsystem_rewrite",
+        "target_slice": "instance:public-put-atm",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "Verify model-tree identity after fit, then report decision disagreement, exercise-rate shift, and paired payoff effect for each ATM repeat.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "architecture",
+    "intervention_operator": "ast_crossover",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A regime-gated continuation program composed from sol_0002 and sol_0000 will produce finite, behaviorally distinct predictions and positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+    "falsifier": "The child has a dead parent branch, reproduces sol_0002 behavior, or its upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0002",
+      "sol_0003",
+      "sol_0005"
+    ],
+    "next_probe": "On matched high-vol paths, report branch-use frequency, prediction disagreement with each parent, exercise-rate change, and paired payoff effect by repeat.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Create two candidates editing only algorithm.py and manifest.json: first execute the sol_0002/sol_0000 regime-gated continuation AST crossover on instance:public-put-high-vol; second preserve sol_0002 fit and replace only predict with the calibrated margin-hysteresis decision policy on instance:public-put-atm, each against unchanged sol_0002 with common random numbers.",
+    "intervention": {
+      "scope": "architecture",
+      "operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A regime-gated continuation program composed from sol_0002 and sol_0000 will produce finite, behaviorally distinct predictions and positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+      "falsifier": "The child has a dead parent branch, reproduces sol_0002 behavior, or its upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0002",
+        "sol_0003",
+        "sol_0005"
+      ],
+      "next_probe": "On matched high-vol paths, report branch-use frequency, prediction disagreement with each parent, exercise-rate change, and paired payoff effect by repeat.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "crossover_regime_gated_continuation",
+      "family": "two_parent_composition",
+      "mechanism": "Compose live fit and predict graphs from sol_0002 and sol_0000 under the continuation interface. Fit both parent estimators at every exercise date and persist their complete states plus robust training quantiles of moneyness and realized volatility. Predict with the residual-hybrid branch in dense central regions and the ridge branch for sparse or volatility-tail states, using a validation-selected smooth gate and clipped finite blending. Both branches must be evaluated and t",
+      "prediction": "Relative to unchanged sol_0002 under identical seeds and evaluator budget, the crossover yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol while using both parent branches.",
+      "failure_condition": "Either parent is dead code, predictions equal sol_0002 on all paired queries, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+      "matched_control": "Unchanged sol_0002 evaluated with the same training seed, pricing paths, and budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0002",
+        "sol_0003"
+      ],
+      "next_probe": "Measure gate-weight distribution and parent prediction disagreement separately for each high-vol repeat before interpreting payoff.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "rewrite_predict_margin_hysteresis",
+      "family": "subsystem_rewrite",
+      "mechanism": "Preserve sol_0002 fit and its persisted continuation state exactly, but replace predict with a causal margin controller. Convert immediate-payoff minus continuation into a normalized exercise margin, apply time-indexed validation-calibrated thresholds stored during the existing fit lifecycle, impose a conservative no-exercise band near zero, and clip all continuation outputs before emitting direct zero/one decisions. The rewrite changes only inference control flow and declare",
+      "prediction": "Relative to unchanged sol_0002 with matched seeds and paths, the predict-only rewrite yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm and behaviorally distinct stopping decisions.",
+      "failure_condition": "The fitted model tree differs from the preserved parent reference, decisions remain identical on both ATM repeats, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below zero.",
+      "matched_control": "The same sol_0002 fit and original predict subsystem under identical evaluator budget and common random numbers.",
+      "target_slices": [
+        "instance:public-put-atm"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "predict",
+      "intervention_operator": "subsystem_rewrite",
+      "target_slice": "instance:public-put-atm",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Verify model-tree identity after fit, then report decision disagreement, exercise-rate shift, and paired payoff effect for each ATM repeat.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0002 is the strongest scored reference, narrowly exceeding sol_0000, while sol_0001 loses materially. sol_0003 provides no payoff evidence because fit emitted no model artifact. sol_0005 was behaviorally identical to its sol_0002 control on both ATM repeats (paired effect and CI exactly zero), so the intended mutation was not exercised; this supports revision, not statistical falsification. The high-vol observations vary in sign and exercise behavior, motivating a regime-sensitive composition. Next, test one genuine two-parent executable crossover and one isolated predict rewrite, each with persisted nonempty model state and matched seeds.\", \"reason\": \"Prior guided candidates either failed structurally or executed unchanged, leaving genuine program composition and isolated prediction-policy revision untested.\", \"expected_gain\": 0.0003, \"confidence\": 0.58, \"phase\": \"discover\", \"target_claim_id\": null, \"success_criterion\": \"The preregistered target slice has guided-minus-unchanged-parent mean discounted payoff greater than 0, with finite predictions on every query and at least one nonzero paired decision or continuation difference.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"crossover_regime_gated_continuation\", \"family\": \"two_parent_composition\", \"mechanism\": \"Compose live fit and predict graphs from sol_0002 and sol_0000 under the continuation interface. Fit both parent estimators at every exercise date and persist their complete states plus robust training quantiles of moneyness and realized volatility. Predict with the residual-hybrid branch in dense central regions and the ridge branch for sparse or volatility-tail states, using a validation-selected smooth gate and clipped finite blending. Both branches must be evaluated and t\", \"prediction\": \"Relative to unchanged sol_0002 under identical seeds and evaluator budget, the crossover yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol while using both parent branches.\", \"failure_condition\": \"Either parent is dead code, predictions equal sol_0002 on all paired queries, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.\", \"matched_control\": \"Unchanged sol_0002 evaluated with the same training seed, pricing paths, and budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0003\"], \"next_probe\": \"Measure gate-weight distribution and parent prediction disagreement separately for each high-vol repeat before interpreting payoff.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"rewrite_predict_margin_hysteresis\", \"family\": \"subsystem_rewrite\", \"mechanism\": \"Preserve sol_0002 fit and its persisted continuation state exactly, but replace predict with a causal margin controller. Convert immediate-payoff minus continuation into a normalized exercise margin, apply time-indexed validation-calibrated thresholds stored during the existing fit lifecycle, impose a conservative no-exercise band near zero, and clip all continuation outputs before emitting direct zero/one decisions. The rewrite changes only inference control flow and declare\", \"prediction\": \"Relative to unchanged sol_0002 with matched seeds and paths, the predict-only rewrite yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm and behaviorally distinct stopping decisions.\", \"failure_condition\": \"The fitted model tree differs from the preserved parent reference, decisions remain identical on both ATM repeats, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below zero.\", \"matched_control\": \"The same sol_0002 fit and original predict subsystem under identical evaluator budget and common random numbers.\", \"target_slices\": [\"instance:public-put-atm\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"predict\", \"intervention_operator\": \"subsystem_rewrite\", \"target_slice\": \"instance:public-put-atm\", \"evidence_ids\": [\"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Verify model-tree identity after fit, then report decision disagreement, exercise-rate shift, and paired payoff effect for each ATM repeat.\", \"state_version\": null}], \"intervention_scope\": \"architecture\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A regime-gated continuation program composed from sol_0002 and sol_0000 will produce finite, behaviorally distinct predictions and positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The child has a dead parent branch, reproduces sol_0002 behavior, or its upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0003\", \"sol_0005\"], \"next_probe\": \"On matched high-vol paths, report branch-use frequency, prediction disagreement with each parent, exercise-rate change, and paired payoff effect by repeat.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Create two candidates editing only algorithm.py and manifest.json: first execute the sol_0002/sol_0000 regime-gated continuation AST crossover on instance:public-put-high-vol; second preserve sol_0002 fit and replace only predict with the calibrated margin-hysteresis decision policy on instance:public-put-atm, each against unchanged sol_0002 with common random numbers.\", \"intervention\": {\"scope\": \"architecture\", \"operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A regime-gated continuation program composed from sol_0002 and sol_0000 will produce finite, behaviorally distinct predictions and positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The child has a dead parent branch, reproduces sol_0002 behavior, or its upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0003\", \"sol_0005\"], \"next_probe\": \"On matched high-vol paths, report branch-use frequency, prediction disagreement with each parent, exercise-rate change, and paired payoff effect by repeat.\", \"state_version\": null, \"state_hash\": null}}"
+}

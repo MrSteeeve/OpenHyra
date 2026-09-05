@@ -1,0 +1,9 @@
+{
+  "code_sha256": {
+    "experiments/audit_bermudan_bundle.py": "5869e22ff0c3c83bd0c108cd46b92ad24a8f788ae01962b4163095755f3002c4",
+    "experiments/replay_bermudan_bundle.py": "85757f1798f4cc003c8109808c34e39a60bc0ba252c8a7e9a245269b994eee00",
+    "experiments/verify_bermudan_training.py": "495cffbc7fe9b28e9d2b0873457a0af5ebb1446295152c9ab26fb17514555836"
+  },
+  "schema": "openhyra-bermudan-supplemental-verification.v1",
+  "scope": "Verification tools added after experiment protocol freeze; no generated programs or evaluator source changed."
+}

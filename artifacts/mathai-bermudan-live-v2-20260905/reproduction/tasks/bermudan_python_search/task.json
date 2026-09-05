@@ -1,0 +1,143 @@
+{
+  "name": "bermudan_python_search",
+  "direction": "max",
+  "metric": "paired_lower_bound_lcb",
+  "protocol": "bermudan-python-program-search.v1",
+  "seed_description": "complete Python continuation program baseline",
+  "candidate_mode": "python_program",
+  "source_tree": true,
+  "editable_files": ["algorithm.py", "manifest.json"],
+  "source_files": ["algorithm.py", "manifest.json"],
+  "entrypoint": "algorithm.py",
+  "solve_entrypoint": "solve.sh",
+  "artifact_protocol": "openhyra-python-program.v1",
+  "artifact_protocols": ["openhyra-python-program.v1"],
+  "allowed_context_phases": ["discover", "diagnose", "transfer", "confirm", "numeric"],
+  "feedback_mode": "adaptive",
+  "adaptive_feedback": true,
+  "context_barrier": true,
+  "candidate_instructions": [
+    "Edit the complete algorithm.py program and its minimal manifest.json declaration.",
+    "Implement fit with: algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER.",
+    "Implement predict with: algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR.",
+    "Expose the CLI bodies as top-level fit(...) and predict(...) functions so structural crossover can compose live function graphs.",
+    "The manifest chooses either continuation values or direct decision outputs; both interfaces are valid.",
+    "The program may invent its own representation, training objective, optimizer, search procedure, control flow, state, and model files.",
+    "Use causal training and query inputs supplied by the evaluator, then write predictions.npy for each query."
+  ],
+  "mechanism_design": {
+    "schema": "openhyra-mechanism-design.v1",
+    "enabled": true,
+    "selection": "slot_round_robin",
+    "matched_control": {
+      "enabled": true,
+      "same_parent": true,
+      "same_seed": true,
+      "same_compute_budget": true
+    },
+    "directions": [
+      {
+        "id": "whole_program_restart",
+        "family": "program_generation",
+        "mechanism": "discard the inherited implementation and generate a complete algorithm from a different principle",
+        "prediction": "escapes a structurally saturated lineage and changes behavior on several evaluator slices",
+        "failure_condition": "the restart reproduces the parent behavior or loses under the matched budget",
+        "matched_control": "rewrite the current parent locally with the same seed and evaluator budget",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "restart"
+      },
+      {
+        "id": "ast_structural_mutation",
+        "family": "program_evolution",
+        "mechanism": "mutate executable control flow, update rules, objectives, or state transitions in one parent",
+        "prediction": "a structural child improves a targeted slice without relying on a larger budget",
+        "failure_condition": "the executed behavior is unchanged or the predicted slice does not improve",
+        "matched_control": "the same parent and seed with no structural mutation",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation"
+      },
+      {
+        "id": "two_parent_composition",
+        "family": "program_composition",
+        "mechanism": "combine live function graphs from two behaviorally complementary parent programs",
+        "prediction": "the child retains a measured strength from each parent and improves aggregate score",
+        "failure_condition": "one parent is dead code or the child inherits neither predicted strength",
+        "matched_control": "the stronger parent alone under the same evaluator budget",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover"
+      },
+      {
+        "id": "subsystem_rewrite",
+        "family": "program_revision",
+        "mechanism": "replace one complete fit or predict subsystem while preserving the other as a matched reference",
+        "prediction": "localizes the causal source of an observed failure and improves its target slice",
+        "failure_condition": "the targeted failure persists or the untouched subsystem no longer behaves consistently",
+        "matched_control": "the same parent with both subsystems unchanged",
+        "intervention_scope": "fit",
+        "intervention_operator": "replace"
+      }
+    ],
+    "critic_questions": [
+      "What executable structure is genuinely new relative to both parents?",
+      "What observation would separate the proposed mechanism from additional compute?",
+      "Which contract slice should falsify the mechanism first?",
+      "Should the next candidate mutate this structure, combine it with another parent, or restart from a new program?"
+    ]
+  },
+  "sandbox_timeout_s": 30,
+  "eval_concurrency": 1,
+  "candidates_per_context": 4,
+  "candidate_repair_attempts": 1,
+  "research_revision_attempts": 0,
+  "max_memory_mb": 1024,
+  "max_output_mb": 64,
+  "max_artifact_bytes": 131072,
+  "evaluator_timeout_s": 900,
+  "evaluator_max_memory_mb": 2048,
+  "evaluation": {
+    "search_stage": {
+      "suite_id": "bermudan-python-public-v2",
+      "direction": "max",
+      "metric": "paired_lower_bound_lcb",
+      "confidence_level": 0.95,
+      "instance_count": 4,
+      "repeats": 2,
+      "training_paths": 1024,
+      "pricing_paths": 2048,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    },
+    "audit_stage": {
+      "suite_id": "bermudan-python-hidden-v2",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    }
+  },
+  "engineering_invariants": [
+    "The candidate owns the complete fit and predict algorithms; the manifest does not select a registered model family.",
+    "Each prediction sees only the current path prefix and evaluator-computed immediate payoff.",
+    "Continuation and direct-decision programs are evaluated through separate explicit interfaces.",
+    "Public and hidden scores come from evaluator-owned paths rather than candidate-reported metrics."
+  ],
+  "fallback_directions": [
+    "Generate a fresh whole program from a different algorithmic principle.",
+    "Mutate executable branches, loops, objectives, state representations, or update rules rather than only constants.",
+    "Combine complementary structures from two successful parent programs and state which behavior each parent contributes.",
+    "Use slice feedback to decide whether to revise locally, replace a subsystem, or abandon the current family.",
+    "Retain a structure only when its predicted effect survives a matched evaluation."
+  ]
+}

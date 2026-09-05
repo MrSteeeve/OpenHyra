@@ -1,0 +1,160 @@
+{
+  "iteration": 1,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 41,
+  "direction": "Implement the ast_crossover candidate in algorithm.py and manifest.json, evaluate it against unchanged sol_0002 on instance:public-put-high-vol, and retain the fit-only rewrite as the second matched experiment.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0002 remains the frontier at -0.001077. The robust backward mutation sol_0005 lost 0.000992 versus its matched control on instance:public-put-high-vol and shifted stopping earlier, so Huber weighting plus clipping should be abandoned as a bundle. Identical controls sol_0004 and sol_0006 confirm stable execution. sol_0003 was only an execution failure, leaving nonlinear decision structure untested. Next, compose sol_0002 with the simpler sol_0000 using validation-selected gating, while separately isolating fit-side boundary calibration without changing prediction.",
+    "reason": "Completed evidence rejects the prior mutation’s direction but supports testing complementary composition and a localized fit rewrite.",
+    "expected_gain": 0.0005,
+    "confidence": 0.44,
+    "phase": "transfer",
+    "target_claim_id": "compose_boundary_gated_parents",
+    "success_criterion": "Paired guided-minus-unchanged-parent mean discounted payoff is greater than 0 on instance:public-put-high-vol.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "compose_ridge_residual_validation_gate",
+        "family": "ast_crossover",
+        "mechanism": "Combine executable fit and prediction graphs from sol_0002 and sol_0000: train both continuation heads, use deterministic out-of-fold pathwise policy values to select a time-specific convex gate, and emit the gated continuation estimate with no increase in path count.",
+        "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol because the linear parent regularizes unstable residual corrections in sparse high-volatility stopping regions.",
+        "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+        "matched_control": "Unchanged sol_0002 with identical evaluator paths, seeds, and training budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "Verify both parent heads affect predictions, then compare paired effects and stopping-time shifts on each high-volatility repeat.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "rewrite_fit_boundary_calibration",
+        "family": "subsystem_rewrite",
+        "mechanism": "Preserve sol_0002 representation, model serialization, and predict subsystem, but replace fit with deterministic backward ridge policy iteration whose sample weights concentrate smoothly near the estimated exercise boundary; select weight strength by out-of-fold realized policy value and omit the failed Huber and clipping updates.",
+        "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by improving boundary ranking without the premature-exercise shift observed for sol_0005.",
+        "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+        "matched_control": "Unchanged sol_0002 with the same prediction subsystem, evaluator paths, seeds, representation, and compute budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "fit",
+        "intervention_operator": "subsystem_rewrite",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "Check model-schema compatibility and test whether high-volatility exercise rates move toward sol_0006 rather than the earlier-stopping pattern of sol_0005.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "mechanism",
+    "intervention_operator": "ast_crossover",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "The composed program will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining finite predictions.",
+    "falsifier": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0002",
+      "sol_0005",
+      "sol_0006"
+    ],
+    "next_probe": "Measure paired payoff effect and exercise-rate changes separately for both public-put-high-vol repeats under identical seeds and budget.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Implement the ast_crossover candidate in algorithm.py and manifest.json, evaluate it against unchanged sol_0002 on instance:public-put-high-vol, and retain the fit-only rewrite as the second matched experiment.",
+    "intervention": {
+      "scope": "mechanism",
+      "operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "The composed program will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining finite predictions.",
+      "falsifier": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0002",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Measure paired payoff effect and exercise-rate changes separately for both public-put-high-vol repeats under identical seeds and budget.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "compose_ridge_residual_validation_gate",
+      "family": "ast_crossover",
+      "mechanism": "Combine executable fit and prediction graphs from sol_0002 and sol_0000: train both continuation heads, use deterministic out-of-fold pathwise policy values to select a time-specific convex gate, and emit the gated continuation estimate with no increase in path count.",
+      "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol because the linear parent regularizes unstable residual corrections in sparse high-volatility stopping regions.",
+      "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+      "matched_control": "Unchanged sol_0002 with identical evaluator paths, seeds, and training budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0002",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Verify both parent heads affect predictions, then compare paired effects and stopping-time shifts on each high-volatility repeat.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "rewrite_fit_boundary_calibration",
+      "family": "subsystem_rewrite",
+      "mechanism": "Preserve sol_0002 representation, model serialization, and predict subsystem, but replace fit with deterministic backward ridge policy iteration whose sample weights concentrate smoothly near the estimated exercise boundary; select weight strength by out-of-fold realized policy value and omit the failed Huber and clipping updates.",
+      "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by improving boundary ranking without the premature-exercise shift observed for sol_0005.",
+      "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+      "matched_control": "Unchanged sol_0002 with the same prediction subsystem, evaluator paths, seeds, representation, and compute budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "fit",
+      "intervention_operator": "subsystem_rewrite",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "Check model-schema compatibility and test whether high-volatility exercise rates move toward sol_0006 rather than the earlier-stopping pattern of sol_0005.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0002 remains the frontier at -0.001077. The robust backward mutation sol_0005 lost 0.000992 versus its matched control on instance:public-put-high-vol and shifted stopping earlier, so Huber weighting plus clipping should be abandoned as a bundle. Identical controls sol_0004 and sol_0006 confirm stable execution. sol_0003 was only an execution failure, leaving nonlinear decision structure untested. Next, compose sol_0002 with the simpler sol_0000 using validation-selected gating, while separately isolating fit-side boundary calibration without changing prediction.\", \"reason\": \"Completed evidence rejects the prior mutation’s direction but supports testing complementary composition and a localized fit rewrite.\", \"expected_gain\": 0.0005, \"confidence\": 0.44, \"phase\": \"transfer\", \"target_claim_id\": \"compose_boundary_gated_parents\", \"success_criterion\": \"Paired guided-minus-unchanged-parent mean discounted payoff is greater than 0 on instance:public-put-high-vol.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"compose_ridge_residual_validation_gate\", \"family\": \"ast_crossover\", \"mechanism\": \"Combine executable fit and prediction graphs from sol_0002 and sol_0000: train both continuation heads, use deterministic out-of-fold pathwise policy values to select a time-specific convex gate, and emit the gated continuation estimate with no increase in path count.\", \"prediction\": \"Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol because the linear parent regularizes unstable residual corrections in sparse high-volatility stopping regions.\", \"failure_condition\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"matched_control\": \"Unchanged sol_0002 with identical evaluator paths, seeds, and training budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Verify both parent heads affect predictions, then compare paired effects and stopping-time shifts on each high-volatility repeat.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"rewrite_fit_boundary_calibration\", \"family\": \"subsystem_rewrite\", \"mechanism\": \"Preserve sol_0002 representation, model serialization, and predict subsystem, but replace fit with deterministic backward ridge policy iteration whose sample weights concentrate smoothly near the estimated exercise boundary; select weight strength by out-of-fold realized policy value and omit the failed Huber and clipping updates.\", \"prediction\": \"Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by improving boundary ranking without the premature-exercise shift observed for sol_0005.\", \"failure_condition\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"matched_control\": \"Unchanged sol_0002 with the same prediction subsystem, evaluator paths, seeds, representation, and compute budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"fit\", \"intervention_operator\": \"subsystem_rewrite\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Check model-schema compatibility and test whether high-volatility exercise rates move toward sol_0006 rather than the earlier-stopping pattern of sol_0005.\", \"state_version\": null}], \"intervention_scope\": \"mechanism\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"The composed program will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining finite predictions.\", \"falsifier\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Measure paired payoff effect and exercise-rate changes separately for both public-put-high-vol repeats under identical seeds and budget.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Implement the ast_crossover candidate in algorithm.py and manifest.json, evaluate it against unchanged sol_0002 on instance:public-put-high-vol, and retain the fit-only rewrite as the second matched experiment.\", \"intervention\": {\"scope\": \"mechanism\", \"operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"The composed program will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining finite predictions.\", \"falsifier\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"Measure paired payoff effect and exercise-rate changes separately for both public-put-high-vol repeats under identical seeds and budget.\", \"state_version\": null, \"state_hash\": null}}"
+}

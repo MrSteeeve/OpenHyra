@@ -1,0 +1,28 @@
+{
+  "evidence": {},
+  "failure_reason": "proposal agent (codex) exited with code 124",
+  "metrics": {},
+  "request": {
+    "config": {
+      "independent_validation": false,
+      "instance_count": 2,
+      "pricing_paths": 512,
+      "public_pathwise_samples": true,
+      "repeats": 2,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 17,
+    "stage": "search",
+    "suite_id": "bermudan-python-public-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": null,
+  "source_digest": "f6dc61f4a655ee0d4e7725b631eb8a6b171e2de81c0df538581e42023fe68902",
+  "source_unchanged": true,
+  "status": "error",
+  "wall_seconds": 0.0
+}
