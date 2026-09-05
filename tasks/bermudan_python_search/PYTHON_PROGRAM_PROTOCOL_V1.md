@@ -113,6 +113,14 @@ detail, source-tree digest, parent lineage, matched arm, and candidate seed are
 written beside the evaluator result. A control arm retains the same baseline
 source and request budget so the measured contrast is reviewable.
 
+Context-generated hypotheses are required to serialize one of those four
+names. For compatibility with an archived packet that omitted an operator, the
+Context parser infers it from the declared family and intervention scope before
+the Harness builds a proposal slot; task-declared legacy directions retain
+their original aliases. After a round, Context reads the bounded
+`research/prediction_table.json` projection, while the append-only ledger stays
+the lossless provenance record.
+
 For every Python candidate the evaluator can run an independent same-seed fit
 and a causal lookahead check. The replay compares the opaque model digest and a
 fresh prediction; the lookahead changes only the suffix after the supplied
@@ -122,6 +130,11 @@ the exact training-path and discounted-payoff hashes, an evaluator target
 stream hash, the train seed, model-file digest, and wall time. The candidate's
 internal continuation targets remain outside the evaluator observation
 boundary.
+
+The workshop bundle also includes a manifest containing runner/evaluator and
+candidate-source digests, the request matrix, artifact hashes, and a rebuild
+command. This identifies the exact evidence bundle without treating generated
+metrics as source code.
 
 ## Evidence boundary
 

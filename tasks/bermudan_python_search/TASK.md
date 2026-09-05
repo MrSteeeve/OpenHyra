@@ -113,7 +113,13 @@ candidate for every mode/seed receives one private hidden audit.
 `research/prediction_ledger.jsonl` is the append-only harness ledger for a live
 run. It joins the hypothesis, falsifier, target slice, operator, source digest,
 parent lineage, evaluator effect and standard error, failure reason, cost, and
-the next action. The workshop bundle additionally records each candidate's
+the next action. At the next Context barrier, the bounded tail of its
+`prediction_table.json` projection is injected into the Context prompt; its
+schema, row count, and digest are retained in Context metadata. For an open
+Python hypothesis, Context JSON carries one of the four canonical operators;
+when an older packet omits that field, the parser derives the canonical value
+from the declared family/scope before Harness dispatch. The workshop bundle
+additionally records each candidate's
 source tree, evaluator model-file digest, training path/payoff hashes,
 evaluator target-stream hash, train seed, and fit wall time. Candidate-owned
 continuation targets are marked unobserved rather than inferred from those
@@ -133,6 +139,11 @@ They are measured source artifacts for comparison, not a closed menu for the
 open track. The pilot establishes an auditable evaluator-guided open-program
 loop; it does not establish an LLM search effect, novelty, or out-of-suite
 mathematical superiority.
+
+The bundle's `manifest.json` records the runner and evaluator source digests,
+candidate-family digests, request matrix, artifact hashes, and the exact rebuild
+command. It makes the reported ledger and summary reconstructible from the
+checked-in source tree.
 
 ## Running
 
