@@ -18,39 +18,36 @@ every outcome, whether success or failure, is banked as experience for the next 
 OpenHyra now exposes two additive Bermudan tracks. The historical
 `bermudan_optimal_stopping` task searches a bounded, typed feature-expression
 program for a fixed Ridge LSMC algorithm. The new `bermudan_python_search`
-task searches an AlgorithmBundle: a candidate-owned `train.py` is run once per
-instance and repeat in a fresh training sandbox and emits a data-only
-continuation artifact described by `manifest.json`. Registered artifacts cover
-MLP, affine-linear, and bounded expression runners, so pure logic and neural
-network candidates use the same trusted evaluation path.
-
-MLP and linear artifacts return time-zero discounted currency values directly.
-Expression artifacts retain the legacy strike-normalized terminals at the
-current exercise date; their trusted runner performs the final
-`strike * exp(-rate * t)` conversion before stopping and scoring.
+task searches complete Python programs. A candidate-owned `algorithm.py`
+implements both `fit` and `predict`; it controls representation, objectives,
+training/search logic, model state and either continuation values or direct
+stopping decisions. Its manifest declares only that output interface and does
+not select a registered model family.
 
 In both tracks the evaluator owns the risk-neutral model, simulation,
 contracts, discounting, causal exercise, primal/dual audit, budgets, and
-statistics. Python is open only in the per-instance training stage; the
-pricing evaluator never imports candidate code. Public search uses independent
+statistics. Candidate code runs as separate fit/predict processes and is never
+imported into the evaluator. Public search uses independent
 fit/pricing paths and paired Common Random Numbers against a frozen baseline;
 its score is a conservative lower bound on strike-normalized lower-bound
 improvement.
 
-Final acceptance is a separate one-shot action. The harness validates and
+The hidden Top-K ranking/audit is a separate one-shot action. The harness validates and
 freezes the distinct Top-K normalized artifacts first, then draws a fresh
 private seed and evaluates every frozen artifact on the same hidden suite. The
 audit constructs a conditionally centered nested martingale and ranks the
 primal--dual confidence gap. Results are written to `final_audit.json`, never
-fed back into the Experience Bank or another search round. The public
+fed back into the Experience Bank or another search round. A completed audit
+means the frozen candidates were all evaluated; it is not an automatic claim
+that the winner beats a hidden baseline or is scientifically novel. The public
 termination record carries the seed commitment; exporting the completed audit
 record makes the private seed available for independent reproduction.
 
 The feature task remains the compatibility baseline, while the Python task is
-the additive algorithm-search surface. Generating the hidden seed only after a
-data-only artifact and its source bundle are frozen closes the relevant
-feedback channel; it does not turn a public score into a theorem or a
-production price. The complete protocols, financial model, scoring rules, and
+the whole-program search surface. Direct-decision candidates supply a policy
+lower bound; the hidden upper-bound diagnostic uses an independent
+evaluator-owned approximation. None of this turns a public score into a
+theorem, a novel-algorithm claim, or a production price. The complete protocols, financial model, scoring rules, and
 claim boundaries are in the [feature task specification](tasks/bermudan_optimal_stopping/TASK.md)
 and [Python task specification](tasks/bermudan_python_search/TASK.md).
 
@@ -76,11 +73,16 @@ same evaluator feedback and `ProblemState` with or without V5 islands; V5 adds
 population scheduling, behavior retrieval, and richer lineage rather than
 being required for recursion.
 
-This is an integration surface, not a claim that OpenHyra already performs
-unrestricted AlphaEvolve-style Python discovery. A new domain still has to
-provide a task-owned search space, executable candidate contract, evaluator,
-and held-out verification. The current Bermudan task admits only its three
-registered continuation-policy protocols.
+[`program_search.py`](program_search.py) is the concrete open implementation:
+whole-program generation callbacks, multi-file source candidates, executable
+AST mutation, two-parent function-graph crossover, score-based parent choice,
+and recursive propose--evaluate--observe rounds. `AgentWholeProgramGenerator`
+connects that standalone loop to the configured LLM CLI, while the main Harness
+uses the same program operators through Proposal Agents and Experience Bank
+parents. The Bermudan task supplies a real fit/predict evaluator for these
+programs. This is program-synthesis capability, not evidence that OpenHyra has
+already discovered a new algorithm; that claim still needs matched controls,
+seeds, held-out results and mechanism inspection.
 
 ## How it works
 
@@ -110,8 +112,8 @@ solver inside dedicated draft directories using backend-specific permissions;
 these directories organize and validate changes but are not a uniform OpenHyra
 OS security boundary. Each Context briefing fans out to several independent
 candidates with distinct mechanism slots; when enabled, guided/control arms
-share a parent and seed. Candidates may introduce a new structure inside a
-registered runner, and proposal generation overlaps evaluation.
+share a parent and seed. Python-program candidates may replace the full fit and
+predict structure, and proposal generation overlaps evaluation.
 
 **Algorithm-design loop** — on `bermudan_python_search`, Context hypotheses are
 frozen into traceable candidate slots, V5 persists the hypothesis/analogy
@@ -225,7 +227,7 @@ python3 harness.py --run-id bermudan-demo --final-audit
 python3 harness.py --run-id bermudan-demo --status
 python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
-# Additive Python AlgorithmBundle search (MLP/linear/expression runners).
+# Whole Python-program search.
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
   --v5 --init --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \

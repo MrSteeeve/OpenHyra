@@ -16,28 +16,25 @@
 
 OpenHyra 现在提供两条并行的百慕大任务。历史的
 `bermudan_optimal_stopping` 仍搜索有界、类型化的特征表达式程序，算法固定为 Ridge
-LSMC；新增的 `bermudan_python_search` 搜索 AlgorithmBundle：候选自己的 `train.py`
-在每个实例和 repeat 上于独立训练沙盒中运行，并依据 `manifest.json` 生成纯数据型的
-continuation 工件。当前注册了 MLP、仿射线性和有界表达式三类 runner，因此纯逻辑解和
-神经网络解可以走同一条可信评估链路。
-
-MLP 与线性工件直接返回以时间零计价的贴现货币值。表达式工件保留历史 Feature IR
-终端在当前行权时点的执行价归一化语义；可信 runner 在交给行权与评分前统一执行
-`strike * exp(-rate * t)` 的换算。
+LSMC；新增的 `bermudan_python_search` 搜索完整 Python 程序。候选自己的
+`algorithm.py` 同时实现 `fit` 与 `predict`，可以自行决定表示、目标函数、训练或内部搜索、
+模型状态，以及输出 continuation value 或直接停止决策。`manifest.json` 只声明这两种
+接口之一，不再选择预注册的模型家族。
 
 两条任务中的风险中性模型、路径模拟、合约、贴现、因果行权、原始—对偶审计、计算预算
-和统计量都由评估器控制。Python 只开放在逐实例训练阶段，定价评估器不会导入候选代码。
+和统计量都由评估器控制。候选代码在独立的 fit/predict 进程中运行，评估器不会导入它。
 公开搜索使用相互独立的拟合路径与定价路径，并让候选和冻结基线共享随机数；分数是相对
 基线、按执行价归一化的下界改善之保守下置信值。
 
-最终验收是与搜索分离的一次性动作：Harness 先校验并冻结去重后的 Top-K 规范化工件，
+隐藏 Top-K 排名/审计是与搜索分离的一次性动作：Harness 先校验并冻结去重后的 Top-K 规范化工件，
 然后才生成新的私有种子，让所有冻结工件在同一隐藏实例集上接受审计。审计使用条件中心化
 的嵌套鞅计算原始—对偶置信 Gap。结果只写入 `final_audit.json`，不会回流经验库或下一轮
-搜索；公开 termination 仅携带种子承诺，导出已完成的审计记录后才可用其中种子独立复现。
+搜索；审计状态 `complete` 只表示所有冻结候选完成评估，不自动表示赢家战胜隐藏基线或具有
+科学新颖性。公开 termination 仅携带种子承诺，导出已完成的审计记录后才可用其中种子独立复现。
 
-特征任务继续作为兼容基线，Python 任务则是新增的算法搜索入口。只有在数据型工件及其
-源码 bundle 冻结后才生成隐藏种子，从而封闭相关反馈通道；公开分数仍不是定理，也不是
-生产价格。完整协议、金融模型、评分规则和结论边界见[特征任务说明](tasks/bermudan_optimal_stopping/TASK.md)
+特征任务继续作为兼容基线，Python 任务则是完整程序搜索入口。直接决策程序只提供策略
+下界；隐藏审计的上界诊断来自评估器自己的独立近似。公开分数仍不是定理、新算法发现
+证据或生产价格。完整协议、金融模型、评分规则和结论边界见[特征任务说明](tasks/bermudan_optimal_stopping/TASK.md)
 与 [Python 任务说明](tasks/bermudan_python_search/TASK.md)。
 
 反馈协议也可以在不调用 LLM、且不运行金融模拟的情况下单独复现：
@@ -58,9 +55,12 @@ python3 experiments/feedback_ablation.py
 评估器反馈归约成同一份 `ProblemState`；V5 增加的是种群调度、行为检索和更完整的 lineage，
 不是递归反馈的前置条件。
 
-这是一层可复用的集成接口，并不表示 OpenHyra 已经实现不受限的 AlphaEvolve 式 Python
-算法发现。新领域仍须提供自己的搜索空间、候选执行协议、评估器和 held-out 验证；当前
-百慕大任务只接受三种已注册的 continuation-policy 协议。
+[`program_search.py`](program_search.py) 提供了具体的开放实现：whole-program 生成回调、
+多文件源码候选、真实 AST 变异、双亲函数图 crossover、按 evaluator 得分选亲，以及递归的
+propose—evaluate—observe 轮次。`AgentWholeProgramGenerator` 将这个独立搜索循环接到
+配置的 LLM CLI；主 Harness 则通过 Proposal Agent 和 Experience Bank 父代调用同一组
+程序操作。百慕大任务提供实际的 fit/predict 执行器。这证明的是程序合成能力，不等于已经
+发现科学上新颖的算法；后者仍须 matched control、多 seed、held-out 结果和机制检查。
 
 ## 工作原理
 
@@ -85,8 +85,8 @@ python3 experiments/feedback_ablation.py
 **Proposal Agent**：Claude Code 或 Codex CLI 在独立 draft 目录中按后端权限修改求解器；
 这些目录用于组织和校验改动，并不是 OpenHyra 统一提供的 OS 安全边界。
 每份 Context 简报扇出多个独立候选；每个候选收到不同的机制槽位，必要时成对生成
-guided/control 版本，提案生成与评估重叠执行。候选可以在任务注册的 runner 内提出新的
-结构，而不是只能调一个固定超参数。
+guided/control 版本，提案生成与评估重叠执行。Python 候选可以整体替换 fit 与 predict
+程序结构，而不是只能在固定 runner 内调参。
 
 **算法设计闭环**：在 `bermudan_python_search` 中，Context 的多个假设会冻结成可追踪
 的候选槽位，V5 保存假设与类比关系，可信评估器再用独立定价路径给出行为描述和分数。
@@ -163,7 +163,7 @@ python3 harness.py --run-id bermudan-demo --final-audit
 python3 harness.py --run-id bermudan-demo --status
 python3 harness.py --run-id bermudan-demo --export-bundle bundles/bermudan-demo
 
-# Python AlgorithmBundle 搜索（MLP/线性/表达式 runner）。
+# 完整 Python 程序搜索。
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \
   --v5 --init --workers 1 --trial-seed 1729
 python3 harness.py --task bermudan_python_search --run-id bermudan-python-demo \

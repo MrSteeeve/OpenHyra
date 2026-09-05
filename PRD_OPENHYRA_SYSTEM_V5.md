@@ -1,8 +1,14 @@
 # OpenHyra System v5 — 程序搜索、行为表征与可干预类比
 
-> Status: Draft v5 for review
+> Status: Historical design snapshot with 2026-09-04 implementation delta
 >
 > Date: 2026-09-01
+>
+> Current implementation note: sections that prescribe Linear/MLP/residual
+> hybrid as the only v1 candidate protocols have been superseded by D11 and
+> the implemented `bermudan_python_search` whole-program track. They remain in
+> this document only as decision history and must not be cited as the current
+> search boundary.
 >
 > Scope: Candidate Program、Proposal Agent、Context Agent、Verifier/Evaluator、Experience Bank、搜索调度与科学验证
 >
@@ -14,10 +20,10 @@
 
 本文件是在 `PRD_CONTEXT_AGENT_V2.md` 基础上形成的系统级 PRD。旧文件继续作为 Context Agent v2、per-instance 训练、可信 Runner 和 Experience Bank 初版设计的历史记录，不删除、不覆盖。
 
-本文件对新系统设计具有更高优先级。两份文件冲突时：
+本文件记录 v5 的设计演化；当前代码、任务协议和 D11 对候选搜索边界具有更高优先级。两份文件冲突时：
 
 1. 已实现且经过可信验证的安全约束优先于任何 PRD 描述；
-2. 新系统设计以本文件为准；
+2. 当前任务协议与 D11 优先于本文件中较早的阶段性方案；
 3. 旧文件中未被本文件否定的 evaluator、sandbox、private audit 约束继续有效；
 4. 任何候选协议扩展必须显式升级 schema，不得通过放宽旧 schema 隐式兼容。
 
@@ -106,7 +112,11 @@ v5 的核心研究命题是：
 
 ### 2.1 当前系统能力
 
-当前主任务使用 `bermudan-lsmc-feature-ir.v1`：候选只能修改 `feature_program.json`，evaluator 固定 Ridge、路径模拟、payoff、折现、停止规则、primal-dual 构造和评分。
+当前系统保留两条并行轨道：`bermudan-lsmc-feature-ir.v1` 是历史兼容基线；
+`bermudan-python-program-search.v1` 是开放候选轨。后者让候选的
+`algorithm.py` 实现完整 `fit/predict` 程序，自行决定表示、目标、训练、内部搜索、
+模型树以及 continuation/direct-decision 接口。evaluator 继续固定路径模拟、payoff、
+折现、因果行权、primal-dual 诊断、预算和评分。
 
 当前 Context Agent 具备：
 
@@ -125,18 +135,25 @@ v5 的核心研究命题是：
 - `parent`、`repair_of`、`duplicate_of`、`numeric_duplicate_of` 等关系；
 - evaluator metrics、source hash、artifact hash 和 run provenance。
 
-实验性但尚未成为默认主路径的能力包括：
+兼容路径中继续保留的能力包括：
 
-- `openhyra-policy-spec.v1` MLP 冻结权重工件；
-- per-instance sandbox training pipeline；
-- 候选算法 bundle 的 Top-K freeze 和 per-cell provenance；
-- 训练沙箱的附加隔离与资源观测。
+- `openhyra-policy-spec.v1` MLP、Linear 和 Expression 冻结工件；
+- 历史 Feature IR 与注册 Runner。
+
+开放程序路径已经实现：
+
+- 完整 Python 源码候选与 `fit/predict` 子进程协议；
+- whole-program restart/rewrite、AST mutation 和双亲 composition；
+- continuation 与 direct-decision 两种输出接口；
+- Experience Bank/Context 回流以及冻结源码的隐藏 Top-K 复评。
+
+这些是搜索能力，不是已经发现新算法的实验证据。
 
 ### 2.2 当前关键缺口
 
 | 缺口 | 当前表现 | 后果 |
 |---|---|---|
-| 搜索空间 | 主要是 Feature IR | 无法系统探索训练算法和混合算法 |
+| 搜索空间 | 开放单文件 Python 程序；尚未开放任意 package/workspace | 可以改变完整算法，但模块级演化仍有限 |
 | 算法表征 | 代码文本、描述和最终分数 | 不同算法不可比较，代码相似容易被误当成机制相似 |
 | 行为采集 | 聚合分数和少量 per-instance metrics | 无法定位互补性、脆弱性和条件性优势 |
 | 类比 | 隐式依赖 LLM 上下文 | 无预测、无证伪、无迁移增益归因 |
@@ -1805,7 +1822,7 @@ P5 每个协议单独形成设计与安全评审，不作为 v5 主实施计划�
 
 原因：分类、相似度和自然语言解释均不能证明一个机制可迁移。
 
-### D7：第一版只支持 Linear、MLP 和 residual hybrid
+### D7（已由 D11 取代）：第一版只支持 Linear、MLP 和 residual hybrid
 
 原因：足以检验跨算法和混合假设，同时保持 trusted runner 范围可审计。
 
@@ -1820,6 +1837,14 @@ P5 每个协议单独形成设计与安全评审，不作为 v5 主实施计划�
 ### D10：开放搜索与封闭科学轨继续分离
 
 原因：开放代码可以自行模拟或改变实际样本使用，不能用来识别受控样本效率。
+
+### D11：开放程序轨不再由注册模型家族定义
+
+`bermudan_python_search` 的候选协议固定交互边界，而不固定算法家族：候选提交完整
+`algorithm.py`，manifest 只声明 continuation 或 direct decision。Linear、Expression、
+MLP 与 residual hybrid 继续作为兼容基线和可能被候选自行实现的机制，但不再构成
+候选空间菜单。复用同一个 Bermudan evaluator 是为了在同一数学核上比较程序，不代表
+跨任务泛化；在新的多轮、多 seed、hidden-control 实验完成前，也不构成算法新颖性证据。
 
 ---
 
@@ -1839,9 +1864,9 @@ P5 每个协议单独形成设计与安全评审，不作为 v5 主实施计划�
 审阅本 PRD 时，应逐项确认：
 
 - [ ] 是否认可“岛、行为单元、语义标签、Analogy Graph”四者正交；
-- [ ] 是否认可所有新候选生成代码、但 evaluator 只执行可信 Runner；
+- [ ] 是否认可开放轨执行候选 `fit/predict` 子进程、evaluator 保留问题定义与评分所有权；
 - [ ] 是否认可 Context/Proposal 职责分离；
-- [ ] 是否认可第一阶段只支持 Linear、MLP 和 residual hybrid；
+- [x] “第一阶段只支持 Linear、MLP 和 residual hybrid”已由 D11 取代；
 - [ ] 是否认可 Analogy 必须配置 matched control；
 - [ ] 是否认可 private audit 零回流；
 - [ ] 是否认可 P-1 replay 是进入系统改造前的必要门槛；
