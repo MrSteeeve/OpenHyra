@@ -98,6 +98,78 @@ combined, or abandoned in later rounds.
 The old feature, affine, expression, and small-network implementations remain
 useful baselines. They no longer define the admitted search space.
 
+## Workshop evidence loop
+
+The real-model experiment in
+`experiments/run_bermudan_live_workshop.py` freezes three seeds and two rounds
+for both Context-to-Proposal and direct-generation paths. It calls the actual
+Context and Proposal backends. The older `run_bermudan_workshop.py` is only a
+deterministic protocol fixture and does not satisfy the model experiment gate.
+Each round runs two guided/control pairs. A pair shares the baseline
+parent reference, candidate seed, evaluator request, path budget, and timeout;
+the control keeps the baseline source. The executed operator is recorded as
+one of `whole_program_restart`, `ast_mutation`, `ast_crossover`, or
+`subsystem_rewrite`. After the public rounds, the best successful guided
+candidate for every mode/seed receives one private hidden audit.
+
+`research/prediction_ledger.jsonl` is the append-only harness ledger for a live
+run. It joins the hypothesis, falsifier, target slice, operator, source digest,
+parent lineage, evaluator effect and standard error, failure reason, cost, and
+the next action. At the next Context barrier, the bounded tail of its
+`prediction_table.json` projection is injected into the Context prompt; its
+schema, row count, and digest are retained in Context metadata. For an open
+Python hypothesis, Context JSON carries one of the four canonical operators;
+when an older packet omits that field, the parser derives the canonical value
+from the declared family/scope before Harness dispatch. The workshop bundle
+additionally records each candidate's
+source tree, evaluator model-file digest, training path/payoff hashes,
+evaluator target-stream hash, train seed, and fit wall time. Candidate-owned
+continuation targets are marked unobserved rather than inferred from those
+input hashes.
+
+Independent validation has two explicit probes for Python programs: a fresh
+same-seed fit with model/prediction digest comparison, and a lookahead probe
+that changes only the future suffix after a fixed history. These are evidence
+fields and do not enter the primary score. `research_mode` is a provenance
+flag and never bypasses isolation. The native Seatbelt sandbox must launch;
+if the host denies it, the evaluation fails explicitly. Making input files
+read-only with chmod alone is insufficient because the same user could undo
+that permission. No automatic unisolated retry is allowed. Training/probe/replay
+wall time is observed and reported separately from numerical replay identity.
+
+The pre-registered complete-program controls under
+`research_candidates/` include linear/ridge, PCA, gated ridge, residual
+hybrid, a real NumPy MLP, direct decisions, and repeated policy iteration.
+They are measured source artifacts for comparison, not a closed menu for the
+open track. Ridge and MLP construct their supervision from discounted Monte
+Carlo cash flows using backward updates; hand-labelled prices are not needed.
+MLP and Ridge+MLP residual controls train both network layers in candidate code
+and export their actual target arrays and gradient-update traces as opaque model
+files. The evaluator hashes those files without trusting them as independent
+mathematical evidence. The experiment measures a real-model evaluator-guided
+open-program loop on a small fixed Bermudan suite; it does not establish novelty,
+statistical superiority of Context, or out-of-suite mathematical superiority.
+
+The bundle's `manifest.json` records the runner and evaluator source digests,
+candidate-family digests, request matrix, and numerical replay command;
+`artifact_hashes.json` identifies the exported evidence files. Together they
+make the reported ledger and summary reconstructible from the
+exported source tree. The live bundle keeps actual model responses, the
+source of every candidate, all request seeds, the Python/NumPy versions, and a
+`reproduction/` source snapshot. Numerical replay calls the frozen programs
+without generating new model outputs. Public selections are frozen before any
+private audit, and private audit results are never returned to Context.
+
+The comparison matches evaluation requests and Proposal timeouts. Context adds
+model calls, and its evidence-conditioned parent selection differs from the
+direct pipeline's frozen parent. This is a comparison of two complete search
+pipelines, not a cost-matched causal estimate of Context's isolated effect.
+Reported token totals are lower bounds when failed calls do not report usage;
+wall time, timeouts and missing usage records must remain visible. A generation
+timeout is an execution failure, not a statistical refutation of a payoff
+hypothesis. The finite lookahead probe and replay are observed checks, not a
+universal no-lookahead theorem.
+
 ## Running
 
 ```bash

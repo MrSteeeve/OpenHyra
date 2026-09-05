@@ -37,6 +37,11 @@ LSMC；新增的 `bermudan_python_search` 搜索完整 Python 程序。候选自
 证据或生产价格。完整协议、金融模型、评分规则和结论边界见[特征任务说明](tasks/bermudan_optimal_stopping/TASK.md)
 与 [Python 任务说明](tasks/bermudan_python_search/TASK.md)。
 
+[Bermudan workshop 实验报告](artifacts/mathai-bermudan-live-v2-20260905/WORKSHOP_REPORT.md)
+记录了真实模型参与的三个 seed、两轮 Context→Proposal 与直接生成对照，保留配对控制、
+隐藏审计、冻结程序、训练溯源和数值重放结果。这些结果支持单任务研究闭环的运行与复现，
+尚不构成新算法发现或 Context 具有统计普遍优势的证据。
+
 反馈协议也可以在不调用 LLM、且不运行金融模拟的情况下单独复现：
 
 ```bash
