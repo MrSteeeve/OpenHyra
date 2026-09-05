@@ -51,6 +51,13 @@ theorem, a novel-algorithm claim, or a production price. The complete protocols,
 claim boundaries are in the [feature task specification](tasks/bermudan_optimal_stopping/TASK.md)
 and [Python task specification](tasks/bermudan_python_search/TASK.md).
 
+The [Bermudan workshop experiment report](artifacts/mathai-bermudan-live-v2-20260905/WORKSHOP_REPORT.md)
+records a real-model, three-seed, two-round Context-to-Proposal versus direct
+generation comparison. It includes matched controls, held-out audits, frozen
+programs, training provenance and numerical replay. This is exploratory
+evidence for the single-task research loop; it does not establish algorithmic
+novelty or a statistically general advantage for Context.
+
 The feedback protocol can also be exercised without an LLM or a financial
 simulation:
 

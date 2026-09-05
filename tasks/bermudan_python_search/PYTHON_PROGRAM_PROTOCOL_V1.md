@@ -110,7 +110,8 @@ For the workshop protocol, the harness normalizes Context aliases to four
 canonical operator identities: `whole_program_restart`, `ast_mutation`,
 `ast_crossover`, and `subsystem_rewrite`. The normalized identity, operator
 detail, source-tree digest, parent lineage, matched arm, and candidate seed are
-written beside the evaluator result. A control arm retains the same baseline
+written beside the evaluator result, together with the Proposal layer's actual
+operator materialization receipt. A control arm retains the same baseline
 source and request budget so the measured contrast is reviewable.
 
 Context-generated hypotheses are required to serialize one of those four
@@ -127,14 +128,17 @@ fresh prediction; the lookahead changes only the suffix after the supplied
 history and requires identical predictions. Both probes are diagnostic
 evidence and never modify the primary score. Per-cell records also include
 the exact training-path and discounted-payoff hashes, an evaluator target
-stream hash, the train seed, model-file digest, and wall time. The candidate's
+stream hash, the actual (folded) fit seed, separate simulator path seed, model-file digests,
+and wall time. The candidate's
 internal continuation targets remain outside the evaluator observation
 boundary.
 
-The workshop bundle also includes a manifest containing runner/evaluator and
-candidate-source digests, the request matrix, artifact hashes, and a rebuild
-command. This identifies the exact evidence bundle without treating generated
-metrics as source code.
+The workshop bundle includes `manifest.json` containing runner/evaluator and
+candidate-source digests, the request matrix, and a numerical replay command.
+`artifact_hashes.json` identifies the exported evidence files. The frozen source,
+requests and programs reconstruct the numerical results without new model
+calls. Backend generation is not guaranteed to reproduce the same text; actual
+responses and all failed attempts are retained instead.
 
 ## Evidence boundary
 
@@ -143,3 +147,11 @@ algorithm evaluated on the configured Bermudan task. It does not prove that
 the program is novel, superior outside the measured suite, or mathematically
 correct in general. Those claims require repeated search runs, matched
 controls, held-out evaluation, and inspection of the discovered mechanism.
+
+Research mode never retries a denied native sandbox without isolation. Probe
+and replay durations are measured costs, not zero-filled deterministic fields.
+The live workshop runner uses common public requests across all candidates in
+a seed. Paired pathwise deltas provide covariance-aware slice standard errors;
+when these samples are absent, a labelled conservative SE-sum bound is used.
+The Context prediction table joins guided/control results on the declared slice
+and keeps this diagnostic separate from the fixed primary score.
