@@ -98,6 +98,42 @@ combined, or abandoned in later rounds.
 The old feature, affine, expression, and small-network implementations remain
 useful baselines. They no longer define the admitted search space.
 
+## Workshop evidence loop
+
+The reproducible pilot in
+`experiments/run_bermudan_workshop.py` freezes three seeds and two rounds for
+both a feedback-conditioned Context-to-Proposal path and a direct-generation
+path. Each round runs two guided/control pairs. A pair shares the baseline
+parent reference, candidate seed, evaluator request, path budget, and timeout;
+the control keeps the baseline source. The executed operator is recorded as
+one of `whole_program_restart`, `ast_mutation`, `ast_crossover`, or
+`subsystem_rewrite`. After the public rounds, the best successful guided
+candidate for every mode/seed receives one private hidden audit.
+
+`research/prediction_ledger.jsonl` is the append-only harness ledger for a live
+run. It joins the hypothesis, falsifier, target slice, operator, source digest,
+parent lineage, evaluator effect and standard error, failure reason, cost, and
+the next action. The workshop bundle additionally records each candidate's
+source tree, evaluator model-file digest, training path/payoff hashes,
+evaluator target-stream hash, train seed, and fit wall time. Candidate-owned
+continuation targets are marked unobserved rather than inferred from those
+input hashes.
+
+Independent validation has two explicit probes for Python programs: a fresh
+same-seed fit with model/prediction digest comparison, and a lookahead probe
+that changes only the future suffix after a fixed history. These are evidence
+fields and do not enter the primary score. `research_mode` is likewise a
+provenance bit for the managed-host sandbox fallback; it cannot change the
+evaluator's paths, payoff, stopping application, or score arithmetic.
+
+The pre-registered complete-program controls under
+`research_candidates/` include linear/ridge, PCA, gated ridge, residual
+hybrid, a real NumPy MLP, direct decisions, and repeated policy iteration.
+They are measured source artifacts for comparison, not a closed menu for the
+open track. The pilot establishes an auditable evaluator-guided open-program
+loop; it does not establish an LLM search effect, novelty, or out-of-suite
+mathematical superiority.
+
 ## Running
 
 ```bash

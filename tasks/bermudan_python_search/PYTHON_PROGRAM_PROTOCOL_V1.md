@@ -106,6 +106,23 @@ These are generation operations, not registered solution families. The final
 candidate is always the resulting Python program, and measured evaluator
 outcomes determine later parent selection.
 
+For the workshop protocol, the harness normalizes Context aliases to four
+canonical operator identities: `whole_program_restart`, `ast_mutation`,
+`ast_crossover`, and `subsystem_rewrite`. The normalized identity, operator
+detail, source-tree digest, parent lineage, matched arm, and candidate seed are
+written beside the evaluator result. A control arm retains the same baseline
+source and request budget so the measured contrast is reviewable.
+
+For every Python candidate the evaluator can run an independent same-seed fit
+and a causal lookahead check. The replay compares the opaque model digest and a
+fresh prediction; the lookahead changes only the suffix after the supplied
+history and requires identical predictions. Both probes are diagnostic
+evidence and never modify the primary score. Per-cell records also include
+the exact training-path and discounted-payoff hashes, an evaluator target
+stream hash, the train seed, model-file digest, and wall time. The candidate's
+internal continuation targets remain outside the evaluator observation
+boundary.
+
 ## Evidence boundary
 
 Acceptance by this protocol proves only that the candidate is an executable
