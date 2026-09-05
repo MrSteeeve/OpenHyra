@@ -1045,6 +1045,39 @@ def _candidate_seed(context_seed, candidate_index):
     return context_seed * 1_000_003 + candidate_index
 
 
+def _canonical_program_operator(mechanism):
+    """Normalize Context operator aliases for executable program dispatch."""
+    if not isinstance(mechanism, dict):
+        return ""
+    raw = mechanism.get("intervention_operator", mechanism.get("operator", ""))
+    value = raw.strip().lower() if isinstance(raw, str) else ""
+    if value in {"restart", "whole_program_restart", "restart_from_skeleton"}:
+        return "whole_program_restart"
+    if value in {"ast_mutation", "mutate", "local_mutation"}:
+        return "ast_mutation"
+    if value in {"ast_crossover", "crossover", "compose", "composition"}:
+        return "ast_crossover"
+    scope = mechanism.get("intervention_scope", mechanism.get("scope", ""))
+    if value == "subsystem_rewrite" or (
+        value == "replace" and str(scope).lower() in {
+            "fit", "predict", "subsystem",
+        }
+    ) or str(scope).lower() in {"fit", "predict", "subsystem"}:
+        return "subsystem_rewrite"
+    # Context-generated mechanisms often omit the low-level operator while
+    # still declaring a family such as ``representation`` or ``residual``.
+    # Preserve the existing semantic inference instead of forcing a mutation
+    # merely to satisfy the round-level diversity guard.
+    inferred = mechanism_generation_operator(mechanism)
+    if inferred in {"restart_from_skeleton"}:
+        return "whole_program_restart"
+    if inferred in {"composition"}:
+        return "ast_crossover"
+    if inferred in {"ablation", "analogy_transfer", "local_mutation"}:
+        return "ast_mutation"
+    return value
+
+
 def _mechanism_hypothesis_id(iteration, parent_id, mechanism_id, pair_index=0):
     """Build a stable id for one mechanism/parent comparison.
 
@@ -1096,6 +1129,43 @@ def _mechanism_slots(task, context_meta, iteration, baseline, candidate_count):
         candidate_count=pair_count,
         iteration=iteration,
     )
+    # Every research round with at least two paired mechanisms must expose two
+    # executable operator classes.  Prefer the Context selection, then draw a
+    # deterministic diversity reservoir from task-declared directions.  This
+    # prevents all slots from silently collapsing to local mutation when the
+    # Context repeats a single family.
+    if pair_enabled and pair_count >= 2 and len(selected) >= 2:
+        selected_ops = {_canonical_program_operator(item) for item in selected}
+        if len(selected_ops - {""}) < 2:
+            try:
+                reservoir = candidate_hypotheses(
+                    task,
+                    context_hypotheses=(),
+                    candidate_count=max(2, len(selected) + 2),
+                    iteration=iteration + 1,
+                )
+            except Exception:
+                reservoir = []
+            for candidate in reservoir:
+                if len({
+                    _canonical_program_operator(item) for item in selected
+                    if _canonical_program_operator(item)
+                }) >= 2:
+                    break
+                candidate_op = _canonical_program_operator(candidate)
+                if candidate_op and candidate_op not in selected_ops:
+                    selected[-1] = candidate
+                    selected_ops.add(candidate_op)
+            if len({_canonical_program_operator(item) for item in selected}) < 2:
+                # Last-resort deterministic assignment keeps the diversity
+                # invariant explicit even for a custom task with one declared
+                # hypothesis.  The Proposal layer still validates the actual
+                # operator and may record a controlled failure.
+                selected[1] = {
+                    **selected[1],
+                    "intervention_operator": "ast_mutation",
+                    "operator": "ast_mutation",
+                }
     if not selected:
         return [{} for _ in range(candidate_count)]
 
@@ -1225,6 +1295,161 @@ def _append_jsonl_once(path, payload, key="pair_id"):
         stream.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
         stream.flush()
     return True
+
+
+def _prediction_verdict(metrics, status, direction="max"):
+    """Classify one preregistered prediction without changing the score."""
+    if status not in {"ok", "early_stopped"}:
+        return "execution_failed"
+    if not isinstance(metrics, dict):
+        return "inconclusive"
+    effect = metrics.get("mean_paired_normalized_improvement")
+    if effect is None:
+        effect = metrics.get("mean_normalized_confidence_gap")
+        if effect is not None:
+            effect = -float(effect)
+    se = metrics.get("paired_aggregate_standard_error")
+    if se is None:
+        se = metrics.get("aggregate_standard_error")
+    if not isinstance(effect, (int, float)) or not isinstance(se, (int, float)):
+        return "inconclusive"
+    effect = float(effect)
+    se = max(0.0, float(se))
+    if direction == "min":
+        effect = -effect
+    lower = effect - 1.96 * se
+    upper = effect + 1.96 * se
+    if lower > 0.0:
+        return "supported"
+    if upper <= 0.0:
+        return "refuted"
+    return "inconclusive"
+
+
+def _write_prediction_observation(task, item, record, result):
+    """Persist hypothesis -> implementation -> evaluator evidence for Context."""
+    mechanism = item.get("mechanism") if isinstance(item, dict) else None
+    mechanism = mechanism if isinstance(mechanism, dict) else {}
+    metrics = result.get("metrics", {}) if isinstance(result, dict) else {}
+    parent = item.get("parent", {}) if isinstance(item, dict) else {}
+    parent_ids = [str(parent.get("id"))] if parent.get("id") else []
+    secondary = item.get("secondary_parent") if isinstance(item, dict) else None
+    if isinstance(secondary, dict) and secondary.get("id"):
+        parent_ids.append(str(secondary["id"]))
+    status = result.get("status", "runtime_error") if isinstance(result, dict) else "runtime_error"
+    effect = metrics.get("mean_paired_normalized_improvement")
+    if effect is None:
+        effect = metrics.get("mean_normalized_confidence_gap")
+        if isinstance(effect, (int, float)):
+            effect = -float(effect)
+    standard_error = metrics.get("paired_aggregate_standard_error")
+    if standard_error is None:
+        standard_error = metrics.get("aggregate_standard_error")
+    per_slice = []
+    for summary in metrics.get("summaries", []) if isinstance(metrics, dict) else []:
+        if not isinstance(summary, dict):
+            continue
+        per_slice.append({
+            "slice": summary.get("instance_id"),
+            "slice_labels": summary.get("slice_labels", []),
+            "effect": summary.get("paired_normalized_improvement", summary.get(
+                "normalized_primal_dual_confidence_gap"
+            )),
+            "standard_error": summary.get("paired_normalized_standard_error", summary.get(
+                "upper_bound_standard_error"
+            )),
+            "behavior": {
+                key: summary.get(key)
+                for key in (
+                    "candidate_exercise_rate", "baseline_exercise_rate",
+                    "candidate_stop_time_mean", "baseline_stop_time_mean",
+                    "candidate_finite", "raw_bound_order_ok",
+                )
+                if key in summary
+            },
+        })
+    payload = {
+        "schema": "openhyra-prediction-observation.v1",
+        "record_id": record.get("id"),
+        "iteration": item.get("iteration"),
+        "candidate_id": record.get("id"),
+        "hypothesis": {
+            "mechanism_id": mechanism.get("id", item.get("mechanism_id", "")),
+            "mechanism": mechanism.get("mechanism", ""),
+            "prediction": mechanism.get("prediction", item.get("prediction")),
+            "falsifier": mechanism.get("failure_condition", mechanism.get("falsifier", item.get("falsifier"))),
+            "target_slice": mechanism.get("target_slice", item.get("target_slice", "")),
+            "operator": _canonical_program_operator(mechanism),
+            "evidence_ids": mechanism.get("evidence_ids", []),
+        },
+        "proposal": {
+            "operator": metrics.get("generation_operator", _canonical_program_operator(mechanism)),
+            "source_digest": (
+                metrics.get("source_snapshot_sha256")
+                or metrics.get("algorithm_bundle_sha256")
+                or metrics.get("candidate_hash")
+            ),
+            "source_files": metrics.get("source_files", []),
+            "parent_ids": parent_ids,
+            "parent_lineage": item.get("secondary_parent", {}).get("id") if isinstance(item.get("secondary_parent"), dict) else None,
+            "candidate_seed": item.get("candidate_seed"),
+            "matched_pair_id": item.get("matched_pair_id", ""),
+            "matched_arm": item.get("matched_arm", ""),
+        },
+        "evaluator": {
+            "status": status,
+            "score": result.get("score"),
+            "effect": effect,
+            "standard_error": standard_error,
+            "per_slice": per_slice,
+            "failure_reason": result.get("log_tail", "") if status not in {"ok", "early_stopped"} else None,
+            "cost": {
+                key: metrics.get(key)
+                for key in (
+                    "training_seconds", "mean_training_seconds_per_instance",
+                    "evaluator_seconds", "total_seconds", "peak_memory_bytes",
+                )
+                if key in metrics
+            },
+        },
+        "prediction_verdict": _prediction_verdict(
+            metrics, status, getattr(task, "direction", "max")
+        ),
+        "next_action": (
+            "falsify" if status not in {"ok", "early_stopped"} else
+            "compose" if _prediction_verdict(metrics, status, getattr(task, "direction", "max")) == "supported" else
+            "restart" if _prediction_verdict(metrics, status, getattr(task, "direction", "max")) == "refuted" else
+            "revise"
+        ),
+    }
+    ledger_path = Path(getattr(task, "run_dir", Path("."))) / "research" / "prediction_ledger.jsonl"
+    _append_jsonl_once(
+        ledger_path,
+        payload,
+        key="record_id",
+    )
+    # Materialize a compact table as well as the append-only ledger. Context
+    # can consume this directly on the next round without parsing every EB
+    # record, while the ledger remains the lossless provenance source.
+    try:
+        rows = [
+            json.loads(line)
+            for line in ledger_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        rows = [row for row in rows if isinstance(row, dict)]
+        rows.sort(key=lambda row: (int(row.get("iteration", 0)), str(row.get("record_id", ""))))
+        table_path = ledger_path.with_name("prediction_table.json")
+        table_path.write_text(
+            json.dumps({
+                "schema": "openhyra-prediction-table.v1",
+                "rows": rows,
+                "row_count": len(rows),
+            }, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except (OSError, TypeError, ValueError):
+        pass
 
 
 def _finalize_matched_controls(
@@ -2246,6 +2471,15 @@ def _commit_candidate_result(result, task, eb, backend, model, print_lock,
         item["description"], parent_id or parent["id"], result["log_tail"],
         metrics=result["metrics"], metadata=metadata,
     )
+    try:
+        _write_prediction_observation(task, item, record, result)
+    except (OSError, TypeError, ValueError) as exc:
+        # The append-only research ledger is additive.  A malformed optional
+        # annotation must not discard the evaluator-backed EB record.
+        print(
+            f"[research] prediction ledger warning for {record.get('id')}: {exc!r}",
+            file=sys.stderr,
+        )
     if v5_bridge is not None:
         v5_island = metadata.get("island_epoch_id", "island_00_epoch_00")
         raw_metrics = _v5_metrics_input(task, result.get("metrics", {}))
