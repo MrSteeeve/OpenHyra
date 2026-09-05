@@ -1345,6 +1345,24 @@ def _write_prediction_observation(task, item, record, result):
     standard_error = metrics.get("paired_aggregate_standard_error")
     if standard_error is None:
         standard_error = metrics.get("aggregate_standard_error")
+    training_provenance = []
+    raw_training_cells = metrics.get("training_cells", [])
+    if isinstance(raw_training_cells, list):
+        for cell in raw_training_cells:
+            if not isinstance(cell, dict):
+                continue
+            training_provenance.append({
+                key: cell.get(key)
+                for key in (
+                    "instance_id", "repeat", "train_seed", "training_path_count",
+                    "training_paths_shape", "training_paths_sha256",
+                    "payoffs_sha256", "target_kind", "target_sha256",
+                    "candidate_target_observed", "model_file_sha256",
+                    "policy_artifact_sha256", "fit_wall_seconds", "wall_seconds",
+                    "research_fallback", "status",
+                )
+                if key in cell
+            })
     per_slice = []
     for summary in metrics.get("summaries", []) if isinstance(metrics, dict) else []:
         if not isinstance(summary, dict):
@@ -1411,6 +1429,7 @@ def _write_prediction_observation(task, item, record, result):
                 )
                 if key in metrics
             },
+            "training_cells": training_provenance,
         },
         "prediction_verdict": _prediction_verdict(
             metrics, status, getattr(task, "direction", "max")

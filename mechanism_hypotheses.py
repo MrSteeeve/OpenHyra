@@ -50,6 +50,30 @@ def _derived_id(*values: Any) -> str:
     return f"{slug[:53].rstrip('-')}-{digest}"
 
 
+def _context_operator(family: str, mechanism: str, scope: str) -> str:
+    """Infer an executable operator when Context omitted one.
+
+    Context packets are the only place where omission is repaired.  Task
+    portfolios keep their historical aliases (for example ``replace``), but
+    a generated open-program hypothesis must carry one of the four operators
+    that the Harness can execute without interpreting prose.
+    """
+    family_text = f"{family} {mechanism}".lower()
+    scope_text = scope.lower()
+    if scope_text in {"fit", "predict", "subsystem"}:
+        return "subsystem_rewrite"
+    if any(token in family_text for token in (
+        "restart", "generate", "fresh program", "from scratch", "discard",
+    )):
+        return "whole_program_restart"
+    if any(token in family_text for token in (
+        "composition", "compose", "ensemble", "residual", "representation",
+        "crossover", "combine", "switch",
+    )):
+        return "ast_crossover"
+    return "ast_mutation"
+
+
 @dataclass(frozen=True)
 class MechanismHypothesis:
     """A concise, falsifiable algorithm-design hypothesis."""
@@ -196,9 +220,15 @@ def _normalize_hypothesis(item: Any, *, source: str) -> MechanismHypothesis | No
     scope = _text(
         item.get("intervention_scope") or item.get("scope"), limit=64
     ) or "mechanism"
-    operator = _text(
-        item.get("intervention_operator") or item.get("operator"), limit=64
-    ) or "replace"
+    raw_operator = item.get("intervention_operator")
+    if raw_operator in (None, ""):
+        raw_operator = item.get("operator")
+    operator = _text(raw_operator, limit=64)
+    if not operator:
+        operator = (
+            _context_operator(family, mechanism, scope)
+            if source == "context" else "replace"
+        )
     target_slice = item.get("target_slice", "")
     if isinstance(target_slice, (list, tuple)):
         target_slice = ", ".join(
@@ -420,6 +450,8 @@ def mechanism_generation_operator(
     if explicit in {"ast_crossover", "crossover", "compose"}:
         return "composition"
     if explicit in {"ast_mutation", "mutate"}:
+        return "local_mutation"
+    if explicit in {"subsystem_rewrite"}:
         return "local_mutation"
     family = normalized.family.lower()
     text = normalized.mechanism.lower()
