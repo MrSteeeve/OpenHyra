@@ -17,5 +17,9 @@ training path and payoff hashes, evaluator target-stream hashes,
 fit time, independent replay and causal lookahead probes. Candidate
 internal continuation targets are explicitly unobserved.
 
-Rows: 54; public pairs: 24; failures: 1.
+Rows: 54; public pairs: 24; failures: 1. The recorded failure is the
+context seed 29 round-two subsystem rewrite: replacing the fit model under
+an inherited MLP predict function was rejected at prediction time. The
+failure remains in the ledger and that seed's private audit selected the best
+successful guided candidate.
 The claim remains evaluator-guided open Python program search on Bermudan.
