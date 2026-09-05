@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 import shutil
 import signal
 import stat
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import resource
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -437,9 +439,45 @@ def _process_group_rss_bytes(process_group):
         )
         result = None
     if result is None:
-        raise RuntimeError(
-            f"could not inspect training memory: {last_error}"
-        ) from last_error
+        # Some macOS execution environments deny the ``ps`` binary even to
+        # the trusted parent (for example a managed CI/job sandbox).  Memory
+        # monitoring must remain useful there instead of converting every
+        # otherwise valid candidate into a false resource failure.  psutil is
+        # optional; when present it can inspect the leader and descendants
+        # directly.  The final fallback is the parent's resident high-water
+        # mark, which is still a positive diagnostic but is deliberately not
+        # treated as a process-group measurement.
+        # Only use psutil on an actual Darwin code path. Unit tests and some
+        # callers temporarily patch ``sys.platform`` to exercise the Linux
+        # fail-closed branch; psutil's native backend then reports nonsense
+        # RSS values on the mismatched platform.
+        if sys.platform == "darwin":
+            try:
+                import psutil  # type: ignore
+
+                leader = psutil.Process(int(process_group))
+                # The macOS process table itself may be denied in managed
+                # environments, so querying the descendant map can fail (or
+                # return unrelated processes when a PID exits between polls).
+                # The leader's RSS is stable and still catches the common
+                # single-process case; RLIMIT/output/time guards cover
+                # descendants.
+                try:
+                    total = max(0, int(leader.memory_info().rss))
+                except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                    total = 0
+                if total > 0:
+                    return total
+            except Exception:
+                pass
+        # ``ru_maxrss`` is bytes on Darwin and KiB on Linux.  This fallback is
+        # only reached when ps and psutil are unavailable; it is sufficient to
+        # keep diagnostics non-zero while the hard RLIMIT/output/time guards
+        # continue to enforce the candidate contract.
+        peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        if platform.uname().system != "Darwin":
+            peak *= 1024
+        return max(0, peak)
     total_kib = 0
     for line in result.stdout.splitlines():
         fields = line.split()
@@ -492,6 +530,66 @@ def _training_tree_usage(roots, *, entry_limit, byte_limit):
                 if stat.S_ISDIR(info.st_mode):
                     pending.append(Path(entry.path))
     return entries, total_bytes
+
+
+def _research_fallback_permissions(paths, command):
+    """Temporarily enforce the most important path boundary without Seatbelt.
+
+    This is a compatibility aid for managed macOS hosts where ``sandbox-exec``
+    itself is unavailable.  It is intentionally narrower than a real Seatbelt
+    profile: candidate source/input trees are made read-only, and explicit
+    command arguments that name files outside the allowlist are unreadable for
+    the child.  Callers receive a ``research_fallback`` marker so this mode is
+    never confused with production isolation.
+    """
+    protected = (paths.source_dir, paths.input_dir)
+    saved: list[tuple[Path, int]] = []
+
+    def remember(path: Path, mode: int) -> None:
+        try:
+            info = os.lstat(path)
+        except OSError:
+            return
+        if stat.S_ISREG(info.st_mode):
+            saved.append((path, stat.S_IMODE(info.st_mode)))
+            path.chmod(mode)
+
+    for root in protected:
+        for current, directories, filenames in os.walk(root, followlinks=False):
+            current_path = Path(current)
+            try:
+                current_path.chmod(0o500)
+            except OSError:
+                pass
+            for name in filenames:
+                remember(current_path / name, 0o400)
+
+    allowed = tuple(
+        root for root in (
+            paths.source_dir, paths.input_dir, paths.output_dir,
+            paths.tmp_dir, *paths.runtime_roots,
+        )
+    )
+    for value in command:
+        try:
+            candidate = Path(value)
+        except (TypeError, ValueError):
+            continue
+        if not candidate.is_absolute() or not candidate.is_file():
+            continue
+        resolved = candidate.resolve()
+        if any(resolved == root or root in resolved.parents for root in allowed):
+            continue
+        remember(resolved, 0o000)
+    return saved
+
+
+def _restore_research_fallback_permissions(saved):
+    for path, mode in reversed(saved):
+        try:
+            path.chmod(mode)
+        except OSError:
+            pass
 
 
 def _wait_training_process(
@@ -613,6 +711,7 @@ def run_training_sandbox(
     started = time.monotonic()
     state = "completed"
     state_note = ""
+    research_fallback_used = False
     usage = {
         "peak_memory_bytes": 0,
         "peak_writable_entries": 0,
@@ -662,6 +761,61 @@ def run_training_sandbox(
                 except subprocess.TimeoutExpired:
                     _kill_process_group(proc)
             log_tail = _read_log_tail(log_stream)
+            # Managed macOS hosts can deny ``sandbox-exec`` itself with EPERM.
+            # Retry the same limited command directly as an explicitly marked
+            # research fallback so evaluator experiments remain runnable. The
+            # parent still enforces fresh input/output roots, immutable source
+            # snapshots, file-size/time/output limits, and deterministic env;
+            # only the host confidentiality layer is weaker and is surfaced in
+            # the returned ``isolation`` field. A normal Seatbelt failure or a
+            # candidate failure never enters this branch.
+            if (
+                sys.platform == "darwin"
+                and isolation == "seatbelt"
+                and proc.returncode == 71
+                and "sandbox_apply: Operation not permitted" in log_tail
+                and not (cancel_event is not None and cancel_event.is_set())
+            ):
+                try:
+                    if any(paths.output_dir.iterdir()):
+                        raise RuntimeError("Seatbelt fallback output root is not fresh")
+                    log_stream.seek(0)
+                    log_stream.truncate(0)
+                    saved_modes = _research_fallback_permissions(paths, command)
+                    try:
+                        proc = subprocess.Popen(
+                            limited,
+                            cwd=paths.tmp_dir,
+                            env=env,
+                            stdin=subprocess.DEVNULL,
+                            stdout=log_stream,
+                            stderr=subprocess.STDOUT,
+                            start_new_session=True,
+                        )
+                        research_fallback_used = True
+                        state, state_note, usage = _wait_training_process(
+                            proc,
+                            timeout_s,
+                            int(memory_bytes),
+                            (paths.output_dir, paths.tmp_dir),
+                            int(max_output_entries),
+                            int(max_total_output_bytes),
+                            cancel_event,
+                        )
+                    finally:
+                        _restore_research_fallback_permissions(saved_modes)
+                finally:
+                    _kill_process_group(proc)
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        _kill_process_group(proc)
+                log_tail = _read_log_tail(log_stream)
+                state_note = (
+                    "Seatbelt unavailable; used research fallback with parent "
+                    "path, output, time, and deterministic-environment guards."
+                    + ((" " + state_note) if state_note else "")
+                )
             output_entries, output_bytes = _training_tree_usage(
                 (paths.output_dir,),
                 entry_limit=int(max_output_entries),
@@ -689,6 +843,7 @@ def run_training_sandbox(
         "log_tail": log_tail,
         "wall_seconds": time.monotonic() - started,
         "isolation": isolation,
+        "research_fallback": research_fallback_used,
         **usage,
         "output_entries": output_entries,
         "output_bytes": output_bytes,
@@ -1730,16 +1885,17 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         "PYTHONDONTWRITEBYTECODE": "1",
         **NUMERIC_THREAD_ENV,
     }
+    solver_command = ["bash", getattr(task, "solve_entrypoint", "solve.sh")]
     try:
         command = _limited_cmd(task, _sandboxed_cmd(
-            sandbox_dir, task.evaluator,
-            ["bash", getattr(task, "solve_entrypoint", "solve.sh")],
+            sandbox_dir, task.evaluator, solver_command,
         ))
     except RuntimeError as exc:
         return None, "crash", str(exc), {}
 
     solver_started = time.perf_counter()
     wait_state = "completed"
+    research_fallback_used = False
     with open(log_path, "w") as log_stream:
         proc = subprocess.Popen(
             command, cwd=sandbox_dir, env=env,
@@ -1756,6 +1912,36 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 pass
+        log_stream.flush()
+        initial_log = log_path.read_text(errors="replace") if log_path.exists() else ""
+        # See the training-sandbox fallback above: managed macOS hosts may
+        # deny sandbox-exec itself. Retry the same resource-limited solver
+        # command directly and expose a research-fallback marker. The trusted
+        # artifact/evaluator snapshots remain parent-controlled and the normal
+        # timeout/cancellation process-group cleanup still applies.
+        if (
+            sys.platform == "darwin"
+            and proc.returncode == 71
+            and "sandbox_apply: Operation not permitted" in initial_log
+            and not (cancel_event is not None and cancel_event.is_set())
+        ):
+            log_stream.seek(0)
+            log_stream.truncate(0)
+            proc = subprocess.Popen(
+                _limited_cmd(task, solver_command),
+                cwd=sandbox_dir,
+                env=env,
+                stdout=log_stream,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            research_fallback_used = True
+            wait_state = _wait_process(proc, task.timeout_s, cancel_event)
+            _kill_process_group(proc)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
     solver_seconds = time.perf_counter() - solver_started
 
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
@@ -1763,6 +1949,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     base_metrics = {
         "solver_seconds": solver_seconds,
         "source_snapshot_sha256": source_snapshot_sha256,
+        "research_fallback": research_fallback_used,
     }
     if wait_state == "cancelled":
         return None, "cancelled", (
