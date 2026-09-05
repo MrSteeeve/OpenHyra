@@ -1,8 +1,8 @@
 # Published artifacts
 
 - `feedback-ablation-20260904/`: synthetic four-arm feedback-loop protocol ablation.
-- `mathai-bermudan-5r-codex-20260903/`: five-round Bermudan algorithm-search pilot with public and hidden-audit records.
-- `seed-sweep-4families-20x-20260903/`: four-family, 20-seed-block robustness sweep over frozen pilot candidates.
+- `mathai-bermudan-5r-codex-20260903/`: five-round bounded continuation-artifact pilot with public and hidden-audit records.
+- `seed-sweep-4families-20x-20260903/`: four-family, 20-seed-block robustness sweep over those frozen bounded artifacts.
 
 Each bundle contains its own `EXPERIMENT_SUMMARY.md` with the applicable evidence boundaries and interpretation limits.
 
