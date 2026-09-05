@@ -130,6 +130,18 @@ def _sha256_json(payload: Any) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def _sha256_array(value: Any) -> str:
+    """Hash a numeric array with dtype and shape framing for provenance."""
+    array = np.ascontiguousarray(np.asarray(value))
+    digest = hashlib.sha256()
+    digest.update(str(array.dtype).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(_canonical_json(list(array.shape)).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(array.tobytes(order="C"))
+    return digest.hexdigest()
+
+
 def _strict_keys(payload: Any, *, required: set[str], allowed: set[str], path: str) -> None:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must be an object")
@@ -1763,6 +1775,7 @@ def _training_result_metrics(result: Any) -> dict[str, Any]:
         "status": result.status,
         "returncode": result.returncode,
         "isolation": result.isolation,
+        "research_fallback": bool(getattr(result, "research_fallback", False)),
         "wall_seconds": float(result.wall_seconds),
         "peak_memory_bytes": int(result.peak_memory_bytes),
         "output_entries": int(result.output_entries),
@@ -1775,6 +1788,43 @@ def _training_result_metrics(result: Any) -> dict[str, Any]:
         "policy_file_sha256": hash_records(result.policy_file_sha256),
         "policy_artifact_sha256": result.policy_artifact_sha256,
         "log_tail": str(result.log_tail)[-2000:],
+    }
+
+
+def _training_provenance(
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    train_seed: int,
+    train_details: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Attach evaluator-owned path/payoff/target provenance to a fit cell.
+
+    A Python candidate owns its continuation-target construction, so that
+    internal target array is intentionally not claimed as observed.  The
+    evaluator nevertheless records the exact path and discounted-payoff
+    streams that were supplied to the candidate, plus a deterministic target
+    reference for the supplied stream.  This makes a later replay auditable
+    without confusing evaluator inputs with candidate internals.
+    """
+    paths = np.asarray(training_paths)
+    rewards = discounted_rewards(paths, instance)
+    return {
+        **dict(train_details),
+        "instance_id": instance.instance_id,
+        "path_seed": int(train_seed),
+        "train_seed": int(train_details.get("train_seed", train_seed)),
+        "training_path_count": int(paths.shape[0]),
+        "training_paths_shape": list(paths.shape),
+        "training_paths_sha256": _sha256_array(paths),
+        "payoffs_sha256": _sha256_array(rewards),
+        "target_sha256": _sha256_array(rewards),
+        "target_kind": "evaluator_discounted_payoff_stream",
+        "candidate_target_observed": False,
+        "model_file_sha256": (
+            train_details.get("policy_artifact_sha256")
+            or train_details.get("policy_file_sha256")
+        ),
+        "fit_wall_seconds": float(train_details.get("wall_seconds", 0.0)),
     }
 
 
@@ -1879,6 +1929,160 @@ def _fit_candidate_policy(
     return policy, details
 
 
+def _policy_probe_output(policy: Any, paths: np.ndarray, time_index: int) -> np.ndarray:
+    """Run one bounded prediction query through the evaluator-owned adapter."""
+    rewards = discounted_rewards(paths, policy.instance)
+    states = np.asarray(paths[:, time_index, :], dtype=float)
+    history = np.asarray(paths[:, : time_index + 1, :], dtype=float)
+    immediate = np.asarray(rewards[:, time_index], dtype=float)
+    if getattr(policy, "policy_interface", "continuation") == "decision":
+        return np.asarray(
+            policy.decision(
+                time_index, states, history=history,
+                immediate_payoffs=immediate,
+            )
+        )
+    if getattr(policy, "runner_type", "") == "python_program":
+        return np.asarray(
+            policy.continuation(
+                time_index, states, history=history,
+                immediate_payoffs=immediate,
+            )
+        )
+    return np.asarray(policy.continuation(time_index, states))
+
+
+def _lookahead_probe(policy: Any, instance: BSInstance, seed: int) -> dict[str, Any]:
+    """Check that changing an unobserved future suffix cannot change output.
+
+    The evaluator deliberately supplies only the current prefix to both
+    queries.  The two full paths differ after the prefix and their suffix
+    digests are recorded so the resulting equality is an auditable causal
+    probe rather than an assertion inferred from source inspection.
+    """
+    try:
+        probe_paths = simulate_paths(instance, 8, int(seed))
+        time_index = 0 if len(instance.exercise_times) <= 2 else 1
+        prefix = probe_paths[:, : time_index + 1, :].copy()
+        changed = simulate_paths(instance, 8, int(seed) + 1)
+        changed[:, : time_index + 1, :] = prefix
+        if np.array_equal(
+            probe_paths[:, time_index + 1 :, :],
+            changed[:, time_index + 1 :, :],
+        ):
+            changed[:, time_index + 1 :, :] *= 1.0001
+        first = _policy_probe_output(policy, probe_paths, time_index)
+        second = _policy_probe_output(policy, changed, time_index)
+        equal = bool(np.array_equal(first, second))
+        return {
+            "status": "passed" if equal else "failed",
+            "observed": True,
+            "time_index": time_index,
+            "prefix_equal": bool(np.array_equal(
+                probe_paths[:, : time_index + 1, :],
+                changed[:, : time_index + 1, :],
+            )),
+            "future_changed": bool(not np.array_equal(
+                probe_paths[:, time_index + 1 :, :],
+                changed[:, time_index + 1 :, :],
+            )),
+            "prediction_equal": equal,
+            "future_a_sha256": _sha256_json(
+                probe_paths[:, time_index + 1 :, :].tolist()
+            ),
+            "future_b_sha256": _sha256_json(
+                changed[:, time_index + 1 :, :].tolist()
+            ),
+        }
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "observed": True,
+            "prediction_equal": False,
+            "reason": f"{type(exc).__name__}: {exc}"[:1000],
+        }
+
+
+def _independent_validation(
+    *,
+    policy: Any,
+    source_dir: Path | None,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    train_seed: int,
+    training_root: Path | None,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Run one fresh replay and a causal lookahead probe for a top candidate."""
+    probe_started = time.perf_counter()
+    lookahead = _lookahead_probe(policy, instance, train_seed ^ 0x5EED)
+    probe_seconds = time.perf_counter() - probe_started
+    result: dict[str, Any] = {
+        "schema": "openhyra-bermudan-independent-validation.v1",
+        "observed": True,
+        "lookahead_probe": lookahead,
+        "deterministic_replay": {
+            "status": "not_applicable",
+            "observed": False,
+            "reason": "legacy in-process policy has no sandbox model artifact",
+        },
+        "cost": {"replay_wall_seconds": 0.0, "probe_wall_seconds": 0.0},
+    }
+    started = time.perf_counter()
+    replay_details: dict[str, Any] | None = None
+    replay_policy: Any = None
+    if source_dir is not None and training_root is not None:
+        try:
+            replay_cell = training_root / "independent-replay"
+            replay_policy, replay_details = _fit_candidate_policy(
+                None,
+                source_dir,
+                manifest,
+                instance,
+                np.array(training_paths, copy=True),
+                train_seed=train_seed,
+                cell_dir=replay_cell,
+                config=config,
+            )
+            model_a = getattr(policy, "policy_artifact_sha256", None)
+            model_b = getattr(replay_policy, "policy_artifact_sha256", None)
+            prediction_equal = False
+            try:
+                first_query = simulate_paths(instance, 8, train_seed ^ 0xC0DE)
+                left = _policy_probe_output(policy, first_query, 0)
+                right = _policy_probe_output(replay_policy, first_query, 0)
+                prediction_equal = bool(np.array_equal(left, right))
+            except Exception:
+                prediction_equal = False
+            model_equal = (
+                isinstance(model_a, str)
+                and isinstance(model_b, str)
+                and model_a == model_b
+            )
+            result["deterministic_replay"] = {
+                "status": "passed" if model_equal and prediction_equal else "failed",
+                "observed": True,
+                "model_equal": model_equal,
+                "prediction_equal": prediction_equal,
+                "model_sha256": model_a,
+                "replay_model_sha256": model_b,
+                "replay_training": replay_details,
+            }
+        except Exception as exc:
+            result["deterministic_replay"] = {
+                "status": "failed",
+                "observed": True,
+                "model_equal": False,
+                "prediction_equal": False,
+                "reason": f"{type(exc).__name__}: {exc}"[:1000],
+            }
+    # Timing is an observed cost, not part of numerical replay identity.
+    result["cost"]["replay_wall_seconds"] = time.perf_counter() - started
+    result["cost"]["probe_wall_seconds"] = probe_seconds
+    return result
+
+
 def _evaluate_search(
     program: dict[str, Any] | None,
     request: dict[str, Any],
@@ -1898,6 +2102,7 @@ def _evaluate_search(
     cluster_improvements: list[float] = []
     cluster_standard_errors: list[float] = []
     training_cells: list[dict[str, Any]] = []
+    independent_validation: dict[str, Any] | None = None
     training_root: Path | None = None
     if candidate_source_dir is not None:
         # A single root is used only as a parent; every cell remains a fresh
@@ -1931,11 +2136,27 @@ def _evaluate_search(
                     cell_dir=cell_dir,
                     config=config,
                 )
+                if (
+                    candidate_source_dir is not None
+                    and independent_validation is None
+                    and config.get("independent_validation", True)
+                ):
+                    independent_validation = _independent_validation(
+                        policy=candidate_policy,
+                        source_dir=candidate_source_dir,
+                        manifest=candidate_manifest,
+                        instance=instance,
+                        training_paths=training,
+                        train_seed=train_seed,
+                        training_root=training_root,
+                        config=config,
+                    )
                 if candidate_source_dir is not None:
                     training_cells.append({
-                        "instance_id": instance.instance_id,
                         "repeat": repeat,
-                        **train_details,
+                        **_training_provenance(
+                            instance, training, train_seed, train_details
+                        ),
                     })
                 baseline_policy = fit_lsmc(
                     BASELINE_PROGRAM, instance, training,
@@ -1988,6 +2209,10 @@ def _evaluate_search(
                     "paired_normalized_standard_error": paired_se,
                     "paired_loss_var95": paired_loss_q95,
                     "paired_loss_cvar95": paired_loss_cvar95,
+                    **({
+                        "pricing_paths_sha256": _sha256_array(pricing),
+                        "paired_pathwise_improvements": paired.tolist(),
+                    } if config.get("public_pathwise_samples", False) else {}),
                     # Compact policy-geometry descriptors used by V5's
                     # BehaviorProfile and by the mechanism critic.  These are
                     # computed from evaluator-owned pricing outcomes, never
@@ -2032,6 +2257,10 @@ def _evaluate_search(
     cell_count = len(cluster_improvements)
     metrics = {
         "metric": "paired_lower_bound_lcb",
+        "research_mode": bool(config.get("research_mode", False)),
+        "independent_validation_enabled": bool(
+            config.get("independent_validation", True)
+        ),
         "search_score": score,
         "mean_paired_normalized_improvement": mean_improvement,
         "paired_aggregate_standard_error": aggregate_se,
@@ -2049,17 +2278,27 @@ def _evaluate_search(
             ])) if summaries else None
         ),
         "failure_rate_observed": bool(summaries),
-        # Adaptedness is a property of the candidate source/training trace;
-        # this evaluator run does not execute an independent look-ahead probe.
-        # Keep the legacy key nullable rather than presenting an unmeasured
-        # ``False`` as a scientific result.
-        "lookahead_violation": None,
-        "lookahead_violation_observed": False,
-        # No independent replay is run inside one search evaluation.  Keep
-        # this nullable instead of claiming that the fixed-cell execution is
-        # a reproduction experiment.
-        "deterministic_reproduction_passed": None,
-        "deterministic_reproduction_observed": False,
+        "lookahead_violation": (
+            None if independent_validation is None else
+            independent_validation.get("lookahead_probe", {}).get("status") != "passed"
+        ),
+        "lookahead_violation_observed": bool(
+            independent_validation is not None
+            and independent_validation.get("lookahead_probe", {}).get("observed")
+        ),
+        "deterministic_reproduction_passed": (
+            None if independent_validation is None else
+            independent_validation.get("deterministic_replay", {}).get("status") == "passed"
+        ),
+        "deterministic_reproduction_observed": bool(
+            independent_validation is not None
+            and independent_validation.get("deterministic_replay", {}).get("observed")
+        ),
+        "independent_validation": independent_validation or {
+            "schema": "openhyra-bermudan-independent-validation.v1",
+            "observed": False,
+            "reason": "independent validation disabled",
+        },
         "summaries": summaries,
     }
     # Emit direct projections so downstream V5 code can build a profile
@@ -2099,7 +2338,19 @@ def _evaluate_search(
         aggregate_effect=mean_improvement,
         aggregate_standard_error=aggregate_se,
     )
-    metrics["feedback_packet"] = feedback_packet.to_dict()
+    feedback_payload = feedback_packet.to_dict()
+    if independent_validation is not None:
+        feedback_payload.setdefault("observed", {})[
+            "independent_reproduction"
+        ] = {
+            "status": independent_validation.get(
+                "deterministic_replay", {}
+            ).get("status", "not_observed"),
+            "lookahead_probe": independent_validation.get(
+                "lookahead_probe", {}
+            ),
+        }
+    metrics["feedback_packet"] = feedback_payload
     evidence = {
         "search": {
             "status": "paired_oos_checked",
@@ -2114,8 +2365,15 @@ def _evaluate_search(
             "feedback_packet_id": feedback_packet.packet_id,
             "feedback_packet_schema": feedback_packet.schema,
             "independent_reproduction": {
-                "status": "not_observed",
-                "reason": "search stage does not run an independent replay",
+                "status": (
+                    (independent_validation or {}).get(
+                        "deterministic_replay", {}
+                    ).get("status", "not_observed")
+                ),
+                "lookahead_probe": (independent_validation or {}).get(
+                    "lookahead_probe", {"status": "not_observed"}
+                ),
+                "reason": "one fresh top-candidate replay and causal probe",
             },
         }
     }
@@ -2140,6 +2398,7 @@ def _evaluate_audit(
     summaries: list[dict[str, Any]] = []
     confidence_gaps: list[float] = []
     training_cells: list[dict[str, Any]] = []
+    independent_validation: dict[str, Any] | None = None
     dual_verifiers: set[str] = set()
     training_root: Path | None = None
     if candidate_source_dir is not None:
@@ -2185,11 +2444,27 @@ def _evaluate_audit(
                     cell_dir=cell_dir,
                     config=config,
                 )
+                if (
+                    candidate_source_dir is not None
+                    and independent_validation is None
+                    and config.get("independent_validation", True)
+                ):
+                    independent_validation = _independent_validation(
+                        policy=policy,
+                        source_dir=candidate_source_dir,
+                        manifest=candidate_manifest,
+                        instance=instance,
+                        training_paths=training,
+                        train_seed=train_seed,
+                        training_root=training_root,
+                        config=config,
+                    )
                 if candidate_source_dir is not None:
                     training_cells.append({
-                        "instance_id": instance.instance_id,
                         "repeat": repeat,
-                        **train_details,
+                        **_training_provenance(
+                            instance, training, train_seed, train_details
+                        ),
                     })
                 lower_samples, _ = apply_policy(policy, pricing)
                 # Open Python programs may return direct decisions and may use
@@ -2264,6 +2539,10 @@ def _evaluate_audit(
     cell_count = len(confidence_gaps)
     metrics = {
         "metric": "normalized_primal_dual_confidence_gap",
+        "research_mode": bool(config.get("research_mode", False)),
+        "independent_validation_enabled": bool(
+            config.get("independent_validation", True)
+        ),
         "normalized_primal_dual_confidence_gap": score,
         "confidence_level": config["confidence_level"],
         "confidence_construction": "bonferroni_one_sided_components",
@@ -2293,10 +2572,27 @@ def _evaluate_audit(
         # the packet's not_observed marker.
         "failure_rate": None,
         "failure_rate_observed": False,
-        "lookahead_violation": None,
-        "lookahead_violation_observed": False,
-        "deterministic_reproduction_passed": None,
-        "deterministic_reproduction_observed": False,
+        "lookahead_violation": (
+            None if independent_validation is None else
+            independent_validation.get("lookahead_probe", {}).get("status") != "passed"
+        ),
+        "lookahead_violation_observed": bool(
+            independent_validation is not None
+            and independent_validation.get("lookahead_probe", {}).get("observed")
+        ),
+        "deterministic_reproduction_passed": (
+            None if independent_validation is None else
+            independent_validation.get("deterministic_replay", {}).get("status") == "passed"
+        ),
+        "deterministic_reproduction_observed": bool(
+            independent_validation is not None
+            and independent_validation.get("deterministic_replay", {}).get("observed")
+        ),
+        "independent_validation": independent_validation or {
+            "schema": "openhyra-bermudan-independent-validation.v1",
+            "observed": False,
+            "reason": "independent validation disabled",
+        },
         "summaries": summaries,
         "dual_verifier": (
             next(iter(dual_verifiers)) if len(dual_verifiers) == 1 else "mixed"
@@ -2330,7 +2626,19 @@ def _evaluate_audit(
         confidence_level=config["confidence_level"],
         aggregate_effect=-mean_gap,
     )
-    metrics["feedback_packet"] = feedback_packet.to_dict()
+    feedback_payload = feedback_packet.to_dict()
+    if independent_validation is not None:
+        feedback_payload.setdefault("observed", {})[
+            "independent_reproduction"
+        ] = {
+            "status": independent_validation.get(
+                "deterministic_replay", {}
+            ).get("status", "not_observed"),
+            "lookahead_probe": independent_validation.get(
+                "lookahead_probe", {}
+            ),
+        }
+    metrics["feedback_packet"] = feedback_payload
     evidence = {
         "audit": {
             "status": "private_primal_dual_checked",
@@ -2354,8 +2662,15 @@ def _evaluate_audit(
             "feedback_packet_id": feedback_packet.packet_id,
             "feedback_packet_schema": feedback_packet.schema,
             "independent_reproduction": {
-                "status": "not_observed",
-                "reason": "audit evaluates hidden cells but does not replay them independently",
+                "status": (
+                    (independent_validation or {}).get(
+                        "deterministic_replay", {}
+                    ).get("status", "not_observed")
+                ),
+                "lookahead_probe": (independent_validation or {}).get(
+                    "lookahead_probe", {"status": "not_observed"}
+                ),
+                "reason": "one fresh top-candidate replay and causal probe",
             },
         }
     }
@@ -2372,8 +2687,11 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         "training_memory_bytes", "training_file_size_bytes",
         "prediction_timeout_s", "prediction_cpu_seconds",
         "prediction_memory_bytes", "prediction_file_size_bytes",
+        # Research-only diagnostics are additive and never alter the primary
+        # score, suite, seed, causal inputs, or evaluator-owned arithmetic.
+        "research_mode", "independent_validation",
     }
-    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else set())
+    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else {"public_pathwise_samples"})
     _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
     expected_direction = "max" if stage == "search" else "min"
     direction = raw.get("direction", expected_direction)
@@ -2396,12 +2714,21 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         "direction": direction,
         "metric": metric,
         "confidence_level": confidence,
+        # Research mode labels the experiment; it never bypasses isolation or
+        # changes the evaluator-owned score or causal input boundary.
+        "research_mode": bool(raw.get("research_mode", False)),
+        "independent_validation": bool(raw.get("independent_validation", True)),
         "instance_count": _strict_int(raw.get("instance_count", defaults["instance_count"]), path="config.instance_count", minimum=1, maximum=4 if stage == "search" else 8),
         "repeats": _strict_int(raw.get("repeats", defaults["repeats"]), path="config.repeats", minimum=1, maximum=5),
         "training_paths": _strict_int(raw.get("training_paths", defaults["training_paths"]), path="config.training_paths", minimum=64, maximum=20_000),
         "pricing_paths": _strict_int(raw.get("pricing_paths", defaults["pricing_paths"]), path="config.pricing_paths", minimum=64, maximum=50_000),
         "ridge_alpha": _strict_float(raw.get("ridge_alpha", defaults["ridge_alpha"]), path="config.ridge_alpha", minimum=1e-12, maximum=1.0),
     }
+    for key in ("research_mode", "independent_validation", "public_pathwise_samples"):
+        if key in raw:
+            if not isinstance(raw[key], bool):
+                raise ValueError(f"config.{key} must be boolean")
+            result[key] = raw[key]
     if "training_timeout_s" in raw:
         result["training_timeout_s"] = _strict_float(
             raw["training_timeout_s"], path="config.training_timeout_s",

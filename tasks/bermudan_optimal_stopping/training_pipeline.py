@@ -82,6 +82,7 @@ class TrainingCellResult:
     policy_file_sha256: tuple[tuple[str, str], ...] | None
     policy_artifact_sha256: str | None
     runner: ContinuationRunner | "SandboxedPythonProgramRunner" | None
+    research_fallback: bool = False
 
 
 @dataclass(frozen=True)
@@ -341,6 +342,26 @@ def _load_python_program_model(
         manifest=manifest,
         files=tuple(sorted(files)),
     )
+
+
+def _python_model_artifact_sha256(artifact: PythonProgramModelArtifact) -> str:
+    """Hash the opaque model tree with a stable manifest/framing envelope."""
+    digest = hashlib.sha256()
+    manifest_payload = {
+        "schema": artifact.manifest.schema,
+        "interface": artifact.manifest.interface,
+    }
+    manifest_bytes = _canonical_json_bytes(manifest_payload)
+    digest.update(b"openhyra-python-model.v1\0")
+    digest.update(len(manifest_bytes).to_bytes(4, "big"))
+    digest.update(manifest_bytes)
+    for name, data in artifact.files:
+        name_bytes = name.encode("utf-8")
+        digest.update(len(name_bytes).to_bytes(4, "big"))
+        digest.update(name_bytes)
+        digest.update(len(data).to_bytes(8, "big"))
+        digest.update(data)
+    return digest.hexdigest()
 
 
 def _seal_readonly_tree(root: Path) -> None:
@@ -717,6 +738,7 @@ def run_per_instance_training(
     common = {
         "returncode": sandbox_result["returncode"],
         "isolation": sandbox_result["isolation"],
+        "research_fallback": bool(sandbox_result.get("research_fallback", False)),
         "log_tail": sandbox_result["log_tail"],
         "wall_seconds": float(sandbox_result["wall_seconds"]),
         "peak_memory_bytes": int(sandbox_result["peak_memory_bytes"]),
@@ -779,10 +801,12 @@ def run_per_instance_training(
     return TrainingCellResult(
         status="ok",
         policy_file_sha256=(
-            None if is_python_program else runner.artifact.file_sha256
+            tuple((name, hashlib.sha256(data).hexdigest()) for name, data in artifact.files)
+            if is_python_program else runner.artifact.file_sha256
         ),
         policy_artifact_sha256=(
-            None if is_python_program else runner.artifact.bundle_sha256
+            _python_model_artifact_sha256(artifact)
+            if is_python_program else runner.artifact.bundle_sha256
         ),
         runner=runner,
         **common,

@@ -138,6 +138,7 @@ def test_context_decision_round_trips_mechanism_candidates():
     item = decision.mechanism_candidates[0]
     assert item["schema"] == HYPOTHESIS_SCHEMA
     assert item["failure_condition"]
+    assert item["intervention_operator"] == "ast_mutation"
     serialized = decision.to_dict()
     assert serialized["mechanism_candidates"][0]["id"] == "agent_boundary_1"
     restored = ContextDecision.from_payload(serialized)
@@ -169,12 +170,44 @@ def test_context_can_omit_ascii_slug_for_a_new_mechanism():
     assert len(identifier) <= 64
 
 
+def test_context_hypotheses_get_executable_operator_when_omitted():
+    decision = ContextDecision.from_payload({
+        "action": "continue",
+        "analysis": "Use four structurally distinct probes.",
+        "reason": "The operator must be executable.",
+        "next": "run the probes",
+        "mechanism_candidates": [
+            {"id": "fresh", "family": "program_generation", "mechanism": "generate a new program"},
+            {"id": "mutate", "family": "program_evolution", "mechanism": "change one branch"},
+            {"id": "compose", "family": "program_composition", "mechanism": "combine two parents"},
+            {"id": "fit", "family": "program_revision", "mechanism": "replace fit", "intervention_scope": "fit"},
+        ],
+    })
+    assert [item["intervention_operator"] for item in decision.mechanism_candidates] == [
+        "whole_program_restart", "ast_mutation", "ast_crossover", "subsystem_rewrite",
+    ]
+
+
 def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
     (source / "train.py").write_text("print('seed')\n")
     bank = ExperienceBank(tmp_path / "eb", direction="max")
     bank.commit(source, 0.1, "ok", "seed", None, "")
+    run_dir = tmp_path / "run"
+    research = run_dir / "research"
+    research.mkdir(parents=True)
+    (research / "prediction_table.json").write_text(json.dumps({
+        "schema": "openhyra-prediction-table.v1",
+        "row_count": 1,
+        "rows": [{
+            "record_id": "sol_0001",
+            "evaluator": {"status": "ok", "effect": 0.02,
+                          "standard_error": 0.01},
+            "prediction_verdict": "supported",
+            "next_action": "compose",
+        }],
+    }))
     task = SimpleNamespace(
         dir=ROOT / "tasks" / "bermudan_python_search",
         candidate_mode="algorithm_bundle",
@@ -190,6 +223,8 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
         fallback_directions=["try a mechanism"],
         engineering_invariants=[],
         allowed_context_phases=["numeric"],
+        run_dir=run_dir,
+        context_constraints="CONTEXT_ONLY_SENTINEL: return JSON without editing files",
     )
     response = subprocess.CompletedProcess(
         args=["codex"],
@@ -209,7 +244,7 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
         stderr="",
     )
     feedback_state = BeliefReducer().rebuild([], state_id="trusted-state")
-    with patch("context_agent.run_agent", return_value=response):
+    with patch("context_agent.run_agent", return_value=response) as mocked:
         decision, _baseline, prompt, _direction, metadata = build_inspiration(
             task, bank, 0, backend="codex", feedback_state=feedback_state,
         )
@@ -220,6 +255,11 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
     assert metadata["mechanism_candidates"][0]["id"] == "agent_boundary_1"
     assert "agent_boundary_1" in prompt
     assert "whole_program_restart" in prompt
+    assert metadata["prediction_table"]["consumed"] is True
+    assert metadata["prediction_table"]["rows_in_prompt"] == 1
+    assert "Evaluator prediction table" in mocked.call_args.args[0]
+    assert "CONTEXT_ONLY_SENTINEL" in mocked.call_args.args[0]
+    assert "CONTEXT_ONLY_SENTINEL" not in prompt
 
 
 def test_open_algorithm_task_gets_portfolio_output_slot_without_task_design(tmp_path):

@@ -116,6 +116,10 @@ class PythonProgramExperimentConfig:
     backend: str = "injected"
     model: str = "none"
     matched_controls: MatchedControlPlan = field(default_factory=MatchedControlPlan)
+    # These flags make the research boundary explicit in the frozen manifest.
+    # They add diagnostics only; the evaluator request remains authoritative.
+    research_mode: bool = True
+    independent_validation: bool = True
     git_sha: str | None = None
 
     def manifest(self) -> dict[str, Any]:
@@ -123,6 +127,10 @@ class PythonProgramExperimentConfig:
             raise ValueError("trial_seed must be a non-negative integer")
         if self.rounds < 0 or self.candidates_per_round < 1:
             raise ValueError("rounds/candidates_per_round out of range")
+        if not isinstance(self.research_mode, bool) or not isinstance(
+            self.independent_validation, bool
+        ):
+            raise ValueError("research_mode and independent_validation must be bool")
         git = _git_metadata(self.root)
         if self.git_sha is not None:
             if self.git_sha != git.get("sha"):
@@ -140,6 +148,8 @@ class PythonProgramExperimentConfig:
             "git": git,
             "search_request": dict(self.search_request),
             "matched_controls": self.matched_controls.to_dict(),
+            "research_mode": self.research_mode,
+            "independent_validation": self.independent_validation,
             "evidence_boundary": "executable whole-program run; novelty and generalization unobserved",
         }
 
@@ -188,7 +198,24 @@ def candidate_record(event: DiscoveryEvent) -> dict[str, Any]:
         "mechanism_id": candidate.mechanism_id,
         "source": {path: source[path] for path in sorted(source)},
         "source_sha256": source_tree_sha256(source),
+        # Stable aliases make the experiment bundle self-describing for
+        # downstream Context tooling while retaining the historical field
+        # names above.
+        "source_digest": source_tree_sha256(source),
+        "parent_lineage": list(candidate.parent_ids),
         "ast_sha256": ast_lineage_sha256(source),
+        "research_hypothesis": {
+            "mechanism_id": candidate.mechanism_id,
+            "family": candidate.family,
+            "prediction": candidate.prediction,
+            "falsifier": candidate.falsifier,
+            "target_slice": metadata.get("target_slice", metadata.get("target_slices")),
+        },
+        "evaluator_observation": {
+            "effect": result.metrics.get("mean_paired_normalized_improvement", result.metrics.get("mean_normalized_confidence_gap")),
+            "standard_error": result.metrics.get("paired_aggregate_standard_error", result.metrics.get("aggregate_standard_error")),
+            "failure_reason": failure["reason"] if failure else None,
+        },
         "metadata": metadata,
         "matched_control": matched or None,
         "result": result.to_dict(),
