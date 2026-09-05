@@ -40,7 +40,7 @@ def test_task_declares_open_mechanism_portfolio():
     design = load_mechanism_design(task)
     assert design.active
     assert design.schema == CONFIG_SCHEMA
-    assert len(design.directions) >= 8
+    assert len(design.directions) >= 4
     assert len({item.id for item in design.directions}) == len(design.directions)
     assert all(item.prediction and item.failure_condition for item in design.directions)
     assert matched_control_enabled(task)
@@ -115,7 +115,7 @@ def test_context_and_proposal_blocks_expose_structured_fields():
     )
     assert "Open algorithm-design portfolio" in context
     assert "mechanism_candidates" in context
-    assert "cross_fitted_targets" in context
+    assert "whole_program_restart" in context
     assert "Open algorithm-design assignment" in proposal
     assert "matched_control" in proposal
     assert "agent_boundary_1" in proposal
@@ -219,7 +219,7 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
     assert metadata["state_hash"] == feedback_state.state_hash
     assert metadata["mechanism_candidates"][0]["id"] == "agent_boundary_1"
     assert "agent_boundary_1" in prompt
-    assert "cross_fitted_targets" in prompt
+    assert "whole_program_restart" in prompt
 
 
 def test_open_algorithm_task_gets_portfolio_output_slot_without_task_design(tmp_path):

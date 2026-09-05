@@ -1,10 +1,11 @@
-"""Continuation-policy protocol dispatch and small trusted runners.
+"""Policy-protocol dispatch for legacy artifacts and open Python programs.
 
-The training side of V5 is intentionally open-ended: a candidate ``train.py``
-may fit a linear model, compile a symbolic rule, or train an MLP.  The
-evaluator must nevertheless consume only a frozen, data-only artifact.  This
-module is the common boundary for the two light-weight protocols that are
-useful before a larger policy graph is needed:
+The historical task accepts data-only Linear, Expression, and MLP artifacts
+through small trusted runners. The additive ``python_program`` task instead
+executes a candidate-owned ``algorithm.py`` through the fit/predict process
+contract; its manifest declares only continuation versus direct decision.
+
+The legacy artifact protocols are:
 
 ``continuation-linear.v1``
     Per-exercise-date affine continuation values.  The artifact contains one
@@ -20,14 +21,16 @@ useful before a larger policy graph is needed:
 
 The existing ``openhyra-policy-spec.v1`` MLP loader remains the canonical MLP
 implementation in :mod:`policy_artifact`; ``load_continuation_runner`` routes
-to it without changing its wire format.  Runners are deterministic,
+to it without changing its wire format. These legacy runners are deterministic,
 stateless, and expose the small common interface::
 
     runner.continuation(time_index, states, instance=None)
 
 ``instance`` is optional for linear/MLP policies and required by expression
 terminals that need contract semantics (payoff type, strike, weights, and
-exercise times).  No runner makes the exercise decision.
+exercise times). No legacy continuation runner makes the exercise decision.
+Python-program candidates use the separate process runner and may return a
+direct decision explicitly.
 """
 
 from __future__ import annotations
@@ -74,8 +77,11 @@ from .policy_artifact import (
 
 LINEAR_SCHEMA = "continuation-linear.v1"
 EXPRESSION_SCHEMA = "continuation-expression.v1"
+PYTHON_PROGRAM_SCHEMA = "openhyra-python-program.v1"
 LINEAR_RUNNER_TYPE = "linear"
 EXPRESSION_RUNNER_TYPE = "expression"
+PYTHON_PROGRAM_RUNNER_TYPE = "python_program"
+PYTHON_PROGRAM_INTERFACES = frozenset({"continuation", "decision"})
 LINEAR_WEIGHT_PATTERN = WEIGHT_PATTERN
 EXPRESSION_WEIGHT_PATTERN = "step_{:03d}.json"
 NORMALIZATION_NONE = "none"
@@ -146,6 +152,23 @@ class ContinuationManifest:
     output_semantics: str
     normalization: str
     weight_pattern: str
+
+
+@dataclass(frozen=True)
+class PythonProgramManifest:
+    """Minimal interface declaration for an executable ``algorithm.py``.
+
+    Entrypoint names and CLI verbs are evaluator-owned.  The candidate may
+    select only whether ``predictions.npy`` contains continuation values or
+    direct exercise decisions.
+    """
+
+    schema: str
+    interface: str
+
+    @property
+    def runner_type(self) -> str:
+        return PYTHON_PROGRAM_RUNNER_TYPE
 
 
 @dataclass(frozen=True)
@@ -322,6 +345,47 @@ def validate_continuation_manifest(raw: Any) -> ContinuationManifest | PolicyMan
     raise ValueError("policy manifest must be a supported manifest object")
 
 
+def validate_python_program_manifest(raw: Any) -> PythonProgramManifest:
+    """Validate the minimal open-program manifest without executable knobs."""
+    if isinstance(raw, PythonProgramManifest):
+        raw = {"schema": raw.schema, "interface": raw.interface}
+    fields = {"schema", "interface"}
+    _strict_keys(
+        raw,
+        required=fields,
+        allowed=fields,
+        path="python program manifest",
+    )
+    if raw["schema"] != PYTHON_PROGRAM_SCHEMA:
+        raise ValueError(
+            f"python program manifest schema must be {PYTHON_PROGRAM_SCHEMA}"
+        )
+    interface = raw["interface"]
+    if interface not in PYTHON_PROGRAM_INTERFACES:
+        raise ValueError(
+            "python program manifest interface must be continuation or decision"
+        )
+    return PythonProgramManifest(
+        schema=PYTHON_PROGRAM_SCHEMA,
+        interface=interface,
+    )
+
+
+def validate_candidate_manifest(
+    raw: Any,
+) -> ContinuationManifest | PolicyManifest | PythonProgramManifest:
+    """Validate either a frozen continuation runner or an open program.
+
+    The legacy ``validate_continuation_manifest`` remains continuation-only.
+    Executable programs therefore require an explicit opt-in at the caller.
+    """
+    if isinstance(raw, PythonProgramManifest):
+        return validate_python_program_manifest(raw)
+    if isinstance(raw, Mapping) and raw.get("schema") == PYTHON_PROGRAM_SCHEMA:
+        return validate_python_program_manifest(raw)
+    return validate_continuation_manifest(raw)
+
+
 def _coerce_continuation_manifest(
     value: Any,
 ) -> tuple[ContinuationManifest | PolicyManifest, bytes]:
@@ -372,6 +436,18 @@ def load_continuation_manifest(path: str | os.PathLike[str]) -> ContinuationMani
     return _coerce_continuation_manifest(path)[0]
 
 
+def load_candidate_manifest(
+    path: str | os.PathLike[str],
+) -> ContinuationManifest | PolicyManifest | PythonProgramManifest:
+    """Read one strict candidate manifest and dispatch by schema."""
+    manifest_path = Path(path)
+    if manifest_path.name != "manifest.json":
+        raise ValueError("policy manifest file must be named manifest.json")
+    data = _read_regular_file(manifest_path, 64 * 1024, label="manifest.json")
+    raw = _load_json_bytes(data, label="manifest.json")
+    return validate_candidate_manifest(raw)
+
+
 def canonical_manifest_payload(
     manifest: ContinuationManifest | PolicyManifest | Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -398,6 +474,24 @@ def canonical_manifest_payload(
             "weight_pattern": validated.weight_pattern,
         }
     return _manifest_payload(validated)
+
+
+def canonical_candidate_manifest_payload(
+    manifest: (
+        ContinuationManifest
+        | PolicyManifest
+        | PythonProgramManifest
+        | Mapping[str, Any]
+    ),
+) -> dict[str, Any]:
+    """Return the normalized JSON representation of every admitted manifest."""
+    validated = validate_candidate_manifest(manifest)
+    if isinstance(validated, PythonProgramManifest):
+        return {
+            "schema": validated.schema,
+            "interface": validated.interface,
+        }
+    return canonical_manifest_payload(validated)
 
 
 def _resolved_dimension(manifest: ContinuationManifest, input_dim: int | None) -> int:
@@ -1077,10 +1171,14 @@ __all__ = [
     "ContinuationRunner",
     "ContinuationInferenceConfig",
     "ContinuationManifest",
+    "PythonProgramManifest",
     "LINEAR_SCHEMA",
     "EXPRESSION_SCHEMA",
+    "PYTHON_PROGRAM_SCHEMA",
     "LINEAR_RUNNER_TYPE",
     "EXPRESSION_RUNNER_TYPE",
+    "PYTHON_PROGRAM_RUNNER_TYPE",
+    "PYTHON_PROGRAM_INTERFACES",
     "LINEAR_WEIGHT_PATTERN",
     "EXPRESSION_WEIGHT_PATTERN",
     "NORMALIZATION_NONE",
@@ -1093,6 +1191,10 @@ __all__ = [
     "validate_continuation_manifest",
     "load_continuation_manifest",
     "canonical_manifest_payload",
+    "validate_python_program_manifest",
+    "validate_candidate_manifest",
+    "load_candidate_manifest",
+    "canonical_candidate_manifest_payload",
     "load_linear_artifact",
     "load_expression_artifact",
     "load_continuation_runner",

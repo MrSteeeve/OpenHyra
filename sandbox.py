@@ -22,6 +22,7 @@ SOURCE_TREE_IGNORES = {
     "evidence.json",
 }
 ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
+PYTHON_PROGRAM_SOURCE_TREE_SENTINEL = "__openhyra_python_source_tree__"
 HEX_DIGITS = frozenset("0123456789abcdef")
 EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 NUMERIC_THREAD_ENV = {
@@ -876,6 +877,11 @@ def _configured_algorithm_source_files(task):
     helper also protects the lower-level sandbox API when it is called with a
     lightweight task object or from a standalone test.
     """
+    if (
+        getattr(task, "candidate_mode", "legacy") == "python_program"
+        and getattr(task, "candidate_source_tree", False)
+    ):
+        return (PYTHON_PROGRAM_SOURCE_TREE_SENTINEL,)
     configured = getattr(task, "candidate_source_files", None)
     if configured is None:
         configured = ALGORITHM_SOURCE_FILES
@@ -912,16 +918,30 @@ def snapshot_algorithm_source(source_dir, destination, task, max_bytes):
     names = _configured_algorithm_source_files(task)
     target_root.mkdir(mode=0o700, parents=True)
     try:
-        for name in sorted(names):
-            data = read_regular_file(
-                source / name,
-                int(max_bytes),
-                label=f"algorithm source file {name}",
-            )
-            target = target_root / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-            target.chmod(0o400)
+        if names == (PYTHON_PROGRAM_SOURCE_TREE_SENTINEL,):
+            # The trusted recursive snapshot applies the same symlink-free,
+            # bounded tree walk used for provenance.  Task-specific policy is
+            # enforced by the evaluator after this copy.
+            for relative, data, mode in _source_tree_entries(source, int(max_bytes)):
+                # solve.sh is task-owned transport plumbing and must never be
+                # exposed to the candidate evaluator as executable source.
+                if relative.as_posix() == "solve.sh":
+                    continue
+                target = target_root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                target.chmod(mode & ~0o222)
+        else:
+            for name in sorted(names):
+                data = read_regular_file(
+                    source / name,
+                    int(max_bytes),
+                    label=f"algorithm source file {name}",
+                )
+                target = target_root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                target.chmod(0o400)
         for directory in sorted(
             (path for path in target_root.rglob("*") if path.is_dir()),
             key=lambda path: len(path.parts),
@@ -1768,12 +1788,12 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     candidate_artifact_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
 
     candidate_source_dir = None
-    if getattr(task, "candidate_mode", "legacy") == "algorithm_bundle":
-        # The solver snapshot may contain task-owned plumbing such as
-        # ``solve.sh`` and the one-line proposal note.  The evaluator/training
-        # bridge receives a filtered, parent-controlled copy containing only
-        # the declared AlgorithmBundle source files, matching final-audit
-        # freezing and closing the untracked-helper identity gap.
+    if getattr(task, "candidate_mode", "legacy") in {
+        "algorithm_bundle", "python_program",
+    }:
+        # The evaluator receives only the task-declared candidate program
+        # files.  For ``python_program`` these are executable source rather
+        # than parameters for a registered trusted runner.
         try:
             candidate_source_dir = snapshot_algorithm_source(
                 trusted_dir / "source",

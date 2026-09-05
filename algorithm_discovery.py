@@ -1,15 +1,13 @@
-"""Task-independent interfaces for open algorithm discovery.
+"""Task-independent coordination for open algorithm discovery.
 
-The Bermudan track deliberately keeps a bounded candidate bundle and a
-task-owned evaluator.  This module is the reusable *research protocol* around
-that boundary: a search space emits complete algorithm specifications, an
-evaluator returns measured outcomes, a feedback oracle may project domain
-diagnostics, and a deterministic acquisition policy chooses what to try next.
+A search space emits complete algorithms, an evaluator returns measured
+outcomes, feedback updates the problem state, and the next generation may use
+those observations when choosing parents and operators.  The concrete whole-
+program implementation lives in :mod:`program_search`; task evaluators remain
+responsible for executing and scoring candidate programs.
 
-It does not execute arbitrary Python and it does not pretend that a portfolio
-of mutations is general algorithm discovery.  A future task can implement the
-small protocols here without changing the harness or weakening its private
-audit boundary.
+Providing this loop is an implemented search capability, not evidence that a
+scientifically novel algorithm has already been discovered.
 """
 
 from __future__ import annotations
@@ -235,6 +233,44 @@ class SearchSpace(Protocol):
 
     def validate(self, candidate: AlgorithmSpec) -> None:
         ...
+
+
+def make_python_program_search_space(**kwargs: Any) -> SearchSpace:
+    """Construct the repository's concrete whole-Python search space.
+
+    The lazy import keeps the task-independent dataclasses free of a circular
+    import while making the implemented search engine available from the same
+    public module as the protocol.
+    """
+    from program_search import PythonProgramSearchSpace
+
+    return PythonProgramSearchSpace(**kwargs)
+
+
+def make_agent_python_program_search_space(
+    workspace_root: str | Path,
+    *,
+    backend: str | None = None,
+    model: str | None = None,
+    timeout_s: int = 600,
+    initial_files: Mapping[str, str] | None = None,
+    **search_space_kwargs: Any,
+) -> SearchSpace:
+    """Construct a directly runnable LLM-backed Python program search space."""
+    from agent_program_generator import AgentWholeProgramGenerator
+    from program_search import PythonProgramSearchSpace
+
+    generator = AgentWholeProgramGenerator(
+        workspace_root,
+        backend=backend,
+        model=model,
+        timeout_s=timeout_s,
+        initial_files=initial_files,
+    )
+    return PythonProgramSearchSpace(
+        generator=generator,
+        **search_space_kwargs,
+    )
 
 
 @runtime_checkable
@@ -464,6 +500,64 @@ class AlgorithmDiscoveryLoop:
             events.append(event)
         return events
 
+    def run_search(
+        self,
+        search_space: SearchSpace,
+        evaluate: Callable[[AlgorithmSpec], EvaluationResult],
+        *,
+        rounds: int,
+        candidates_per_round: int,
+        context: Mapping[str, Any] | Callable[[int, ProblemState], Mapping[str, Any]] | None = None,
+        select: int | None = None,
+    ) -> list[DiscoveryEvent]:
+        """Run propose -> evaluate -> observe as one recursive search.
+
+        ``SearchSpace.propose`` is called only from the state published by the
+        previous round.  After the whole cohort is evaluated, results are fed
+        back to concrete spaces exposing ``observe`` before the next proposal
+        is generated.  This makes parent selection depend on measured results
+        rather than lineage labels alone.
+        """
+        if not isinstance(rounds, int) or rounds < 0:
+            raise ValueError("rounds must be a nonnegative int")
+        if not isinstance(candidates_per_round, int) or candidates_per_round < 1:
+            raise ValueError("candidates_per_round must be a positive int")
+
+        all_events: list[DiscoveryEvent] = []
+        for round_index in range(rounds):
+            if callable(context):
+                round_context = context(round_index, self.state)
+            else:
+                round_context = context or {}
+            if not isinstance(round_context, Mapping):
+                raise ValueError("search context must be a mapping")
+            begin_round = getattr(search_space, "begin_round", None)
+            end_round = getattr(search_space, "end_round", None)
+            if callable(begin_round):
+                begin_round()
+            try:
+                proposals = [
+                    search_space.propose(round_context, slot)
+                    for slot in range(candidates_per_round)
+                ]
+                for candidate in proposals:
+                    search_space.validate(candidate)
+                events = self.run_round(
+                    proposals,
+                    evaluate,
+                    round_index=round_index,
+                    select=select,
+                )
+                observe = getattr(search_space, "observe", None)
+                if callable(observe):
+                    for event in events:
+                        observe(event.result)
+                all_events.extend(events)
+            finally:
+                if callable(end_round):
+                    end_round()
+        return all_events
+
 
 # Friendly aliases for task authors and notebooks.
 AlgorithmCandidate = AlgorithmSpec
@@ -481,6 +575,8 @@ __all__ = [
     "AlgorithmCandidate",
     "EvaluationResult",
     "SearchSpace",
+    "make_python_program_search_space",
+    "make_agent_python_program_search_space",
     "FeedbackOracle",
     "AcquisitionDecision",
     "AcquisitionPolicy",

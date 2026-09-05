@@ -34,8 +34,8 @@ sys.modules[_SPEC.name] = _SHARED
 _SPEC.loader.exec_module(_SHARED)
 
 # Keep direct imports from this task compatible with imports from the shared
-# evaluator.  Private helpers are included intentionally: existing smoke
-# tests use a few underscore-prefixed protocol utilities.
+# evaluator. Private helpers are included intentionally for compatibility with
+# existing direct evaluator callers.
 for _name, _value in vars(_SHARED).items():
     if _name not in {"__name__", "__package__", "__loader__", "__spec__"}:
         globals()[_name] = _value
@@ -43,11 +43,11 @@ for _name, _value in vars(_SHARED).items():
 # The shared evaluator keeps the historical Feature IR constants so archived
 # callers remain compatible.  This directory is the explicit Python search
 # track, however, and its direct CLI/import surface should construct requests
-# for the AlgorithmBundle protocol by default.  Override only the task-facing
+# for the whole-program protocol by default.  Override only the task-facing
 # aliases; the shared supported-name/protocol sets and financial kernel stay
 # unchanged.
 _SHARED.TASK_NAME = "bermudan_python_search"
-_SHARED.TASK_PROTOCOL = _SHARED.ALGORITHM_BUNDLE_PROTOCOL
+_SHARED.TASK_PROTOCOL = _SHARED.PYTHON_PROGRAM_TASK_PROTOCOL
 TASK_NAME = _SHARED.TASK_NAME
 TASK_PROTOCOL = _SHARED.TASK_PROTOCOL
 

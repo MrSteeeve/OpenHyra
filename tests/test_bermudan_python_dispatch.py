@@ -304,9 +304,65 @@ class BermudanPythonDispatchTests(unittest.TestCase):
         request = python_evaluator.default_search_request()
         self.assertEqual(request["task"], "bermudan_python_search")
         self.assertEqual(
-            request["protocol"], "bermudan-lsmc-algorithm-bundle.v1",
+            request["protocol"], "bermudan-python-program-search.v1",
         )
-        self.assertEqual(request["suite_id"], "bermudan-python-public-v1")
+        self.assertEqual(request["suite_id"], "bermudan-python-public-v2")
+
+    def test_whole_program_protocol_rejects_a_legacy_runner_manifest(self):
+        request = {
+            **REQUEST,
+            "task": "bermudan_python_search",
+            "protocol": evaluator.PYTHON_PROGRAM_TASK_PROTOCOL,
+            "suite_id": "program-protocol-binding",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            source = self._candidate(Path(temporary), MLP_MANIFEST, MLP_TRAIN)
+            with self.assertRaisesRegex(
+                ValueError,
+                "requires openhyra-python-program.v1 with entrypoint algorithm.py",
+            ):
+                evaluator.evaluate_submission(
+                    MLP_MANIFEST,
+                    request,
+                    candidate_source_dir=source,
+                )
+
+    def test_python_program_manifest_rejects_a_historical_protocol(self):
+        manifest = {
+            "schema": evaluator.PYTHON_PROGRAM_SCHEMA,
+            "interface": "continuation",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "candidate"
+            source.mkdir()
+            (source / "manifest.json").write_text(json.dumps(manifest))
+            (source / "algorithm.py").write_text(
+                "def fit(*args):\n    pass\n\ndef predict(*args):\n    pass\n"
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "openhyra-python-program.v1 requires protocol "
+                "bermudan-python-program-search.v1",
+            ):
+                evaluator.evaluate_submission(
+                    manifest,
+                    REQUEST,
+                    candidate_source_dir=source,
+                )
+            wrong_task_request = {
+                **REQUEST,
+                "protocol": evaluator.PYTHON_PROGRAM_TASK_PROTOCOL,
+                "suite_id": "program-task-binding",
+            }
+            with self.assertRaisesRegex(
+                ValueError,
+                "requires task bermudan_python_search",
+            ):
+                evaluator.evaluate_submission(
+                    manifest,
+                    wrong_task_request,
+                    candidate_source_dir=source,
+                )
 
 
 if __name__ == "__main__":
