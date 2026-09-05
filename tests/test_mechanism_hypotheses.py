@@ -224,6 +224,7 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
         engineering_invariants=[],
         allowed_context_phases=["numeric"],
         run_dir=run_dir,
+        context_constraints="CONTEXT_ONLY_SENTINEL: return JSON without editing files",
     )
     response = subprocess.CompletedProcess(
         args=["codex"],
@@ -257,6 +258,8 @@ def test_build_inspiration_forwards_context_hypotheses_to_proposal_prompt(tmp_pa
     assert metadata["prediction_table"]["consumed"] is True
     assert metadata["prediction_table"]["rows_in_prompt"] == 1
     assert "Evaluator prediction table" in mocked.call_args.args[0]
+    assert "CONTEXT_ONLY_SENTINEL" in mocked.call_args.args[0]
+    assert "CONTEXT_ONLY_SENTINEL" not in prompt
 
 
 def test_open_algorithm_task_gets_portfolio_output_slot_without_task_design(tmp_path):

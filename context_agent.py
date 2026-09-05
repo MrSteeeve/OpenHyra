@@ -665,6 +665,7 @@ def _llm_context_analysis(task, eb, records, best, history, iteration,
     default_phase = allowed_phases[0]
     task_description = _clip_text(task.description, MAX_TASK_DESCRIPTION_CHARS)
     candidate_contract = _candidate_contract_block(task)
+    context_constraints = _clip_text(getattr(task, "context_constraints", ""), 4000)
     mechanism_context = render_context_block(
         task,
         candidate_count=getattr(task, "candidates_per_context", 4),
@@ -776,6 +777,7 @@ for the next (stateless) Proposal Agent. The score is {task.metric}; {better} is
 {pending_block}
 {prediction_table_block}
 {target_island_block}
+{context_constraints}
 ## Stop authority
 
 {stop_rule}
