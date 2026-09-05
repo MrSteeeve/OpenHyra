@@ -1,0 +1,119 @@
+{
+  "accepted_workshop_evidence": false,
+  "artifacts": {
+    "EXPERIMENT_SUMMARY.md": "7e0041a87d8441b740d4703a309623814bda5261de6093b3d26b9d9ea9ec901a",
+    "RUN_STATUS.json": "5396436932af0301a6c9ae2dd0010254c5874df5f960a16c9afaddd68b2f5977",
+    "candidate_ledger.jsonl": "6a783b43f198773c89872dd7da5dac278ef207c975c393ed607429e966f62e2e",
+    "summary.json": "2e39a710fbf8d2e46389ecae8c167716065003ce530d99475dcd837dc61c6a10"
+  },
+  "candidate_families": {
+    "direct_decision": {
+      "algorithm.py": "15a4befab0d20d591dbe15c21575a889b879f095f02a1ee76ac294224793eb7e",
+      "manifest.json": "189f68e10081fefe4795cb5d2d81f0a9e5c9c173751ecf395e67e57f01419f87"
+    },
+    "gated_ridge": {
+      "algorithm.py": "580af1f34384c142959b476d1e8763177625a05e1a63d90aa18628cb75b7cdf0",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    },
+    "linear_ridge": {
+      "algorithm.py": "f0e836d96636b126badddddf6d053c337992ccd6136b3e2147c0900fcc433007",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    },
+    "mlp": {
+      "algorithm.py": "9e4822d8b54b769941dd01bacfa7f58821167da886f2a368d651fe460fad6da1",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    },
+    "pca_ridge": {
+      "algorithm.py": "76eac61109fa5160e591ded6810caaff2505f5547397e068d561382d18637fd5",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    },
+    "policy_iteration": {
+      "algorithm.py": "1175602e0684bd72bc37f5177d59e2f8339c74b33310b4814ace8c1c411ed7fa",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    },
+    "residual_hybrid": {
+      "algorithm.py": "06978e9e870396eeb9d4b02621147bc367256fa57771a8c144a98e0054f316d7",
+      "manifest.json": "4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9"
+    }
+  },
+  "evaluator": {
+    "path": "tasks/bermudan_optimal_stopping/evaluator.py",
+    "sha256": "1ae58584787294299f5e83a3f470f469e5714384ad98e5a3dd2d8d20eb6c9e9f"
+  },
+  "git_revision": "8dbd6b15bbad75fe05fcfaf7fc2d7b7d33a546c1",
+  "historical_source_snapshot_complete": false,
+  "matrix": {
+    "modes": [
+      "context_proposal",
+      "direct_generation"
+    ],
+    "operators_by_round": [
+      [
+        "whole_program_restart",
+        "ast_mutation"
+      ],
+      [
+        "ast_crossover",
+        "subsystem_rewrite"
+      ]
+    ],
+    "pairs_per_round": 2,
+    "private_audits_per_mode_seed": 1,
+    "rounds": 2,
+    "seeds": [
+      17,
+      29,
+      41
+    ]
+  },
+  "rebuild": {
+    "command": "python3 experiments/run_bermudan_workshop.py --output NEW_EMPTY_DIRECTORY",
+    "generator_is_deterministic": true,
+    "llm_search_effect_observed": false,
+    "scope": "Regenerate a deterministic protocol fixture with the current checkout; historical timing and model digests are not guaranteed."
+  },
+  "repository": "OpenHyra",
+  "requests": {
+    "audit": {
+      "config": {
+        "independent_validation": true,
+        "inner_paths": 2,
+        "instance_count": 1,
+        "outer_paths": 64,
+        "pricing_paths": 64,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 64,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 9017,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "search": {
+      "config": {
+        "independent_validation": true,
+        "instance_count": 1,
+        "pricing_paths": 64,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 64,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 17,
+      "stage": "search",
+      "suite_id": "bermudan-python-public-v2",
+      "task": "bermudan_python_search"
+    }
+  },
+  "runner": {
+    "path": "experiments/run_bermudan_workshop.py",
+    "sha256": "1bf9e9492c34bfa9b2f15bd4d3090354a19a3464d8e4b277d0e647565b7ba5bf"
+  },
+  "schema": "openhyra-bermudan-workshop-manifest.v1"
+}

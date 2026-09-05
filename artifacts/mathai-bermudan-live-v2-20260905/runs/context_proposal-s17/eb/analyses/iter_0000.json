@@ -1,0 +1,148 @@
+{
+  "iteration": 0,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 17,
+  "direction": "Implement and evaluate both candidates by editing only algorithm.py and manifest.json, using identical seeds and budgets against their specified unchanged-parent controls on instance:public-put-high-vol.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0002 residual_hybrid narrowly leads sol_0000 linear_ridge (-0.000861 versus -0.000899), while sol_0001 MLP loses substantially (-0.003944). This weakly favors structured residual correction over unconstrained neural fitting, but no slice-level candidate outcomes identify a saturated family. Restart and structural mutation remain warranted. The high-volatility instance is the first falsification slice because its larger baseline exercise-rate variability suggests unstable stopping boundaries. Both experiments require matched budgets and unchanged-parent controls; improvement must come from executable structure rather than additional compute.",
+    "reason": "The frontier is close and structurally underexplored, so test one principled restart and one residual-hybrid mutation.",
+    "expected_gain": 0.0003,
+    "confidence": 0.57,
+    "phase": "discover",
+    "target_claim_id": null,
+    "success_criterion": "On instance:public-put-high-vol, at least one candidate has guided-minus-unchanged-parent mean discounted payoff greater than zero with a 95% confidence interval whose lower bound is above zero.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "restart_crossfit_monotone",
+        "family": "whole_program_restart",
+        "mechanism": "Replace the inherited program with a continuation interface that backward-fits cross-fitted ridge ensembles on normalized log-moneyness, basket extrema, dispersion, realized volatility, immediate payoff, and time-to-maturity; use robust target clipping and enforce continuation monotonicity in immediate payoff by isotonic calibration within each exercise time.",
+        "prediction": "The guided program produces positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol by stabilizing the exercise boundary without increasing the evaluator budget.",
+        "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+        "matched_control": "Run unmodified sol_0002 with the same evaluator paths, seeds, and compute budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "whole_program_restart",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0001",
+          "sol_0002"
+        ],
+        "next_probe": "Compare paired payoff, exercise-rate shift, and continuation calibration error against sol_0002 on instance:public-put-high-vol.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "mutate_residual_policy_iteration",
+        "family": "ast_mutation",
+        "mechanism": "Mutate sol_0002 training control flow into two bounded policy-improvement passes: fit its existing residual continuation model, recompute stopping labels and realized continuation targets under that policy, then refit a regularized residual correction with fold-separated predictions while preserving the original feature and prediction interfaces.",
+        "prediction": "The structural child produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through revised targets rather than extra model capacity.",
+        "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+        "matched_control": "Run unchanged sol_0002 for the same two data passes and identical seed, path, and wall-clock budgets.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002"
+        ],
+        "next_probe": "Verify that pass-two stopping labels differ from pass one, then measure paired payoff and exercise-boundary changes on instance:public-put-high-vol.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "family",
+    "intervention_operator": "whole_program_restart",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A shape-constrained cross-fitted continuation algorithm yields positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+    "falsifier": "The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0001",
+      "sol_0002"
+    ],
+    "next_probe": "Run the restart and sol_0002 with identical seeds and path budgets, reporting paired payoff differences and exercise rates on instance:public-put-high-vol.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Implement and evaluate both candidates by editing only algorithm.py and manifest.json, using identical seeds and budgets against their specified unchanged-parent controls on instance:public-put-high-vol.",
+    "intervention": {
+      "scope": "family",
+      "operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A shape-constrained cross-fitted continuation algorithm yields positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+      "falsifier": "The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Run the restart and sol_0002 with identical seeds and path budgets, reporting paired payoff differences and exercise rates on instance:public-put-high-vol.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "restart_crossfit_monotone",
+      "family": "whole_program_restart",
+      "mechanism": "Replace the inherited program with a continuation interface that backward-fits cross-fitted ridge ensembles on normalized log-moneyness, basket extrema, dispersion, realized volatility, immediate payoff, and time-to-maturity; use robust target clipping and enforce continuation monotonicity in immediate payoff by isotonic calibration within each exercise time.",
+      "prediction": "The guided program produces positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol by stabilizing the exercise boundary without increasing the evaluator budget.",
+      "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+      "matched_control": "Run unmodified sol_0002 with the same evaluator paths, seeds, and compute budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Compare paired payoff, exercise-rate shift, and continuation calibration error against sol_0002 on instance:public-put-high-vol.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "mutate_residual_policy_iteration",
+      "family": "ast_mutation",
+      "mechanism": "Mutate sol_0002 training control flow into two bounded policy-improvement passes: fit its existing residual continuation model, recompute stopping labels and realized continuation targets under that policy, then refit a regularized residual correction with fold-separated predictions while preserving the original feature and prediction interfaces.",
+      "prediction": "The structural child produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through revised targets rather than extra model capacity.",
+      "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+      "matched_control": "Run unchanged sol_0002 for the same two data passes and identical seed, path, and wall-clock budgets.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "program_subtree",
+      "intervention_operator": "ast_mutation",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002"
+      ],
+      "next_probe": "Verify that pass-two stopping labels differ from pass one, then measure paired payoff and exercise-boundary changes on instance:public-put-high-vol.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0002 residual_hybrid narrowly leads sol_0000 linear_ridge (-0.000861 versus -0.000899), while sol_0001 MLP loses substantially (-0.003944). This weakly favors structured residual correction over unconstrained neural fitting, but no slice-level candidate outcomes identify a saturated family. Restart and structural mutation remain warranted. The high-volatility instance is the first falsification slice because its larger baseline exercise-rate variability suggests unstable stopping boundaries. Both experiments require matched budgets and unchanged-parent controls; improvement must come from executable structure rather than additional compute.\", \"reason\": \"The frontier is close and structurally underexplored, so test one principled restart and one residual-hybrid mutation.\", \"expected_gain\": 0.0003, \"confidence\": 0.57, \"phase\": \"discover\", \"target_claim_id\": null, \"success_criterion\": \"On instance:public-put-high-vol, at least one candidate has guided-minus-unchanged-parent mean discounted payoff greater than zero with a 95% confidence interval whose lower bound is above zero.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"restart_crossfit_monotone\", \"family\": \"whole_program_restart\", \"mechanism\": \"Replace the inherited program with a continuation interface that backward-fits cross-fitted ridge ensembles on normalized log-moneyness, basket extrema, dispersion, realized volatility, immediate payoff, and time-to-maturity; use robust target clipping and enforce continuation monotonicity in immediate payoff by isotonic calibration within each exercise time.\", \"prediction\": \"The guided program produces positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol by stabilizing the exercise boundary without increasing the evaluator budget.\", \"failure_condition\": \"The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"matched_control\": \"Run unmodified sol_0002 with the same evaluator paths, seeds, and compute budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Compare paired payoff, exercise-rate shift, and continuation calibration error against sol_0002 on instance:public-put-high-vol.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"mutate_residual_policy_iteration\", \"family\": \"ast_mutation\", \"mechanism\": \"Mutate sol_0002 training control flow into two bounded policy-improvement passes: fit its existing residual continuation model, recompute stopping labels and realized continuation targets under that policy, then refit a regularized residual correction with fold-separated predictions while preserving the original feature and prediction interfaces.\", \"prediction\": \"The structural child produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through revised targets rather than extra model capacity.\", \"failure_condition\": \"The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"matched_control\": \"Run unchanged sol_0002 for the same two data passes and identical seed, path, and wall-clock budgets.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"program_subtree\", \"intervention_operator\": \"ast_mutation\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\"], \"next_probe\": \"Verify that pass-two stopping labels differ from pass one, then measure paired payoff and exercise-boundary changes on instance:public-put-high-vol.\", \"state_version\": null}], \"intervention_scope\": \"family\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A shape-constrained cross-fitted continuation algorithm yields positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Run the restart and sol_0002 with identical seeds and path budgets, reporting paired payoff differences and exercise rates on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Implement and evaluate both candidates by editing only algorithm.py and manifest.json, using identical seeds and budgets against their specified unchanged-parent controls on instance:public-put-high-vol.\", \"intervention\": {\"scope\": \"family\", \"operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A shape-constrained cross-fitted continuation algorithm yields positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The upper endpoint of the 95% confidence interval for guided-minus-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Run the restart and sol_0002 with identical seeds and path budgets, reporting paired payoff differences and exercise rates on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null}}"
+}

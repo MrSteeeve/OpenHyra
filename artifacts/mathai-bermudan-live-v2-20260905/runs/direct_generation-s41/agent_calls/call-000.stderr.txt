@@ -1,0 +1,2462 @@
+2026-09-05T16:33:32.008088Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.009718Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.011039Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.012546Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.014206Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.017021Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.018284Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.019477Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.020663Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.021698Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.022723Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.023769Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.024890Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.025914Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:33:32.026972Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0726b-0756-7323-ad60-e76976455195
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+## Search semantics
+
+The Context Agent may propose several unrelated mechanisms in one round.
+Proposal may rewrite a whole program, mutate executable AST structure,
+combine two parent programs, or restart from a blank implementation. The
+Experience Bank stores program source, measured outcomes, and full parent
+lineage. Scores and slice feedback guide which structures are revised,
+combined, or abandoned in later rounds.
+
+The old feature, affine, expression, and small-network implementations remain
+useful baselines. They no longer define the admitted search space.
+
+
+Generate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.
+
+## Local candidate identity
+
+This is candidate 1 of 4 generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all 4 candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+
+
+## Mechanism slot
+
+Mechanism id: `direct_r0_0`
+Family: open_program_generation
+Intervention scope: whole_program
+Intervention operator: whole_program_restart
+Target slice: instance:public-put-atm
+Proposed mechanism: Use the declared operation to improve the parent program.
+Prediction: positive mean paired payoff on the declared slice
+Falsifier: upper 95% paired CI is below zero
+Matched control: unchanged parent with identical input and budget
+Next probe: 
+Evidence ids: 
+
+This is the GUIDED arm. Implement or materially instantiate the proposed
+mechanism, while keeping the artifact protocol and evaluator-owned boundary
+unchanged. You may synthesize a genuinely new structure when the evidence
+supports it; record the falsifiable prediction and control in PROPOSAL.md.
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: whole_program_restart
+- target_slice: instance:public-put-atm
+- prediction: positive mean paired payoff on the declared slice
+- falsifier: upper 95% paired CI is below zero
+
+The inherited implementation has been removed and replaced with a blank fit/predict scaffold. Build a complete new program from the proposed principle; do not reconstruct the parent by default.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 42 additional skills were not included in the model-visible skills list.
+codex
+I’ll build this as a fresh whole-program candidate, first checking the exact protocol and scaffold, then implementing and smoke-testing the fit/predict lifecycle without touching `solve.sh`.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!solve.sh'"' -g '"'!.*'"' && sed -n '1,260p' PYTHON_PROGRAM_PROTOCOL_V1.md && sed -n '1,240p' algorithm.py && sed -n '1,120p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ exited 1 in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+algorithm.py
+manifest.json
+sed: PYTHON_PROGRAM_PROTOCOL_V1.md: No such file or directory
+
+codex
+The referenced protocol file is not present in this candidate directory, so I’m locating the task-owned copy nearby and inspecting the blank anchors before choosing serialization and query-time behavior.
+exec
+/bin/zsh -lc "find .. -name PYTHON_PROGRAM_PROTOCOL_V1.md -print | head -20; sed -n '1,260p' algorithm.py; sed -n '1,120p' manifest.json; ls -la" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 0ms:
+"""Blank whole-program restart scaffold."""
+
+def fit(input_dir, output_dir, seed):
+    raise NotImplementedError("implement a new fit algorithm")
+
+def predict(model_dir, input_dir, output_dir):
+    raise NotImplementedError("implement a new predict algorithm")
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+total 16
+drwxr-xr-x@ 4 williamqian  staff  128 Sep  5 23:45 .
+drwxr-xr-x@ 3 williamqian  staff   96 Sep  6 00:33 ..
+-rw-r--r--@ 1 williamqian  staff  261 Sep  6 00:33 algorithm.py
+-rw-r--r--@ 1 williamqian  staff   76 Sep  5 23:45 manifest.json
+
+exec
+/bin/zsh -lc 'find /Users/williamqian/GitHub/OpenHyra -name PYTHON_PROGRAM_PROTOCOL_V1.md -print 2>/dev/null | head -20' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 283ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-20260905/reproduction/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+
+exec
+/bin/zsh -lc "sed -n '1,320p' /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md; rg -n \"public-put-atm|training_paths.npy|immediate_payoffs.npy\" /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search | head -100" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 0ms:
+# Bermudan Python program protocol v1
+
+Status: candidate-facing contract for `bermudan_python_search`.
+
+This task evaluates complete Python algorithms. It does not select a trusted
+Linear, Expression, or MLP runner. Those representations remain historical
+baselines in `bermudan_optimal_stopping`; they are not the admitted search
+space of this task.
+
+## Source tree
+
+Each candidate contains a bounded, recursively hashed source tree:
+
+```text
+algorithm.py
+manifest.json
+helpers/*.py   (optional; arbitrary relative depth)
+```
+
+`algorithm.py` owns training, representation, model state, inference, and the
+continuation or stopping rule. Helper `.py` modules and `.json`/`.toml`
+configuration files may be imported from the candidate tree. The harness and
+trusted evaluator reject symlinks and unsupported extensions, cap the tree at
+64 files, and include every accepted file in the source digest and provenance.
+It may define arbitrary finite functions,
+classes, loops, numerical procedures, symbolic procedures, internal searches,
+or state machines in that file. Training may write any model tree beneath the
+evaluator-provided output directory.
+
+The manifest is exactly one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+The manifest declares an interaction interface, not an algorithm family.
+
+## Fit command
+
+The evaluator invokes:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+The program must expose the command body as:
+
+```python
+def fit(input_dir, output_dir, seed):
+    ...
+```
+
+`INPUT_DIR` contains:
+
+- `training_paths.npy`: evaluator-generated training paths;
+- `payoffs.npy`: evaluator-computed discounted immediate payoffs;
+- `discount_factors.npy`: discount factors on the exercise grid;
+- `instance.json`: contract and exercise-grid parameters.
+
+The candidate decides how these observations are transformed, fitted, stored,
+or searched. There is no required optimizer, loss, feature grammar, network,
+regression family, or model-file schema.
+
+## Predict command
+
+At every non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+The program must expose the command body as:
+
+```python
+def predict(model_dir, input_dir, output_dir):
+    ...
+```
+
+`QUERY_DIR` contains:
+
+- `history.npy`: the path prefix through the current exercise time;
+- `states.npy`: the current state batch;
+- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+- `request.json`: the current time index and instance description.
+
+The program writes one NumPy array to `RESULT_DIR/predictions.npy` with the
+same leading batch shape as `states.npy`:
+
+- `continuation`: finite real continuation values in discounted payoff units;
+- `decision`: booleans or exact zero/one values, where true means exercise.
+
+## Search operations
+
+The search system may create a candidate through:
+
+- whole-program generation from a blank fit/predict scaffold;
+- whole-program or subsystem rewrite by an LLM;
+- executable AST mutation inside algorithmic functions;
+- two-parent program composition with an evolvable prediction combiner.
+
+These are generation operations, not registered solution families. The final
+candidate is always the resulting Python program, and measured evaluator
+outcomes determine later parent selection.
+
+For the workshop protocol, the harness normalizes Context aliases to four
+canonical operator identities: `whole_program_restart`, `ast_mutation`,
+`ast_crossover`, and `subsystem_rewrite`. The normalized identity, operator
+detail, source-tree digest, parent lineage, matched arm, and candidate seed are
+written beside the evaluator result, together with the Proposal layer's actual
+operator materialization receipt. A control arm retains the same baseline
+source and request budget so the measured contrast is reviewable.
+
+Context-generated hypotheses are required to serialize one of those four
+names. For compatibility with an archived packet that omitted an operator, the
+Context parser infers it from the declared family and intervention scope before
+the Harness builds a proposal slot; task-declared legacy directions retain
+their original aliases. After a round, Context reads the bounded
+`research/prediction_table.json` projection, while the append-only ledger stays
+the lossless provenance record.
+
+For every Python candidate the evaluator can run an independent same-seed fit
+and a causal lookahead check. The replay compares the opaque model digest and a
+fresh prediction; the lookahead changes only the suffix after the supplied
+history and requires identical predictions. Both probes are diagnostic
+evidence and never modify the primary score. Per-cell records also include
+the exact training-path and discounted-payoff hashes, an evaluator target
+stream hash, the actual (folded) fit seed, separate simulator path seed, model-file digests,
+and wall time. The candidate's
+internal continuation targets remain outside the evaluator observation
+boundary.
+
+The workshop bundle includes `manifest.json` containing runner/evaluator and
+candidate-source digests, the request matrix, and a numerical replay command.
+`artifact_hashes.json` identifies the exported evidence files. The frozen source,
+requests and programs reconstruct the numerical results without new model
+calls. Backend generation is not guaranteed to reproduce the same text; actual
+responses and all failed attempts are retained instead.
+
+## Evidence boundary
+
+Acceptance by this protocol proves only that the candidate is an executable
+algorithm evaluated on the configured Bermudan task. It does not prove that
+the program is novel, superior outside the measured suite, or mathematically
+correct in general. Those claims require repeated search runs, matched
+controls, held-out evaluation, and inspection of the discovered mechanism.
+
+Research mode never retries a denied native sandbox without isolation. Probe
+and replay durations are measured costs, not zero-filled deterministic fields.
+The live workshop runner uses common public requests across all candidates in
+a seed. Paired pathwise deltas provide covariance-aware slice standard errors;
+when these samples are absent, a labelled conservative SE-sum bound is used.
+The Context prediction table joins guided/control results on the declared slice
+and keeps this diagnostic separate from the fixed primary score.
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/TASK.md:56:| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/TASK.md:77:`immediate_payoffs.npy`, and `request.json`. History stops at the current
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:14:    rng=np.random.default_rng(int(seed)); paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:43:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/TASK.md:56:| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/TASK.md:77:`immediate_payoffs.npy`, and `request.json`. History stops at the current
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:14:    rng=np.random.default_rng(int(seed)); paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:43:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:59:- `training_paths.npy`: evaluator-generated training paths;
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:87:- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:19:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:37:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:22:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:65:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/seed_solution/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/seed_solution/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:59:- `training_paths.npy`: evaluator-generated training paths;
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:87:- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:21:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:50:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:15:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:42:    immediate=np.load(input_dir/"immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:15:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:42:    immediate=np.load(input_dir/"immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:10:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/reproduction/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:23:    immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:10:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:23:    immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:21:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:50:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:19:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:37:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:22:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:65:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+
+exec
+/bin/zsh -lc "sed -n '1,180p' /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py; sed -n '1,150p' /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py; rg -n 'public-put-atm|\"strike\"|exercise_times' /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search -g '*.json' -g '*.py' | head -100" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 0ms:
+#!/usr/bin/env python3
+"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
+
+Both the least-squares fit and the network optimizer belong to this candidate.
+No evaluator labels or prices are needed: future discounted path cash flows
+supply the regression targets, with stopping decisions updated backward.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+
+def features(states, immediate):
+    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
+
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    rng = np.random.default_rng(seed)
+    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+    steps, width = paths.shape[1] - 1, 16
+    d = features(paths[:, 0], payoffs[:, 0]).shape[1]
+    coefs = np.zeros((steps, d)); means = np.zeros_like(coefs); scales = np.ones_like(coefs)
+    w1s = np.zeros((steps, d, width)); b1s = np.zeros((steps, width))
+    w2s = np.zeros((steps, width)); b2s = np.zeros(steps); target_scales = np.ones(steps)
+    targets = np.zeros((steps, len(paths))); losses = np.zeros((steps, 2)); updates = np.zeros(steps)
+    cash = payoffs[:, -1].copy()
+    for t in range(steps - 1, -1, -1):
+        targets[t] = cash
+        x = features(paths[:, t], payoffs[:, t])
+        mean, scale = x.mean(0), x.std(0); mean[0] = 0.; scale[scale < 1e-10] = 1.
+        x = (x - mean) / scale
+        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-5, x.T @ cash)
+        residual = cash - x @ coef
+        target_scale = max(float(residual.std()), 1e-5)
+        y = residual / target_scale
+        w1 = rng.normal(0., .15, (d, width)); initial = w1.copy()
+        b1 = np.zeros(width); w2 = rng.normal(0., .1, width); b2 = 0.
+        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
+        for _ in range(64):
+            h = np.tanh(x @ w1 + b1); err = h @ w2 + b2 - y
+            g = 2. * err / len(x); hidden_g = (g[:, None] * w2) * (1. - h * h)
+            gw1, gb1, gw2, gb2 = x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum()
+            w1 -= .03 * gw1; b1 -= .03 * gb1; w2 -= .03 * gw2; b2 -= .03 * gb2
+        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+        losses[t, 1] = np.mean((residual_pred - y) ** 2)
+        updates[t] = np.linalg.norm(w1 - initial)
+        continuation = x @ coef + target_scale * residual_pred
+        cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+        coefs[t], means[t], scales[t] = coef, mean, scale
+        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = w1, b1, w2, b2, target_scale
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / "model.npz", coefficients=coefs, means=means, scales=scales,
+             w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+    np.savez(output_dir / "training_trace.npz", backward_targets=targets,
+             loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
+
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    t = int(json.loads((input_dir / "request.json").read_text())["time_index"])
+    states = np.load(input_dir / "states.npy", allow_pickle=False)
+    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+    with np.load(model_dir / "model.npz", allow_pickle=False) as m:
+        x = (features(states, immediate) - m["means"][t]) / m["scales"][t]
+        residual = np.tanh(x @ m["w1"][t] + m["b1"][t]) @ m["w2"][t] + m["b2"][t]
+        out = x @ m["coefficients"][t] + m["target_scales"][t] * residual
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+
+
+def main():
+    parser = argparse.ArgumentParser(); sub = parser.add_subparsers(dest="command", required=True)
+    f = sub.add_parser("fit"); f.add_argument("--input", required=True); f.add_argument("--output", required=True); f.add_argument("--seed", type=int, required=True)
+    p = sub.add_parser("predict"); p.add_argument("--model", required=True); p.add_argument("--input", required=True); p.add_argument("--output", required=True)
+    a = parser.parse_args()
+    if a.command == "fit": fit(Path(a.input), Path(a.output), a.seed)
+    else: predict(Path(a.model), Path(a.input), Path(a.output))
+
+if __name__ == "__main__": main()
+#!/usr/bin/env python3
+"""Repeated backward Bellman policy-iteration continuation program."""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states, immediate):
+    z=np.log(np.maximum(np.asarray(states,float),1e-12))
+    return np.column_stack([np.ones(len(z)),z,z*z,np.mean(z,1),np.asarray(immediate,float)])
+
+def ridge(x,y,alpha):
+    m=x.mean(0); s=x.std(0); m[0]=0.; s[s<1e-10]=1.; xn=(x-m)/s
+    c=np.linalg.solve(xn.T@xn+np.eye(x.shape[1])*alpha,xn.T@y)
+    return c,m,s
+
+def fit(input_dir:Path,output_dir:Path,seed:int)->None:
+    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False)
+    steps=paths.shape[1]-1; x0=features(paths[:,0,:],payoffs[:,0]); d=x0.shape[1]
+    coefficients=np.zeros((steps,d)); means=np.zeros_like(coefficients); scales=np.ones_like(coefficients)
+    # Two policy-evaluation/improvement sweeps make the update rule explicit.
+    cash=np.asarray(payoffs[:,-1],float).copy()
+    for sweep in range(2):
+        cash=np.asarray(payoffs[:,-1],float).copy()
+        for t in range(steps-1,-1,-1):
+            x=features(paths[:,t,:],payoffs[:,t]); y=cash.copy()
+            c,m,s=ridge(x,y,1e-6*(sweep+1)); coefficients[t],means[t],scales[t]=c,m,s
+            continuation=((x-m)/s)@c
+            cash=np.where(payoffs[:,t]>=continuation,payoffs[:,t],cash)
+    output_dir.mkdir(parents=True,exist_ok=True)
+    np.savez(output_dir/"model.npz",coefficients=coefficients,means=means,scales=scales,sweeps=np.array([2]))
+
+def predict(model_dir:Path,input_dir:Path,output_dir:Path)->None:
+    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+    with np.load(model_dir/"model.npz",allow_pickle=False) as m:
+        x=features(states,immediate); out=((x-m["means"][t])/m["scales"][t])@m["coefficients"][t]
+    output_dir.mkdir(parents=True,exist_ok=True); np.save(output_dir/"predictions.npy",np.asarray(out,float),allow_pickle=False)
+
+def main():
+    p=argparse.ArgumentParser(); s=p.add_subparsers(dest="command",required=True)
+    f=s.add_parser("fit"); f.add_argument("--input",required=True); f.add_argument("--output",required=True); f.add_argument("--seed",type=int,required=True)
+    q=s.add_parser("predict"); q.add_argument("--model",required=True); q.add_argument("--input",required=True); q.add_argument("--output",required=True)
+    a=p.parse_args()
+    if a.command=="fit": fit(Path(a.input),Path(a.output),a.seed)
+    else: predict(Path(a.model),Path(a.input),Path(a.output))
+if __name__=="__main__": main()
+
+exec
+/bin/zsh -lc "rg -n \"public-put-atm|put-atm|option_type|payoff\" /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search /Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping -g '*.json' -g '*.py' | head -160" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/task.json:132:    "Each prediction sees only the current path prefix and evaluator-computed immediate payoff.",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:35:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:37:    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:41:    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:44:        design = features(paths[:, time_index, :], payoffs[:, time_index])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:54:        exercise = payoffs[:, time_index] >= continuation
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:55:        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/seed_solution/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:15:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False); steps=paths.shape[1]-1
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:16:    d=features(paths[:,0,:],payoffs[:,0]).shape[1]; hidden=min(24,max(8,2*d))
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:17:    w1s=[]; b1s=[]; w2s=[]; b2s=[]; cash=np.asarray(payoffs[:,-1],float).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:21:        x=features(paths[:,t,:],payoffs[:,t]); mean=x.mean(0); scale=x.std(0); mean[0]=0.; scale[scale<1e-10]=1.; x=(x-mean)/scale
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:29:        pred=np.tanh(x@w1+b1)@w2+b2; cash=np.where(payoffs[:,t]>=pred,payoffs[:,t],cash)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:35:        x=features(paths[:,t,:],payoffs[:,t]); m=x.mean(0); s=x.std(0); m[0]=0.; s[s<1e-10]=1.; means.append(m); scales.append(s)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:43:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:16:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:17:    steps = paths.shape[1] - 1; x0 = features(paths[:,0,:], payoffs[:,0])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:20:    thresholds = np.zeros(steps); cash = np.asarray(payoffs[:,-1], float).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:22:        x = features(paths[:,t,:], payoffs[:,t])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:33:        cash = np.where(payoffs[:,t] >= pred, payoffs[:,t], cash)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:42:    immediate=np.load(input_dir/"immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:35:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:37:    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:41:    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:44:        design = features(paths[:, time_index, :], payoffs[:, time_index])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:54:        exercise = payoffs[:, time_index] >= continuation
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:55:        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:20:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:21:    steps=paths.shape[1]-1; x0=features(paths[:,0,:],payoffs[:,0]); d=x0.shape[1]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:24:    cash=np.asarray(payoffs[:,-1],float).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:26:        cash=np.asarray(payoffs[:,-1],float).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:28:            x=features(paths[:,t,:],payoffs[:,t]); y=cash.copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:31:            cash=np.where(payoffs[:,t]>=continuation,payoffs[:,t],cash)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:37:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:22:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:28:    design0 = transform(paths[:, 0, :], payoffs[:, 0], center, components)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:32:    cash = np.asarray(payoffs[:, -1], float).copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:34:        x = transform(paths[:, t, :], payoffs[:, t], center, components)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:40:        cash = np.where(payoffs[:, t] >= xn @ coef, payoffs[:, t], cash)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:50:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:23:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:25:    d = features(paths[:, 0], payoffs[:, 0]).shape[1]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:30:    cash = payoffs[:, -1].copy()
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:33:        x = features(paths[:, t], payoffs[:, t])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:52:        cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:65:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:11:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:14:        immediate=np.asarray(payoffs[:,t],float)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:15:        # The threshold is learned from the empirical discounted payoff tail;
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:23:    immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_artifact.py:651:        is intentionally ignored; expression runners use it for payoff-aware
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/task.json:51:    "Candidates submit only the bounded typed feature IR; model, contract, simulation, payoff, discounting, regression, stopping, and scoring remain evaluator-owned.",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:29:    payoff,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:44:    "payoffs.npy",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:143:            payoff_type=instance.payoff_type,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:172:        "payoff_type": value.payoff_type,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:242:    payoffs = np.ascontiguousarray(
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:247:        "payoffs.npy": _npy_bytes(payoffs),
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:386:    immediate_payoffs: Any,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:423:    payoff_raw = np.asarray(immediate_payoffs)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:425:        not np.issubdtype(payoff_raw.dtype, np.number)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:426:        or np.issubdtype(payoff_raw.dtype, np.complexfloating)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:427:        or np.issubdtype(payoff_raw.dtype, np.bool_)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:429:        raise ValueError("immediate_payoffs must contain real numeric values")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:430:    immediate = np.ascontiguousarray(payoff_raw, dtype=np.float64)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:433:            f"immediate_payoffs must have shape {leading_shape}"
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:436:        raise ValueError("immediate_payoffs must be finite and non-negative")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:448:    (query_dir / "immediate_payoffs.npy").write_bytes(_npy_bytes(immediate))
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:502:        immediate_payoffs: Any,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:521:                immediate_payoffs=immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:606:        immediate_payoffs: Any | None,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:613:        if immediate_payoffs is None:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:614:            immediate_payoffs = payoff(state, self.instance) * math.exp(
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:617:        return np.asarray(history), np.asarray(immediate_payoffs)
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:626:        immediate_payoffs: Any | None = None,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:630:        history, immediate_payoffs = self._default_query(
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:631:            time_index, states, history, immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:637:            immediate_payoffs=immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:647:        immediate_payoffs: Any | None = None,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:651:        history, immediate_payoffs = self._default_query(
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:652:            time_index, states, history, immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/training_pipeline.py:658:            immediate_payoffs=immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:30:terminals that need contract semantics (payoff type, strike, weights, and
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:708:    payoff_type = _context_attr(instance, "payoff_type", "put")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:718:        if payoff_type == "put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:720:        if payoff_type == "max_call":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:722:        if payoff_type == "basket_put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:724:        raise ValueError(f"unsupported payoff_type: {payoff_type}")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:727:        if payoff_type == "put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:729:        elif payoff_type == "max_call":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:731:        elif payoff_type == "basket_put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:734:            raise ValueError(f"unsupported payoff_type: {payoff_type}")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:973:            context = {"strike": 1.0, "maturity": 1.0, "exercise_times": tuple(range(len(self.artifact.expressions) + 1)), "payoff_type": "put"}
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/policy_protocols.py:991:        # however, compares every runner against time-zero discounted payoff
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:4:The evaluator owns the Black--Scholes problem, path samples, payoff, stopping
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:192:    payoff_type: str
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:211:        if self.payoff_type not in PAYOFF_TYPES:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:212:            raise ValueError(f"unsupported payoff_type: {self.payoff_type}")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:213:        if self.payoff_type == "put" and dimension != 1:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:259:        if self.payoff_type == "basket_put" and self.weights is None:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:271:            "public-put-atm", "put", (1.0,), 1.0, 0.05, (0.0,), (0.20,),
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:313:            payoff_type=product,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:386:def payoff(states: np.ndarray, instance: BSInstance) -> np.ndarray:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:387:    """Evaluator-owned non-discounted payoff on arbitrary leading dimensions."""
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:391:    if instance.payoff_type == "put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:393:    if instance.payoff_type == "max_call":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:404:    return payoff(state_paths, instance) * discounts[None, :]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:414:    option_type: str = "put",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:419:    if option_type not in {"put", "call"}:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:420:        raise ValueError("option_type must be put or call")
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:426:    if option_type == "call":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:438:    if instance.payoff_type != "put" or instance.dimension != 1:
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:517:    if instance.payoff_type == "put":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:519:    if instance.payoff_type == "max_call":
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:565:            result = payoff(state, instance) / strike
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:642:        immediate = payoff(states, self.instance) * math.exp(-self.instance.rate * self.instance.exercise_times[time_index])
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:653:    about payoffs or exercise dates.  The stopping evaluator does.  This
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:672:        immediate_payoffs: np.ndarray | None = None,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:682:                immediate_payoffs=immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:706:        immediate_payoffs: np.ndarray,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:715:            immediate_payoffs=immediate_payoffs,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:731:        immediate = payoff(states, self.instance) * math.exp(
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:777:        current_payoff = rewards[:, time_index]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:778:        eligible = current_payoff > 0.0
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:780:        # well-defined and the exercise guard below forbids zero-payoff exercise.
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:789:            exercise_indices = np.flatnonzero(eligible)[current_payoff[eligible] >= continuation]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:790:            cashflow[exercise_indices] = current_payoff[exercise_indices]
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:795:    """Execute a frozen causal policy and return discounted payoffs and stops."""
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:814:                immediate_payoffs=immediate,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:816:            # Zero-payoff exercise is evaluator-owned and always dominated by
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:824:                immediate_payoffs=immediate,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1351:        "payoff_type": instance.payoff_type,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1394:        f"payoff:{instance.payoff_type}",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1800:    """Attach evaluator-owned path/payoff/target provenance to a fit cell.
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1804:    evaluator nevertheless records the exact path and discounted-payoff
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1819:        "payoffs_sha256": _sha256_array(rewards),
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1821:        "target_kind": "evaluator_discounted_payoff_stream",
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1942:                immediate_payoffs=immediate,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:1949:                immediate_payoffs=immediate,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:2193:                    "payoff_type": instance.payoff_type,
+/Users/williamqian/GitHub/OpenHyra/tasks/bermudan_optimal_stopping/evaluator.py:2507:                    "payoff_type": instance.payoff_type,
+
+codex
+I’m materializing a cross-fitted backward-induction program specialized toward the one-dimensional ATM put slice: smooth hinge-spline continuation models are trained only near the exercise-relevant region, while out-of-fold predictions drive training-path stopping updates to reduce the optimism that ordinary in-sample LSM can introduce. A full-data model is then saved for evaluation queries.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..1aa9989f365cd6a2160f6b72358ca49090597017
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,164 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    ps = max(float(np.max(p)), scale * 0.05, 1e-8)
++    q = p / ps
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
+ 
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
+ 
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], cash[tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], cash[full] if False else np.where(exercise, immediate, cash)[full])
++        # Refit continuation against the target entering this date, not the
++        # post-decision cash.  Recover it for exercised rows from the saved
++        # pre-update predictions would be wrong; retain it explicitly below.
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++
++    # The loop above needs full-data coefficients against pre-exercise targets.
++    # Reconstruct those targets with the already cross-fitted policy, then fit
++    # the deployable models in a second backward pass.
++    cash = payoffs[:, -1].copy()
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        x = _basis(paths[:, t, :], immediate, centers[t], scales[t], knots_all[t])
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++        beta = _ridge(x[trainable], cash[trainable])
++        coefficients[t] = beta
++        continuation = x @ beta
++        cash = np.where(eligible & (immediate >= continuation), immediate, cash)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, knots=knots_all, n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t])
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..1aa9989f365cd6a2160f6b72358ca49090597017
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,164 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    ps = max(float(np.max(p)), scale * 0.05, 1e-8)
++    q = p / ps
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
+ 
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
+ 
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], cash[tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], cash[full] if False else np.where(exercise, immediate, cash)[full])
++        # Refit continuation against the target entering this date, not the
++        # post-decision cash.  Recover it for exercised rows from the saved
++        # pre-update predictions would be wrong; retain it explicitly below.
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++
++    # The loop above needs full-data coefficients against pre-exercise targets.
++    # Reconstruct those targets with the already cross-fitted policy, then fit
++    # the deployable models in a second backward pass.
++    cash = payoffs[:, -1].copy()
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        x = _basis(paths[:, t, :], immediate, centers[t], scales[t], knots_all[t])
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++        beta = _ridge(x[trainable], cash[trainable])
++        coefficients[t] = beta
++        continuation = x @ beta
++        cash = np.where(eligible & (immediate >= continuation), immediate, cash)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, knots=knots_all, n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t])
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+codex
+The first implementation pass exposed a target-bookkeeping issue in review: deployable fits must use the continuation cash flow entering each date, not the post-exercise cash flow. I’m correcting that explicitly before running lifecycle tests.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..271f5be92bd12fb15b73787b2483ab43083574e9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,149 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    ps = max(float(np.max(p)), scale * 0.05, 1e-8)
++    q = p / ps
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
+ 
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, knots=knots_all, n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t])
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..271f5be92bd12fb15b73787b2483ab43083574e9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,149 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    ps = max(float(np.max(p)), scale * 0.05, 1e-8)
++    q = p / ps
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
+ 
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, knots=knots_all, n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t])
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+exec
+/bin/zsh -lc 'python3 -m py_compile algorithm.py && tmpdir=$(mktemp -d) && mkdir -p "$tmpdir/in" "$tmpdir/model" "$tmpdir/query" "$tmpdir/result" && python3 -c '"'import json,numpy as np,sys; d=sys.argv[1]; r=np.random.default_rng(4); n,T=600,6; x=np.ones((n,T,1)); x[:,0,0]=1; x[:,1:,0]=np.exp(np.cumsum(r.normal(-.01,.12,(n,T-1)),axis=1)); times=np.linspace(0,1,T); p=np.maximum(1-x[:,:,0],0)*np.exp(-.05*times); np.save(d+\"/training_paths.npy\",x); np.save(d+\"/payoffs.npy\",p); np.save(d+\"/discount_factors.npy\",np.exp(-.05*times)); open(d+\"/instance.json\",\"w\").write(json.dumps({\"name\":\"public-put-atm\",\"strike\":1.0}))' \""'$tmpdir/in" && python3 algorithm.py fit --input "$tmpdir/in" --output "$tmpdir/model" --seed 41 && python3 -c '"'import json,numpy as np,sys; src,q=sys.argv[1:]; x=np.load(src+\"/training_paths.npy\")[:37]; p=np.load(src+\"/payoffs.npy\")[:37]; np.save(q+\"/history.npy\",x[:,:3]); np.save(q+\"/states.npy\",x[:,2]); np.save(q+\"/immediate_payoffs.npy\",p[:,2]); open(q+\"/request.json\",\"w\").write(json.dumps({\"time_index\":2,\"instance\":{\"name\":\"public-put-atm\"}}))' \""'$tmpdir/in" "$tmpdir/query" && python3 algorithm.py predict --model "$tmpdir/model" --input "$tmpdir/query" --output "$tmpdir/result" && python3 -c '"'import numpy as np,sys; y=np.load(sys.argv[1]); print(y.shape,y.dtype,np.isfinite(y).all(),float(y.min()),float(y.max()))' \""'$tmpdir/result/predictions.npy" && git diff --check && git status --short' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 275ms:
+(37,) float64 True 0.013704662992042524 0.28793997028288204
+ M ../../../../../../README.md
+ M ../../../../../../README.zh-CN.md
+ M ../../../../../mathai-bermudan-workshop-20260905/EXPERIMENT_SUMMARY.md
+ M ../../../../../mathai-bermudan-workshop-20260905/candidate_ledger.jsonl
+ M ../../../../../../experiments/run_bermudan_workshop.py
+ M ../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+ M ../../../../../../tasks/bermudan_python_search/TASK.md
+?? ../../../../../mathai-bermudan-live-20260905/
+?? ../../../../
+?? ../../../../../mathai-bermudan-workshop-20260905/RUN_STATUS.json
+?? ../../../../../mathai-bermudan-workshop-20260905/manifest.json
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..271f5be92bd12fb15b73787b2483ab43083574e9
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,149 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    ps = max(float(np.max(p)), scale * 0.05, 1e-8)
++    q = p / ps
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
+ 
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, knots=knots_all, n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t])
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+2026-09-05T16:35:48.994164Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The smoke test passes shape, finiteness, and CLI checks. I also found a subtle batch-dependence in payoff normalization—query predictions could vary with unrelated rows in the same batch—so I’m freezing that scale from training data in the model to make inference pointwise and replay-stable.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e98afea05202e145fc6b4b0b03faab72247596ba
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,153 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray, payoff_scale: float) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    q = p / max(float(payoff_scale), 1e-8)
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    payoff_scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        payoff_scale = max(float(np.max(immediate)), scale * 0.05, 1e-8)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots, payoff_scale)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++        payoff_scales[t] = payoff_scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, payoff_scales=payoff_scales, knots=knots_all,
++             n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t],
++                   float(model["payoff_scales"][t]))
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e98afea05202e145fc6b4b0b03faab72247596ba
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,153 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray, payoff_scale: float) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    q = p / max(float(payoff_scale), 1e-8)
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    payoff_scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        payoff_scale = max(float(np.max(immediate)), scale * 0.05, 1e-8)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots, payoff_scale)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++        payoff_scales[t] = payoff_scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, payoff_scales=payoff_scales, knots=knots_all,
++             n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t],
++                   float(model["payoff_scales"][t]))
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+2026-09-05T16:36:06.800000Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc "python3 -m py_compile algorithm.py && git diff --check && python3 - <<'PY'
+import numpy as np
+import algorithm
+s=np.array([[.8],[1.0],[1.2]])
+p=np.array([.2,0.,0.])
+k=np.linspace(-1,1,7)
+a=algorithm._basis(s,p,1.,.4,k,.25)
+b=algorithm._basis(s[:1],p[:1],1.,.4,k,.25)
+assert np.array_equal(a[:1],b)
+assert a.shape==(3,12) and np.isfinite(a).all()
+print('compile, basis shape, finiteness, and batch invariance: ok')
+PY
+sed -n '1,280p' algorithm.py; printf '\\nmanifest:\\n'; sed -n '1,40p' manifest.json; printf '\\nproposal:\\n'; sed -n '1,100p' PROPOSAL.md" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0
+ succeeded in 1ms:
+# Proposal: cross-fitted boundary splines
+
+Mechanism `direct_r0_0` is instantiated as a whole-program restart using
+cross-fitted backward induction and a compact hinge-spline continuation
+surface. Out-of-fold continuation estimates determine recursive training-path
+stops, while full-data fits serve independent prediction queries. The intended
+effect is less in-sample stopping bias near the ATM put exercise boundary.
+
+Falsifiable prediction: positive mean paired discounted payoff on
+`instance:public-put-atm` relative to the unchanged parent under identical
+inputs and budget.
+
+Matched control: the unchanged parent with the identical input and evaluator
+budget.
+
+Falsifier: the upper endpoint of the 95% paired confidence interval is below
+zero.
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e98afea05202e145fc6b4b0b03faab72247596ba
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,153 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray, payoff_scale: float) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    q = p / max(float(payoff_scale), 1e-8)
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    payoff_scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        payoff_scale = max(float(np.max(immediate)), scale * 0.05, 1e-8)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots, payoff_scale)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++        payoff_scales[t] = payoff_scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, payoff_scales=payoff_scales, knots=knots_all,
++             n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t],
++                   float(model["payoff_scales"][t]))
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+2026-09-05T16:36:18.531586Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+Implemented the complete candidate:
+
+- Cross-fitted spline Longstaff–Schwartz continuation algorithm.
+- Out-of-fold stopping decisions reduce in-sample bias.
+- Exercise-region fitting targets the ATM put boundary.
+- Deterministic NumPy model serialization and causal prediction.
+- Continuation interface retained in `manifest.json`.
+- Hypothesis, control, and falsifier recorded in `PROPOSAL.md`.
+
+Validation passed: compilation, fit/predict lifecycle, output shape and finiteness, batch invariance, and `git diff --check`.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d71f3c5b5d9b454b59b5970810bfa9eb47b61c4
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/PROPOSAL.md
+@@ -0,0 +1,17 @@
++# Proposal: cross-fitted boundary splines
++
++Mechanism `direct_r0_0` is instantiated as a whole-program restart using
++cross-fitted backward induction and a compact hinge-spline continuation
++surface. Out-of-fold continuation estimates determine recursive training-path
++stops, while full-data fits serve independent prediction queries. The intended
++effect is less in-sample stopping bias near the ATM put exercise boundary.
++
++Falsifiable prediction: positive mean paired discounted payoff on
++`instance:public-put-atm` relative to the unchanged parent under identical
++inputs and budget.
++
++Matched control: the unchanged parent with the identical input and evaluator
++budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval is below
++zero.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e98afea05202e145fc6b4b0b03faab72247596ba
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s41/drafts/r0-c0/algorithm.py
+@@ -1,7 +1,153 @@
+-"""Blank whole-program restart scaffold."""
++#!/usr/bin/env python3
++"""Cross-fitted spline Longstaff--Schwartz continuation program.
++
++The important distinction from a plain least-squares Monte Carlo fit is that
++the stopping decisions used to construct earlier targets are made by models
++which did not see the path being classified.  The final query models are
++refitted on all paths.  Everything needed for fitting and inference is stored
++in a small, deterministic NumPy archive.
++"""
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++N_KNOTS = 7
++N_FOLDS = 4
++
++
++def _coordinate(states: np.ndarray) -> np.ndarray:
++    """A stable scalar ordering, exact for the target one-asset put."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        return s
++    s = s.reshape(len(s), -1)
++    # The minimum is useful for puts; the mean makes this degrade gracefully
++    # on basket contracts without introducing a dimension-dependent model.
++    return 0.75 * np.min(s, axis=1) + 0.25 * np.mean(s, axis=1)
++
++
++def _basis(states: np.ndarray, immediate: np.ndarray, center: float,
++           scale: float, knots: np.ndarray, payoff_scale: float) -> np.ndarray:
++    z = np.clip((_coordinate(states) - center) / scale, -6.0, 6.0)
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1)
++    q = p / max(float(payoff_scale), 1e-8)
++    # Linear splines are robust at the exercise boundary; low-order global
++    # terms carry extrapolation outside the knot range.
++    cols = [np.ones_like(z), z, z * z, q, q * q]
++    cols.extend(np.maximum(z - k, 0.0) for k in knots)
++    return np.column_stack(cols)
++
++
++def _ridge(x: np.ndarray, y: np.ndarray) -> np.ndarray:
++    # Scale penalty by sample size.  Do not penalize the intercept.
++    penalty = np.eye(x.shape[1]) * (2e-4 * max(len(x), 1))
++    penalty[0, 0] = 1e-10
++    return np.linalg.solve(x.T @ x + penalty, x.T @ y)
++
++
++def _geometry(states: np.ndarray, eligible: np.ndarray) -> tuple[float, float, np.ndarray]:
++    u = _coordinate(states)
++    sample = u[eligible] if np.count_nonzero(eligible) >= 32 else u
++    center = float(np.median(sample))
++    scale = max(float(np.quantile(sample, .9) - np.quantile(sample, .1)),
++                abs(center) * 0.05, 1e-8)
++    z = np.clip((sample - center) / scale, -6.0, 6.0)
++    knots = np.quantile(z, np.linspace(.12, .88, N_KNOTS))
++    return center, scale, np.asarray(knots, dtype=np.float64)
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False),
++                         dtype=np.float64)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training path and payoff shapes")
++    n, n_times = payoffs.shape
++    steps = n_times - 1
++    width = 5 + N_KNOTS
++    coefficients = np.zeros((steps, width), dtype=np.float64)
++    centers = np.zeros(steps); scales = np.ones(steps)
++    payoff_scales = np.ones(steps)
++    knots_all = np.zeros((steps, N_KNOTS))
++    cash = payoffs[:, -1].copy()
++    targets = np.zeros((steps, n), dtype=np.float64)
++
++    # Seeded permutation preserves replay determinism while preventing any
++    # simulator ordering from lining up with folds.
++    rng = np.random.default_rng(int(seed))
++    fold = np.empty(n, dtype=np.int64)
++    fold[rng.permutation(n)] = np.arange(n) % N_FOLDS
++
++    for t in range(steps - 1, -1, -1):
++        targets[t] = cash
++        immediate = payoffs[:, t]
++        eligible = immediate > 0.0
++        center, scale, knots = _geometry(paths[:, t, :], eligible)
++        payoff_scale = max(float(np.max(immediate)), scale * 0.05, 1e-8)
++        x = _basis(paths[:, t, :], immediate, center, scale, knots, payoff_scale)
++        trainable = eligible if np.count_nonzero(eligible) >= max(48, width * 3) else np.ones(n, bool)
++
++        # Cross-fitted values are used only to improve the recursively formed
++        # cash-flow labels.  Each path's stopping rule is out of sample.
++        continuation = np.empty(n, dtype=np.float64)
++        for k in range(N_FOLDS):
++            tr = trainable & (fold != k)
++            if np.count_nonzero(tr) < width:
++                tr = fold != k
++            beta = _ridge(x[tr], targets[t, tr])
++            continuation[fold == k] = x[fold == k] @ beta
++        exercise = eligible & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        full = trainable
++        coefficients[t] = _ridge(x[full], targets[t, full])
++        centers[t], scales[t], knots_all[t] = center, scale, knots
++        payoff_scales[t] = payoff_scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, centers=centers,
++             scales=scales, payoff_scales=payoff_scales, knots=knots_all,
++             n_times=np.array(n_times),
++             seed=np.array(int(seed), dtype=np.int64))
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = _basis(states, immediate, float(model["centers"][t]),
++                   float(model["scales"][t]), model["knots"][t],
++                   float(model["payoff_scales"][t]))
++        result = x @ model["coefficients"][t]
++    result = np.nan_to_num(result, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", result, allow_pickle=False)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    commands = parser.add_subparsers(dest="command", required=True)
++    f = commands.add_parser("fit")
++    f.add_argument("--input", required=True); f.add_argument("--output", required=True)
++    f.add_argument("--seed", required=True, type=int)
++    p = commands.add_parser("predict")
++    p.add_argument("--model", required=True); p.add_argument("--input", required=True)
++    p.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    main()
+
+tokens used
+51,126

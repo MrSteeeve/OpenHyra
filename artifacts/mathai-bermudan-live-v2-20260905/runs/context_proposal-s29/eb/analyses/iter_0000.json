@@ -1,0 +1,148 @@
+{
+  "iteration": 0,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 29,
+  "direction": "Implement and independently evaluate both candidates by editing only algorithm.py and manifest.json, each against unchanged sol_0000 under matched seeds and compute budgets.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0000 linear_ridge leads at -0.000634; sol_0002 residual_hybrid is close at -0.000827, while sol_0001 MLP loses materially at -0.002304. Thus added nonlinear capacity alone was harmful, and residualization did not surpass the linear reference. With only three aggregate scores and no slice-level candidate outcomes, structural convergence is unsupported. Restart from a conservative nonparametric stopping algorithm and separately mutate the strongest parent’s backward update rule, using exact public slices and matched budgets.",
+    "reason": "The linear frontier is weakly established, but untested program structures could improve difficult volatility-specific stopping behavior.",
+    "expected_gain": 0.0002,
+    "confidence": 0.55,
+    "phase": "discover",
+    "target_claim_id": null,
+    "success_criterion": "On instance:public-put-high-vol, guided-minus-unchanged-parent mean discounted payoff is greater than zero under matched seeds and budget.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "knn_margin_restart",
+        "family": "whole_program_restart",
+        "mechanism": "Replace the inherited implementation with a decision-interface algorithm that performs backward cross-fitting, robustly scales causal state and path-summary features, estimates continuation through distance-weighted k-nearest neighbors, and learns a smoothed exercise-margin threshold at each date.",
+        "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-high-vol.",
+        "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes this mechanism.",
+        "matched_control": "Unchanged sol_0000 with identical seeds, training paths, evaluator paths, and compute budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "whole_program_restart",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0001",
+          "sol_0002"
+        ],
+        "next_probe": "Compare exercise-rate trajectories and discounted payoff differences by exercise date on matched high-vol seeds.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "ridge_irls_ast_mutation",
+        "family": "ast_mutation",
+        "mechanism": "Mutate sol_0000's backward fitting control flow to alternate ridge continuation fitting with residual-based Huber reweighting and date-specific exercise-boundary calibration, without increasing feature dimension or fitting passes beyond a fixed small count.",
+        "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm while preserving the same training-path and runtime budget.",
+        "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes this mutation.",
+        "matched_control": "Unchanged sol_0000 run with the same seeds, data, feature inputs, regularization grid, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-atm"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation",
+        "target_slice": "instance:public-put-atm",
+        "evidence_ids": [
+          "sol_0000"
+        ],
+        "next_probe": "Verify that fitted weights and exercise decisions differ from sol_0000, then estimate paired payoff differences on matched ATM seeds.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "family",
+    "intervention_operator": "whole_program_restart",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A restarted direct-decision program using backward cross-fitted k-nearest-neighbor continuation estimates, robust feature scaling, and exercise-margin smoothing yields positive guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol.",
+    "falsifier": "An upper 95% confidence bound below zero for guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0001",
+      "sol_0002"
+    ],
+    "next_probe": "Evaluate the restart and unchanged sol_0000 on identical high-vol paths, seeds, runtime budget, and training-path count.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Implement and independently evaluate both candidates by editing only algorithm.py and manifest.json, each against unchanged sol_0000 under matched seeds and compute budgets.",
+    "intervention": {
+      "scope": "family",
+      "operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A restarted direct-decision program using backward cross-fitted k-nearest-neighbor continuation estimates, robust feature scaling, and exercise-margin smoothing yields positive guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol.",
+      "falsifier": "An upper 95% confidence bound below zero for guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes the direction.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Evaluate the restart and unchanged sol_0000 on identical high-vol paths, seeds, runtime budget, and training-path count.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "knn_margin_restart",
+      "family": "whole_program_restart",
+      "mechanism": "Replace the inherited implementation with a decision-interface algorithm that performs backward cross-fitting, robustly scales causal state and path-summary features, estimates continuation through distance-weighted k-nearest neighbors, and learns a smoothed exercise-margin threshold at each date.",
+      "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-high-vol.",
+      "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes this mechanism.",
+      "matched_control": "Unchanged sol_0000 with identical seeds, training paths, evaluator paths, and compute budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Compare exercise-rate trajectories and discounted payoff differences by exercise date on matched high-vol seeds.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "ridge_irls_ast_mutation",
+      "family": "ast_mutation",
+      "mechanism": "Mutate sol_0000's backward fitting control flow to alternate ridge continuation fitting with residual-based Huber reweighting and date-specific exercise-boundary calibration, without increasing feature dimension or fitting passes beyond a fixed small count.",
+      "prediction": "Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm while preserving the same training-path and runtime budget.",
+      "failure_condition": "An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes this mutation.",
+      "matched_control": "Unchanged sol_0000 run with the same seeds, data, feature inputs, regularization grid, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-atm"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "program_subtree",
+      "intervention_operator": "ast_mutation",
+      "target_slice": "instance:public-put-atm",
+      "evidence_ids": [
+        "sol_0000"
+      ],
+      "next_probe": "Verify that fitted weights and exercise decisions differ from sol_0000, then estimate paired payoff differences on matched ATM seeds.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0000 linear_ridge leads at -0.000634; sol_0002 residual_hybrid is close at -0.000827, while sol_0001 MLP loses materially at -0.002304. Thus added nonlinear capacity alone was harmful, and residualization did not surpass the linear reference. With only three aggregate scores and no slice-level candidate outcomes, structural convergence is unsupported. Restart from a conservative nonparametric stopping algorithm and separately mutate the strongest parent’s backward update rule, using exact public slices and matched budgets.\", \"reason\": \"The linear frontier is weakly established, but untested program structures could improve difficult volatility-specific stopping behavior.\", \"expected_gain\": 0.0002, \"confidence\": 0.55, \"phase\": \"discover\", \"target_claim_id\": null, \"success_criterion\": \"On instance:public-put-high-vol, guided-minus-unchanged-parent mean discounted payoff is greater than zero under matched seeds and budget.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"knn_margin_restart\", \"family\": \"whole_program_restart\", \"mechanism\": \"Replace the inherited implementation with a decision-interface algorithm that performs backward cross-fitting, robustly scales causal state and path-summary features, estimates continuation through distance-weighted k-nearest neighbors, and learns a smoothed exercise-margin threshold at each date.\", \"prediction\": \"Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-high-vol.\", \"failure_condition\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes this mechanism.\", \"matched_control\": \"Unchanged sol_0000 with identical seeds, training paths, evaluator paths, and compute budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Compare exercise-rate trajectories and discounted payoff differences by exercise date on matched high-vol seeds.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"ridge_irls_ast_mutation\", \"family\": \"ast_mutation\", \"mechanism\": \"Mutate sol_0000's backward fitting control flow to alternate ridge continuation fitting with residual-based Huber reweighting and date-specific exercise-boundary calibration, without increasing feature dimension or fitting passes beyond a fixed small count.\", \"prediction\": \"Guided-minus-unchanged-sol_0000 mean discounted payoff is positive on instance:public-put-atm while preserving the same training-path and runtime budget.\", \"failure_condition\": \"An upper 95% confidence bound below zero for guided-minus-unchanged-sol_0000 mean discounted payoff on instance:public-put-atm refutes this mutation.\", \"matched_control\": \"Unchanged sol_0000 run with the same seeds, data, feature inputs, regularization grid, and evaluator budget.\", \"target_slices\": [\"instance:public-put-atm\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"program_subtree\", \"intervention_operator\": \"ast_mutation\", \"target_slice\": \"instance:public-put-atm\", \"evidence_ids\": [\"sol_0000\"], \"next_probe\": \"Verify that fitted weights and exercise decisions differ from sol_0000, then estimate paired payoff differences on matched ATM seeds.\", \"state_version\": null}], \"intervention_scope\": \"family\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A restarted direct-decision program using backward cross-fitted k-nearest-neighbor continuation estimates, robust feature scaling, and exercise-margin smoothing yields positive guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"An upper 95% confidence bound below zero for guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Evaluate the restart and unchanged sol_0000 on identical high-vol paths, seeds, runtime budget, and training-path count.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Implement and independently evaluate both candidates by editing only algorithm.py and manifest.json, each against unchanged sol_0000 under matched seeds and compute budgets.\", \"intervention\": {\"scope\": \"family\", \"operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A restarted direct-decision program using backward cross-fitted k-nearest-neighbor continuation estimates, robust feature scaling, and exercise-margin smoothing yields positive guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"An upper 95% confidence bound below zero for guided-minus-sol_0000 mean discounted payoff on instance:public-put-high-vol refutes the direction.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Evaluate the restart and unchanged sol_0000 on identical high-vol paths, seeds, runtime budget, and training-path count.\", \"state_version\": null, \"state_hash\": null}}"
+}

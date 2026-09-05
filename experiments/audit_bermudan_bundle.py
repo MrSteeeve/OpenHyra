@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -49,12 +50,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--replay-dir", type=Path)
     args = parser.parse_args()
     bundle = args.bundle.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
     sys.path.insert(0, str(bundle / "reproduction"))
     from sandbox import source_tree_hash
     from bermudan_research import paired_slice_effects
+    from proposal_agent import prepare_draft, _apply_python_program_operator
 
     checks = []
 
@@ -66,6 +69,9 @@ def main():
            if not (bundle / "reproduction" / p).is_file()
            or sha(bundle / "reproduction" / p) != h]
     check("frozen_source_hashes", not bad, bad)
+    supplemental = read(bundle / "supplemental_verification.json")
+    check("supplemental_verification_source_hashes", all(
+          sha(bundle / "reproduction" / p) == h for p, h in supplemental["code_sha256"].items()))
     rows = jsonl(bundle / "candidate_ledger.jsonl")
     summary = read(bundle / "summary.json")
     seeds, modes = manifest["seeds"], manifest["modes"]
@@ -73,6 +79,12 @@ def main():
     expected = {(mode, seed, rnd, arm): 2 for mode in modes for seed in seeds
                 for rnd in range(2) for arm in ("guided", "control")}
     check("complete_public_matrix", matrix == expected, {"rows": len(rows)})
+    for mode in modes:
+        for seed in seeds:
+            for rnd, operators in enumerate(manifest["operator_schedule"]):
+                observed = [r["proposal"]["operator"] for r in rows if r["mode"] == mode
+                            and r["seed"] == seed and r["round"] == rnd and r["matched_arm"] == "guided"]
+                check(f"{mode}/s{seed}/r{rnd}:two_actual_operator_classes", sorted(observed) == sorted(operators))
     for r in rows:
         label = f"{r['mode']}/s{r['seed']}/{r['candidate_id']}"
         result = r["result"]
@@ -83,8 +95,24 @@ def main():
         check(label + ":source_unchanged", result["source_unchanged"])
         if r["matched_arm"] == "guided":
             execution = r["proposal"]["execution"]
-            check(label + ":operator_materialized", execution.get("executed")
-                  and execution.get("declared_operator") == execution.get("applied_operator") == r["proposal"]["operator"])
+            # The receipt preserves the concrete sub-operation, e.g. binary_operator
+            # or fit_predict_program_composition, not a repeated canonical label.
+            # Rebuild the pre-LLM product from both original parents and the slot.
+            parents = bundle / "runs" / f"{r['mode']}-s{r['seed']}" / "eb/solutions"
+            intervention = {**r["hypothesis"], "matched_arm": "guided", "slot": r["candidate_seed"]}
+            if len(r["proposal"]["parent_ids"]) == 2:
+                intervention["secondary_parent_path"] = str(parents / r["proposal"]["parent_ids"][1])
+            with tempfile.TemporaryDirectory(prefix="openhyra-operator-rebuild-") as tmp:
+                draft = Path(tmp) / "draft"
+                prepare_draft(parents / r["proposal"]["parent_ids"][0], draft)
+                applied = _apply_python_program_operator(draft, entrypoint="algorithm.py",
+                          source_files=["algorithm.py", "manifest.json"], intervention=intervention)
+                materialized = sha(draft / "algorithm.py")
+            check(label + ":operator_materialized", execution.get("executed") and
+                  execution.get("declared_operator") == r["proposal"]["operator"] and
+                  applied == execution.get("applied_operator") and
+                  materialized == execution.get("materialized_source_sha256"),
+                  {"reconstructed_sub_operation": applied, "reconstructed_source_sha256": materialized})
         if result["status"] != "ok":
             check(label + ":failure_retained", bool(result["failure_reason"]))
             continue
@@ -170,10 +198,22 @@ def main():
         check(label + ":measured_probe_cost", all(validation.get("cost", {}).get(k, 0) > 0
               for k in ("replay_wall_seconds", "probe_wall_seconds")))
 
-    replay = read(bundle / "replay_verification.json")
+    replay_dir = args.replay_dir or bundle / "numerical_replay"
+    replay = read(replay_dir / "replay_verification.json")
+    references = [read(p) for p in (bundle / "references").glob("s*/*.json")
+                  if not p.name.endswith(".request.json")]
     success_count = sum(r["result"]["status"] == "ok" for r in rows + audits)
     check("all_successful_rows_numerically_replayed", replay["all_equal"] and
-          len(replay["rows"]) == success_count, {"successful_rows": success_count})
+          sum(r["kind"] != "reference" for r in replay["rows"]) == success_count,
+          {"successful_public_and_audit_rows": success_count})
+    check("all_reference_programs_replayed", len(references) == 21 and
+          all(r["status"] == "ok" for r in references) and
+          sum(r["kind"] == "reference" and r["all_equal"] for r in replay["rows"]) == 21)
+    all_results = [r["result"] for r in rows + audits if r["result"]["status"] == "ok"] + references
+    all_cells = [c for result in all_results for c in result["metrics"].get("training_cells", [])]
+    check("all_primary_fits_used_native_isolation", len(all_cells) == 268 and all(
+          c["isolation"] == "seatbelt" and c["research_fallback"] is False for c in all_cells),
+          {"primary_fit_cells": len(all_cells)})
     training = read(bundle / "training_validation/training_validation.json")
     check("real_mlp_and_hybrid_training", {r["family"] for r in training["rows"]} == {"mlp", "residual_hybrid"}
           and all(all(r[k] for k in ("gradient_updates_observed", "training_loss_decreased",

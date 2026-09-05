@@ -1,0 +1,8 @@
+{
+  "accepted_workshop_evidence": false,
+  "private_audit_started": false,
+  "public_results_preserved": true,
+  "reason": "Context-only JSON/no-edit constraints leaked into Proposal prompt",
+  "replacement_bundle": "mathai-bermudan-live-v2-20260905",
+  "status": "aborted_configuration_failure"
+}

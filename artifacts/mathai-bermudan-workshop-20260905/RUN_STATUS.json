@@ -1,0 +1,6 @@
+{
+  "accepted_workshop_evidence": false,
+  "reason": "Repository-owned deterministic generator; historical unisolated research fallback is not accepted evidence.",
+  "replacement_bundle": "mathai-bermudan-live-v2-20260905",
+  "status": "historical_deterministic_fixture"
+}

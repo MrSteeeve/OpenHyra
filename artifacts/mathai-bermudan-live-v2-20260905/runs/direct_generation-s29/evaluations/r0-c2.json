@@ -1,0 +1,28 @@
+{
+  "evidence": {},
+  "failure_reason": "proposal agent (codex) exited with code 124: The repaired program now passes an end-to-end synthetic ATM-put fit/predict run: it emits 73 finite, strictly positive continuation values with the exact required shape. I’m doing the final bounded-tree, determinism, and interface checks now.",
+  "metrics": {},
+  "request": {
+    "config": {
+      "independent_validation": false,
+      "instance_count": 2,
+      "pricing_paths": 512,
+      "public_pathwise_samples": true,
+      "repeats": 2,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 29,
+    "stage": "search",
+    "suite_id": "bermudan-python-public-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": null,
+  "source_digest": "f58826ff8ffa96d9b52d97400598e66ff1e2fcc757d9d7b1d04364ca8d9a8a73",
+  "source_unchanged": true,
+  "status": "error",
+  "wall_seconds": 0.0
+}

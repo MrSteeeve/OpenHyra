@@ -1,0 +1,28 @@
+{
+  "evidence": {},
+  "failure_reason": "ValueError: candidate training failed for public-put-atm: invalid_artifact: trusted policy artifact rejected: Python program fit produced no model files",
+  "metrics": {},
+  "request": {
+    "config": {
+      "independent_validation": false,
+      "instance_count": 2,
+      "pricing_paths": 512,
+      "public_pathwise_samples": true,
+      "repeats": 2,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 17,
+    "stage": "search",
+    "suite_id": "bermudan-python-public-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": null,
+  "source_digest": "d0826d22928f5ec94d3de0a115e1251b30729845d06be093f52519705a7ebc6f",
+  "source_unchanged": true,
+  "status": "error",
+  "wall_seconds": 0.1632459169923095
+}

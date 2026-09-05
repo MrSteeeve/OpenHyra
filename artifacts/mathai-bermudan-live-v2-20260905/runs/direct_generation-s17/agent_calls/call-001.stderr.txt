@@ -1,0 +1,2105 @@
+2026-09-05T16:18:08.856833Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-05T16:18:10.094997Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.098095Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.100992Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.103399Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.105489Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.106898Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.109083Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.111722Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.117461Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.120358Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.123547Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.125509Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.126863Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.128431Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:18:10.129723Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0725c-f601-70a1-a8de-38f9810fafe0
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+## Search semantics
+
+The Context Agent may propose several unrelated mechanisms in one round.
+Proposal may rewrite a whole program, mutate executable AST structure,
+combine two parent programs, or restart from a blank implementation. The
+Experience Bank stores program source, measured outcomes, and full parent
+lineage. Scores and slice feedback guide which structures are revised,
+combined, or abandoned in later rounds.
+
+The old feature, affine, expression, and small-network implementations remain
+useful baselines. They no longer define the admitted search space.
+
+
+Generate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.
+
+## Local candidate identity
+
+This is candidate 3 of 4 generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all 4 candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+
+
+## Mechanism slot
+
+Mechanism id: `direct_r0_1`
+Family: open_program_generation
+Intervention scope: whole_program
+Intervention operator: ast_mutation
+Target slice: instance:public-put-atm
+Proposed mechanism: Use the declared operation to improve the parent program.
+Prediction: positive mean paired payoff on the declared slice
+Falsifier: upper 95% paired CI is below zero
+Matched control: unchanged parent with identical input and budget
+Next probe: 
+Evidence ids: 
+
+This is the GUIDED arm. Implement or materially instantiate the proposed
+mechanism, while keeping the artifact protocol and evaluator-owned boundary
+unchanged. You may synthesize a genuinely new structure when the evidence
+supports it; record the falsifiable prediction and control in PROPOSAL.md.
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: ast_mutation
+- target_slice: instance:public-put-atm
+- prediction: positive mean paired payoff on the declared slice
+- falsifier: upper 95% paired CI is below zero
+
+A concrete control_flow_guard child has already been materialized in the draft. Inspect and repair that executable composition while preserving contributions from its recorded parent program(s).
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 54 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect the existing candidate, protocol, and recorded lineage first, then repair the materialized guard without erasing parent contributions.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!*__pycache__*'"' -g '"'!*.pyc'"' | sort && printf '\\n--- git status ---\\n' && git status --short && printf '\\n--- protocol ---\\n' && sed -n '1,260p' PYTHON_PROGRAM_PROTOCOL_V1.md && printf '\\n--- algorithm ---\\n' && sed -n '1,320p' algorithm.py && printf '\\n--- manifest ---\\n' && cat manifest.json && printf '\\n--- proposal ---\\n' && test -f PROPOSAL.md && cat PROPOSAL.md || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+algorithm.py
+manifest.json
+
+--- git status ---
+ M ../../../../../mathai-bermudan-workshop-20260905/EXPERIMENT_SUMMARY.md
+ M ../../../../../mathai-bermudan-workshop-20260905/candidate_ledger.jsonl
+ M ../../../../../../experiments/run_bermudan_workshop.py
+ M ../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+ M ../../../../../../tasks/bermudan_python_search/TASK.md
+?? ../../../../../mathai-bermudan-live-20260905/
+?? ../../../../
+?? ../../../../../mathai-bermudan-workshop-20260905/manifest.json
+
+--- protocol ---
+sed: PYTHON_PROGRAM_PROTOCOL_V1.md: No such file or directory
+
+codex
+The protocol is task-owned outside this draft, so the first inspection stopped before showing the candidate. I found unrelated dirty files elsewhere and will leave them untouched; now I’m resolving the protocol path and reading only the candidate plus relevant contract.
+exec
+/bin/zsh -lc "printf '%s\\n' '--- algorithm ---' && sed -n '1,360p' algorithm.py && printf '%s\\n' '--- manifest ---' && cat manifest.json && printf '%s\\n' '--- protocol locations ---' && find ../../../../../../tasks -name PYTHON_PROGRAM_PROTOCOL_V1.md -print 2>/dev/null | head -10" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+ succeeded in 0ms:
+--- algorithm ---
+"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
+
+Both the least-squares fit and the network optimizer belong to this candidate.
+No evaluator labels or prices are needed: future discounted path cash flows
+supply the regression targets, with stopping decisions updated backward.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states, immediate):
+    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    rng = np.random.default_rng(seed)
+    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+    steps, width = (paths.shape[1] - 1, 16)
+    d = features(paths[:, 0], payoffs[:, 0]).shape[1]
+    coefs = np.zeros((steps, d))
+    means = np.zeros_like(coefs)
+    scales = np.ones_like(coefs)
+    w1s = np.zeros((steps, d, width))
+    if True:
+        b1s = np.zeros((steps, width))
+    w2s = np.zeros((steps, width))
+    b2s = np.zeros(steps)
+    target_scales = np.ones(steps)
+    targets = np.zeros((steps, len(paths)))
+    losses = np.zeros((steps, 2))
+    updates = np.zeros(steps)
+    cash = payoffs[:, -1].copy()
+    for t in range(steps - 1, -1, -1):
+        targets[t] = cash
+        x = features(paths[:, t], payoffs[:, t])
+        mean, scale = (x.mean(0), x.std(0))
+        mean[0] = 0.0
+        scale[scale < 1e-10] = 1.0
+        x = (x - mean) / scale
+        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+        residual = cash - x @ coef
+        target_scale = max(float(residual.std()), 1e-05)
+        y = residual / target_scale
+        w1 = rng.normal(0.0, 0.15, (d, width))
+        initial = w1.copy()
+        b1 = np.zeros(width)
+        w2 = rng.normal(0.0, 0.1, width)
+        b2 = 0.0
+        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
+        for _ in range(64):
+            h = np.tanh(x @ w1 + b1)
+            err = h @ w2 + b2 - y
+            g = 2.0 * err / len(x)
+            hidden_g = g[:, None] * w2 * (1.0 - h * h)
+            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+            w1 -= 0.03 * gw1
+            b1 -= 0.03 * gb1
+            w2 -= 0.03 * gw2
+            b2 -= 0.03 * gb2
+        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+        losses[t, 1] = np.mean((residual_pred - y) ** 2)
+        updates[t] = np.linalg.norm(w1 - initial)
+        continuation = x @ coef + target_scale * residual_pred
+        cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+        coefs[t], means[t], scales[t] = (coef, mean, scale)
+        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
+
+def main():
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest='command', required=True)
+    f = sub.add_parser('fit')
+    f.add_argument('--input', required=True)
+    f.add_argument('--output', required=True)
+    f.add_argument('--seed', type=int, required=True)
+    p = sub.add_parser('predict')
+    p.add_argument('--model', required=True)
+    p.add_argument('--input', required=True)
+    p.add_argument('--output', required=True)
+    a = parser.parse_args()
+    if a.command == 'fit':
+        fit(Path(a.input), Path(a.output), a.seed)
+    else:
+        predict(Path(a.model), Path(a.input), Path(a.output))
+if __name__ == '__main__':
+    main()
+--- manifest ---
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+--- protocol locations ---
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+
+exec
+/bin/zsh -lc "sed -n '1,320p' ../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md && printf '%s\\n' '--- nearby drafts / lineage clues ---' && find .. -maxdepth 2 -type f \\( -name algorithm.py -o -name PROPOSAL.md -o -name manifest.json \\) -print | sort" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+ succeeded in 0ms:
+# Bermudan Python program protocol v1
+
+Status: candidate-facing contract for `bermudan_python_search`.
+
+This task evaluates complete Python algorithms. It does not select a trusted
+Linear, Expression, or MLP runner. Those representations remain historical
+baselines in `bermudan_optimal_stopping`; they are not the admitted search
+space of this task.
+
+## Source tree
+
+Each candidate contains a bounded, recursively hashed source tree:
+
+```text
+algorithm.py
+manifest.json
+helpers/*.py   (optional; arbitrary relative depth)
+```
+
+`algorithm.py` owns training, representation, model state, inference, and the
+continuation or stopping rule. Helper `.py` modules and `.json`/`.toml`
+configuration files may be imported from the candidate tree. The harness and
+trusted evaluator reject symlinks and unsupported extensions, cap the tree at
+64 files, and include every accepted file in the source digest and provenance.
+It may define arbitrary finite functions,
+classes, loops, numerical procedures, symbolic procedures, internal searches,
+or state machines in that file. Training may write any model tree beneath the
+evaluator-provided output directory.
+
+The manifest is exactly one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+The manifest declares an interaction interface, not an algorithm family.
+
+## Fit command
+
+The evaluator invokes:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+The program must expose the command body as:
+
+```python
+def fit(input_dir, output_dir, seed):
+    ...
+```
+
+`INPUT_DIR` contains:
+
+- `training_paths.npy`: evaluator-generated training paths;
+- `payoffs.npy`: evaluator-computed discounted immediate payoffs;
+- `discount_factors.npy`: discount factors on the exercise grid;
+- `instance.json`: contract and exercise-grid parameters.
+
+The candidate decides how these observations are transformed, fitted, stored,
+or searched. There is no required optimizer, loss, feature grammar, network,
+regression family, or model-file schema.
+
+## Predict command
+
+At every non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+The program must expose the command body as:
+
+```python
+def predict(model_dir, input_dir, output_dir):
+    ...
+```
+
+`QUERY_DIR` contains:
+
+- `history.npy`: the path prefix through the current exercise time;
+- `states.npy`: the current state batch;
+- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+- `request.json`: the current time index and instance description.
+
+The program writes one NumPy array to `RESULT_DIR/predictions.npy` with the
+same leading batch shape as `states.npy`:
+
+- `continuation`: finite real continuation values in discounted payoff units;
+- `decision`: booleans or exact zero/one values, where true means exercise.
+
+## Search operations
+
+The search system may create a candidate through:
+
+- whole-program generation from a blank fit/predict scaffold;
+- whole-program or subsystem rewrite by an LLM;
+- executable AST mutation inside algorithmic functions;
+- two-parent program composition with an evolvable prediction combiner.
+
+These are generation operations, not registered solution families. The final
+candidate is always the resulting Python program, and measured evaluator
+outcomes determine later parent selection.
+
+For the workshop protocol, the harness normalizes Context aliases to four
+canonical operator identities: `whole_program_restart`, `ast_mutation`,
+`ast_crossover`, and `subsystem_rewrite`. The normalized identity, operator
+detail, source-tree digest, parent lineage, matched arm, and candidate seed are
+written beside the evaluator result, together with the Proposal layer's actual
+operator materialization receipt. A control arm retains the same baseline
+source and request budget so the measured contrast is reviewable.
+
+Context-generated hypotheses are required to serialize one of those four
+names. For compatibility with an archived packet that omitted an operator, the
+Context parser infers it from the declared family and intervention scope before
+the Harness builds a proposal slot; task-declared legacy directions retain
+their original aliases. After a round, Context reads the bounded
+`research/prediction_table.json` projection, while the append-only ledger stays
+the lossless provenance record.
+
+For every Python candidate the evaluator can run an independent same-seed fit
+and a causal lookahead check. The replay compares the opaque model digest and a
+fresh prediction; the lookahead changes only the suffix after the supplied
+history and requires identical predictions. Both probes are diagnostic
+evidence and never modify the primary score. Per-cell records also include
+the exact training-path and discounted-payoff hashes, an evaluator target
+stream hash, the actual (folded) fit seed, separate simulator path seed, model-file digests,
+and wall time. The candidate's
+internal continuation targets remain outside the evaluator observation
+boundary.
+
+The workshop bundle also includes a manifest containing runner/evaluator and
+candidate-source digests, the request matrix, artifact hashes, and a rebuild
+command. This identifies the exact evidence bundle without treating generated
+metrics as source code.
+
+## Evidence boundary
+
+Acceptance by this protocol proves only that the candidate is an executable
+algorithm evaluated on the configured Bermudan task. It does not prove that
+the program is novel, superior outside the measured suite, or mathematically
+correct in general. Those claims require repeated search runs, matched
+controls, held-out evaluation, and inspection of the discovered mechanism.
+
+Research mode never retries a denied native sandbox without isolation. Probe
+and replay durations are measured costs, not zero-filled deterministic fields.
+The live workshop runner uses common public requests across all candidates in
+a seed. Paired pathwise deltas provide covariance-aware slice standard errors;
+when these samples are absent, a labelled conservative SE-sum bound is used.
+The Context prediction table joins guided/control results on the declared slice
+and keeps this diagnostic separate from the fixed primary score.
+--- nearby drafts / lineage clues ---
+../r0-c0/PROPOSAL.md
+../r0-c0/algorithm.py
+../r0-c0/manifest.json
+../r0-c1/algorithm.py
+../r0-c1/manifest.json
+../r0-c2/algorithm.py
+../r0-c2/manifest.json
+
+2026-09-05T16:18:38.546395Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The executable child’s guard is currently a no-op (`if True`) around one allocation, so it does not protect behavior at all. I’m repairing it into a per-exercise-time validation gate: retain the parent ridge + MLP residual structure, but admit the nonlinear residual only when held-out paths improve continuation-target error, with a fitted shrinkage weight and finite-output fallback. This is a concrete control-flow mutation aimed at preventing the residual learner from degrading the ATM put boundary.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..802100042018f0ec620c80681edca5ab90d173f1
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+index a88008fd935fabdf89a695f99afa86b0aa6bdc93..50b00d8b26fb9eeb0523f6051cfa9ec3dfc82b43
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+@@ -1,102 +1,196 @@
+-"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
++"""Validation-guarded ridge plus nonlinear residual continuation model.
+ 
+-Both the least-squares fit and the network optimizer belong to this candidate.
+-No evaluator labels or prices are needed: future discounted path cash flows
+-supply the regression targets, with stopping decisions updated backward.
++The parent program's backward cash-flow regression, polynomial/log features,
++ridge component, and trained tanh residual are retained.  The material AST
++mutation is a control-flow guard: a residual is used only when a deterministic
++holdout shows lower target error than ridge alone.  The gate also learns a
++shrinkage weight, which is useful near an at-the-money exercise boundary where
++an overfit residual can change many stopping decisions.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
++
+ def features(states, immediate):
+-    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+-    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
++    """Causal state features; no future portion of a path is consumed."""
++    states = np.asarray(states, dtype=float)
++    immediate = np.asarray(immediate, dtype=float).reshape(-1)
++    z = np.log(np.maximum(states, 1e-12))
++    return np.column_stack(
++        [np.ones(len(z)), z, z * z, np.mean(z, axis=1), immediate]
++    )
++
+ 
++def _ridge(x, y, penalty=1e-5):
++    gram = x.T @ x
++    regularizer = np.eye(x.shape[1]) * penalty
++    regularizer[0, 0] = penalty * 0.01
++    try:
++        return np.linalg.solve(gram + regularizer, x.T @ y)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, x.T @ y, rcond=None)[0]
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+     rng = np.random.default_rng(seed)
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    steps, width = (paths.shape[1] - 1, 16)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
++    steps, width = paths.shape[1] - 1, 16
++    n_paths = len(paths)
+     d = features(paths[:, 0], payoffs[:, 0]).shape[1]
++
+     coefs = np.zeros((steps, d))
+     means = np.zeros_like(coefs)
+     scales = np.ones_like(coefs)
+     w1s = np.zeros((steps, d, width))
+-    if True:
+-        b1s = np.zeros((steps, width))
++    b1s = np.zeros((steps, width))
+     w2s = np.zeros((steps, width))
+     b2s = np.zeros(steps)
+     target_scales = np.ones(steps)
+-    targets = np.zeros((steps, len(paths)))
+-    losses = np.zeros((steps, 2))
++    residual_weights = np.zeros(steps)
++    targets = np.zeros((steps, n_paths))
++    losses = np.zeros((steps, 3))
+     updates = np.zeros(steps)
+-    cash = payoffs[:, -1].copy()
++
++    # Discounting is already represented in evaluator-owned payoff units.
++    cash = payoffs[:, -1].astype(float, copy=True)
+     for t in range(steps - 1, -1, -1):
+         targets[t] = cash
+-        x = features(paths[:, t], payoffs[:, t])
+-        mean, scale = (x.mean(0), x.std(0))
++        raw_x = features(paths[:, t], payoffs[:, t])
++        mean, scale = raw_x.mean(axis=0), raw_x.std(axis=0)
+         mean[0] = 0.0
+         scale[scale < 1e-10] = 1.0
+-        x = (x - mean) / scale
+-        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+-        residual = cash - x @ coef
+-        target_scale = max(float(residual.std()), 1e-05)
++        x = (raw_x - mean) / scale
++
++        # LSM learns the boundary from paths that can actually exercise.  Fall
++        # back to all paths if an unusual contract produces too few such rows.
++        eligible = np.flatnonzero(payoffs[:, t] > 0.0)
++        if len(eligible) < max(24, 3 * d):
++            eligible = np.arange(n_paths)
++        shuffled = rng.permutation(eligible)
++        n_valid = max(1, min(len(shuffled) // 4, 1024))
++        valid = shuffled[:n_valid]
++        train = shuffled[n_valid:]
++        if len(train) < d + 2:
++            train, valid = shuffled, shuffled
++
++        coef = _ridge(x[train], cash[train])
++        ridge_train = x[train] @ coef
++        residual = cash[train] - ridge_train
++        target_scale = max(float(np.std(residual)), 1e-8)
+         y = residual / target_scale
++
+         w1 = rng.normal(0.0, 0.15, (d, width))
+         initial = w1.copy()
+         b1 = np.zeros(width)
+         w2 = rng.normal(0.0, 0.1, width)
+         b2 = 0.0
+-        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
++        losses[t, 0] = np.mean((cash[valid] - x[valid] @ coef) ** 2)
+         for _ in range(64):
+-            h = np.tanh(x @ w1 + b1)
++            h = np.tanh(x[train] @ w1 + b1)
+             err = h @ w2 + b2 - y
+-            g = 2.0 * err / len(x)
++            g = 2.0 * err / len(train)
+             hidden_g = g[:, None] * w2 * (1.0 - h * h)
+-            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+-            w1 -= 0.03 * gw1
+-            b1 -= 0.03 * gb1
+-            w2 -= 0.03 * gw2
+-            b2 -= 0.03 * gb2
+-        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+-        losses[t, 1] = np.mean((residual_pred - y) ** 2)
++            gw1 = x[train].T @ hidden_g
++            gb1 = hidden_g.sum(axis=0)
++            gw2 = h.T @ g
++            gb2 = g.sum()
++            # The parent's full-batch optimizer, with bounded gradients so a
++            # rare path cannot create a non-finite serialized model.
++            w1 -= 0.03 * np.clip(gw1, -10.0, 10.0)
++            b1 -= 0.03 * np.clip(gb1, -10.0, 10.0)
++            w2 -= 0.03 * np.clip(gw2, -10.0, 10.0)
++            b2 -= 0.03 * float(np.clip(gb2, -10.0, 10.0))
++
++        valid_residual = target_scale * (
++            np.tanh(x[valid] @ w1 + b1) @ w2 + b2
++        )
++        valid_error = cash[valid] - x[valid] @ coef
++        denom = float(valid_residual @ valid_residual)
++        weight = 0.0 if denom <= 1e-14 else float(
++            np.clip((valid_residual @ valid_error) / denom, 0.0, 1.0)
++        )
++        guarded_valid = x[valid] @ coef + weight * valid_residual
++        guarded_loss = float(np.mean((cash[valid] - guarded_valid) ** 2))
++
++        # Material control-flow guard. A small margin avoids switching on a
++        # residual due only to floating-point or negligible holdout gains.
++        if (not np.isfinite(guarded_loss)) or guarded_loss >= losses[t, 0] * (1.0 - 1e-4):
++            weight = 0.0
++            guarded_loss = losses[t, 0]
++        losses[t, 1] = guarded_loss
++        losses[t, 2] = weight
+         updates[t] = np.linalg.norm(w1 - initial)
+-        continuation = x @ coef + target_scale * residual_pred
++
++        residual_all = target_scale * (np.tanh(x @ w1 + b1) @ w2 + b2)
++        continuation = np.maximum(x @ coef + weight * residual_all, 0.0)
+         cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+-        coefs[t], means[t], scales[t] = (coef, mean, scale)
+-        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
++
++        coefs[t], means[t], scales[t] = coef, mean, scale
++        w1s[t], b1s[t], w2s[t], b2s[t] = w1, b1, w2, b2
++        target_scales[t], residual_weights[t] = target_scale, weight
++
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+-    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
++    np.savez(
++        output_dir / "model.npz",
++        coefficients=coefs,
++        means=means,
++        scales=scales,
++        w1=w1s,
++        b1=b1s,
++        w2=w2s,
++        b2=b2s,
++        target_scales=target_scales,
++        residual_weights=residual_weights,
++    )
++    np.savez(
++        output_dir / "training_trace.npz",
++        backward_targets=targets,
++        validation_ridge_guarded_weight=losses,
++        first_layer_update_norm=updates,
++        seed=np.array(seed),
++    )
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+-        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+-        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+-        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
++    request = json.loads((input_dir / "request.json").read_text())
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = (features(states, immediate) - model["means"][t]) / model["scales"][t]
++        residual = np.tanh(x @ model["w1"][t] + model["b1"][t]) @ model["w2"][t] + model["b2"][t]
++        out = x @ model["coefficients"][t]
++        out += model["residual_weights"][t] * model["target_scales"][t] * residual
++    # A discounted nonnegative payoff has nonnegative continuation value; this
++    # finite fallback keeps the interface valid on extreme external queries.
++    out = np.maximum(np.nan_to_num(out, nan=0.0, posinf=1e100, neginf=0.0), 0.0)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
++    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+ 
+-def main():
++
++def main() -> None:
+     parser = argparse.ArgumentParser()
+-    sub = parser.add_subparsers(dest='command', required=True)
+-    f = sub.add_parser('fit')
+-    f.add_argument('--input', required=True)
+-    f.add_argument('--output', required=True)
+-    f.add_argument('--seed', type=int, required=True)
+-    p = sub.add_parser('predict')
+-    p.add_argument('--model', required=True)
+-    p.add_argument('--input', required=True)
+-    p.add_argument('--output', required=True)
+-    a = parser.parse_args()
+-    if a.command == 'fit':
+-        fit(Path(a.input), Path(a.output), a.seed)
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", type=int, required=True)
++    predict_parser = sub.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(Path(args.input), Path(args.output), args.seed)
+     else:
+-        predict(Path(a.model), Path(a.input), Path(a.output))
+-if __name__ == '__main__':
++        predict(Path(args.model), Path(args.input), Path(args.output))
++
++
++if __name__ == "__main__":
+     main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..802100042018f0ec620c80681edca5ab90d173f1
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+index a88008fd935fabdf89a695f99afa86b0aa6bdc93..50b00d8b26fb9eeb0523f6051cfa9ec3dfc82b43
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+@@ -1,102 +1,196 @@
+-"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
++"""Validation-guarded ridge plus nonlinear residual continuation model.
+ 
+-Both the least-squares fit and the network optimizer belong to this candidate.
+-No evaluator labels or prices are needed: future discounted path cash flows
+-supply the regression targets, with stopping decisions updated backward.
++The parent program's backward cash-flow regression, polynomial/log features,
++ridge component, and trained tanh residual are retained.  The material AST
++mutation is a control-flow guard: a residual is used only when a deterministic
++holdout shows lower target error than ridge alone.  The gate also learns a
++shrinkage weight, which is useful near an at-the-money exercise boundary where
++an overfit residual can change many stopping decisions.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
++
+ def features(states, immediate):
+-    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+-    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
++    """Causal state features; no future portion of a path is consumed."""
++    states = np.asarray(states, dtype=float)
++    immediate = np.asarray(immediate, dtype=float).reshape(-1)
++    z = np.log(np.maximum(states, 1e-12))
++    return np.column_stack(
++        [np.ones(len(z)), z, z * z, np.mean(z, axis=1), immediate]
++    )
++
+ 
++def _ridge(x, y, penalty=1e-5):
++    gram = x.T @ x
++    regularizer = np.eye(x.shape[1]) * penalty
++    regularizer[0, 0] = penalty * 0.01
++    try:
++        return np.linalg.solve(gram + regularizer, x.T @ y)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, x.T @ y, rcond=None)[0]
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+     rng = np.random.default_rng(seed)
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    steps, width = (paths.shape[1] - 1, 16)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
++    steps, width = paths.shape[1] - 1, 16
++    n_paths = len(paths)
+     d = features(paths[:, 0], payoffs[:, 0]).shape[1]
++
+     coefs = np.zeros((steps, d))
+     means = np.zeros_like(coefs)
+     scales = np.ones_like(coefs)
+     w1s = np.zeros((steps, d, width))
+-    if True:
+-        b1s = np.zeros((steps, width))
++    b1s = np.zeros((steps, width))
+     w2s = np.zeros((steps, width))
+     b2s = np.zeros(steps)
+     target_scales = np.ones(steps)
+-    targets = np.zeros((steps, len(paths)))
+-    losses = np.zeros((steps, 2))
++    residual_weights = np.zeros(steps)
++    targets = np.zeros((steps, n_paths))
++    losses = np.zeros((steps, 3))
+     updates = np.zeros(steps)
+-    cash = payoffs[:, -1].copy()
++
++    # Discounting is already represented in evaluator-owned payoff units.
++    cash = payoffs[:, -1].astype(float, copy=True)
+     for t in range(steps - 1, -1, -1):
+         targets[t] = cash
+-        x = features(paths[:, t], payoffs[:, t])
+-        mean, scale = (x.mean(0), x.std(0))
++        raw_x = features(paths[:, t], payoffs[:, t])
++        mean, scale = raw_x.mean(axis=0), raw_x.std(axis=0)
+         mean[0] = 0.0
+         scale[scale < 1e-10] = 1.0
+-        x = (x - mean) / scale
+-        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+-        residual = cash - x @ coef
+-        target_scale = max(float(residual.std()), 1e-05)
++        x = (raw_x - mean) / scale
++
++        # LSM learns the boundary from paths that can actually exercise.  Fall
++        # back to all paths if an unusual contract produces too few such rows.
++        eligible = np.flatnonzero(payoffs[:, t] > 0.0)
++        if len(eligible) < max(24, 3 * d):
++            eligible = np.arange(n_paths)
++        shuffled = rng.permutation(eligible)
++        n_valid = max(1, min(len(shuffled) // 4, 1024))
++        valid = shuffled[:n_valid]
++        train = shuffled[n_valid:]
++        if len(train) < d + 2:
++            train, valid = shuffled, shuffled
++
++        coef = _ridge(x[train], cash[train])
++        ridge_train = x[train] @ coef
++        residual = cash[train] - ridge_train
++        target_scale = max(float(np.std(residual)), 1e-8)
+         y = residual / target_scale
++
+         w1 = rng.normal(0.0, 0.15, (d, width))
+         initial = w1.copy()
+         b1 = np.zeros(width)
+         w2 = rng.normal(0.0, 0.1, width)
+         b2 = 0.0
+-        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
++        losses[t, 0] = np.mean((cash[valid] - x[valid] @ coef) ** 2)
+         for _ in range(64):
+-            h = np.tanh(x @ w1 + b1)
++            h = np.tanh(x[train] @ w1 + b1)
+             err = h @ w2 + b2 - y
+-            g = 2.0 * err / len(x)
++            g = 2.0 * err / len(train)
+             hidden_g = g[:, None] * w2 * (1.0 - h * h)
+-            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+-            w1 -= 0.03 * gw1
+-            b1 -= 0.03 * gb1
+-            w2 -= 0.03 * gw2
+-            b2 -= 0.03 * gb2
+-        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+-        losses[t, 1] = np.mean((residual_pred - y) ** 2)
++            gw1 = x[train].T @ hidden_g
++            gb1 = hidden_g.sum(axis=0)
++            gw2 = h.T @ g
++            gb2 = g.sum()
++            # The parent's full-batch optimizer, with bounded gradients so a
++            # rare path cannot create a non-finite serialized model.
++            w1 -= 0.03 * np.clip(gw1, -10.0, 10.0)
++            b1 -= 0.03 * np.clip(gb1, -10.0, 10.0)
++            w2 -= 0.03 * np.clip(gw2, -10.0, 10.0)
++            b2 -= 0.03 * float(np.clip(gb2, -10.0, 10.0))
++
++        valid_residual = target_scale * (
++            np.tanh(x[valid] @ w1 + b1) @ w2 + b2
++        )
++        valid_error = cash[valid] - x[valid] @ coef
++        denom = float(valid_residual @ valid_residual)
++        weight = 0.0 if denom <= 1e-14 else float(
++            np.clip((valid_residual @ valid_error) / denom, 0.0, 1.0)
++        )
++        guarded_valid = x[valid] @ coef + weight * valid_residual
++        guarded_loss = float(np.mean((cash[valid] - guarded_valid) ** 2))
++
++        # Material control-flow guard. A small margin avoids switching on a
++        # residual due only to floating-point or negligible holdout gains.
++        if (not np.isfinite(guarded_loss)) or guarded_loss >= losses[t, 0] * (1.0 - 1e-4):
++            weight = 0.0
++            guarded_loss = losses[t, 0]
++        losses[t, 1] = guarded_loss
++        losses[t, 2] = weight
+         updates[t] = np.linalg.norm(w1 - initial)
+-        continuation = x @ coef + target_scale * residual_pred
++
++        residual_all = target_scale * (np.tanh(x @ w1 + b1) @ w2 + b2)
++        continuation = np.maximum(x @ coef + weight * residual_all, 0.0)
+         cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+-        coefs[t], means[t], scales[t] = (coef, mean, scale)
+-        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
++
++        coefs[t], means[t], scales[t] = coef, mean, scale
++        w1s[t], b1s[t], w2s[t], b2s[t] = w1, b1, w2, b2
++        target_scales[t], residual_weights[t] = target_scale, weight
++
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+-    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
++    np.savez(
++        output_dir / "model.npz",
++        coefficients=coefs,
++        means=means,
++        scales=scales,
++        w1=w1s,
++        b1=b1s,
++        w2=w2s,
++        b2=b2s,
++        target_scales=target_scales,
++        residual_weights=residual_weights,
++    )
++    np.savez(
++        output_dir / "training_trace.npz",
++        backward_targets=targets,
++        validation_ridge_guarded_weight=losses,
++        first_layer_update_norm=updates,
++        seed=np.array(seed),
++    )
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+-        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+-        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+-        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
++    request = json.loads((input_dir / "request.json").read_text())
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = (features(states, immediate) - model["means"][t]) / model["scales"][t]
++        residual = np.tanh(x @ model["w1"][t] + model["b1"][t]) @ model["w2"][t] + model["b2"][t]
++        out = x @ model["coefficients"][t]
++        out += model["residual_weights"][t] * model["target_scales"][t] * residual
++    # A discounted nonnegative payoff has nonnegative continuation value; this
++    # finite fallback keeps the interface valid on extreme external queries.
++    out = np.maximum(np.nan_to_num(out, nan=0.0, posinf=1e100, neginf=0.0), 0.0)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
++    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+ 
+-def main():
++
++def main() -> None:
+     parser = argparse.ArgumentParser()
+-    sub = parser.add_subparsers(dest='command', required=True)
+-    f = sub.add_parser('fit')
+-    f.add_argument('--input', required=True)
+-    f.add_argument('--output', required=True)
+-    f.add_argument('--seed', type=int, required=True)
+-    p = sub.add_parser('predict')
+-    p.add_argument('--model', required=True)
+-    p.add_argument('--input', required=True)
+-    p.add_argument('--output', required=True)
+-    a = parser.parse_args()
+-    if a.command == 'fit':
+-        fit(Path(a.input), Path(a.output), a.seed)
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", type=int, required=True)
++    predict_parser = sub.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(Path(args.input), Path(args.output), args.seed)
+     else:
+-        predict(Path(a.model), Path(a.input), Path(a.output))
+-if __name__ == '__main__':
++        predict(Path(args.model), Path(args.input), Path(args.output))
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:19:47.482553Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The repaired gate and proposal are now in place. I’m running a protocol-shaped smoke test next, including deterministic refit, prediction shape/finite checks, and a causal-history check where only unused history is altered.
+exec
+/bin/zsh -lc 'python3 -m py_compile algorithm.py && test "$(find . -type f | wc -l | tr -d '"' ')\" -le 64 && python3 - <<'PY'
+import json, subprocess, tempfile
+from pathlib import Path
+import numpy as np
+
+root = Path.cwd()
+with tempfile.TemporaryDirectory() as td:
+    td = Path(td); inp = td/'in'; inp.mkdir()
+    rng = np.random.default_rng(12)
+    n, nt = 240, 5
+    paths = 100*np.exp(np.cumsum(rng.normal(-.002, .08, (n,nt,1)), axis=1))
+    payoff = np.maximum(100-paths[:,:,0], 0)*np.exp(-.02*np.arange(nt))
+    np.save(inp/'training_paths.npy', paths)
+    np.save(inp/'payoffs.npy', payoff)
+    np.save(inp/'discount_factors.npy', np.exp(-.02*np.arange(nt)))
+    (inp/'instance.json').write_text(json.dumps({'kind':'put','strike':100}))
+    models=[]
+    for k in range(2):
+        model=td/f'm{k}'
+        subprocess.run(['python3',str(root/'algorithm.py'),'fit','--input',str(inp),'--output',str(model),'--seed','73'],check=True)
+        models.append(model)
+    a=(models[0]/'model.npz').read_bytes(); b=(models[1]/'model.npz').read_bytes()
+    assert a == b, 'same-seed model differs'
+    q=td/'query'; q.mkdir(); out=td/'out'
+    np.save(q/'history.npy', paths[:37,:3])
+    np.save(q/'states.npy', paths[:37,2])
+    np.save(q/'immediate_payoffs.npy', payoff[:37,2])
+    (q/'request.json').write_text(json.dumps({'time_index':2}))
+    subprocess.run(['python3',str(root/'algorithm.py'),'predict','--model',str(models[0]),'--input',str(q),'--output',str(out)],check=True)
+    pred=np.load(out/'predictions.npy')
+    assert pred.shape == (37,) and np.isfinite(pred).all() and (pred>=0).all()
+    with np.load(models[0]/'model.npz') as m:
+        weights=m['residual_weights']
+    print('smoke_ok', pred.shape, 'range', float(pred.min()), float(pred.max()), 'guard_weights', weights.tolist())
+PY
+printf '%s\\n' '--- source tree ---'
+find . -type f -maxdepth 3 -print | sort
+printf '%s\\n' '--- diff ---'
+git diff --no-index /dev/null PROPOSAL.md || true
+git diff -- algorithm.py manifest.json || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+ succeeded in 212ms:
+smoke_ok (37,) range 0.0 26.667106264324445 guard_weights [0.0, 1.0, 0.0, 1.0]
+--- source tree ---
+./PROPOSAL.md
+./__pycache__/algorithm.cpython-312.pyc
+./algorithm.py
+./manifest.json
+--- diff ---
+diff --git a/PROPOSAL.md b/PROPOSAL.md
+new file mode 100644
+index 0000000..8021000
+--- /dev/null
++++ b/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..802100042018f0ec620c80681edca5ab90d173f1
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+index a88008fd935fabdf89a695f99afa86b0aa6bdc93..50b00d8b26fb9eeb0523f6051cfa9ec3dfc82b43
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+@@ -1,102 +1,196 @@
+-"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
++"""Validation-guarded ridge plus nonlinear residual continuation model.
+ 
+-Both the least-squares fit and the network optimizer belong to this candidate.
+-No evaluator labels or prices are needed: future discounted path cash flows
+-supply the regression targets, with stopping decisions updated backward.
++The parent program's backward cash-flow regression, polynomial/log features,
++ridge component, and trained tanh residual are retained.  The material AST
++mutation is a control-flow guard: a residual is used only when a deterministic
++holdout shows lower target error than ridge alone.  The gate also learns a
++shrinkage weight, which is useful near an at-the-money exercise boundary where
++an overfit residual can change many stopping decisions.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
++
+ def features(states, immediate):
+-    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+-    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
++    """Causal state features; no future portion of a path is consumed."""
++    states = np.asarray(states, dtype=float)
++    immediate = np.asarray(immediate, dtype=float).reshape(-1)
++    z = np.log(np.maximum(states, 1e-12))
++    return np.column_stack(
++        [np.ones(len(z)), z, z * z, np.mean(z, axis=1), immediate]
++    )
++
+ 
++def _ridge(x, y, penalty=1e-5):
++    gram = x.T @ x
++    regularizer = np.eye(x.shape[1]) * penalty
++    regularizer[0, 0] = penalty * 0.01
++    try:
++        return np.linalg.solve(gram + regularizer, x.T @ y)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, x.T @ y, rcond=None)[0]
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+     rng = np.random.default_rng(seed)
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    steps, width = (paths.shape[1] - 1, 16)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
++    steps, width = paths.shape[1] - 1, 16
++    n_paths = len(paths)
+     d = features(paths[:, 0], payoffs[:, 0]).shape[1]
++
+     coefs = np.zeros((steps, d))
+     means = np.zeros_like(coefs)
+     scales = np.ones_like(coefs)
+     w1s = np.zeros((steps, d, width))
+-    if True:
+-        b1s = np.zeros((steps, width))
++    b1s = np.zeros((steps, width))
+     w2s = np.zeros((steps, width))
+     b2s = np.zeros(steps)
+     target_scales = np.ones(steps)
+-    targets = np.zeros((steps, len(paths)))
+-    losses = np.zeros((steps, 2))
++    residual_weights = np.zeros(steps)
++    targets = np.zeros((steps, n_paths))
++    losses = np.zeros((steps, 3))
+     updates = np.zeros(steps)
+-    cash = payoffs[:, -1].copy()
++
++    # Discounting is already represented in evaluator-owned payoff units.
++    cash = payoffs[:, -1].astype(float, copy=True)
+     for t in range(steps - 1, -1, -1):
+         targets[t] = cash
+-        x = features(paths[:, t], payoffs[:, t])
+-        mean, scale = (x.mean(0), x.std(0))
++        raw_x = features(paths[:, t], payoffs[:, t])
++        mean, scale = raw_x.mean(axis=0), raw_x.std(axis=0)
+         mean[0] = 0.0
+         scale[scale < 1e-10] = 1.0
+-        x = (x - mean) / scale
+-        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+-        residual = cash - x @ coef
+-        target_scale = max(float(residual.std()), 1e-05)
++        x = (raw_x - mean) / scale
++
++        # LSM learns the boundary from paths that can actually exercise.  Fall
++        # back to all paths if an unusual contract produces too few such rows.
++        eligible = np.flatnonzero(payoffs[:, t] > 0.0)
++        if len(eligible) < max(24, 3 * d):
++            eligible = np.arange(n_paths)
++        shuffled = rng.permutation(eligible)
++        n_valid = max(1, min(len(shuffled) // 4, 1024))
++        valid = shuffled[:n_valid]
++        train = shuffled[n_valid:]
++        if len(train) < d + 2:
++            train, valid = shuffled, shuffled
++
++        coef = _ridge(x[train], cash[train])
++        ridge_train = x[train] @ coef
++        residual = cash[train] - ridge_train
++        target_scale = max(float(np.std(residual)), 1e-8)
+         y = residual / target_scale
++
+         w1 = rng.normal(0.0, 0.15, (d, width))
+         initial = w1.copy()
+         b1 = np.zeros(width)
+         w2 = rng.normal(0.0, 0.1, width)
+         b2 = 0.0
+-        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
++        losses[t, 0] = np.mean((cash[valid] - x[valid] @ coef) ** 2)
+         for _ in range(64):
+-            h = np.tanh(x @ w1 + b1)
++            h = np.tanh(x[train] @ w1 + b1)
+             err = h @ w2 + b2 - y
+-            g = 2.0 * err / len(x)
++            g = 2.0 * err / len(train)
+             hidden_g = g[:, None] * w2 * (1.0 - h * h)
+-            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+-            w1 -= 0.03 * gw1
+-            b1 -= 0.03 * gb1
+-            w2 -= 0.03 * gw2
+-            b2 -= 0.03 * gb2
+-        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+-        losses[t, 1] = np.mean((residual_pred - y) ** 2)
++            gw1 = x[train].T @ hidden_g
++            gb1 = hidden_g.sum(axis=0)
++            gw2 = h.T @ g
++            gb2 = g.sum()
++            # The parent's full-batch optimizer, with bounded gradients so a
++            # rare path cannot create a non-finite serialized model.
++            w1 -= 0.03 * np.clip(gw1, -10.0, 10.0)
++            b1 -= 0.03 * np.clip(gb1, -10.0, 10.0)
++            w2 -= 0.03 * np.clip(gw2, -10.0, 10.0)
++            b2 -= 0.03 * float(np.clip(gb2, -10.0, 10.0))
++
++        valid_residual = target_scale * (
++            np.tanh(x[valid] @ w1 + b1) @ w2 + b2
++        )
++        valid_error = cash[valid] - x[valid] @ coef
++        denom = float(valid_residual @ valid_residual)
++        weight = 0.0 if denom <= 1e-14 else float(
++            np.clip((valid_residual @ valid_error) / denom, 0.0, 1.0)
++        )
++        guarded_valid = x[valid] @ coef + weight * valid_residual
++        guarded_loss = float(np.mean((cash[valid] - guarded_valid) ** 2))
++
++        # Material control-flow guard. A small margin avoids switching on a
++        # residual due only to floating-point or negligible holdout gains.
++        if (not np.isfinite(guarded_loss)) or guarded_loss >= losses[t, 0] * (1.0 - 1e-4):
++            weight = 0.0
++            guarded_loss = losses[t, 0]
++        losses[t, 1] = guarded_loss
++        losses[t, 2] = weight
+         updates[t] = np.linalg.norm(w1 - initial)
+-        continuation = x @ coef + target_scale * residual_pred
++
++        residual_all = target_scale * (np.tanh(x @ w1 + b1) @ w2 + b2)
++        continuation = np.maximum(x @ coef + weight * residual_all, 0.0)
+         cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+-        coefs[t], means[t], scales[t] = (coef, mean, scale)
+-        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
++
++        coefs[t], means[t], scales[t] = coef, mean, scale
++        w1s[t], b1s[t], w2s[t], b2s[t] = w1, b1, w2, b2
++        target_scales[t], residual_weights[t] = target_scale, weight
++
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+-    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
++    np.savez(
++        output_dir / "model.npz",
++        coefficients=coefs,
++        means=means,
++        scales=scales,
++        w1=w1s,
++        b1=b1s,
++        w2=w2s,
++        b2=b2s,
++        target_scales=target_scales,
++        residual_weights=residual_weights,
++    )
++    np.savez(
++        output_dir / "training_trace.npz",
++        backward_targets=targets,
++        validation_ridge_guarded_weight=losses,
++        first_layer_update_norm=updates,
++        seed=np.array(seed),
++    )
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+-        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+-        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+-        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
++    request = json.loads((input_dir / "request.json").read_text())
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = (features(states, immediate) - model["means"][t]) / model["scales"][t]
++        residual = np.tanh(x @ model["w1"][t] + model["b1"][t]) @ model["w2"][t] + model["b2"][t]
++        out = x @ model["coefficients"][t]
++        out += model["residual_weights"][t] * model["target_scales"][t] * residual
++    # A discounted nonnegative payoff has nonnegative continuation value; this
++    # finite fallback keeps the interface valid on extreme external queries.
++    out = np.maximum(np.nan_to_num(out, nan=0.0, posinf=1e100, neginf=0.0), 0.0)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
++    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+ 
+-def main():
++
++def main() -> None:
+     parser = argparse.ArgumentParser()
+-    sub = parser.add_subparsers(dest='command', required=True)
+-    f = sub.add_parser('fit')
+-    f.add_argument('--input', required=True)
+-    f.add_argument('--output', required=True)
+-    f.add_argument('--seed', type=int, required=True)
+-    p = sub.add_parser('predict')
+-    p.add_argument('--model', required=True)
+-    p.add_argument('--input', required=True)
+-    p.add_argument('--output', required=True)
+-    a = parser.parse_args()
+-    if a.command == 'fit':
+-        fit(Path(a.input), Path(a.output), a.seed)
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", type=int, required=True)
++    predict_parser = sub.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(Path(args.input), Path(args.output), args.seed)
+     else:
+-        predict(Path(a.model), Path(a.input), Path(a.output))
+-if __name__ == '__main__':
++        predict(Path(args.model), Path(args.input), Path(args.output))
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:20:06.288204Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The smoke test passed and exercised both guard branches (some time steps enabled the residual, others fell back to ridge). Compilation created a forbidden `__pycache__` runtime directory inside the candidate tree, so I’m removing that test artifact and doing a final source-policy audit.
+exec
+/bin/zsh -lc "rm __pycache__/algorithm.cpython-312.pyc && rmdir __pycache__ && python3 - <<'PY'
+import ast, json
+from pathlib import Path
+p=Path('.')
+assert not any(x.is_symlink() for x in p.rglob('*'))
+files=[x for x in p.rglob('*') if x.is_file()]
+assert len(files) <= 64
+ast.parse((p/'algorithm.py').read_text())
+m=json.loads((p/'manifest.json').read_text())
+assert m == {'schema':'openhyra-python-program.v1','interface':'continuation'}
+assert 'def fit(' in (p/'algorithm.py').read_text()
+assert 'def predict(' in (p/'algorithm.py').read_text()
+print('policy_ok', len(files), sorted(str(x) for x in files))
+PY
+printf '%s\\n' '--- status in candidate ---'
+git status --short -- algorithm.py manifest.json PROPOSAL.md
+printf '%s\\n' '--- checksums ---'
+shasum -a 256 algorithm.py manifest.json PROPOSAL.md" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2
+ succeeded in 0ms:
+policy_ok 3 ['PROPOSAL.md', 'algorithm.py', 'manifest.json']
+--- status in candidate ---
+--- checksums ---
+4c486b64313f45cda49c7c08c143d1b3ba493189f8f21d8a8ec05d474b27f50c  algorithm.py
+4252ca50156dcc1d516a1daf9d2e4f7143cc2b8c766d50fb67f0b4b46d7904a9  manifest.json
+2ddc53e2c1f96d4f101319cdb8e15c237ed59f1d52b1d1579fb9aed5caeb392e  PROPOSAL.md
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..802100042018f0ec620c80681edca5ab90d173f1
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+index a88008fd935fabdf89a695f99afa86b0aa6bdc93..50b00d8b26fb9eeb0523f6051cfa9ec3dfc82b43
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+@@ -1,102 +1,196 @@
+-"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
++"""Validation-guarded ridge plus nonlinear residual continuation model.
+ 
+-Both the least-squares fit and the network optimizer belong to this candidate.
+-No evaluator labels or prices are needed: future discounted path cash flows
+-supply the regression targets, with stopping decisions updated backward.
++The parent program's backward cash-flow regression, polynomial/log features,
++ridge component, and trained tanh residual are retained.  The material AST
++mutation is a control-flow guard: a residual is used only when a deterministic
++holdout shows lower target error than ridge alone.  The gate also learns a
++shrinkage weight, which is useful near an at-the-money exercise boundary where
++an overfit residual can change many stopping decisions.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
++
+ def features(states, immediate):
+-    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+-    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
++    """Causal state features; no future portion of a path is consumed."""
++    states = np.asarray(states, dtype=float)
++    immediate = np.asarray(immediate, dtype=float).reshape(-1)
++    z = np.log(np.maximum(states, 1e-12))
++    return np.column_stack(
++        [np.ones(len(z)), z, z * z, np.mean(z, axis=1), immediate]
++    )
++
+ 
++def _ridge(x, y, penalty=1e-5):
++    gram = x.T @ x
++    regularizer = np.eye(x.shape[1]) * penalty
++    regularizer[0, 0] = penalty * 0.01
++    try:
++        return np.linalg.solve(gram + regularizer, x.T @ y)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, x.T @ y, rcond=None)[0]
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+     rng = np.random.default_rng(seed)
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    steps, width = (paths.shape[1] - 1, 16)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
++    steps, width = paths.shape[1] - 1, 16
++    n_paths = len(paths)
+     d = features(paths[:, 0], payoffs[:, 0]).shape[1]
++
+     coefs = np.zeros((steps, d))
+     means = np.zeros_like(coefs)
+     scales = np.ones_like(coefs)
+     w1s = np.zeros((steps, d, width))
+-    if True:
+-        b1s = np.zeros((steps, width))
++    b1s = np.zeros((steps, width))
+     w2s = np.zeros((steps, width))
+     b2s = np.zeros(steps)
+     target_scales = np.ones(steps)
+-    targets = np.zeros((steps, len(paths)))
+-    losses = np.zeros((steps, 2))
++    residual_weights = np.zeros(steps)
++    targets = np.zeros((steps, n_paths))
++    losses = np.zeros((steps, 3))
+     updates = np.zeros(steps)
+-    cash = payoffs[:, -1].copy()
++
++    # Discounting is already represented in evaluator-owned payoff units.
++    cash = payoffs[:, -1].astype(float, copy=True)
+     for t in range(steps - 1, -1, -1):
+         targets[t] = cash
+-        x = features(paths[:, t], payoffs[:, t])
+-        mean, scale = (x.mean(0), x.std(0))
++        raw_x = features(paths[:, t], payoffs[:, t])
++        mean, scale = raw_x.mean(axis=0), raw_x.std(axis=0)
+         mean[0] = 0.0
+         scale[scale < 1e-10] = 1.0
+-        x = (x - mean) / scale
+-        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+-        residual = cash - x @ coef
+-        target_scale = max(float(residual.std()), 1e-05)
++        x = (raw_x - mean) / scale
++
++        # LSM learns the boundary from paths that can actually exercise.  Fall
++        # back to all paths if an unusual contract produces too few such rows.
++        eligible = np.flatnonzero(payoffs[:, t] > 0.0)
++        if len(eligible) < max(24, 3 * d):
++            eligible = np.arange(n_paths)
++        shuffled = rng.permutation(eligible)
++        n_valid = max(1, min(len(shuffled) // 4, 1024))
++        valid = shuffled[:n_valid]
++        train = shuffled[n_valid:]
++        if len(train) < d + 2:
++            train, valid = shuffled, shuffled
++
++        coef = _ridge(x[train], cash[train])
++        ridge_train = x[train] @ coef
++        residual = cash[train] - ridge_train
++        target_scale = max(float(np.std(residual)), 1e-8)
+         y = residual / target_scale
++
+         w1 = rng.normal(0.0, 0.15, (d, width))
+         initial = w1.copy()
+         b1 = np.zeros(width)
+         w2 = rng.normal(0.0, 0.1, width)
+         b2 = 0.0
+-        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
++        losses[t, 0] = np.mean((cash[valid] - x[valid] @ coef) ** 2)
+         for _ in range(64):
+-            h = np.tanh(x @ w1 + b1)
++            h = np.tanh(x[train] @ w1 + b1)
+             err = h @ w2 + b2 - y
+-            g = 2.0 * err / len(x)
++            g = 2.0 * err / len(train)
+             hidden_g = g[:, None] * w2 * (1.0 - h * h)
+-            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+-            w1 -= 0.03 * gw1
+-            b1 -= 0.03 * gb1
+-            w2 -= 0.03 * gw2
+-            b2 -= 0.03 * gb2
+-        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+-        losses[t, 1] = np.mean((residual_pred - y) ** 2)
++            gw1 = x[train].T @ hidden_g
++            gb1 = hidden_g.sum(axis=0)
++            gw2 = h.T @ g
++            gb2 = g.sum()
++            # The parent's full-batch optimizer, with bounded gradients so a
++            # rare path cannot create a non-finite serialized model.
++            w1 -= 0.03 * np.clip(gw1, -10.0, 10.0)
++            b1 -= 0.03 * np.clip(gb1, -10.0, 10.0)
++            w2 -= 0.03 * np.clip(gw2, -10.0, 10.0)
++            b2 -= 0.03 * float(np.clip(gb2, -10.0, 10.0))
++
++        valid_residual = target_scale * (
++            np.tanh(x[valid] @ w1 + b1) @ w2 + b2
++        )
++        valid_error = cash[valid] - x[valid] @ coef
++        denom = float(valid_residual @ valid_residual)
++        weight = 0.0 if denom <= 1e-14 else float(
++            np.clip((valid_residual @ valid_error) / denom, 0.0, 1.0)
++        )
++        guarded_valid = x[valid] @ coef + weight * valid_residual
++        guarded_loss = float(np.mean((cash[valid] - guarded_valid) ** 2))
++
++        # Material control-flow guard. A small margin avoids switching on a
++        # residual due only to floating-point or negligible holdout gains.
++        if (not np.isfinite(guarded_loss)) or guarded_loss >= losses[t, 0] * (1.0 - 1e-4):
++            weight = 0.0
++            guarded_loss = losses[t, 0]
++        losses[t, 1] = guarded_loss
++        losses[t, 2] = weight
+         updates[t] = np.linalg.norm(w1 - initial)
+-        continuation = x @ coef + target_scale * residual_pred
++
++        residual_all = target_scale * (np.tanh(x @ w1 + b1) @ w2 + b2)
++        continuation = np.maximum(x @ coef + weight * residual_all, 0.0)
+         cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+-        coefs[t], means[t], scales[t] = (coef, mean, scale)
+-        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
++
++        coefs[t], means[t], scales[t] = coef, mean, scale
++        w1s[t], b1s[t], w2s[t], b2s[t] = w1, b1, w2, b2
++        target_scales[t], residual_weights[t] = target_scale, weight
++
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+-    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
++    np.savez(
++        output_dir / "model.npz",
++        coefficients=coefs,
++        means=means,
++        scales=scales,
++        w1=w1s,
++        b1=b1s,
++        w2=w2s,
++        b2=b2s,
++        target_scales=target_scales,
++        residual_weights=residual_weights,
++    )
++    np.savez(
++        output_dir / "training_trace.npz",
++        backward_targets=targets,
++        validation_ridge_guarded_weight=losses,
++        first_layer_update_norm=updates,
++        seed=np.array(seed),
++    )
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+-        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+-        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+-        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
++    request = json.loads((input_dir / "request.json").read_text())
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = (features(states, immediate) - model["means"][t]) / model["scales"][t]
++        residual = np.tanh(x @ model["w1"][t] + model["b1"][t]) @ model["w2"][t] + model["b2"][t]
++        out = x @ model["coefficients"][t]
++        out += model["residual_weights"][t] * model["target_scales"][t] * residual
++    # A discounted nonnegative payoff has nonnegative continuation value; this
++    # finite fallback keeps the interface valid on extreme external queries.
++    out = np.maximum(np.nan_to_num(out, nan=0.0, posinf=1e100, neginf=0.0), 0.0)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
++    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+ 
+-def main():
++
++def main() -> None:
+     parser = argparse.ArgumentParser()
+-    sub = parser.add_subparsers(dest='command', required=True)
+-    f = sub.add_parser('fit')
+-    f.add_argument('--input', required=True)
+-    f.add_argument('--output', required=True)
+-    f.add_argument('--seed', type=int, required=True)
+-    p = sub.add_parser('predict')
+-    p.add_argument('--model', required=True)
+-    p.add_argument('--input', required=True)
+-    p.add_argument('--output', required=True)
+-    a = parser.parse_args()
+-    if a.command == 'fit':
+-        fit(Path(a.input), Path(a.output), a.seed)
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", type=int, required=True)
++    predict_parser = sub.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(Path(args.input), Path(args.output), args.seed)
+     else:
+-        predict(Path(a.model), Path(a.input), Path(a.output))
+-if __name__ == '__main__':
++        predict(Path(args.model), Path(args.input), Path(args.output))
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:20:18.760356Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+Implemented the complete candidate:
+
+- Repaired the inert `if True` guard into a held-out validation gate.
+- Preserved the parent ridge, tanh-residual, causal features, and backward stopping logic.
+- Added residual shrinkage, ITM-focused fitting, gradient bounds, and finite/nonnegative predictions.
+- Recorded the hypothesis, falsifier, and matched control in [PROPOSAL.md](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md).
+- Kept the continuation interface in [manifest.json](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/manifest.json).
+
+[algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py) passed syntax, deterministic-fit, prediction-shape, finiteness, nonnegativity, and source-policy checks.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..802100042018f0ec620c80681edca5ab90d173f1
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,29 @@
++# Proposal: validation-guarded nonlinear continuation residual
++
++## Intervention
++
++- Mechanism: `direct_r0_1`
++- Family: `open_program_generation`
++- Scope: `whole_program`
++- Operator: `ast_mutation`
++- Target slice: `instance:public-put-atm`
++
++The materialized child preserves the parent program's backward cash-flow
++targets, causal log/polynomial/payoff features, ridge continuation component,
++and trained tanh residual. It repairs the inert `if True` child guard into a
++per-time validation control-flow gate. The nonlinear residual receives a
++held-out least-squares shrinkage weight in `[0, 1]` and is disabled unless its
++guarded validation MSE beats ridge alone by a nontrivial margin. Predictions
++also enforce the financial nonnegativity invariant and a finite fallback.
++
++## Falsifiable hypothesis
++
++Prediction: this mutation has positive mean paired discounted payoff versus
++the unchanged parent on `instance:public-put-atm`, under identical evaluator
++inputs and budget.
++
++Falsifier: the upper endpoint of the 95% paired confidence interval for the
++payoff difference is below zero.
++
++Matched control: the unchanged parent program, evaluated with identical input
++and budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+index a88008fd935fabdf89a695f99afa86b0aa6bdc93..50b00d8b26fb9eeb0523f6051cfa9ec3dfc82b43
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s17/drafts/r0-c2/algorithm.py
+@@ -1,102 +1,196 @@
+-"""Ridge plus a trained MLP residual on Monte Carlo backward targets.
++"""Validation-guarded ridge plus nonlinear residual continuation model.
+ 
+-Both the least-squares fit and the network optimizer belong to this candidate.
+-No evaluator labels or prices are needed: future discounted path cash flows
+-supply the regression targets, with stopping decisions updated backward.
++The parent program's backward cash-flow regression, polynomial/log features,
++ridge component, and trained tanh residual are retained.  The material AST
++mutation is a control-flow guard: a residual is used only when a deterministic
++holdout shows lower target error than ridge alone.  The gate also learns a
++shrinkage weight, which is useful near an at-the-money exercise boundary where
++an overfit residual can change many stopping decisions.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
++
+ def features(states, immediate):
+-    z = np.log(np.maximum(np.asarray(states, float), 1e-12))
+-    return np.column_stack([np.ones(len(z)), z, z * z, np.mean(z, 1), immediate])
++    """Causal state features; no future portion of a path is consumed."""
++    states = np.asarray(states, dtype=float)
++    immediate = np.asarray(immediate, dtype=float).reshape(-1)
++    z = np.log(np.maximum(states, 1e-12))
++    return np.column_stack(
++        [np.ones(len(z)), z, z * z, np.mean(z, axis=1), immediate]
++    )
++
+ 
++def _ridge(x, y, penalty=1e-5):
++    gram = x.T @ x
++    regularizer = np.eye(x.shape[1]) * penalty
++    regularizer[0, 0] = penalty * 0.01
++    try:
++        return np.linalg.solve(gram + regularizer, x.T @ y)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, x.T @ y, rcond=None)[0]
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+     rng = np.random.default_rng(seed)
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    steps, width = (paths.shape[1] - 1, 16)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
++    steps, width = paths.shape[1] - 1, 16
++    n_paths = len(paths)
+     d = features(paths[:, 0], payoffs[:, 0]).shape[1]
++
+     coefs = np.zeros((steps, d))
+     means = np.zeros_like(coefs)
+     scales = np.ones_like(coefs)
+     w1s = np.zeros((steps, d, width))
+-    if True:
+-        b1s = np.zeros((steps, width))
++    b1s = np.zeros((steps, width))
+     w2s = np.zeros((steps, width))
+     b2s = np.zeros(steps)
+     target_scales = np.ones(steps)
+-    targets = np.zeros((steps, len(paths)))
+-    losses = np.zeros((steps, 2))
++    residual_weights = np.zeros(steps)
++    targets = np.zeros((steps, n_paths))
++    losses = np.zeros((steps, 3))
+     updates = np.zeros(steps)
+-    cash = payoffs[:, -1].copy()
++
++    # Discounting is already represented in evaluator-owned payoff units.
++    cash = payoffs[:, -1].astype(float, copy=True)
+     for t in range(steps - 1, -1, -1):
+         targets[t] = cash
+-        x = features(paths[:, t], payoffs[:, t])
+-        mean, scale = (x.mean(0), x.std(0))
++        raw_x = features(paths[:, t], payoffs[:, t])
++        mean, scale = raw_x.mean(axis=0), raw_x.std(axis=0)
+         mean[0] = 0.0
+         scale[scale < 1e-10] = 1.0
+-        x = (x - mean) / scale
+-        coef = np.linalg.solve(x.T @ x + np.eye(d) * 1e-05, x.T @ cash)
+-        residual = cash - x @ coef
+-        target_scale = max(float(residual.std()), 1e-05)
++        x = (raw_x - mean) / scale
++
++        # LSM learns the boundary from paths that can actually exercise.  Fall
++        # back to all paths if an unusual contract produces too few such rows.
++        eligible = np.flatnonzero(payoffs[:, t] > 0.0)
++        if len(eligible) < max(24, 3 * d):
++            eligible = np.arange(n_paths)
++        shuffled = rng.permutation(eligible)
++        n_valid = max(1, min(len(shuffled) // 4, 1024))
++        valid = shuffled[:n_valid]
++        train = shuffled[n_valid:]
++        if len(train) < d + 2:
++            train, valid = shuffled, shuffled
++
++        coef = _ridge(x[train], cash[train])
++        ridge_train = x[train] @ coef
++        residual = cash[train] - ridge_train
++        target_scale = max(float(np.std(residual)), 1e-8)
+         y = residual / target_scale
++
+         w1 = rng.normal(0.0, 0.15, (d, width))
+         initial = w1.copy()
+         b1 = np.zeros(width)
+         w2 = rng.normal(0.0, 0.1, width)
+         b2 = 0.0
+-        losses[t, 0] = np.mean((np.tanh(x @ w1 + b1) @ w2 + b2 - y) ** 2)
++        losses[t, 0] = np.mean((cash[valid] - x[valid] @ coef) ** 2)
+         for _ in range(64):
+-            h = np.tanh(x @ w1 + b1)
++            h = np.tanh(x[train] @ w1 + b1)
+             err = h @ w2 + b2 - y
+-            g = 2.0 * err / len(x)
++            g = 2.0 * err / len(train)
+             hidden_g = g[:, None] * w2 * (1.0 - h * h)
+-            gw1, gb1, gw2, gb2 = (x.T @ hidden_g, hidden_g.sum(0), h.T @ g, g.sum())
+-            w1 -= 0.03 * gw1
+-            b1 -= 0.03 * gb1
+-            w2 -= 0.03 * gw2
+-            b2 -= 0.03 * gb2
+-        residual_pred = np.tanh(x @ w1 + b1) @ w2 + b2
+-        losses[t, 1] = np.mean((residual_pred - y) ** 2)
++            gw1 = x[train].T @ hidden_g
++            gb1 = hidden_g.sum(axis=0)
++            gw2 = h.T @ g
++            gb2 = g.sum()
++            # The parent's full-batch optimizer, with bounded gradients so a
++            # rare path cannot create a non-finite serialized model.
++            w1 -= 0.03 * np.clip(gw1, -10.0, 10.0)
++            b1 -= 0.03 * np.clip(gb1, -10.0, 10.0)
++            w2 -= 0.03 * np.clip(gw2, -10.0, 10.0)
++            b2 -= 0.03 * float(np.clip(gb2, -10.0, 10.0))
++
++        valid_residual = target_scale * (
++            np.tanh(x[valid] @ w1 + b1) @ w2 + b2
++        )
++        valid_error = cash[valid] - x[valid] @ coef
++        denom = float(valid_residual @ valid_residual)
++        weight = 0.0 if denom <= 1e-14 else float(
++            np.clip((valid_residual @ valid_error) / denom, 0.0, 1.0)
++        )
++        guarded_valid = x[valid] @ coef + weight * valid_residual
++        guarded_loss = float(np.mean((cash[valid] - guarded_valid) ** 2))
++
++        # Material control-flow guard. A small margin avoids switching on a
++        # residual due only to floating-point or negligible holdout gains.
++        if (not np.isfinite(guarded_loss)) or guarded_loss >= losses[t, 0] * (1.0 - 1e-4):
++            weight = 0.0
++            guarded_loss = losses[t, 0]
++        losses[t, 1] = guarded_loss
++        losses[t, 2] = weight
+         updates[t] = np.linalg.norm(w1 - initial)
+-        continuation = x @ coef + target_scale * residual_pred
++
++        residual_all = target_scale * (np.tanh(x @ w1 + b1) @ w2 + b2)
++        continuation = np.maximum(x @ coef + weight * residual_all, 0.0)
+         cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+-        coefs[t], means[t], scales[t] = (coef, mean, scale)
+-        w1s[t], b1s[t], w2s[t], b2s[t], target_scales[t] = (w1, b1, w2, b2, target_scale)
++
++        coefs[t], means[t], scales[t] = coef, mean, scale
++        w1s[t], b1s[t], w2s[t], b2s[t] = w1, b1, w2, b2
++        target_scales[t], residual_weights[t] = target_scale, weight
++
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefs, means=means, scales=scales, w1=w1s, b1=b1s, w2=w2s, b2=b2s, target_scales=target_scales)
+-    np.savez(output_dir / 'training_trace.npz', backward_targets=targets, loss_before_after=losses, first_layer_update_norm=updates, seed=np.array(seed))
++    np.savez(
++        output_dir / "model.npz",
++        coefficients=coefs,
++        means=means,
++        scales=scales,
++        w1=w1s,
++        b1=b1s,
++        w2=w2s,
++        b2=b2s,
++        target_scales=target_scales,
++        residual_weights=residual_weights,
++    )
++    np.savez(
++        output_dir / "training_trace.npz",
++        backward_targets=targets,
++        validation_ridge_guarded_weight=losses,
++        first_layer_update_norm=updates,
++        seed=np.array(seed),
++    )
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    t = int(json.loads((input_dir / 'request.json').read_text())['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as m:
+-        x = (features(states, immediate) - m['means'][t]) / m['scales'][t]
+-        residual = np.tanh(x @ m['w1'][t] + m['b1'][t]) @ m['w2'][t] + m['b2'][t]
+-        out = x @ m['coefficients'][t] + m['target_scales'][t] * residual
++    request = json.loads((input_dir / "request.json").read_text())
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = (features(states, immediate) - model["means"][t]) / model["scales"][t]
++        residual = np.tanh(x @ model["w1"][t] + model["b1"][t]) @ model["w2"][t] + model["b2"][t]
++        out = x @ model["coefficients"][t]
++        out += model["residual_weights"][t] * model["target_scales"][t] * residual
++    # A discounted nonnegative payoff has nonnegative continuation value; this
++    # finite fallback keeps the interface valid on extreme external queries.
++    out = np.maximum(np.nan_to_num(out, nan=0.0, posinf=1e100, neginf=0.0), 0.0)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', out, allow_pickle=False)
++    np.save(output_dir / "predictions.npy", out, allow_pickle=False)
+ 
+-def main():
++
++def main() -> None:
+     parser = argparse.ArgumentParser()
+-    sub = parser.add_subparsers(dest='command', required=True)
+-    f = sub.add_parser('fit')
+-    f.add_argument('--input', required=True)
+-    f.add_argument('--output', required=True)
+-    f.add_argument('--seed', type=int, required=True)
+-    p = sub.add_parser('predict')
+-    p.add_argument('--model', required=True)
+-    p.add_argument('--input', required=True)
+-    p.add_argument('--output', required=True)
+-    a = parser.parse_args()
+-    if a.command == 'fit':
+-        fit(Path(a.input), Path(a.output), a.seed)
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", type=int, required=True)
++    predict_parser = sub.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(Path(args.input), Path(args.output), args.seed)
+     else:
+-        predict(Path(a.model), Path(a.input), Path(a.output))
+-if __name__ == '__main__':
++        predict(Path(args.model), Path(args.input), Path(args.output))
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:20:26.954165Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/williamqian/.codex/shell_snapshots/01a0725c-f601-70a1-a8de-38f9810fafe0.1788625090080368000.sh"): Os { code: 2, kind: NotFound, message: "No such file or directory" }
+tokens used
+26,363

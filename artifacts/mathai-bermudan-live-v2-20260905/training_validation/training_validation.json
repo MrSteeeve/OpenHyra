@@ -1,0 +1,53 @@
+{
+  "schema": "openhyra-bermudan-training-validation.v1",
+  "rows": [
+    {
+      "family": "mlp",
+      "gradient_updates_observed": true,
+      "training_loss_decreased": true,
+      "terminal_backward_target_matches_mc_payoff": true,
+      "finite_predictions": true,
+      "train_seed": 71,
+      "model_sha256": "3c12abab5e2f53da064e208cb8303398b57cff8d362279ec79f688003db99188",
+      "input_sha256": "de0c8ef28ebf0678cb93d913a48488473f3c4cd45d45385d49359d662e1bf97d",
+      "model_file_sha256": [
+        [
+          "model.npz",
+          "c3d14126b1fb342d0b2a7a895c61ca527e78f886dcfa87a2ea0222026ce15f1f"
+        ],
+        [
+          "training_trace.npz",
+          "72abb9bd2f643ad563ed6ff482cbfeb123dd7b9a8306b67a2c23d5e8ec76eab4"
+        ]
+      ],
+      "fit_wall_seconds": 0.1853575420100242,
+      "prediction_wall_seconds": 0.09669341699918732,
+      "isolation": "seatbelt",
+      "research_fallback": false
+    },
+    {
+      "family": "residual_hybrid",
+      "gradient_updates_observed": true,
+      "training_loss_decreased": true,
+      "terminal_backward_target_matches_mc_payoff": true,
+      "finite_predictions": true,
+      "train_seed": 71,
+      "model_sha256": "434b3117f013a914444773efb99b986090df5011be014dc2657d75a9e4ff1432",
+      "input_sha256": "de0c8ef28ebf0678cb93d913a48488473f3c4cd45d45385d49359d662e1bf97d",
+      "model_file_sha256": [
+        [
+          "model.npz",
+          "ae0898ea3576d8515168f7d4fd9b6f4ff43bd78bbd31f2139ee5eedb064b63d2"
+        ],
+        [
+          "training_trace.npz",
+          "285efcafb4dce30a1808ced490aaa81053cc564e736f79354901204ecd43a90f"
+        ]
+      ],
+      "fit_wall_seconds": 0.13050666698836721,
+      "prediction_wall_seconds": 0.09334437499637716,
+      "isolation": "seatbelt",
+      "research_fallback": false
+    }
+  ]
+}

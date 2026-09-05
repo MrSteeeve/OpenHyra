@@ -1,0 +1,156 @@
+{
+  "iteration": 1,
+  "eb_version": 7,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002",
+    "sol_0003",
+    "sol_0004",
+    "sol_0005",
+    "sol_0006"
+  ],
+  "trial_seed": 17,
+  "direction": "Implement two candidates editing only algorithm.py and manifest.json: the sol_0002/sol_0003 boundary-gated ast_crossover and the sol_0002 fit-only out-of-fold residual subsystem rewrite, each paired against unchanged sol_0002 on instance:public-put-high-vol.",
+  "decision": {
+    "action": "continue",
+    "analysis": "sol_0002 remains the strongest scored parent (-0.000861). The cross-fitted monotone restart sol_0003 was worse overall (-0.001101), but its matched high-vol effect was positive yet inconclusive (0.000342; 95% CI [-0.002073, 0.002757]), suggesting potentially complementary boundary behavior rather than a win. The policy-iteration mutation sol_0005 timed out before evaluation, so it is an execution failure, not evidence against revised targets; sol_0006 only confirms the unchanged control. Next, compose complementary parent predictions and separately rewrite only sol_0002 fitting with a bounded out-of-fold correction, preserving matched budgets and targeting instance:public-put-high-vol.",
+    "reason": "Completed evidence supports testing complementary composition and a bounded fit-only revision while retaining sol_0002 as the unchanged control.",
+    "expected_gain": 0.0003,
+    "confidence": 0.55,
+    "phase": "discover",
+    "target_claim_id": "high_vol_complementarity",
+    "success_criterion": "At least one guided candidate has guided-minus-unchanged-sol_0002 mean discounted payoff greater than 0 on instance:public-put-high-vol.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "crossover_uncertainty_gate",
+        "family": "two_parent_composition",
+        "mechanism": "Combine the live continuation graphs of sol_0002 and sol_0003: retain both fitted predictors, estimate time-local disagreement scales from training paths, and during prediction use sol_0002 except near its exercise boundary, where a deterministic volatility-and-disagreement gate blends toward sol_0003. This adds an executed gating branch rather than unconditional averaging.",
+        "prediction": "The guided composition produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining sol_0002 behavior outside boundary-disagreement states.",
+        "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or either parent predictor is dead code.",
+        "matched_control": "Unchanged sol_0002 under the identical seed, paths, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0003",
+          "sol_0004"
+        ],
+        "next_probe": "Report paired payoff effects stratified by whether the gate selected sol_0002, blended, or selected sol_0003.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "rewrite_fit_oof_residual",
+        "family": "subsystem_rewrite",
+        "mechanism": "Preserve sol_0002 prediction code and continuation interface, but replace its fit subsystem with one bounded out-of-fold residual-policy correction: generate fold-separated base continuation predictions, recompute realized stopping-policy targets once, fit a strongly regularized correction, and serialize it in the exact form consumed by the unchanged predictor.",
+        "prediction": "The guided fit rewrite produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through improved targets without changing inference structure.",
+        "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or the unchanged predictor cannot consume the rewritten model state.",
+        "matched_control": "Unchanged sol_0002 under the identical seed, paths, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "fit",
+        "intervention_operator": "subsystem_rewrite",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0005",
+          "sol_0006"
+        ],
+        "next_probe": "First run a bounded lifecycle diagnostic confirming fit completion, model-state compatibility, finite predictions, and exactly one correction pass before paired evaluation.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "mechanism",
+    "intervention_operator": "ast_crossover",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A state-dependent composition of sol_0002 and sol_0003 will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+    "falsifier": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+    "evidence_ids": [
+      "sol_0002",
+      "sol_0003",
+      "sol_0004"
+    ],
+    "next_probe": "Measure paired payoff effect, exercise rate, and stop-time mean separately for both repeats on instance:public-put-high-vol.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Implement two candidates editing only algorithm.py and manifest.json: the sol_0002/sol_0003 boundary-gated ast_crossover and the sol_0002 fit-only out-of-fold residual subsystem rewrite, each paired against unchanged sol_0002 on instance:public-put-high-vol.",
+    "intervention": {
+      "scope": "mechanism",
+      "operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A state-dependent composition of sol_0002 and sol_0003 will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+      "falsifier": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0003",
+        "sol_0004"
+      ],
+      "next_probe": "Measure paired payoff effect, exercise rate, and stop-time mean separately for both repeats on instance:public-put-high-vol.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "crossover_uncertainty_gate",
+      "family": "two_parent_composition",
+      "mechanism": "Combine the live continuation graphs of sol_0002 and sol_0003: retain both fitted predictors, estimate time-local disagreement scales from training paths, and during prediction use sol_0002 except near its exercise boundary, where a deterministic volatility-and-disagreement gate blends toward sol_0003. This adds an executed gating branch rather than unconditional averaging.",
+      "prediction": "The guided composition produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining sol_0002 behavior outside boundary-disagreement states.",
+      "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or either parent predictor is dead code.",
+      "matched_control": "Unchanged sol_0002 under the identical seed, paths, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "ast_crossover",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0003",
+        "sol_0004"
+      ],
+      "next_probe": "Report paired payoff effects stratified by whether the gate selected sol_0002, blended, or selected sol_0003.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "rewrite_fit_oof_residual",
+      "family": "subsystem_rewrite",
+      "mechanism": "Preserve sol_0002 prediction code and continuation interface, but replace its fit subsystem with one bounded out-of-fold residual-policy correction: generate fold-separated base continuation predictions, recompute realized stopping-policy targets once, fit a strongly regularized correction, and serialize it in the exact form consumed by the unchanged predictor.",
+      "prediction": "The guided fit rewrite produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through improved targets without changing inference structure.",
+      "failure_condition": "The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or the unchanged predictor cannot consume the rewritten model state.",
+      "matched_control": "Unchanged sol_0002 under the identical seed, paths, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "fit",
+      "intervention_operator": "subsystem_rewrite",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0005",
+        "sol_0006"
+      ],
+      "next_probe": "First run a bounded lifecycle diagnostic confirming fit completion, model-state compatibility, finite predictions, and exactly one correction pass before paired evaluation.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"sol_0002 remains the strongest scored parent (-0.000861). The cross-fitted monotone restart sol_0003 was worse overall (-0.001101), but its matched high-vol effect was positive yet inconclusive (0.000342; 95% CI [-0.002073, 0.002757]), suggesting potentially complementary boundary behavior rather than a win. The policy-iteration mutation sol_0005 timed out before evaluation, so it is an execution failure, not evidence against revised targets; sol_0006 only confirms the unchanged control. Next, compose complementary parent predictions and separately rewrite only sol_0002 fitting with a bounded out-of-fold correction, preserving matched budgets and targeting instance:public-put-high-vol.\", \"reason\": \"Completed evidence supports testing complementary composition and a bounded fit-only revision while retaining sol_0002 as the unchanged control.\", \"expected_gain\": 0.0003, \"confidence\": 0.55, \"phase\": \"discover\", \"target_claim_id\": \"high_vol_complementarity\", \"success_criterion\": \"At least one guided candidate has guided-minus-unchanged-sol_0002 mean discounted payoff greater than 0 on instance:public-put-high-vol.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"crossover_uncertainty_gate\", \"family\": \"two_parent_composition\", \"mechanism\": \"Combine the live continuation graphs of sol_0002 and sol_0003: retain both fitted predictors, estimate time-local disagreement scales from training paths, and during prediction use sol_0002 except near its exercise boundary, where a deterministic volatility-and-disagreement gate blends toward sol_0003. This adds an executed gating branch rather than unconditional averaging.\", \"prediction\": \"The guided composition produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol while retaining sol_0002 behavior outside boundary-disagreement states.\", \"failure_condition\": \"The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or either parent predictor is dead code.\", \"matched_control\": \"Unchanged sol_0002 under the identical seed, paths, and evaluator budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\", \"sol_0003\", \"sol_0004\"], \"next_probe\": \"Report paired payoff effects stratified by whether the gate selected sol_0002, blended, or selected sol_0003.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"rewrite_fit_oof_residual\", \"family\": \"subsystem_rewrite\", \"mechanism\": \"Preserve sol_0002 prediction code and continuation interface, but replace its fit subsystem with one bounded out-of-fold residual-policy correction: generate fold-separated base continuation predictions, recompute realized stopping-policy targets once, fit a strongly regularized correction, and serialize it in the exact form consumed by the unchanged predictor.\", \"prediction\": \"The guided fit rewrite produces positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol through improved targets without changing inference structure.\", \"failure_condition\": \"The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol, or the unchanged predictor cannot consume the rewritten model state.\", \"matched_control\": \"Unchanged sol_0002 under the identical seed, paths, and evaluator budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"fit\", \"intervention_operator\": \"subsystem_rewrite\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\", \"sol_0005\", \"sol_0006\"], \"next_probe\": \"First run a bounded lifecycle diagnostic confirming fit completion, model-state compatibility, finite predictions, and exactly one correction pass before paired evaluation.\", \"state_version\": null}], \"intervention_scope\": \"mechanism\", \"intervention_operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A state-dependent composition of sol_0002 and sol_0003 will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"evidence_ids\": [\"sol_0002\", \"sol_0003\", \"sol_0004\"], \"next_probe\": \"Measure paired payoff effect, exercise rate, and stop-time mean separately for both repeats on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Implement two candidates editing only algorithm.py and manifest.json: the sol_0002/sol_0003 boundary-gated ast_crossover and the sol_0002 fit-only out-of-fold residual subsystem rewrite, each paired against unchanged sol_0002 on instance:public-put-high-vol.\", \"intervention\": {\"scope\": \"mechanism\", \"operator\": \"ast_crossover\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A state-dependent composition of sol_0002 and sol_0003 will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The upper endpoint of the 95% confidence interval for guided-minus-unchanged-sol_0002 mean discounted payoff is below zero on instance:public-put-high-vol.\", \"evidence_ids\": [\"sol_0002\", \"sol_0003\", \"sol_0004\"], \"next_probe\": \"Measure paired payoff effect, exercise rate, and stop-time mean separately for both repeats on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null}}"
+}

@@ -1,0 +1,18 @@
+{
+  "config": {
+    "independent_validation": false,
+    "instance_count": 2,
+    "pricing_paths": 512,
+    "public_pathwise_samples": true,
+    "repeats": 2,
+    "research_mode": true,
+    "training_paths": 256,
+    "training_timeout_s": 30
+  },
+  "protocol": "bermudan-python-program-search.v1",
+  "schema": "openhyra-evaluation-request.v1",
+  "seed": 41,
+  "stage": "search",
+  "suite_id": "bermudan-python-public-v2",
+  "task": "bermudan_python_search"
+}

@@ -1,0 +1,148 @@
+{
+  "iteration": 0,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 17,
+  "direction": "Create two separate candidates editing only algorithm.py and manifest.json: first evaluate restart_crossfit_policy_tree against unchanged sol_0002 on instance:public-put-high-vol, then evaluate mutate_residual_tail_gate against unchanged sol_0002 on instance:public-put-atm using matched seeds and budgets.",
+  "decision": {
+    "action": "continue",
+    "analysis": "Residual_hybrid (sol_0002) narrowly leads linear_ridge (sol_0000), while the MLP (sol_0001) loses substantially, suggesting flexible global fitting is unstable and the current lineage is saturated near zero. No slice-level candidate outcomes are reported, but public-put-atm and public-put-high-vol are observed evaluator instances. Explore one independent direct-decision restart and one bounded structural mutation of the strongest parent. Both require positive matched guided-minus-parent mean discounted payoff; an upper 95% confidence bound below zero refutes the proposed direction.",
+    "reason": "The frontier is shallow and contains no tested program-level direction, so two structurally distinct matched-budget probes are warranted.",
+    "expected_gain": 0.0005,
+    "confidence": 0.57,
+    "phase": "discover",
+    "target_claim_id": null,
+    "success_criterion": "For at least one candidate, matched-seed guided-minus-unchanged-parent mean discounted payoff on its exact target slice is greater than 0.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "restart_crossfit_policy_tree",
+        "family": "whole_program_restart",
+        "mechanism": "Replace the inherited program with a decision-interface algorithm that works backward through exercise dates. At each date, generate causal features from current prices, running extrema, log returns, realized covariance, moneyness, and time; create labels by comparing immediate payoff with cross-fitted future cashflows; fit a depth-limited cost-sensitive classification tree ensemble; calibrate its exercise threshold by out-of-fold realized discounted payoff; persist trees and",
+        "prediction": "Relative to unchanged sol_0002 with identical seeds and evaluator budget, the restart yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol.",
+        "failure_condition": "The executed decisions reproduce sol_0002 behavior, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+        "matched_control": "Run unchanged sol_0002 on the same training paths, seeds, prediction queries, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "whole_program_restart",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0001",
+          "sol_0002"
+        ],
+        "next_probe": "Measure paired payoff and exercise-rate differences on instance:public-put-high-vol; verify predictions differ on at least 1% of eligible query states.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "mutate_residual_tail_gate",
+        "family": "ast_structural_mutation",
+        "mechanism": "Mutate sol_0002's executable fit subtree so each backward step partitions in-the-money samples by moneyness and realized-volatility quantiles, fits robust Huber residual corrections within populated cells, and shrinks each correction toward the original residual-hybrid continuation estimate using validation-selected weights. Mutate predict control flow to apply the corresponding persisted cell correction with the original estimate as the sparse-cell fallback.",
+        "prediction": "Relative to unchanged sol_0002 under matched seeds and budget, the structural child yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm while preserving finite continuation outputs.",
+        "failure_condition": "The mutation leaves predictions behaviorally unchanged, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below 0.",
+        "matched_control": "Run unchanged sol_0002 with the same seed, paths, query sequence, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-atm"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation",
+        "target_slice": "instance:public-put-atm",
+        "evidence_ids": [
+          "sol_0000",
+          "sol_0002"
+        ],
+        "next_probe": "Report paired payoff difference and 95% confidence interval on instance:public-put-atm, plus the fraction of queries entering a non-fallback correction cell.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "family",
+    "intervention_operator": "whole_program_restart",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A direct-decision, cross-fitted backward policy will produce positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol under the same seeds and budget.",
+    "falsifier": "The upper endpoint of the paired 95% confidence interval for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0001",
+      "sol_0002"
+    ],
+    "next_probe": "Evaluate matched seeds on instance:public-put-high-vol and report the paired payoff difference, 95% confidence interval, and exercise-rate difference versus unchanged sol_0002.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Create two separate candidates editing only algorithm.py and manifest.json: first evaluate restart_crossfit_policy_tree against unchanged sol_0002 on instance:public-put-high-vol, then evaluate mutate_residual_tail_gate against unchanged sol_0002 on instance:public-put-atm using matched seeds and budgets.",
+    "intervention": {
+      "scope": "family",
+      "operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A direct-decision, cross-fitted backward policy will produce positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol under the same seeds and budget.",
+      "falsifier": "The upper endpoint of the paired 95% confidence interval for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Evaluate matched seeds on instance:public-put-high-vol and report the paired payoff difference, 95% confidence interval, and exercise-rate difference versus unchanged sol_0002.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "restart_crossfit_policy_tree",
+      "family": "whole_program_restart",
+      "mechanism": "Replace the inherited program with a decision-interface algorithm that works backward through exercise dates. At each date, generate causal features from current prices, running extrema, log returns, realized covariance, moneyness, and time; create labels by comparing immediate payoff with cross-fitted future cashflows; fit a depth-limited cost-sensitive classification tree ensemble; calibrate its exercise threshold by out-of-fold realized discounted payoff; persist trees and",
+      "prediction": "Relative to unchanged sol_0002 with identical seeds and evaluator budget, the restart yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol.",
+      "failure_condition": "The executed decisions reproduce sol_0002 behavior, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.",
+      "matched_control": "Run unchanged sol_0002 on the same training paths, seeds, prediction queries, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Measure paired payoff and exercise-rate differences on instance:public-put-high-vol; verify predictions differ on at least 1% of eligible query states.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "mutate_residual_tail_gate",
+      "family": "ast_structural_mutation",
+      "mechanism": "Mutate sol_0002's executable fit subtree so each backward step partitions in-the-money samples by moneyness and realized-volatility quantiles, fits robust Huber residual corrections within populated cells, and shrinks each correction toward the original residual-hybrid continuation estimate using validation-selected weights. Mutate predict control flow to apply the corresponding persisted cell correction with the original estimate as the sparse-cell fallback.",
+      "prediction": "Relative to unchanged sol_0002 under matched seeds and budget, the structural child yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm while preserving finite continuation outputs.",
+      "failure_condition": "The mutation leaves predictions behaviorally unchanged, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below 0.",
+      "matched_control": "Run unchanged sol_0002 with the same seed, paths, query sequence, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-atm"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "program_subtree",
+      "intervention_operator": "ast_mutation",
+      "target_slice": "instance:public-put-atm",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0002"
+      ],
+      "next_probe": "Report paired payoff difference and 95% confidence interval on instance:public-put-atm, plus the fraction of queries entering a non-fallback correction cell.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"Residual_hybrid (sol_0002) narrowly leads linear_ridge (sol_0000), while the MLP (sol_0001) loses substantially, suggesting flexible global fitting is unstable and the current lineage is saturated near zero. No slice-level candidate outcomes are reported, but public-put-atm and public-put-high-vol are observed evaluator instances. Explore one independent direct-decision restart and one bounded structural mutation of the strongest parent. Both require positive matched guided-minus-parent mean discounted payoff; an upper 95% confidence bound below zero refutes the proposed direction.\", \"reason\": \"The frontier is shallow and contains no tested program-level direction, so two structurally distinct matched-budget probes are warranted.\", \"expected_gain\": 0.0005, \"confidence\": 0.57, \"phase\": \"discover\", \"target_claim_id\": null, \"success_criterion\": \"For at least one candidate, matched-seed guided-minus-unchanged-parent mean discounted payoff on its exact target slice is greater than 0.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"restart_crossfit_policy_tree\", \"family\": \"whole_program_restart\", \"mechanism\": \"Replace the inherited program with a decision-interface algorithm that works backward through exercise dates. At each date, generate causal features from current prices, running extrema, log returns, realized covariance, moneyness, and time; create labels by comparing immediate payoff with cross-fitted future cashflows; fit a depth-limited cost-sensitive classification tree ensemble; calibrate its exercise threshold by out-of-fold realized discounted payoff; persist trees and\", \"prediction\": \"Relative to unchanged sol_0002 with identical seeds and evaluator budget, the restart yields positive guided-minus-parent mean discounted payoff on instance:public-put-high-vol.\", \"failure_condition\": \"The executed decisions reproduce sol_0002 behavior, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.\", \"matched_control\": \"Run unchanged sol_0002 on the same training paths, seeds, prediction queries, and evaluator budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0001\", \"sol_0002\"], \"next_probe\": \"Measure paired payoff and exercise-rate differences on instance:public-put-high-vol; verify predictions differ on at least 1% of eligible query states.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"mutate_residual_tail_gate\", \"family\": \"ast_structural_mutation\", \"mechanism\": \"Mutate sol_0002's executable fit subtree so each backward step partitions in-the-money samples by moneyness and realized-volatility quantiles, fits robust Huber residual corrections within populated cells, and shrinks each correction toward the original residual-hybrid continuation estimate using validation-selected weights. Mutate predict control flow to apply the corresponding persisted cell correction with the original estimate as the sparse-cell fallback.\", \"prediction\": \"Relative to unchanged sol_0002 under matched seeds and budget, the structural child yields positive guided-minus-parent mean discounted payoff on instance:public-put-atm while preserving finite continuation outputs.\", \"failure_condition\": \"The mutation leaves predictions behaviorally unchanged, or the upper 95% confidence bound for guided-minus-sol_0002 mean discounted payoff on instance:public-put-atm is below 0.\", \"matched_control\": \"Run unchanged sol_0002 with the same seed, paths, query sequence, and evaluator budget.\", \"target_slices\": [\"instance:public-put-atm\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"program_subtree\", \"intervention_operator\": \"ast_mutation\", \"target_slice\": \"instance:public-put-atm\", \"evidence_ids\": [\"sol_0000\", \"sol_0002\"], \"next_probe\": \"Report paired payoff difference and 95% confidence interval on instance:public-put-atm, plus the fraction of queries entering a non-fallback correction cell.\", \"state_version\": null}], \"intervention_scope\": \"family\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A direct-decision, cross-fitted backward policy will produce positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol under the same seeds and budget.\", \"falsifier\": \"The upper endpoint of the paired 95% confidence interval for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Evaluate matched seeds on instance:public-put-high-vol and report the paired payoff difference, 95% confidence interval, and exercise-rate difference versus unchanged sol_0002.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Create two separate candidates editing only algorithm.py and manifest.json: first evaluate restart_crossfit_policy_tree against unchanged sol_0002 on instance:public-put-high-vol, then evaluate mutate_residual_tail_gate against unchanged sol_0002 on instance:public-put-atm using matched seeds and budgets.\", \"intervention\": {\"scope\": \"family\", \"operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A direct-decision, cross-fitted backward policy will produce positive guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol under the same seeds and budget.\", \"falsifier\": \"The upper endpoint of the paired 95% confidence interval for guided-minus-sol_0002 mean discounted payoff on instance:public-put-high-vol is below 0.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Evaluate matched seeds on instance:public-put-high-vol and report the paired payoff difference, 95% confidence interval, and exercise-rate difference versus unchanged sol_0002.\", \"state_version\": null, \"state_hash\": null}}"
+}

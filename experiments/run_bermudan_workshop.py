@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -31,6 +32,9 @@ def source(family):
 
 def digest(files):
     return hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+def file_digest(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def materialize(root, files):
     root.mkdir(parents=True, exist_ok=True)
@@ -215,8 +219,63 @@ def run(output):
            "fit time, independent replay and causal lookahead probes. Candidate",
            "internal continuation targets are explicitly unobserved.","",
            f"Rows: {len(rows)}; public pairs: {len(pairs)}; failures: {summary['failed_rows']}.",
-           "The claim remains evaluator-guided open Python program search on Bermudan."]
+           "The claim remains evaluator-guided open Python program search on Bermudan.",
+           "manifest.json records source digests, request matrix, and rebuild command."]
     (output/"EXPERIMENT_SUMMARY.md").write_text("\n".join(lines)+"\n")
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        revision = None
+    candidate_digests = {
+        family: {
+            name: file_digest(FAMILIES / family / name)
+            for name in ("algorithm.py", "manifest.json")
+        }
+        for family in sorted(p.name for p in FAMILIES.iterdir() if p.is_dir())
+    }
+    manifest = {
+        "schema": "openhyra-bermudan-workshop-manifest.v1",
+        "repository": "OpenHyra",
+        "git_revision": revision,
+        "runner": {
+            "path": "experiments/run_bermudan_workshop.py",
+            "sha256": file_digest(Path(__file__)),
+        },
+        "evaluator": {
+            "path": "tasks/bermudan_optimal_stopping/evaluator.py",
+            "sha256": file_digest(ROOT / "tasks/bermudan_optimal_stopping/evaluator.py"),
+        },
+        "candidate_families": candidate_digests,
+        "matrix": {
+            "seeds": list(SEEDS), "rounds": 2, "modes": list(MODES),
+            "operators_by_round": [
+                ["whole_program_restart", "ast_mutation"],
+                ["ast_crossover", "subsystem_rewrite"],
+            ],
+            "pairs_per_round": 2,
+            "private_audits_per_mode_seed": 1,
+        },
+        "requests": {
+            "search": request("search", 17),
+            "audit": request("audit", 9017),
+        },
+        "artifacts": {
+            "candidate_ledger.jsonl": file_digest(output / "candidate_ledger.jsonl"),
+            "summary.json": file_digest(output / "summary.json"),
+            "EXPERIMENT_SUMMARY.md": file_digest(output / "EXPERIMENT_SUMMARY.md"),
+        },
+        "rebuild": {
+            "command": "python3 experiments/run_bermudan_workshop.py --output artifacts/mathai-bermudan-workshop-20260905",
+            "generator_is_deterministic": True,
+            "llm_search_effect_observed": False,
+        },
+    }
+    (output/"manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    )
     return summary
 
 def main():

@@ -1,0 +1,148 @@
+{
+  "iteration": 0,
+  "eb_version": 3,
+  "visible_solution_ids": [
+    "sol_0000",
+    "sol_0001",
+    "sol_0002"
+  ],
+  "trial_seed": 41,
+  "direction": "Create two protocol-compliant candidates editing only algorithm.py and manifest.json: the cross-fitted margin-forest restart and the robust backward-target AST mutation of sol_0002; evaluate both against unchanged sol_0002 on matched high-volatility seeds.",
+  "decision": {
+    "action": "continue",
+    "analysis": "The residual_hybrid reference sol_0002 leads the observed frontier (-0.001077), narrowly beating linear_ridge sol_0000 (-0.001487); the MLP sol_0001 loses substantially (-0.007395). This suggests retaining stable low-variance structure as the mutation parent while testing a genuinely different restart. Slice-level candidate outcomes are absent, so no mechanism is established or falsified. The next round should compare each guided program against its unchanged matched parent using identical paths, seeds, and budget, targeting instance:public-put-high-vol where exercise-rate variability is largest.",
+    "reason": "Current evidence favors residual structure but is too sparse to establish convergence or explain the high-volatility slice.",
+    "expected_gain": 0.0005,
+    "confidence": 0.58,
+    "phase": "discover",
+    "target_claim_id": null,
+    "success_criterion": "For at least one candidate on instance:public-put-high-vol, mean(guided discounted payoff - unchanged-parent discounted payoff) > 0 across matched seeds and its 95% CI lower bound is > 0.",
+    "mechanism_candidates": [
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "restart_crossfit_margin_forest",
+        "family": "whole_program_restart",
+        "mechanism": "Replace the inherited program with a decision-interface algorithm that performs backward induction using time-specific extremely randomized regression trees trained out-of-fold; exercise only when immediate payoff exceeds predicted continuation by a cross-validated margin, with monotone threshold shrinkage toward maturity.",
+        "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by capturing nonlinear volatility interactions while controlling premature exercise.",
+        "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this direction.",
+        "matched_control": "Unchanged sol_0002 under identical evaluator paths, seeds, and compute budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "whole_program_restart",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0001"
+        ],
+        "next_probe": "Measure matched payoff differences and exercise-rate differences at every exercise time, first on instance:public-put-high-vol.",
+        "state_version": null
+      },
+      {
+        "schema": "openhyra-algorithm-hypothesis.v1",
+        "id": "mutate_residual_robust_backward",
+        "family": "ast_mutation",
+        "mechanism": "Structurally mutate sol_0002 fit control flow to use cross-fitted backward targets, robust Huber reweighting, and state-dependent residual clipping while preserving its representation and prediction interface.",
+        "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol through reduced continuation-target noise without additional training budget.",
+        "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this mutation.",
+        "matched_control": "Unchanged sol_0002 with the same seed, paths, representation, and evaluator budget.",
+        "target_slices": [
+          "instance:public-put-high-vol"
+        ],
+        "implementation_hint": "",
+        "source": "context",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation",
+        "target_slice": "instance:public-put-high-vol",
+        "evidence_ids": [
+          "sol_0002",
+          "sol_0000"
+        ],
+        "next_probe": "Ablate Huber reweighting versus cross-fitting within the same fixed budget and compare matched payoff differences on instance:public-put-high-vol.",
+        "state_version": null
+      }
+    ],
+    "intervention_scope": "architecture",
+    "intervention_operator": "whole_program_restart",
+    "target_slice": "instance:public-put-high-vol",
+    "prediction": "A direct-decision backward policy using cross-fitted randomized tree ensembles, payoff-margin abstention, and time-specific thresholds will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+    "falsifier": "The direction is refuted if the upper endpoint of the 95% CI for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+    "evidence_ids": [
+      "sol_0000",
+      "sol_0001",
+      "sol_0002"
+    ],
+    "next_probe": "Run matched seeds for the restart and unchanged sol_0002, reporting payoff difference, 95% CI, and exercise rates by time on instance:public-put-high-vol.",
+    "state_version": null,
+    "state_hash": null,
+    "next": "Create two protocol-compliant candidates editing only algorithm.py and manifest.json: the cross-fitted margin-forest restart and the robust backward-target AST mutation of sol_0002; evaluate both against unchanged sol_0002 on matched high-volatility seeds.",
+    "intervention": {
+      "scope": "architecture",
+      "operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "prediction": "A direct-decision backward policy using cross-fitted randomized tree ensembles, payoff-margin abstention, and time-specific thresholds will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.",
+      "falsifier": "The direction is refuted if the upper endpoint of the 95% CI for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.",
+      "evidence_ids": [
+        "sol_0000",
+        "sol_0001",
+        "sol_0002"
+      ],
+      "next_probe": "Run matched seeds for the restart and unchanged sol_0002, reporting payoff difference, 95% CI, and exercise rates by time on instance:public-put-high-vol.",
+      "state_version": null,
+      "state_hash": null
+    }
+  },
+  "mechanism_candidates": [
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "restart_crossfit_margin_forest",
+      "family": "whole_program_restart",
+      "mechanism": "Replace the inherited program with a decision-interface algorithm that performs backward induction using time-specific extremely randomized regression trees trained out-of-fold; exercise only when immediate payoff exceeds predicted continuation by a cross-validated margin, with monotone threshold shrinkage toward maturity.",
+      "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by capturing nonlinear volatility interactions while controlling premature exercise.",
+      "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this direction.",
+      "matched_control": "Unchanged sol_0002 under identical evaluator paths, seeds, and compute budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "whole_program",
+      "intervention_operator": "whole_program_restart",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0001"
+      ],
+      "next_probe": "Measure matched payoff differences and exercise-rate differences at every exercise time, first on instance:public-put-high-vol.",
+      "state_version": null
+    },
+    {
+      "schema": "openhyra-algorithm-hypothesis.v1",
+      "id": "mutate_residual_robust_backward",
+      "family": "ast_mutation",
+      "mechanism": "Structurally mutate sol_0002 fit control flow to use cross-fitted backward targets, robust Huber reweighting, and state-dependent residual clipping while preserving its representation and prediction interface.",
+      "prediction": "Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol through reduced continuation-target noise without additional training budget.",
+      "failure_condition": "An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this mutation.",
+      "matched_control": "Unchanged sol_0002 with the same seed, paths, representation, and evaluator budget.",
+      "target_slices": [
+        "instance:public-put-high-vol"
+      ],
+      "implementation_hint": "",
+      "source": "context",
+      "intervention_scope": "program_subtree",
+      "intervention_operator": "ast_mutation",
+      "target_slice": "instance:public-put-high-vol",
+      "evidence_ids": [
+        "sol_0002",
+        "sol_0000"
+      ],
+      "next_probe": "Ablate Huber reweighting versus cross-fitting within the same fixed budget and compare matched payoff differences on instance:public-put-high-vol.",
+      "state_version": null
+    }
+  ],
+  "result_ids": [],
+  "text": "{\"action\": \"continue\", \"analysis\": \"The residual_hybrid reference sol_0002 leads the observed frontier (-0.001077), narrowly beating linear_ridge sol_0000 (-0.001487); the MLP sol_0001 loses substantially (-0.007395). This suggests retaining stable low-variance structure as the mutation parent while testing a genuinely different restart. Slice-level candidate outcomes are absent, so no mechanism is established or falsified. The next round should compare each guided program against its unchanged matched parent using identical paths, seeds, and budget, targeting instance:public-put-high-vol where exercise-rate variability is largest.\", \"reason\": \"Current evidence favors residual structure but is too sparse to establish convergence or explain the high-volatility slice.\", \"expected_gain\": 0.0005, \"confidence\": 0.58, \"phase\": \"discover\", \"target_claim_id\": null, \"success_criterion\": \"For at least one candidate on instance:public-put-high-vol, mean(guided discounted payoff - unchanged-parent discounted payoff) > 0 across matched seeds and its 95% CI lower bound is > 0.\", \"mechanism_candidates\": [{\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"restart_crossfit_margin_forest\", \"family\": \"whole_program_restart\", \"mechanism\": \"Replace the inherited program with a decision-interface algorithm that performs backward induction using time-specific extremely randomized regression trees trained out-of-fold; exercise only when immediate payoff exceeds predicted continuation by a cross-validated margin, with monotone threshold shrinkage toward maturity.\", \"prediction\": \"Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol by capturing nonlinear volatility interactions while controlling premature exercise.\", \"failure_condition\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this direction.\", \"matched_control\": \"Unchanged sol_0002 under identical evaluator paths, seeds, and compute budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"whole_program\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\", \"sol_0001\"], \"next_probe\": \"Measure matched payoff differences and exercise-rate differences at every exercise time, first on instance:public-put-high-vol.\", \"state_version\": null}, {\"schema\": \"openhyra-algorithm-hypothesis.v1\", \"id\": \"mutate_residual_robust_backward\", \"family\": \"ast_mutation\", \"mechanism\": \"Structurally mutate sol_0002 fit control flow to use cross-fitted backward targets, robust Huber reweighting, and state-dependent residual clipping while preserving its representation and prediction interface.\", \"prediction\": \"Guided-minus-unchanged-sol_0002 mean discounted payoff will be positive on instance:public-put-high-vol through reduced continuation-target noise without additional training budget.\", \"failure_condition\": \"An upper 95% CI below zero for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol refutes this mutation.\", \"matched_control\": \"Unchanged sol_0002 with the same seed, paths, representation, and evaluator budget.\", \"target_slices\": [\"instance:public-put-high-vol\"], \"implementation_hint\": \"\", \"source\": \"context\", \"intervention_scope\": \"program_subtree\", \"intervention_operator\": \"ast_mutation\", \"target_slice\": \"instance:public-put-high-vol\", \"evidence_ids\": [\"sol_0002\", \"sol_0000\"], \"next_probe\": \"Ablate Huber reweighting versus cross-fitting within the same fixed budget and compare matched payoff differences on instance:public-put-high-vol.\", \"state_version\": null}], \"intervention_scope\": \"architecture\", \"intervention_operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A direct-decision backward policy using cross-fitted randomized tree ensembles, payoff-margin abstention, and time-specific thresholds will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The direction is refuted if the upper endpoint of the 95% CI for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Run matched seeds for the restart and unchanged sol_0002, reporting payoff difference, 95% CI, and exercise rates by time on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null, \"next\": \"Create two protocol-compliant candidates editing only algorithm.py and manifest.json: the cross-fitted margin-forest restart and the robust backward-target AST mutation of sol_0002; evaluate both against unchanged sol_0002 on matched high-volatility seeds.\", \"intervention\": {\"scope\": \"architecture\", \"operator\": \"whole_program_restart\", \"target_slice\": \"instance:public-put-high-vol\", \"prediction\": \"A direct-decision backward policy using cross-fitted randomized tree ensembles, payoff-margin abstention, and time-specific thresholds will produce positive guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol.\", \"falsifier\": \"The direction is refuted if the upper endpoint of the 95% CI for guided-minus-unchanged-sol_0002 mean discounted payoff on instance:public-put-high-vol is below zero.\", \"evidence_ids\": [\"sol_0000\", \"sol_0001\", \"sol_0002\"], \"next_probe\": \"Run matched seeds for the restart and unchanged sol_0002, reporting payoff difference, 95% CI, and exercise rates by time on instance:public-put-high-vol.\", \"state_version\": null, \"state_hash\": null}}"
+}

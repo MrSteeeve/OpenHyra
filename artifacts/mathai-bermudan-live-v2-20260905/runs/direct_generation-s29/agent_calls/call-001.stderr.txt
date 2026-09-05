@@ -1,0 +1,2722 @@
+2026-09-05T16:27:27.334327Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-05T16:27:29.383510Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.385323Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.386698Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.388013Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.389315Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.391158Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.437685Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.438993Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.440282Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.441645Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.443213Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.447103Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.448855Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.450097Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-05T16:27:29.451281Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07265-7ed4-7e80-b40b-1a2685faf9fc
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+## Search semantics
+
+The Context Agent may propose several unrelated mechanisms in one round.
+Proposal may rewrite a whole program, mutate executable AST structure,
+combine two parent programs, or restart from a blank implementation. The
+Experience Bank stores program source, measured outcomes, and full parent
+lineage. Scores and slice feedback guide which structures are revised,
+combined, or abandoned in later rounds.
+
+The old feature, affine, expression, and small-network implementations remain
+useful baselines. They no longer define the admitted search space.
+
+
+Generate the assigned complete finite Python candidate directly. No Context analysis or prior search outcomes are supplied. Improve expected discounted payoff under the unchanged evaluator budget. The registered family names do not restrict the algorithms you may write.
+
+## Local candidate identity
+
+This is candidate 3 of 4 generated from the
+same Context briefing. Produce your own concrete implementation/parameterization;
+all 4 candidates are evaluated independently, and every outcome
+is committed to the Experience Bank, including failures and low scores.
+
+
+## Mechanism slot
+
+Mechanism id: `direct_r0_1`
+Family: open_program_generation
+Intervention scope: whole_program
+Intervention operator: ast_mutation
+Target slice: instance:public-put-atm
+Proposed mechanism: Use the declared operation to improve the parent program.
+Prediction: positive mean paired payoff on the declared slice
+Falsifier: upper 95% paired CI is below zero
+Matched control: unchanged parent with identical input and budget
+Next probe: 
+Evidence ids: 
+
+This is the GUIDED arm. Implement or materially instantiate the proposed
+mechanism, while keeping the artifact protocol and evaluator-owned boundary
+unchanged. You may synthesize a genuinely new structure when the evidence
+supports it; record the falsifiable prediction and control in PROPOSAL.md.
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: ast_mutation
+- target_slice: instance:public-put-atm
+- prediction: positive mean paired payoff on the declared slice
+- falsifier: upper 95% paired CI is below zero
+
+A concrete binary_operator child has already been materialized in the draft. Inspect and repair that executable composition while preserving contributions from its recorded parent program(s).
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 42 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect the protocol and materialized parent composition first, then repair the candidate in place and validate both CLI phases on a small synthetic query.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!*__pycache__*'"' -g '"'!.*'"' | sort && git status --short && sed -n '1,240p' PYTHON_PROGRAM_PROTOCOL_V1.md && printf '\\n--- algorithm.py ---\\n' && sed -n '1,320p' algorithm.py && printf '\\n--- manifest ---\\n' && cat manifest.json && printf '\\n--- proposal ---\\n' && test -f PROPOSAL.md && cat PROPOSAL.md || true" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+algorithm.py
+manifest.json
+ M ../../../../../mathai-bermudan-workshop-20260905/EXPERIMENT_SUMMARY.md
+ M ../../../../../mathai-bermudan-workshop-20260905/candidate_ledger.jsonl
+ M ../../../../../../experiments/run_bermudan_workshop.py
+ M ../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md
+ M ../../../../../../tasks/bermudan_python_search/TASK.md
+?? ../../../../../mathai-bermudan-live-20260905/
+?? ../../../../
+?? ../../../../../mathai-bermudan-workshop-20260905/manifest.json
+sed: PYTHON_PROGRAM_PROTOCOL_V1.md: No such file or directory
+
+codex
+The protocol file is task-owned outside the draft directory, so the initial combined inspection stopped before showing the candidate. I found its repository-relative location and am continuing with read-only inspection there; unrelated worktree changes will remain untouched.
+2026-09-05T16:27:48.698593Z  WARN codex_core::responses_retry: stream disconnected - retrying sampling request (1/5 in 204ms)... turn_id=01a07265-8187-7761-8fbc-4d3b4ae2ec26 retries=1 max_retries=5 sampling_error=stream disconnected before completion: IO error: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof
+2026-09-05T16:27:48.720633Z  WARN codex_core_plugins::manager: failed to refresh cached remote plugin catalog error=failed to parse remote plugin catalog response from https://chatgpt.com/backend-api/ps/plugins/list?scope=GLOBAL&limit=200&pageToken=eyJzY29wZSI6IkdMT0JBTCIsIndvcmtzcGFjZV9pZCI6bnVsbCwiY3JlYXRvcl9hY2NvdW50X3VzZXJfaWQiOm51bGwsImNvbGxlY3Rpb24iOm51bGwsImluY2x1ZGVfcmVzdHJpY3RlZF9wbHVnaW5zIjp0cnVlLCJpbmNsdWRlX3VubGlzdGVkX2dsb2JhbF9wbHVnaW5zIjp0cnVlLCJlbGlnaWJsZV9wbGFuX3R5cGUiOiJwcm9saXRlIiwiZW5mb3JjZV9wbGFuX2VsaWdpYmlsaXR5IjpmYWxzZSwicmFua19ieV9wb3B1bGFyaXR5Ijp0cnVlLCJjb250aW51YXRpb24iOnsiZGVwbG95bWVudF90eXBlIjoicHJpbWFyeSIsInF1ZXJ5X2lkIjoicnM0Ojg5ZmI5OTAzLWVkNGUtNDc2OC1hNDlhLTQzMzg1NGUwYTU3YzpKckZvSDlmOjA6bGVhZi1iNmRmMDFkNy0zNWQ2LTRlNTAtYWY5ZS1iNWYxZWU2MGI4YmYiLCJjdXJzb3IiOiJaSDY5ZFhDNGdMdnZlSExwaEpVSzZmamkyTkdqUE5TMEdzVkNwSlZaZ192VU5lRUZjWjVjZGpTNENKZ3BSWlpneUVhV1Z5a0doLWVnTS1nTHhjYXNmZG5mU3lyMXI3R1NtTGdaT183a00wRDVqaWpubDFMSUNETks0c1VYZHpWZC0ybGRjUDdOeXdJZ0loTW55cDR6eGtyU2ViNEVxN2lBTnF6R1Awb3dmUTB2eHBHWUZWVnd2UVdpMVp6Z1FtYm14dVA1czRLTU5QST0ifX0: EOF while parsing a value at line 1 column 0 scope=Global
+2026-09-05T16:27:54.027182Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: IO error: tls handshake eof, url: wss://chatgpt.com/backend-api/codex/responses
+2026-09-05T16:27:54.027246Z  WARN codex_core::responses_retry: stream disconnected - retrying sampling request (2/5 in 403ms)... turn_id=01a07265-8187-7761-8fbc-4d3b4ae2ec26 retries=2 max_retries=5 sampling_error=stream disconnected before completion: tls handshake eof
+ERROR: Reconnecting... 2/5
+2026-09-05T16:27:59.553257Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: IO error: tls handshake eof, url: wss://chatgpt.com/backend-api/codex/responses
+2026-09-05T16:27:59.553397Z  WARN codex_core::responses_retry: stream disconnected - retrying sampling request (3/5 in 868ms)... turn_id=01a07265-8187-7761-8fbc-4d3b4ae2ec26 retries=3 max_retries=5 sampling_error=stream disconnected before completion: tls handshake eof
+ERROR: Reconnecting... 3/5
+exec
+/bin/zsh -lc "sed -n '1,280p' ../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md; printf '\\n--- algorithm.py ---\\n'; sed -n '1,400p' algorithm.py; printf '\\n--- manifest ---\\n'; cat manifest.json; printf '\\n--- metadata files nearby ---\\n'; find . -maxdepth 2 -type f -print | sort" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 0ms:
+# Bermudan Python program protocol v1
+
+Status: candidate-facing contract for `bermudan_python_search`.
+
+This task evaluates complete Python algorithms. It does not select a trusted
+Linear, Expression, or MLP runner. Those representations remain historical
+baselines in `bermudan_optimal_stopping`; they are not the admitted search
+space of this task.
+
+## Source tree
+
+Each candidate contains a bounded, recursively hashed source tree:
+
+```text
+algorithm.py
+manifest.json
+helpers/*.py   (optional; arbitrary relative depth)
+```
+
+`algorithm.py` owns training, representation, model state, inference, and the
+continuation or stopping rule. Helper `.py` modules and `.json`/`.toml`
+configuration files may be imported from the candidate tree. The harness and
+trusted evaluator reject symlinks and unsupported extensions, cap the tree at
+64 files, and include every accepted file in the source digest and provenance.
+It may define arbitrary finite functions,
+classes, loops, numerical procedures, symbolic procedures, internal searches,
+or state machines in that file. Training may write any model tree beneath the
+evaluator-provided output directory.
+
+The manifest is exactly one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+The manifest declares an interaction interface, not an algorithm family.
+
+## Fit command
+
+The evaluator invokes:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+The program must expose the command body as:
+
+```python
+def fit(input_dir, output_dir, seed):
+    ...
+```
+
+`INPUT_DIR` contains:
+
+- `training_paths.npy`: evaluator-generated training paths;
+- `payoffs.npy`: evaluator-computed discounted immediate payoffs;
+- `discount_factors.npy`: discount factors on the exercise grid;
+- `instance.json`: contract and exercise-grid parameters.
+
+The candidate decides how these observations are transformed, fitted, stored,
+or searched. There is no required optimizer, loss, feature grammar, network,
+regression family, or model-file schema.
+
+## Predict command
+
+At every non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+The program must expose the command body as:
+
+```python
+def predict(model_dir, input_dir, output_dir):
+    ...
+```
+
+`QUERY_DIR` contains:
+
+- `history.npy`: the path prefix through the current exercise time;
+- `states.npy`: the current state batch;
+- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+- `request.json`: the current time index and instance description.
+
+The program writes one NumPy array to `RESULT_DIR/predictions.npy` with the
+same leading batch shape as `states.npy`:
+
+- `continuation`: finite real continuation values in discounted payoff units;
+- `decision`: booleans or exact zero/one values, where true means exercise.
+
+## Search operations
+
+The search system may create a candidate through:
+
+- whole-program generation from a blank fit/predict scaffold;
+- whole-program or subsystem rewrite by an LLM;
+- executable AST mutation inside algorithmic functions;
+- two-parent program composition with an evolvable prediction combiner.
+
+These are generation operations, not registered solution families. The final
+candidate is always the resulting Python program, and measured evaluator
+outcomes determine later parent selection.
+
+For the workshop protocol, the harness normalizes Context aliases to four
+canonical operator identities: `whole_program_restart`, `ast_mutation`,
+`ast_crossover`, and `subsystem_rewrite`. The normalized identity, operator
+detail, source-tree digest, parent lineage, matched arm, and candidate seed are
+written beside the evaluator result, together with the Proposal layer's actual
+operator materialization receipt. A control arm retains the same baseline
+source and request budget so the measured contrast is reviewable.
+
+Context-generated hypotheses are required to serialize one of those four
+names. For compatibility with an archived packet that omitted an operator, the
+Context parser infers it from the declared family and intervention scope before
+the Harness builds a proposal slot; task-declared legacy directions retain
+their original aliases. After a round, Context reads the bounded
+`research/prediction_table.json` projection, while the append-only ledger stays
+the lossless provenance record.
+
+For every Python candidate the evaluator can run an independent same-seed fit
+and a causal lookahead check. The replay compares the opaque model digest and a
+fresh prediction; the lookahead changes only the suffix after the supplied
+history and requires identical predictions. Both probes are diagnostic
+evidence and never modify the primary score. Per-cell records also include
+the exact training-path and discounted-payoff hashes, an evaluator target
+stream hash, the actual (folded) fit seed, separate simulator path seed, model-file digests,
+and wall time. The candidate's
+internal continuation targets remain outside the evaluator observation
+boundary.
+
+The workshop bundle also includes a manifest containing runner/evaluator and
+candidate-source digests, the request matrix, artifact hashes, and a rebuild
+command. This identifies the exact evidence bundle without treating generated
+metrics as source code.
+
+## Evidence boundary
+
+Acceptance by this protocol proves only that the candidate is an executable
+algorithm evaluated on the configured Bermudan task. It does not prove that
+the program is novel, superior outside the measured suite, or mathematically
+correct in general. Those claims require repeated search runs, matched
+controls, held-out evaluation, and inspection of the discovered mechanism.
+
+Research mode never retries a denied native sandbox without isolation. Probe
+and replay durations are measured costs, not zero-filled deterministic fields.
+The live workshop runner uses common public requests across all candidates in
+a seed. Paired pathwise deltas provide covariance-aware slice standard errors;
+when these samples are absent, a labelled conservative SE-sum bound is used.
+The Context prediction table joins guided/control results on the declared slice
+and keeps this diagnostic separate from the fixed primary score.
+
+--- algorithm.py ---
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    del seed
+    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+    n_steps = paths.shape[1] - 1
+    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+    means = np.zeros_like(coefficients)
+    scales = np.ones_like(coefficients)
+    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+    for time_index in range(n_steps - 1, -1, -1):
+        design = features(paths[:, time_index, :], payoffs[:, time_index])
+        mean = np.mean(design, axis=0)
+        scale = np.std(design, axis=0)
+        mean[0] = 0.0
+        scale[scale < 1e-10] = 1.0
+        normalized = (design - mean) / scale
+        gram = normalized.T @ normalized
+        gram.flat[::feature_count + 1] += 1e-06
+        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+        continuation = normalized @ coefficient
+        exercise = payoffs[:, time_index] >= continuation
+        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+        coefficients[time_index] = coefficient
+        means[time_index] = mean
+        scales[time_index] = scale
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+
+--- manifest ---
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+--- metadata files nearby ---
+./algorithm.py
+./manifest.json
+
+exec
+/bin/zsh -lc 'rg -n "public-put-atm|payoff|training_paths|time_index|discount_factors" ../../../../../../tasks/bermudan_python_search ../../../../../../experiments/run_bermudan_workshop.py | head -240' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 0ms:
+../../../../../../experiments/run_bermudan_workshop.py:48:    cfg = dict(instance_count=1, repeats=1, training_paths=64, pricing_paths=64,
+../../../../../../experiments/run_bermudan_workshop.py:218:           "training path and payoff hashes, evaluator target-stream hashes,",
+../../../../../../tasks/bermudan_python_search/TASK.md:56:| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+../../../../../../tasks/bermudan_python_search/TASK.md:57:| `payoffs.npy` | evaluator-computed discounted payoffs |
+../../../../../../tasks/bermudan_python_search/TASK.md:58:| `discount_factors.npy` | discount factors on the exercise grid |
+../../../../../../tasks/bermudan_python_search/TASK.md:77:`immediate_payoffs.npy`, and `request.json`. History stops at the current
+../../../../../../tasks/bermudan_python_search/TASK.md:125:source tree, evaluator model-file digest, training path/payoff hashes,
+../../../../../../tasks/bermudan_python_search/TASK.md:169:timeout is an execution failure, not a statistical refutation of a payoff
+../../../../../../tasks/bermudan_python_search/task.json:105:      "training_paths": 1024,
+../../../../../../tasks/bermudan_python_search/task.json:120:      "training_paths": 1536,
+../../../../../../tasks/bermudan_python_search/task.json:132:    "Each prediction sees only the current path prefix and evaluator-computed immediate payoff.",
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:59:- `training_paths.npy`: evaluator-generated training paths;
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:60:- `payoffs.npy`: evaluator-computed discounted immediate payoffs;
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:61:- `discount_factors.npy`: discount factors on the exercise grid;
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:87:- `immediate_payoffs.npy`: evaluator-computed current discounted payoffs;
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:93:- `continuation`: finite real continuation values in discounted payoff units;
+../../../../../../tasks/bermudan_python_search/PYTHON_PROGRAM_PROTOCOL_V1.md:130:the exact training-path and discounted-payoff hashes, an evaluator target
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:35:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:37:    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:41:    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:43:    for time_index in range(n_steps - 1, -1, -1):
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:44:        design = features(paths[:, time_index, :], payoffs[:, time_index])
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:54:        exercise = payoffs[:, time_index] >= continuation
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:55:        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:56:        coefficients[time_index] = coefficient
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:57:        means[time_index] = mean
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:58:        scales[time_index] = scale
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:71:    time_index = int(request["time_index"])
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:77:            design - model["means"][time_index]
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:78:        ) / model["scales"][time_index]
+../../../../../../tasks/bermudan_python_search/seed_solution/algorithm.py:79:        predictions = normalized @ model["coefficients"][time_index]
+../../../../../../tasks/bermudan_python_search/research_candidates/README.md:24:path/payoff/target hashes, model hashes, seeds, and wall time belong in the
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:14:    rng=np.random.default_rng(int(seed)); paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:15:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False); steps=paths.shape[1]-1
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:16:    d=features(paths[:,0,:],payoffs[:,0]).shape[1]; hidden=min(24,max(8,2*d))
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:17:    w1s=[]; b1s=[]; w2s=[]; b2s=[]; cash=np.asarray(payoffs[:,-1],float).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:21:        x=features(paths[:,t,:],payoffs[:,t]); mean=x.mean(0); scale=x.std(0); mean[0]=0.; scale[scale<1e-10]=1.; x=(x-mean)/scale
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:29:        pred=np.tanh(x@w1+b1)@w2+b2; cash=np.where(payoffs[:,t]>=pred,payoffs[:,t],cash)
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:35:        x=features(paths[:,t,:],payoffs[:,t]); m=x.mean(0); s=x.std(0); m[0]=0.; s[s<1e-10]=1.; means.append(m); scales.append(s)
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:42:    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/mlp/algorithm.py:43:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:19:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:20:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:21:    steps=paths.shape[1]-1; x0=features(paths[:,0,:],payoffs[:,0]); d=x0.shape[1]
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:24:    cash=np.asarray(payoffs[:,-1],float).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:26:        cash=np.asarray(payoffs[:,-1],float).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:28:            x=features(paths[:,t,:],payoffs[:,t]); y=cash.copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:31:            cash=np.where(payoffs[:,t]>=continuation,payoffs[:,t],cash)
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:36:    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/policy_iteration/algorithm.py:37:    states=np.load(input_dir/"states.npy",allow_pickle=False); immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:22:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:23:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:25:    d = features(paths[:, 0], payoffs[:, 0]).shape[1]
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:30:    cash = payoffs[:, -1].copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:33:        x = features(paths[:, t], payoffs[:, t])
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:52:        cash = np.where(payoffs[:, t] >= continuation, payoffs[:, t], cash)
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:63:    t = int(json.loads((input_dir / "request.json").read_text())["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/residual_hybrid/algorithm.py:65:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:15:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:16:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:17:    steps = paths.shape[1] - 1; x0 = features(paths[:,0,:], payoffs[:,0])
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:20:    thresholds = np.zeros(steps); cash = np.asarray(payoffs[:,-1], float).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:22:        x = features(paths[:,t,:], payoffs[:,t])
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:33:        cash = np.where(payoffs[:,t] >= pred, payoffs[:,t], cash)
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:40:    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/gated_ridge/algorithm.py:42:    immediate=np.load(input_dir/"immediate_payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:21:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:22:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:28:    design0 = transform(paths[:, 0, :], payoffs[:, 0], center, components)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:32:    cash = np.asarray(payoffs[:, -1], float).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:34:        x = transform(paths[:, t, :], payoffs[:, t], center, components)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:40:        cash = np.where(payoffs[:, t] >= xn @ coef, payoffs[:, t], cash)
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:48:    t = int(request["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/pca_ridge/algorithm.py:50:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:10:    paths=np.load(input_dir/"training_paths.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:11:    payoffs=np.load(input_dir/"payoffs.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:14:        immediate=np.asarray(payoffs[:,t],float)
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:15:        # The threshold is learned from the empirical discounted payoff tail;
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:22:    req=json.loads((input_dir/"request.json").read_text()); t=int(req["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/direct_decision/algorithm.py:23:    immediate=np.load(input_dir/"immediate_payoffs.npy",allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:34:    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:35:    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:37:    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:41:    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:43:    for time_index in range(n_steps - 1, -1, -1):
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:44:        design = features(paths[:, time_index, :], payoffs[:, time_index])
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:54:        exercise = payoffs[:, time_index] >= continuation
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:55:        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:56:        coefficients[time_index] = coefficient
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:57:        means[time_index] = mean
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:58:        scales[time_index] = scale
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:71:    time_index = int(request["time_index"])
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:73:    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:77:            design - model["means"][time_index]
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:78:        ) / model["scales"][time_index]
+../../../../../../tasks/bermudan_python_search/research_candidates/linear_ridge/algorithm.py:79:        predictions = normalized @ model["coefficients"][time_index]
+
+exec
+/bin/zsh -lc "cat ../../../../../../tasks/bermudan_python_search/task.json; rg -n \"public-put-atm|put-atm|instance_id|payoff_kind\" ../../../../../mathai-bermudan-live-20260905 ../../../../../mathai-bermudan-workshop-20260905 ../../../../../../ -g '*.json' -g '*.py' | head -200" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 0ms:
+{
+  "name": "bermudan_python_search",
+  "direction": "max",
+  "metric": "paired_lower_bound_lcb",
+  "protocol": "bermudan-python-program-search.v1",
+  "seed_description": "complete Python continuation program baseline",
+  "candidate_mode": "python_program",
+  "source_tree": true,
+  "editable_files": ["algorithm.py", "manifest.json"],
+  "source_files": ["algorithm.py", "manifest.json"],
+  "entrypoint": "algorithm.py",
+  "solve_entrypoint": "solve.sh",
+  "artifact_protocol": "openhyra-python-program.v1",
+  "artifact_protocols": ["openhyra-python-program.v1"],
+  "allowed_context_phases": ["discover", "diagnose", "transfer", "confirm", "numeric"],
+  "feedback_mode": "adaptive",
+  "adaptive_feedback": true,
+  "context_barrier": true,
+  "candidate_instructions": [
+    "Edit the complete algorithm.py program and its minimal manifest.json declaration.",
+    "Implement fit with: algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER.",
+    "Implement predict with: algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR.",
+    "Expose the CLI bodies as top-level fit(...) and predict(...) functions so structural crossover can compose live function graphs.",
+    "The manifest chooses either continuation values or direct decision outputs; both interfaces are valid.",
+    "The program may invent its own representation, training objective, optimizer, search procedure, control flow, state, and model files.",
+    "Use causal training and query inputs supplied by the evaluator, then write predictions.npy for each query."
+  ],
+  "mechanism_design": {
+    "schema": "openhyra-mechanism-design.v1",
+    "enabled": true,
+    "selection": "slot_round_robin",
+    "matched_control": {
+      "enabled": true,
+      "same_parent": true,
+      "same_seed": true,
+      "same_compute_budget": true
+    },
+    "directions": [
+      {
+        "id": "whole_program_restart",
+        "family": "program_generation",
+        "mechanism": "discard the inherited implementation and generate a complete algorithm from a different principle",
+        "prediction": "escapes a structurally saturated lineage and changes behavior on several evaluator slices",
+        "failure_condition": "the restart reproduces the parent behavior or loses under the matched budget",
+        "matched_control": "rewrite the current parent locally with the same seed and evaluator budget",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "restart"
+      },
+      {
+        "id": "ast_structural_mutation",
+        "family": "program_evolution",
+        "mechanism": "mutate executable control flow, update rules, objectives, or state transitions in one parent",
+        "prediction": "a structural child improves a targeted slice without relying on a larger budget",
+        "failure_condition": "the executed behavior is unchanged or the predicted slice does not improve",
+        "matched_control": "the same parent and seed with no structural mutation",
+        "intervention_scope": "program_subtree",
+        "intervention_operator": "ast_mutation"
+      },
+      {
+        "id": "two_parent_composition",
+        "family": "program_composition",
+        "mechanism": "combine live function graphs from two behaviorally complementary parent programs",
+        "prediction": "the child retains a measured strength from each parent and improves aggregate score",
+        "failure_condition": "one parent is dead code or the child inherits neither predicted strength",
+        "matched_control": "the stronger parent alone under the same evaluator budget",
+        "intervention_scope": "whole_program",
+        "intervention_operator": "ast_crossover"
+      },
+      {
+        "id": "subsystem_rewrite",
+        "family": "program_revision",
+        "mechanism": "replace one complete fit or predict subsystem while preserving the other as a matched reference",
+        "prediction": "localizes the causal source of an observed failure and improves its target slice",
+        "failure_condition": "the targeted failure persists or the untouched subsystem no longer behaves consistently",
+        "matched_control": "the same parent with both subsystems unchanged",
+        "intervention_scope": "fit",
+        "intervention_operator": "replace"
+      }
+    ],
+    "critic_questions": [
+      "What executable structure is genuinely new relative to both parents?",
+      "What observation would separate the proposed mechanism from additional compute?",
+      "Which contract slice should falsify the mechanism first?",
+      "Should the next candidate mutate this structure, combine it with another parent, or restart from a new program?"
+    ]
+  },
+  "sandbox_timeout_s": 30,
+  "eval_concurrency": 1,
+  "candidates_per_context": 4,
+  "candidate_repair_attempts": 1,
+  "research_revision_attempts": 0,
+  "max_memory_mb": 1024,
+  "max_output_mb": 64,
+  "max_artifact_bytes": 131072,
+  "evaluator_timeout_s": 900,
+  "evaluator_max_memory_mb": 2048,
+  "evaluation": {
+    "search_stage": {
+      "suite_id": "bermudan-python-public-v2",
+      "direction": "max",
+      "metric": "paired_lower_bound_lcb",
+      "confidence_level": 0.95,
+      "instance_count": 4,
+      "repeats": 2,
+      "training_paths": 1024,
+      "pricing_paths": 2048,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    },
+    "audit_stage": {
+      "suite_id": "bermudan-python-hidden-v2",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 0.000001,
+      "training_timeout_s": 60,
+      "training_memory_bytes": 1073741824,
+      "training_file_size_bytes": 67108864
+    }
+  },
+  "engineering_invariants": [
+    "The candidate owns the complete fit and predict algorithms; the manifest does not select a registered model family.",
+    "Each prediction sees only the current path prefix and evaluator-computed immediate payoff.",
+    "Continuation and direct-decision programs are evaluated through separate explicit interfaces.",
+    "Public and hidden scores come from evaluator-owned paths rather than candidate-reported metrics."
+  ],
+  "fallback_directions": [
+    "Generate a fresh whole program from a different algorithmic principle.",
+    "Mutate executable branches, loops, objectives, state representations, or update rules rather than only constants.",
+    "Combine complementary structures from two successful parent programs and state which behavior each parent contributes.",
+    "Use slice feedback to decide whether to revise locally, replace a subsystem, or abandon the current family.",
+    "Retain a structure only when its predicted effect survives a matched evaluation."
+  ]
+}
+../../../../../../harness_v5.py:112:            iid = s.get("instance_id", "")
+../../../../../../bermudan_research.py:12:    return (row.get("instance_id"), row.get("repeat", 0))
+../../../../../../bermudan_research.py:44:        cells.append({"instance_id": key[0], "repeat": key[1], "effect": effect, "standard_error": se,
+../../../../../../harness.py:1337:                    "instance_id", "repeat", "train_seed", "training_path_count",
+../../../../../../harness.py:1351:            "slice": summary.get("instance_id"),
+../../../../../../harness.py:3592:    Returns a dict mapping instance_id → mean baseline score, suitable
+../../../../../../harness.py:3601:                str(instance_id): float(value)
+../../../../../../harness.py:3602:                for instance_id, value in direct.items()
+../../../../../../harness.py:3603:                if isinstance(instance_id, str) and isinstance(value, (int, float))
+../../../../../../harness.py:3613:        iid = s.get("instance_id", "")
+../../../../../../schemas_v5.py:153:    instance_id: str
+../../../../../../schemas_v5.py:162:            "instance_id": self.instance_id,
+../../../../../../schemas_v5.py:175:        _require_str(self.instance_id, "instance_id")
+../../../../../../behavior_profiler.py:35:        instance_ids = sorted(per_instance_scores)
+../../../../../../behavior_profiler.py:36:        if not instance_ids:
+../../../../../../behavior_profiler.py:38:        missing_baselines = set(instance_ids).difference(self.baseline_scores)
+../../../../../../behavior_profiler.py:42:        if set(per_instance_exercise_rates) != set(instance_ids):
+../../../../../../behavior_profiler.py:47:                per_instance_scores[instance_id]
+../../../../../../behavior_profiler.py:48:                - self.baseline_scores[instance_id]
+../../../../../../behavior_profiler.py:49:                for instance_id in instance_ids
+../../../../../../behavior_profiler.py:93:                    float(per_instance_exercise_rates[instance_id])
+../../../../../../behavior_profiler.py:94:                    for instance_id in instance_ids
+../../../../../../matched_control.py:274:        """Join evaluator summaries by ``(instance_id, repeat)``.
+../../../../../../matched_control.py:298:                "instance_id": key[0],
+../../../../../../matched_control.py:324:            instance_id = row.get("instance_id")
+../../../../../../matched_control.py:325:            if not instance_id:
+../../../../../../matched_control.py:331:            result[(str(instance_id), repeat)] = row
+../../../../../mathai-bermudan-live-20260905/reproduction/matched_control.py:274:        """Join evaluator summaries by ``(instance_id, repeat)``.
+../../../../../mathai-bermudan-live-20260905/reproduction/matched_control.py:298:                "instance_id": key[0],
+../../../../../mathai-bermudan-live-20260905/reproduction/matched_control.py:324:            instance_id = row.get("instance_id")
+../../../../../mathai-bermudan-live-20260905/reproduction/matched_control.py:325:            if not instance_id:
+../../../../../mathai-bermudan-live-20260905/reproduction/matched_control.py:331:            result[(str(instance_id), repeat)] = row
+../../../../../../tests/test_bermudan_python_dispatch.py:217:                ValueError, "candidate training failed for public-put-atm: crash",
+../../../../../../tests/test_v5_vertical_loop.py:484:                    "instance_id": "inst_0",
+../../../../../../tests/test_v5_vertical_loop.py:490:                    "instance_id": "inst_0",
+../../../../../../tests/test_v5_vertical_loop.py:496:                    "instance_id": "inst_1",
+../../../../../../tests/test_v5_vertical_loop.py:548:                    "instance_id": "inst_0",
+../../../../../../tests/test_v5_vertical_loop.py:556:                    "instance_id": "inst_1",
+../../../../../../tests/test_atlas_matched_control.py:87:            {"instance_id": "a", "repeat": 0, "paired_normalized_improvement": 0.10},
+../../../../../../tests/test_atlas_matched_control.py:88:            {"instance_id": "a", "repeat": 1, "paired_normalized_improvement": 0.20},
+../../../../../../tests/test_atlas_matched_control.py:89:            {"instance_id": "b", "repeat": 0, "paired_normalized_improvement": 0.30},
+../../../../../../tests/test_atlas_matched_control.py:92:            {"instance_id": "a", "repeat": 0, "paired_normalized_improvement": 0.00},
+../../../../../../tests/test_atlas_matched_control.py:93:            {"instance_id": "a", "repeat": 1, "paired_normalized_improvement": 0.15},
+../../../../../../tests/test_atlas_matched_control.py:94:            {"instance_id": "b", "repeat": 0, "paired_normalized_improvement": 0.10},
+../../../../../../tests/test_schemas_v5.py:42:        instance_id="put_1d_atm_vol20",
+../../../../../../tests/test_bermudan_behavior_metrics.py:56:    instance_id = "public-put-atm"
+../../../../../../tests/test_bermudan_behavior_metrics.py:57:    assert set(metrics["per_instance_scores"]) == {instance_id}
+../../../../../../tests/test_bermudan_behavior_metrics.py:58:    assert set(metrics["baseline_scores"]) == {instance_id}
+../../../../../../tests/test_bermudan_behavior_metrics.py:59:    assert set(metrics["per_instance_exercise_rates"]) == {instance_id}
+../../../../../../tests/test_bermudan_behavior_metrics.py:60:    assert set(metrics["per_instance_exercise_rate_std"]) == {instance_id}
+../../../../../../tests/test_bermudan_behavior_metrics.py:61:    assert metrics["per_instance_finite_rates"][instance_id] == 1.0
+../../../../../../tests/test_bermudan_behavior_metrics.py:63:    assert 0.0 <= metrics["per_instance_exercise_rates"][instance_id] <= 1.0
+../../../../../../tests/test_bermudan_behavior_metrics.py:64:    assert metrics["per_instance_exercise_rate_std"][instance_id] >= 0.0
+../../../../../../tests/test_bermudan_behavior_metrics.py:135:    assert metrics["per_instance_finite_rates"] == {"public-put-atm": 1.0}
+../../../../../../tests/test_bermudan_training_pipeline.py:159:                "instance_id", "evaluation_request", "pricing_paths",
+../../../../../mathai-bermudan-live-20260905/reproduction/bermudan_research.py:12:    return (row.get("instance_id"), row.get("repeat", 0))
+../../../../../mathai-bermudan-live-20260905/reproduction/bermudan_research.py:44:        cells.append({"instance_id": key[0], "repeat": key[1], "effect": effect, "standard_error": se,
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:191:    instance_id: str
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:271:            "public-put-atm", "put", (1.0,), 1.0, 0.05, (0.0,), (0.20,),
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:312:            instance_id=f"hidden-{index:03d}",
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:958:        instance_id = summary.get("instance_id")
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:959:        if isinstance(instance_id, str) and instance_id:
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:960:            grouped.setdefault(instance_id, []).append(summary)
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:964:        for instance_id in sorted(grouped):
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:965:            values = [float(row[field]) for row in grouped[instance_id] if field in row]
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:967:                result[instance_id] = float(np.mean(values))
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:972:        for instance_id in sorted(grouped):
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:973:            values = [float(row[field]) for row in grouped[instance_id] if field in row]
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:975:                result[instance_id] = float(np.std(values))
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:979:    for instance_id in sorted(grouped):
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:980:        flags = [bool(row.get("candidate_finite", False)) for row in grouped[instance_id]]
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:981:        finite_rates[instance_id] = float(np.mean(flags)) if flags else 0.0
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1167:        instance_id = str(row.get("instance_id", f"cell-{index}"))
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1185:                "target_slice": f"instance:{instance_id}",
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1192:                "target_slice": f"instance:{instance_id}",
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1199:                "target_slice": f"instance:{instance_id}",
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1233:        slice_keys = [f"instance:{instance_id}"]
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1241:                id=f"{suite_id}:{stage}:{instance_id}:{repeat}:{slice_index}",
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1268:                    "instance_id": instance_id,
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1813:        "instance_id": instance.instance_id,
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:1881:            f"candidate training failed for {instance.instance_id}: "
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:2191:                    "instance_id": instance.instance_id,
+../../../../../../tasks/bermudan_optimal_stopping/evaluator.py:2505:                    "instance_id": instance.instance_id,
+../../../../../../tests/test_bermudan_research_loop.py:18:    return {"summaries": [{"instance_id": "public-put-atm", "repeat": 0,
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:35:        instance_ids = sorted(per_instance_scores)
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:36:        if not instance_ids:
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:38:        missing_baselines = set(instance_ids).difference(self.baseline_scores)
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:42:        if set(per_instance_exercise_rates) != set(instance_ids):
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:47:                per_instance_scores[instance_id]
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:48:                - self.baseline_scores[instance_id]
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:49:                for instance_id in instance_ids
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:93:                    float(per_instance_exercise_rates[instance_id])
+../../../../../mathai-bermudan-live-20260905/reproduction/behavior_profiler.py:94:                    for instance_id in instance_ids
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:1337:                    "instance_id", "repeat", "train_seed", "training_path_count",
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:1351:            "slice": summary.get("instance_id"),
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:3592:    Returns a dict mapping instance_id → mean baseline score, suitable
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:3601:                str(instance_id): float(value)
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:3602:                for instance_id, value in direct.items()
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:3603:                if isinstance(instance_id, str) and isinstance(value, (int, float))
+../../../../../mathai-bermudan-live-20260905/reproduction/harness.py:3613:        iid = s.get("instance_id", "")
+../../../../../mathai-bermudan-live-20260905/reproduction/harness_v5.py:112:            iid = s.get("instance_id", "")
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:142:            instance_id=instance.instance_id,
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:157:        not isinstance(validated.instance_id, str)
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:158:        or not validated.instance_id
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:159:        or len(validated.instance_id) > 128
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:161:               for character in validated.instance_id)
+../../../../../../tasks/bermudan_optimal_stopping/training_pipeline.py:163:        raise ValueError("instance_id must be bounded path-independent text")
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:38:      "public-put-atm": 0.046875,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:42:      "public-put-atm": 0.326171875,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:46:      "public-put-atm": 0.05715508648943954,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:84:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:86:            "slice_label": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:98:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:0",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:133:            "target_slice": "instance:public-put-atm"
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:136:          "slice_key": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:144:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:158:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:1",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:204:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:218:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:2",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:264:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:278:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:3",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:324:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:338:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:4",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:384:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:398:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:5",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:444:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:458:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:0:6",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:504:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:506:            "slice_label": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:518:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:0",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:553:            "target_slice": "instance:public-put-atm"
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:556:          "slice_key": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:564:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:578:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:1",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:624:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:638:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:2",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:684:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:698:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:3",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:744:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:758:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:4",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:804:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:818:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:5",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:864:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:878:          "id": "a53e00eec141b667afc142b0a04b325808486761e115fcad35aedee49ed84b09:bermudan-python-public-v2:search:public-put-atm:1:6",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:924:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:984:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1044:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1104:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1164:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1224:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1284:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1344:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1404:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1464:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1524:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1584:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1644:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1704:            "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1853:      "public-put-atm": 0.00390625,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1857:      "public-put-atm": 0.244140625,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1861:      "public-put-atm": 1.0,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1865:      "public-put-atm": -0.00042062524788137254,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1869:      "public-put-atm": 0.05673446124155817,
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:1917:        "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:2484:        "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:3057:        "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:3630:        "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:4193:        "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:4249:        "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:4305:        "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/gated_ridge.json:4361:        "instance_id": "public-put-high-vol",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:38:      "public-put-atm": 0.046875,
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:42:      "public-put-atm": 0.326171875,
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:46:      "public-put-atm": 0.05715508648943954,
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:84:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:86:            "slice_label": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:98:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:0",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:133:            "target_slice": "instance:public-put-atm"
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:136:          "slice_key": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:144:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:158:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:1",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:204:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:218:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:2",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:264:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:278:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:3",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:324:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:338:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:4",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:384:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:398:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:5",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:444:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:458:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:0:6",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:504:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:506:            "slice_label": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:518:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:1:0",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:553:            "target_slice": "instance:public-put-atm"
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:556:          "slice_key": "instance:public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:564:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:578:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:1:1",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:624:            "instance_id": "public-put-atm",
+../../../../../mathai-bermudan-live-20260905/references/s17/pca_ridge.json:638:          "id": "662398237a3d07c497d822c71a2aa3d843a68214dc59d371b07a18fbc4ed8f7e:bermudan-python-public-v2:search:public-put-atm:1:2",
+
+exec
+/bin/zsh -lc "sed -n '240,330p' ../../../../../../tasks/bermudan_optimal_stopping/evaluator.py; sed -n '1780,1930p' ../../../../../../tasks/bermudan_optimal_stopping/evaluator.py; sed -n '1930,2050p' ../../../../../../tasks/bermudan_optimal_stopping/evaluator.py" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 0ms:
+            raise ValueError("exercise_times must end at maturity")
+        if np.any(np.diff(times) <= 0.0):
+            raise ValueError("exercise_times must be strictly increasing")
+        corr = np.asarray(self.correlation, dtype=float)
+        if corr.shape != (dimension, dimension):
+            raise ValueError("correlation shape must equal dimension by dimension")
+        if not np.all(np.isfinite(corr)) or not np.allclose(corr, corr.T, atol=1e-12):
+            raise ValueError("correlation must be finite and symmetric")
+        if not np.allclose(np.diag(corr), 1.0, atol=1e-12):
+            raise ValueError("correlation diagonal must be one")
+        if float(np.linalg.eigvalsh(corr).min()) < -1e-10:
+            raise ValueError("correlation must be positive semidefinite")
+        if self.weights is not None:
+            if len(self.weights) != dimension:
+                raise ValueError("weights length must equal dimension")
+            if any(not math.isfinite(value) or value < 0.0 for value in self.weights):
+                raise ValueError("weights must be finite and nonnegative")
+            if abs(sum(self.weights) - 1.0) > 1e-12:
+                raise ValueError("weights must sum to one")
+        if self.payoff_type == "basket_put" and self.weights is None:
+            raise ValueError("basket_put requires weights")
+
+
+def _uniform_times(maturity: float, exercise_count: int) -> tuple[float, ...]:
+    return tuple(float(value) for value in np.linspace(0.0, maturity, exercise_count + 1))
+
+
+def public_suite() -> tuple[BSInstance, ...]:
+    """Frozen public development suite used with common random numbers."""
+    return (
+        BSInstance(
+            "public-put-atm", "put", (1.0,), 1.0, 0.05, (0.0,), (0.20,),
+            ((1.0,),), 1.0, _uniform_times(1.0, 5),
+        ),
+        BSInstance(
+            "public-put-high-vol", "put", (1.08,), 1.0, 0.02, (0.01,), (0.35,),
+            ((1.0,),), 1.5, _uniform_times(1.5, 8),
+        ),
+        BSInstance(
+            "public-max-call-2d", "max_call", (0.95, 1.02), 1.0, 0.04,
+            (0.08, 0.10), (0.22, 0.28), ((1.0, 0.30), (0.30, 1.0)),
+            1.0, _uniform_times(1.0, 5),
+        ),
+        BSInstance(
+            "public-basket-put-3d", "basket_put", (0.98, 1.03, 1.0), 1.0,
+            0.03, (0.01, 0.02, 0.015), (0.18, 0.24, 0.21),
+            ((1.0, 0.25, 0.15), (0.25, 1.0, 0.20), (0.15, 0.20, 1.0)),
+            1.25, _uniform_times(1.25, 6), (0.3, 0.4, 0.3),
+        ),
+    )
+
+
+def derive_hidden_suite(seed: int, count: int) -> tuple[BSInstance, ...]:
+    """Derive a private multi-product suite solely from the sealed audit seed."""
+    rng = np.random.default_rng(_derive_seed(seed, "hidden-suite-v1"))
+    products = ("put", "max_call", "basket_put")
+    suite: list[BSInstance] = []
+    for index in range(count):
+        product = products[index % len(products)]
+        dimension = 1 if product == "put" else (2 if product == "max_call" else 3)
+        spots = tuple(float(value) for value in rng.uniform(0.84, 1.16, size=dimension))
+        vols = tuple(float(value) for value in rng.uniform(0.16, 0.42, size=dimension))
+        dividends = tuple(float(value) for value in rng.uniform(0.0, 0.11, size=dimension))
+        rho = float(rng.uniform(0.05, 0.48))
+        corr = tuple(tuple(1.0 if i == j else rho for j in range(dimension)) for i in range(dimension))
+        maturity = float(rng.uniform(0.65, 1.8))
+        exercise_count = int(rng.integers(5, 10))
+        weights = None
+        if product == "basket_put":
+            raw_weights = rng.uniform(0.5, 1.5, size=dimension)
+            weights = tuple(float(value) for value in raw_weights / raw_weights.sum())
+        suite.append(BSInstance(
+            instance_id=f"hidden-{index:03d}",
+            payoff_type=product,
+            spots=spots,
+            strike=1.0,
+            rate=float(rng.uniform(0.005, 0.075)),
+            dividends=dividends,
+            volatilities=vols,
+            correlation=corr,
+            maturity=maturity,
+            exercise_times=_uniform_times(maturity, exercise_count),
+            weights=weights,
+        ))
+    return tuple(suite)
+
+
+def _correlation_root(instance: BSInstance) -> np.ndarray:
+    corr = np.asarray(instance.correlation, dtype=float)
+    try:
+        return np.linalg.cholesky(corr)
+        "peak_memory_bytes": int(result.peak_memory_bytes),
+        "output_entries": int(result.output_entries),
+        "output_bytes": int(result.output_bytes),
+        "train_seed": int(result.train_seed),
+        # Keep per-file identities alongside the compact bundle digests.  They
+        # are supervisor-produced telemetry and never become candidate input.
+        "input_file_sha256": hash_records(result.input_file_sha256),
+        "input_bundle_sha256": result.input_bundle_sha256,
+        "policy_file_sha256": hash_records(result.policy_file_sha256),
+        "policy_artifact_sha256": result.policy_artifact_sha256,
+        "log_tail": str(result.log_tail)[-2000:],
+    }
+
+
+def _training_provenance(
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    train_seed: int,
+    train_details: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Attach evaluator-owned path/payoff/target provenance to a fit cell.
+
+    A Python candidate owns its continuation-target construction, so that
+    internal target array is intentionally not claimed as observed.  The
+    evaluator nevertheless records the exact path and discounted-payoff
+    streams that were supplied to the candidate, plus a deterministic target
+    reference for the supplied stream.  This makes a later replay auditable
+    without confusing evaluator inputs with candidate internals.
+    """
+    paths = np.asarray(training_paths)
+    rewards = discounted_rewards(paths, instance)
+    return {
+        **dict(train_details),
+        "instance_id": instance.instance_id,
+        "path_seed": int(train_seed),
+        "train_seed": int(train_details.get("train_seed", train_seed)),
+        "training_path_count": int(paths.shape[0]),
+        "training_paths_shape": list(paths.shape),
+        "training_paths_sha256": _sha256_array(paths),
+        "payoffs_sha256": _sha256_array(rewards),
+        "target_sha256": _sha256_array(rewards),
+        "target_kind": "evaluator_discounted_payoff_stream",
+        "candidate_target_observed": False,
+        "model_file_sha256": (
+            train_details.get("policy_artifact_sha256")
+            or train_details.get("policy_file_sha256")
+        ),
+        "fit_wall_seconds": float(train_details.get("wall_seconds", 0.0)),
+    }
+
+
+def _fit_algorithm_policy(
+    source_dir: Path,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    *,
+    train_seed: int,
+    cell_dir: Path,
+    config: Mapping[str, Any],
+) -> tuple[TrustedRunnerPolicy, dict[str, Any]]:
+    """Run one candidate ``train.py`` in a fresh sandbox and load its runner."""
+    # Import lazily: training_pipeline imports this evaluator's BSInstance for
+    # its input serializer, and eager import would create a script/module
+    # cycle when evaluator.py is launched as ``__main__``.
+    from tasks.bermudan_optimal_stopping.training_pipeline import (
+        run_per_instance_training,
+    )
+
+    timeout_s = float(config.get("training_timeout_s", DEFAULT_TRAINING_TIMEOUT_S))
+    memory_bytes = int(config.get("training_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES))
+    file_size_bytes = int(config.get("training_file_size_bytes", DEFAULT_TRAINING_FILE_SIZE_BYTES))
+    result = run_per_instance_training(
+        instance=instance,
+        training_paths=training_paths,
+        candidate_source_dir=source_dir,
+        cell_dir=cell_dir,
+        # ``_derive_seed`` intentionally uses the full 64-bit digest for the
+        # simulator.  The training bridge's public contract is a non-negative
+        # 63-bit seed, so fold the derived value without changing the legacy
+        # simulator streams.
+        train_seed=train_seed & ((1 << 63) - 1),
+        runtime_roots=_training_runtime_roots(),
+        timeout_s=timeout_s,
+        cpu_seconds=config.get("training_cpu_seconds"),
+        memory_bytes=memory_bytes,
+        file_size_bytes=file_size_bytes,
+        prediction_timeout_s=float(config.get("prediction_timeout_s", 5.0)),
+        prediction_cpu_seconds=config.get("prediction_cpu_seconds"),
+        prediction_memory_bytes=int(config.get(
+            "prediction_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES,
+        )),
+        prediction_file_size_bytes=int(config.get(
+            "prediction_file_size_bytes", 16 * 1024 * 1024,
+        )),
+        externally_isolated=sys.platform != "darwin",
+    )
+    details = _training_result_metrics(result)
+    if result.status != "ok" or result.runner is None:
+        note = result.log_tail.strip() or "candidate training failed"
+        raise ValueError(
+            f"candidate training failed for {instance.instance_id}: "
+            f"{result.status}: {note[-1000:]}"
+        )
+    policy = TrustedRunnerPolicy(
+        runner=result.runner,
+        instance=instance,
+        runner_type=_candidate_runner_type(manifest),
+        policy_interface=getattr(manifest, "interface", "continuation"),
+        policy_artifact_sha256=result.policy_artifact_sha256,
+    )
+    return policy, details
+
+
+def _fit_candidate_policy(
+    program: dict[str, Any] | None,
+    source_dir: Path | None,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    *,
+    train_seed: int,
+    cell_dir: Path | None,
+    config: Mapping[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Fit either the legacy in-process Ridge policy or a bundle runner."""
+    if source_dir is None:
+        if program is None:
+            raise ValueError("legacy candidate is missing feature program")
+        return (
+            fit_lsmc(
+                program, instance, training_paths,
+                ridge_alpha=config["ridge_alpha"],
+            ),
+            {"status": "builtin", "runner_type": "ridge_lsmc"},
+        )
+    if manifest is None or cell_dir is None:
+        raise ValueError("algorithm candidate is missing manifest or training cell")
+    policy, details = _fit_algorithm_policy(
+        source_dir,
+        manifest,
+        instance,
+        training_paths,
+        train_seed=train_seed,
+        cell_dir=cell_dir,
+        config=config,
+    )
+    details["runner_type"] = _candidate_runner_type(manifest)
+    details["policy_interface"] = getattr(manifest, "interface", "continuation")
+    return policy, details
+
+
+
+def _policy_probe_output(policy: Any, paths: np.ndarray, time_index: int) -> np.ndarray:
+    """Run one bounded prediction query through the evaluator-owned adapter."""
+    rewards = discounted_rewards(paths, policy.instance)
+    states = np.asarray(paths[:, time_index, :], dtype=float)
+    history = np.asarray(paths[:, : time_index + 1, :], dtype=float)
+    immediate = np.asarray(rewards[:, time_index], dtype=float)
+    if getattr(policy, "policy_interface", "continuation") == "decision":
+        return np.asarray(
+            policy.decision(
+                time_index, states, history=history,
+                immediate_payoffs=immediate,
+            )
+        )
+    if getattr(policy, "runner_type", "") == "python_program":
+        return np.asarray(
+            policy.continuation(
+                time_index, states, history=history,
+                immediate_payoffs=immediate,
+            )
+        )
+    return np.asarray(policy.continuation(time_index, states))
+
+
+def _lookahead_probe(policy: Any, instance: BSInstance, seed: int) -> dict[str, Any]:
+    """Check that changing an unobserved future suffix cannot change output.
+
+    The evaluator deliberately supplies only the current prefix to both
+    queries.  The two full paths differ after the prefix and their suffix
+    digests are recorded so the resulting equality is an auditable causal
+    probe rather than an assertion inferred from source inspection.
+    """
+    try:
+        probe_paths = simulate_paths(instance, 8, int(seed))
+        time_index = 0 if len(instance.exercise_times) <= 2 else 1
+        prefix = probe_paths[:, : time_index + 1, :].copy()
+        changed = simulate_paths(instance, 8, int(seed) + 1)
+        changed[:, : time_index + 1, :] = prefix
+        if np.array_equal(
+            probe_paths[:, time_index + 1 :, :],
+            changed[:, time_index + 1 :, :],
+        ):
+            changed[:, time_index + 1 :, :] *= 1.0001
+        first = _policy_probe_output(policy, probe_paths, time_index)
+        second = _policy_probe_output(policy, changed, time_index)
+        equal = bool(np.array_equal(first, second))
+        return {
+            "status": "passed" if equal else "failed",
+            "observed": True,
+            "time_index": time_index,
+            "prefix_equal": bool(np.array_equal(
+                probe_paths[:, : time_index + 1, :],
+                changed[:, : time_index + 1, :],
+            )),
+            "future_changed": bool(not np.array_equal(
+                probe_paths[:, time_index + 1 :, :],
+                changed[:, time_index + 1 :, :],
+            )),
+            "prediction_equal": equal,
+            "future_a_sha256": _sha256_json(
+                probe_paths[:, time_index + 1 :, :].tolist()
+            ),
+            "future_b_sha256": _sha256_json(
+                changed[:, time_index + 1 :, :].tolist()
+            ),
+        }
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "observed": True,
+            "prediction_equal": False,
+            "reason": f"{type(exc).__name__}: {exc}"[:1000],
+        }
+
+
+def _independent_validation(
+    *,
+    policy: Any,
+    source_dir: Path | None,
+    manifest: Any,
+    instance: BSInstance,
+    training_paths: np.ndarray,
+    train_seed: int,
+    training_root: Path | None,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Run one fresh replay and a causal lookahead probe for a top candidate."""
+    probe_started = time.perf_counter()
+    lookahead = _lookahead_probe(policy, instance, train_seed ^ 0x5EED)
+    probe_seconds = time.perf_counter() - probe_started
+    result: dict[str, Any] = {
+        "schema": "openhyra-bermudan-independent-validation.v1",
+        "observed": True,
+        "lookahead_probe": lookahead,
+        "deterministic_replay": {
+            "status": "not_applicable",
+            "observed": False,
+            "reason": "legacy in-process policy has no sandbox model artifact",
+        },
+        "cost": {"replay_wall_seconds": 0.0, "probe_wall_seconds": 0.0},
+    }
+    started = time.perf_counter()
+    replay_details: dict[str, Any] | None = None
+    replay_policy: Any = None
+    if source_dir is not None and training_root is not None:
+        try:
+            replay_cell = training_root / "independent-replay"
+            replay_policy, replay_details = _fit_candidate_policy(
+                None,
+                source_dir,
+                manifest,
+                instance,
+                np.array(training_paths, copy=True),
+                train_seed=train_seed,
+                cell_dir=replay_cell,
+                config=config,
+            )
+            model_a = getattr(policy, "policy_artifact_sha256", None)
+            model_b = getattr(replay_policy, "policy_artifact_sha256", None)
+            prediction_equal = False
+
+codex
+The executable defect is substantive: the inherited basis contains duplicated linear columns (`log(S)` and `2*log(S)`), regresses continuation on many irrelevant out-of-the-money rows, and updates stopping decisions with in-sample predictions. I’m mutating that control flow into cross-fitted backward induction while retaining the parent’s normalized ridge backbone and causal state/payoff representation. The fitted predictor will add a compact spline basis concentrated around the put exercise boundary.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a54b4d8950b035bc756fc7a1e8e3a60c6108fca0
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,16 @@
++# Proposal: cross-fitted spline state transition
++
++- Mechanism: `direct_r0_1`
++- Operator: `ast_mutation`
++- Scope: `whole_program`
++- Target slice: `instance:public-put-atm`
++- Materialized change: preserve the parent's normalized ridge continuation
++  program, but replace its in-sample backward stopping update with deterministic
++  five-fold continuation estimates and replace duplicate linear columns with a
++  compact polynomial/payoff-hinge basis.
++- Falsifiable prediction: positive mean paired discounted-payoff improvement on
++  `instance:public-put-atm` under the evaluator's identical seed and budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
++- Matched control: the unchanged parent program, evaluated with identical input,
++  seed, and compute budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+index 4aa2fadb11bc93821524580c437394c021f43d02..c16e4fbe0667a214835b15599f94cd59d214f851
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+@@ -1,76 +1,176 @@
+-"""Complete fit/predict seed for the open Python-program track.
++"""Cross-fitted spline LSMC candidate for the open program track.
+ 
+-This is deliberately just one ordinary starting program. Search candidates
+-may replace every function, model representation, objective, and update rule.
++The inherited normalized linear LSMC is retained as the numerical backbone,
++but its backward state transition is mutated to use out-of-fold continuation
++estimates.  A small hinge basis lets the stopping boundary bend without a
++large or stochastic model.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
+-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+-    states = np.asarray(states, dtype=np.float64)
+-    logged = np.log(np.maximum(states, 1e-12))
+-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+-    return np.column_stack(columns)
+ 
++def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
++    """A bounded, product-agnostic polynomial summary of the current state."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        s = s[:, None]
++    z = np.log(np.maximum(s, 1e-12))
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
++    for j in range(z.shape[1]):
++        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
++    if z.shape[1] > 1:
++        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
++        for j in range(z.shape[1]):
++            for k in range(j + 1, z.shape[1]):
++                cols.append(z[:, j] * z[:, k])
++    return np.column_stack(cols)
++
++
++def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
++    """Retain the parent basis and add payoff splines near exercise boundaries."""
++    base = _base_features(states, immediate)
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
++    return np.column_stack([base, *hinges]) if hinges else base
++
++
++def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    mean[0] = 0.0
++    scale[scale < 1e-10] = 1.0
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
++    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
++    n, d = x.shape
++    if n == 0:
++        return np.zeros(d)
++    if n >= d:
++        gram = x.T @ x
++        penalty = alpha * max(n, 1)
++        gram.flat[:: d + 1] += penalty
++        gram[0, 0] -= penalty
++        try:
++            return np.linalg.solve(gram, x.T @ y)
++        except np.linalg.LinAlgError:
++            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
++    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
++
++
++def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    """Fit on economically relevant paths, falling back safely for tiny samples."""
++    use = np.asarray(mask, dtype=bool)
++    if use.sum() < max(20, x.shape[1] + 3):
++        use = np.ones(len(x), dtype=bool)
++    xn, mean, scale = _normalizer(x[use])
++    return _ridge(xn, y[use]), mean, scale
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    del seed
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    n_steps = paths.shape[1] - 1
+-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+-    means = np.zeros_like(coefficients)
+-    scales = np.ones_like(coefficients)
+-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+-    for time_index in range(n_steps - 1, -1, -1):
+-        design = features(paths[:, time_index, :], payoffs[:, time_index])
+-        mean = np.mean(design, axis=0)
+-        scale = np.std(design, axis=0)
+-        mean[0] = 0.0
+-        scale[scale < 1e-10] = 1.0
+-        normalized = (design - mean) / scale
+-        gram = normalized.T @ normalized
+-        gram.flat[::feature_count + 1] += 1e-06
+-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+-        continuation = normalized @ coefficient
+-        exercise = payoffs[:, time_index] >= continuation
+-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+-        coefficients[time_index] = coefficient
+-        means[time_index] = mean
+-        scales[time_index] = scale
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
++    steps = paths.shape[1] - 1
++    # Fixed fold assignment makes replay deterministic while allowing the
++    # evaluator seed to vary the bias-control partition across repetitions.
++    rng = np.random.default_rng(int(seed))
++    folds = rng.permutation(len(paths)) % 5
++    cash = payoffs[:, -1].copy()
++    all_coef, all_mean, all_scale, all_knots = [], [], [], []
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        positive = immediate > 1e-14
++        pos_values = immediate[positive]
++        if len(pos_values) >= 20:
++            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
++        else:
++            knots = np.zeros(5, dtype=np.float64)
++        if len(knots) < 5:
++            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
++        x = features(paths[:, t, :], immediate, knots)
++
++        # Out-of-fold predictions drive the stopping transition.  This is the
++        # AST-level mutation: a path can no longer train its own exercise rule.
++        continuation = np.empty(len(paths), dtype=np.float64)
++        for fold in range(5):
++            train = (folds != fold) & positive
++            coef, mean, scale = _fit_on_mask(x, cash, train)
++            test = folds == fold
++            continuation[test] = ((x[test] - mean) / scale) @ coef
++        continuation = np.maximum(continuation, 1e-10)
++        exercise = positive & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        coef, mean, scale = _fit_on_mask(x, cash if False else np.where(exercise, immediate, cash), positive)
++        # Refit the deployable continuation to the pre-decision target.  Since
++        # cash was updated above, reconstruct it from a saved target next pass
++        # by using the original OOF-consistent target retained here.
++        # The following explicit full fit uses y_target captured before update.
++        # (Assigned below through a second, clearer backward computation.)
++        all_coef.append(coef); all_mean.append(mean); all_scale.append(scale); all_knots.append(knots)
++
++    # Recompute full-model coefficients against the same recursively selected
++    # cash-flow targets.  This keeps inference strong while policy transitions
++    # above remain cross-fitted.
++    cash = payoffs[:, -1].copy()
++    deploy = [None] * steps
++    for reverse_index, t in enumerate(range(steps - 1, -1, -1)):
++        knots = all_knots[reverse_index]
++        x = features(paths[:, t, :], payoffs[:, t], knots)
++        target = cash.copy()
++        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
++        pred = np.maximum(((x - mean) / scale) @ coef, 1e-10)
++        cash = np.where((payoffs[:, t] > 1e-14) & (payoffs[:, t] >= pred), payoffs[:, t], cash)
++        deploy[t] = (coef, mean, scale, knots)
++
++    coefficients = np.stack([v[0] for v in deploy])
++    means = np.stack([v[1] for v in deploy])
++    scales = np.stack([v[2] for v in deploy])
++    knots = np.stack([v[3] for v in deploy])
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
++             scales=scales, knots=knots)
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+-    time_index = int(request['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+-        design = features(states, immediate)
+-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+-        predictions = normalized @ model['coefficients'][time_index]
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = features(states, immediate, model["knots"][t])
++        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
++    # A strictly positive floor prevents zero-payoff states from exercising on
++    # harmless negative regression extrapolation.
++    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
++    prediction = np.maximum(prediction, 1e-10)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
++    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
++
+ 
+ def main() -> None:
+     parser = argparse.ArgumentParser()
+-    subparsers = parser.add_subparsers(dest='command', required=True)
+-    fit_parser = subparsers.add_parser('fit')
+-    fit_parser.add_argument('--input', required=True)
+-    fit_parser.add_argument('--output', required=True)
+-    fit_parser.add_argument('--seed', required=True, type=int)
+-    predict_parser = subparsers.add_parser('predict')
+-    predict_parser.add_argument('--model', required=True)
+-    predict_parser.add_argument('--input', required=True)
+-    predict_parser.add_argument('--output', required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    train = commands.add_parser("fit")
++    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
++    train.add_argument("--seed", required=True, type=int)
++    query = commands.add_parser("predict")
++    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
++    query.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    if args.command == 'fit':
++    if args.command == "fit":
+         fit(Path(args.input), Path(args.output), args.seed)
+     else:
+         predict(Path(args.model), Path(args.input), Path(args.output))
+-if __name__ == '__main__':
++
++
++if __name__ == "__main__":
+     main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a54b4d8950b035bc756fc7a1e8e3a60c6108fca0
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,16 @@
++# Proposal: cross-fitted spline state transition
++
++- Mechanism: `direct_r0_1`
++- Operator: `ast_mutation`
++- Scope: `whole_program`
++- Target slice: `instance:public-put-atm`
++- Materialized change: preserve the parent's normalized ridge continuation
++  program, but replace its in-sample backward stopping update with deterministic
++  five-fold continuation estimates and replace duplicate linear columns with a
++  compact polynomial/payoff-hinge basis.
++- Falsifiable prediction: positive mean paired discounted-payoff improvement on
++  `instance:public-put-atm` under the evaluator's identical seed and budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
++- Matched control: the unchanged parent program, evaluated with identical input,
++  seed, and compute budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+index 4aa2fadb11bc93821524580c437394c021f43d02..c16e4fbe0667a214835b15599f94cd59d214f851
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+@@ -1,76 +1,176 @@
+-"""Complete fit/predict seed for the open Python-program track.
++"""Cross-fitted spline LSMC candidate for the open program track.
+ 
+-This is deliberately just one ordinary starting program. Search candidates
+-may replace every function, model representation, objective, and update rule.
++The inherited normalized linear LSMC is retained as the numerical backbone,
++but its backward state transition is mutated to use out-of-fold continuation
++estimates.  A small hinge basis lets the stopping boundary bend without a
++large or stochastic model.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
+-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+-    states = np.asarray(states, dtype=np.float64)
+-    logged = np.log(np.maximum(states, 1e-12))
+-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+-    return np.column_stack(columns)
+ 
++def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
++    """A bounded, product-agnostic polynomial summary of the current state."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        s = s[:, None]
++    z = np.log(np.maximum(s, 1e-12))
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
++    for j in range(z.shape[1]):
++        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
++    if z.shape[1] > 1:
++        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
++        for j in range(z.shape[1]):
++            for k in range(j + 1, z.shape[1]):
++                cols.append(z[:, j] * z[:, k])
++    return np.column_stack(cols)
++
++
++def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
++    """Retain the parent basis and add payoff splines near exercise boundaries."""
++    base = _base_features(states, immediate)
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
++    return np.column_stack([base, *hinges]) if hinges else base
++
++
++def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    mean[0] = 0.0
++    scale[scale < 1e-10] = 1.0
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
++    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
++    n, d = x.shape
++    if n == 0:
++        return np.zeros(d)
++    if n >= d:
++        gram = x.T @ x
++        penalty = alpha * max(n, 1)
++        gram.flat[:: d + 1] += penalty
++        gram[0, 0] -= penalty
++        try:
++            return np.linalg.solve(gram, x.T @ y)
++        except np.linalg.LinAlgError:
++            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
++    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
++
++
++def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    """Fit on economically relevant paths, falling back safely for tiny samples."""
++    use = np.asarray(mask, dtype=bool)
++    if use.sum() < max(20, x.shape[1] + 3):
++        use = np.ones(len(x), dtype=bool)
++    xn, mean, scale = _normalizer(x[use])
++    return _ridge(xn, y[use]), mean, scale
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    del seed
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    n_steps = paths.shape[1] - 1
+-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+-    means = np.zeros_like(coefficients)
+-    scales = np.ones_like(coefficients)
+-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+-    for time_index in range(n_steps - 1, -1, -1):
+-        design = features(paths[:, time_index, :], payoffs[:, time_index])
+-        mean = np.mean(design, axis=0)
+-        scale = np.std(design, axis=0)
+-        mean[0] = 0.0
+-        scale[scale < 1e-10] = 1.0
+-        normalized = (design - mean) / scale
+-        gram = normalized.T @ normalized
+-        gram.flat[::feature_count + 1] += 1e-06
+-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+-        continuation = normalized @ coefficient
+-        exercise = payoffs[:, time_index] >= continuation
+-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+-        coefficients[time_index] = coefficient
+-        means[time_index] = mean
+-        scales[time_index] = scale
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
++    steps = paths.shape[1] - 1
++    # Fixed fold assignment makes replay deterministic while allowing the
++    # evaluator seed to vary the bias-control partition across repetitions.
++    rng = np.random.default_rng(int(seed))
++    folds = rng.permutation(len(paths)) % 5
++    cash = payoffs[:, -1].copy()
++    all_coef, all_mean, all_scale, all_knots = [], [], [], []
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        positive = immediate > 1e-14
++        pos_values = immediate[positive]
++        if len(pos_values) >= 20:
++            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
++        else:
++            knots = np.zeros(5, dtype=np.float64)
++        if len(knots) < 5:
++            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
++        x = features(paths[:, t, :], immediate, knots)
++
++        # Out-of-fold predictions drive the stopping transition.  This is the
++        # AST-level mutation: a path can no longer train its own exercise rule.
++        continuation = np.empty(len(paths), dtype=np.float64)
++        for fold in range(5):
++            train = (folds != fold) & positive
++            coef, mean, scale = _fit_on_mask(x, cash, train)
++            test = folds == fold
++            continuation[test] = ((x[test] - mean) / scale) @ coef
++        continuation = np.maximum(continuation, 1e-10)
++        exercise = positive & (immediate >= continuation)
++        cash = np.where(exercise, immediate, cash)
++
++        coef, mean, scale = _fit_on_mask(x, cash if False else np.where(exercise, immediate, cash), positive)
++        # Refit the deployable continuation to the pre-decision target.  Since
++        # cash was updated above, reconstruct it from a saved target next pass
++        # by using the original OOF-consistent target retained here.
++        # The following explicit full fit uses y_target captured before update.
++        # (Assigned below through a second, clearer backward computation.)
++        all_coef.append(coef); all_mean.append(mean); all_scale.append(scale); all_knots.append(knots)
++
++    # Recompute full-model coefficients against the same recursively selected
++    # cash-flow targets.  This keeps inference strong while policy transitions
++    # above remain cross-fitted.
++    cash = payoffs[:, -1].copy()
++    deploy = [None] * steps
++    for reverse_index, t in enumerate(range(steps - 1, -1, -1)):
++        knots = all_knots[reverse_index]
++        x = features(paths[:, t, :], payoffs[:, t], knots)
++        target = cash.copy()
++        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
++        pred = np.maximum(((x - mean) / scale) @ coef, 1e-10)
++        cash = np.where((payoffs[:, t] > 1e-14) & (payoffs[:, t] >= pred), payoffs[:, t], cash)
++        deploy[t] = (coef, mean, scale, knots)
++
++    coefficients = np.stack([v[0] for v in deploy])
++    means = np.stack([v[1] for v in deploy])
++    scales = np.stack([v[2] for v in deploy])
++    knots = np.stack([v[3] for v in deploy])
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
++             scales=scales, knots=knots)
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+-    time_index = int(request['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+-        design = features(states, immediate)
+-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+-        predictions = normalized @ model['coefficients'][time_index]
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = features(states, immediate, model["knots"][t])
++        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
++    # A strictly positive floor prevents zero-payoff states from exercising on
++    # harmless negative regression extrapolation.
++    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
++    prediction = np.maximum(prediction, 1e-10)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
++    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
++
+ 
+ def main() -> None:
+     parser = argparse.ArgumentParser()
+-    subparsers = parser.add_subparsers(dest='command', required=True)
+-    fit_parser = subparsers.add_parser('fit')
+-    fit_parser.add_argument('--input', required=True)
+-    fit_parser.add_argument('--output', required=True)
+-    fit_parser.add_argument('--seed', required=True, type=int)
+-    predict_parser = subparsers.add_parser('predict')
+-    predict_parser.add_argument('--model', required=True)
+-    predict_parser.add_argument('--input', required=True)
+-    predict_parser.add_argument('--output', required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    train = commands.add_parser("fit")
++    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
++    train.add_argument("--seed", required=True, type=int)
++    query = commands.add_parser("predict")
++    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
++    query.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    if args.command == 'fit':
++    if args.command == "fit":
+         fit(Path(args.input), Path(args.output), args.seed)
+     else:
+         predict(Path(args.model), Path(args.input), Path(args.output))
+-if __name__ == '__main__':
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:29:40.579845Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+A review of the first edit caught an internal composition mistake before testing: the deployable refit was recomputing its own in-sample stopping recursion, which would partly undo the cross-fitted transition. I’m collapsing this to one backward pass so each full predictor is trained on the target entering the cross-fitted step, and only out-of-fold predictions mutate the next target.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a54b4d8950b035bc756fc7a1e8e3a60c6108fca0
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,16 @@
++# Proposal: cross-fitted spline state transition
++
++- Mechanism: `direct_r0_1`
++- Operator: `ast_mutation`
++- Scope: `whole_program`
++- Target slice: `instance:public-put-atm`
++- Materialized change: preserve the parent's normalized ridge continuation
++  program, but replace its in-sample backward stopping update with deterministic
++  five-fold continuation estimates and replace duplicate linear columns with a
++  compact polynomial/payoff-hinge basis.
++- Falsifiable prediction: positive mean paired discounted-payoff improvement on
++  `instance:public-put-atm` under the evaluator's identical seed and budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
++- Matched control: the unchanged parent program, evaluated with identical input,
++  seed, and compute budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+index 4aa2fadb11bc93821524580c437394c021f43d02..29774e5dd993583d2b9386e0ce9c540ec565f01e
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+@@ -1,76 +1,160 @@
+-"""Complete fit/predict seed for the open Python-program track.
++"""Cross-fitted spline LSMC candidate for the open program track.
+ 
+-This is deliberately just one ordinary starting program. Search candidates
+-may replace every function, model representation, objective, and update rule.
++The inherited normalized linear LSMC is retained as the numerical backbone,
++but its backward state transition is mutated to use out-of-fold continuation
++estimates.  A small hinge basis lets the stopping boundary bend without a
++large or stochastic model.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
+-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+-    states = np.asarray(states, dtype=np.float64)
+-    logged = np.log(np.maximum(states, 1e-12))
+-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+-    return np.column_stack(columns)
+ 
++def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
++    """A bounded, product-agnostic polynomial summary of the current state."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        s = s[:, None]
++    z = np.log(np.maximum(s, 1e-12))
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
++    for j in range(z.shape[1]):
++        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
++    if z.shape[1] > 1:
++        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
++        for j in range(z.shape[1]):
++            for k in range(j + 1, z.shape[1]):
++                cols.append(z[:, j] * z[:, k])
++    return np.column_stack(cols)
++
++
++def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
++    """Retain the parent basis and add payoff splines near exercise boundaries."""
++    base = _base_features(states, immediate)
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
++    return np.column_stack([base, *hinges]) if hinges else base
++
++
++def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    mean[0] = 0.0
++    scale[scale < 1e-10] = 1.0
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
++    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
++    n, d = x.shape
++    if n == 0:
++        return np.zeros(d)
++    if n >= d:
++        gram = x.T @ x
++        penalty = alpha * max(n, 1)
++        gram.flat[:: d + 1] += penalty
++        gram[0, 0] -= penalty
++        try:
++            return np.linalg.solve(gram, x.T @ y)
++        except np.linalg.LinAlgError:
++            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
++    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
++
++
++def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    """Fit on economically relevant paths, falling back safely for tiny samples."""
++    use = np.asarray(mask, dtype=bool)
++    if use.sum() < max(20, x.shape[1] + 3):
++        use = np.ones(len(x), dtype=bool)
++    xn, mean, scale = _normalizer(x[use])
++    return _ridge(xn, y[use]), mean, scale
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    del seed
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    n_steps = paths.shape[1] - 1
+-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+-    means = np.zeros_like(coefficients)
+-    scales = np.ones_like(coefficients)
+-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+-    for time_index in range(n_steps - 1, -1, -1):
+-        design = features(paths[:, time_index, :], payoffs[:, time_index])
+-        mean = np.mean(design, axis=0)
+-        scale = np.std(design, axis=0)
+-        mean[0] = 0.0
+-        scale[scale < 1e-10] = 1.0
+-        normalized = (design - mean) / scale
+-        gram = normalized.T @ normalized
+-        gram.flat[::feature_count + 1] += 1e-06
+-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+-        continuation = normalized @ coefficient
+-        exercise = payoffs[:, time_index] >= continuation
+-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+-        coefficients[time_index] = coefficient
+-        means[time_index] = mean
+-        scales[time_index] = scale
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
++    steps = paths.shape[1] - 1
++    # Fixed fold assignment makes replay deterministic while allowing the
++    # evaluator seed to vary the bias-control partition across repetitions.
++    rng = np.random.default_rng(int(seed))
++    folds = rng.permutation(len(paths)) % 5
++    cash = payoffs[:, -1].copy()
++    deploy = [None] * steps
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        positive = immediate > 1e-14
++        pos_values = immediate[positive]
++        if len(pos_values) >= 20:
++            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
++        else:
++            knots = np.zeros(5, dtype=np.float64)
++        if len(knots) < 5:
++            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
++        x = features(paths[:, t, :], immediate, knots)
++        target = cash.copy()
++
++        # Out-of-fold predictions drive the stopping transition.  This is the
++        # AST-level mutation: a path can no longer train its own exercise rule.
++        continuation = np.empty(len(paths), dtype=np.float64)
++        for fold in range(5):
++            train = (folds != fold) & positive
++            coef, mean, scale = _fit_on_mask(x, target, train)
++            test = folds == fold
++            continuation[test] = ((x[test] - mean) / scale) @ coef
++        continuation = np.maximum(continuation, 1e-10)
++        exercise = positive & (immediate >= continuation)
++        cash = np.where(exercise, immediate, target)
++
++        # The deployable model sees all relevant paths, but its target is the
++        # cash flow entering (not resulting from) this exercise decision.
++        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
++        deploy[t] = (coef, mean, scale, knots)
++
++    coefficients = np.stack([v[0] for v in deploy])
++    means = np.stack([v[1] for v in deploy])
++    scales = np.stack([v[2] for v in deploy])
++    knots = np.stack([v[3] for v in deploy])
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
++             scales=scales, knots=knots)
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+-    time_index = int(request['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+-        design = features(states, immediate)
+-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+-        predictions = normalized @ model['coefficients'][time_index]
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = features(states, immediate, model["knots"][t])
++        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
++    # A strictly positive floor prevents zero-payoff states from exercising on
++    # harmless negative regression extrapolation.
++    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
++    prediction = np.maximum(prediction, 1e-10)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
++    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
++
+ 
+ def main() -> None:
+     parser = argparse.ArgumentParser()
+-    subparsers = parser.add_subparsers(dest='command', required=True)
+-    fit_parser = subparsers.add_parser('fit')
+-    fit_parser.add_argument('--input', required=True)
+-    fit_parser.add_argument('--output', required=True)
+-    fit_parser.add_argument('--seed', required=True, type=int)
+-    predict_parser = subparsers.add_parser('predict')
+-    predict_parser.add_argument('--model', required=True)
+-    predict_parser.add_argument('--input', required=True)
+-    predict_parser.add_argument('--output', required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    train = commands.add_parser("fit")
++    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
++    train.add_argument("--seed", required=True, type=int)
++    query = commands.add_parser("predict")
++    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
++    query.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    if args.command == 'fit':
++    if args.command == "fit":
+         fit(Path(args.input), Path(args.output), args.seed)
+     else:
+         predict(Path(args.model), Path(args.input), Path(args.output))
+-if __name__ == '__main__':
++
++
++if __name__ == "__main__":
+     main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a54b4d8950b035bc756fc7a1e8e3a60c6108fca0
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,16 @@
++# Proposal: cross-fitted spline state transition
++
++- Mechanism: `direct_r0_1`
++- Operator: `ast_mutation`
++- Scope: `whole_program`
++- Target slice: `instance:public-put-atm`
++- Materialized change: preserve the parent's normalized ridge continuation
++  program, but replace its in-sample backward stopping update with deterministic
++  five-fold continuation estimates and replace duplicate linear columns with a
++  compact polynomial/payoff-hinge basis.
++- Falsifiable prediction: positive mean paired discounted-payoff improvement on
++  `instance:public-put-atm` under the evaluator's identical seed and budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
++- Matched control: the unchanged parent program, evaluated with identical input,
++  seed, and compute budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+index 4aa2fadb11bc93821524580c437394c021f43d02..29774e5dd993583d2b9386e0ce9c540ec565f01e
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+@@ -1,76 +1,160 @@
+-"""Complete fit/predict seed for the open Python-program track.
++"""Cross-fitted spline LSMC candidate for the open program track.
+ 
+-This is deliberately just one ordinary starting program. Search candidates
+-may replace every function, model representation, objective, and update rule.
++The inherited normalized linear LSMC is retained as the numerical backbone,
++but its backward state transition is mutated to use out-of-fold continuation
++estimates.  A small hinge basis lets the stopping boundary bend without a
++large or stochastic model.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
+-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+-    states = np.asarray(states, dtype=np.float64)
+-    logged = np.log(np.maximum(states, 1e-12))
+-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+-    return np.column_stack(columns)
+ 
++def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
++    """A bounded, product-agnostic polynomial summary of the current state."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        s = s[:, None]
++    z = np.log(np.maximum(s, 1e-12))
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
++    for j in range(z.shape[1]):
++        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
++    if z.shape[1] > 1:
++        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
++        for j in range(z.shape[1]):
++            for k in range(j + 1, z.shape[1]):
++                cols.append(z[:, j] * z[:, k])
++    return np.column_stack(cols)
++
++
++def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
++    """Retain the parent basis and add payoff splines near exercise boundaries."""
++    base = _base_features(states, immediate)
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
++    return np.column_stack([base, *hinges]) if hinges else base
++
++
++def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    mean[0] = 0.0
++    scale[scale < 1e-10] = 1.0
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
++    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
++    n, d = x.shape
++    if n == 0:
++        return np.zeros(d)
++    if n >= d:
++        gram = x.T @ x
++        penalty = alpha * max(n, 1)
++        gram.flat[:: d + 1] += penalty
++        gram[0, 0] -= penalty
++        try:
++            return np.linalg.solve(gram, x.T @ y)
++        except np.linalg.LinAlgError:
++            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
++    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
++
++
++def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    """Fit on economically relevant paths, falling back safely for tiny samples."""
++    use = np.asarray(mask, dtype=bool)
++    if use.sum() < max(20, x.shape[1] + 3):
++        use = np.ones(len(x), dtype=bool)
++    xn, mean, scale = _normalizer(x[use])
++    return _ridge(xn, y[use]), mean, scale
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    del seed
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    n_steps = paths.shape[1] - 1
+-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+-    means = np.zeros_like(coefficients)
+-    scales = np.ones_like(coefficients)
+-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+-    for time_index in range(n_steps - 1, -1, -1):
+-        design = features(paths[:, time_index, :], payoffs[:, time_index])
+-        mean = np.mean(design, axis=0)
+-        scale = np.std(design, axis=0)
+-        mean[0] = 0.0
+-        scale[scale < 1e-10] = 1.0
+-        normalized = (design - mean) / scale
+-        gram = normalized.T @ normalized
+-        gram.flat[::feature_count + 1] += 1e-06
+-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+-        continuation = normalized @ coefficient
+-        exercise = payoffs[:, time_index] >= continuation
+-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+-        coefficients[time_index] = coefficient
+-        means[time_index] = mean
+-        scales[time_index] = scale
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
++    steps = paths.shape[1] - 1
++    # Fixed fold assignment makes replay deterministic while allowing the
++    # evaluator seed to vary the bias-control partition across repetitions.
++    rng = np.random.default_rng(int(seed))
++    folds = rng.permutation(len(paths)) % 5
++    cash = payoffs[:, -1].copy()
++    deploy = [None] * steps
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        positive = immediate > 1e-14
++        pos_values = immediate[positive]
++        if len(pos_values) >= 20:
++            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
++        else:
++            knots = np.zeros(5, dtype=np.float64)
++        if len(knots) < 5:
++            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
++        x = features(paths[:, t, :], immediate, knots)
++        target = cash.copy()
++
++        # Out-of-fold predictions drive the stopping transition.  This is the
++        # AST-level mutation: a path can no longer train its own exercise rule.
++        continuation = np.empty(len(paths), dtype=np.float64)
++        for fold in range(5):
++            train = (folds != fold) & positive
++            coef, mean, scale = _fit_on_mask(x, target, train)
++            test = folds == fold
++            continuation[test] = ((x[test] - mean) / scale) @ coef
++        continuation = np.maximum(continuation, 1e-10)
++        exercise = positive & (immediate >= continuation)
++        cash = np.where(exercise, immediate, target)
++
++        # The deployable model sees all relevant paths, but its target is the
++        # cash flow entering (not resulting from) this exercise decision.
++        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
++        deploy[t] = (coef, mean, scale, knots)
++
++    coefficients = np.stack([v[0] for v in deploy])
++    means = np.stack([v[1] for v in deploy])
++    scales = np.stack([v[2] for v in deploy])
++    knots = np.stack([v[3] for v in deploy])
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
++             scales=scales, knots=knots)
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+-    time_index = int(request['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+-        design = features(states, immediate)
+-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+-        predictions = normalized @ model['coefficients'][time_index]
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = features(states, immediate, model["knots"][t])
++        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
++    # A strictly positive floor prevents zero-payoff states from exercising on
++    # harmless negative regression extrapolation.
++    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
++    prediction = np.maximum(prediction, 1e-10)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
++    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
++
+ 
+ def main() -> None:
+     parser = argparse.ArgumentParser()
+-    subparsers = parser.add_subparsers(dest='command', required=True)
+-    fit_parser = subparsers.add_parser('fit')
+-    fit_parser.add_argument('--input', required=True)
+-    fit_parser.add_argument('--output', required=True)
+-    fit_parser.add_argument('--seed', required=True, type=int)
+-    predict_parser = subparsers.add_parser('predict')
+-    predict_parser.add_argument('--model', required=True)
+-    predict_parser.add_argument('--input', required=True)
+-    predict_parser.add_argument('--output', required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    train = commands.add_parser("fit")
++    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
++    train.add_argument("--seed", required=True, type=int)
++    query = commands.add_parser("predict")
++    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
++    query.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    if args.command == 'fit':
++    if args.command == "fit":
+         fit(Path(args.input), Path(args.output), args.seed)
+     else:
+         predict(Path(args.model), Path(args.input), Path(args.output))
+-if __name__ == '__main__':
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:29:59.175134Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc 'python3 -m py_compile algorithm.py && tmpdir=$(mktemp -d /tmp/bermudan-c3.XXXXXX) && python3 - "$tmpdir" <<'"'PY'
+import json, sys
+from pathlib import Path
+import numpy as np
+root=Path(sys.argv[1]); inp=root/'fit'; inp.mkdir()
+rng=np.random.default_rng(9); n=1024; times=np.linspace(0,1,6)
+z=rng.normal(size=(n,5)); s=np.ones((n,6,1))
+for t in range(1,6):
+ dt=.2; s[:,t,0]=s[:,t-1,0]*np.exp((.05-.5*.2**2)*dt+.2*np.sqrt(dt)*z[:,t-1])
+pay=np.maximum(1-s[:,:,0],0)*np.exp(-.05*times)
+np.save(inp/'training_paths.npy',s); np.save(inp/'payoffs.npy',pay); np.save(inp/'discount_factors.npy',np.exp(-.05*times))
+(inp/'instance.json').write_text(json.dumps({'instance_id':'public-put-atm'}))
+q=root/'query'; q.mkdir(); np.save(q/'history.npy',s[:73,:3]); np.save(q/'states.npy',s[:73,2]); np.save(q/'immediate_payoffs.npy',pay[:73,2]); (q/'request.json').write_text(json.dumps({'time_index':2,'instance':{'instance_id':'public-put-atm'}}))
+PY
+python3 algorithm.py fit --input \""'$tmpdir/fit" --output "$tmpdir/model" --seed 17 && python3 algorithm.py predict --model "$tmpdir/model" --input "$tmpdir/query" --output "$tmpdir/result" && python3 - "$tmpdir" <<'"'PY'
+import sys, numpy as np
+from pathlib import Path
+p=np.load(Path(sys.argv[1])/'result/predictions.npy',allow_pickle=False)
+assert p.shape==(73,) and np.isfinite(p).all() and (p>0).all()
+print({'shape':p.shape,'min':float(p.min()),'max':float(p.max()),'mean':float(p.mean())})
+PY
+sed -n '1,320p' algorithm.py
+git diff -- algorithm.py manifest.json PROPOSAL.md" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2
+ succeeded in 174ms:
+{'shape': (73,), 'min': 0.029321070015578383, 'max': 0.2608289895281398, 'mean': 0.06252349705778966}
+"""Cross-fitted spline LSMC candidate for the open program track.
+
+The inherited normalized linear LSMC is retained as the numerical backbone,
+but its backward state transition is mutated to use out-of-fold continuation
+estimates.  A small hinge basis lets the stopping boundary bend without a
+large or stochastic model.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    """A bounded, product-agnostic polynomial summary of the current state."""
+    s = np.asarray(states, dtype=np.float64)
+    if s.ndim == 1:
+        s = s[:, None]
+    z = np.log(np.maximum(s, 1e-12))
+    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
+    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
+    for j in range(z.shape[1]):
+        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
+    if z.shape[1] > 1:
+        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
+        for j in range(z.shape[1]):
+            for k in range(j + 1, z.shape[1]):
+                cols.append(z[:, j] * z[:, k])
+    return np.column_stack(cols)
+
+
+def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
+    """Retain the parent basis and add payoff splines near exercise boundaries."""
+    base = _base_features(states, immediate)
+    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
+    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
+    return np.column_stack([base, *hinges]) if hinges else base
+
+
+def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    mean = x.mean(axis=0)
+    scale = x.std(axis=0)
+    mean[0] = 0.0
+    scale[scale < 1e-10] = 1.0
+    return (x - mean) / scale, mean, scale
+
+
+def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
+    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
+    n, d = x.shape
+    if n == 0:
+        return np.zeros(d)
+    if n >= d:
+        gram = x.T @ x
+        penalty = alpha * max(n, 1)
+        gram.flat[:: d + 1] += penalty
+        gram[0, 0] -= penalty
+        try:
+            return np.linalg.solve(gram, x.T @ y)
+        except np.linalg.LinAlgError:
+            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
+    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
+
+
+def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Fit on economically relevant paths, falling back safely for tiny samples."""
+    use = np.asarray(mask, dtype=bool)
+    if use.sum() < max(20, x.shape[1] + 3):
+        use = np.ones(len(x), dtype=bool)
+    xn, mean, scale = _normalizer(x[use])
+    return _ridge(xn, y[use]), mean, scale
+
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
+    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
+    steps = paths.shape[1] - 1
+    # Fixed fold assignment makes replay deterministic while allowing the
+    # evaluator seed to vary the bias-control partition across repetitions.
+    rng = np.random.default_rng(int(seed))
+    folds = rng.permutation(len(paths)) % 5
+    cash = payoffs[:, -1].copy()
+    deploy = [None] * steps
+
+    for t in range(steps - 1, -1, -1):
+        immediate = payoffs[:, t]
+        positive = immediate > 1e-14
+        pos_values = immediate[positive]
+        if len(pos_values) >= 20:
+            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
+        else:
+            knots = np.zeros(5, dtype=np.float64)
+        if len(knots) < 5:
+            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
+        x = features(paths[:, t, :], immediate, knots)
+        target = cash.copy()
+
+        # Out-of-fold predictions drive the stopping transition.  This is the
+        # AST-level mutation: a path can no longer train its own exercise rule.
+        continuation = np.empty(len(paths), dtype=np.float64)
+        for fold in range(5):
+            train = (folds != fold) & positive
+            coef, mean, scale = _fit_on_mask(x, target, train)
+            test = folds == fold
+            continuation[test] = ((x[test] - mean) / scale) @ coef
+        continuation = np.maximum(continuation, 1e-10)
+        exercise = positive & (immediate >= continuation)
+        cash = np.where(exercise, immediate, target)
+
+        # The deployable model sees all relevant paths, but its target is the
+        # cash flow entering (not resulting from) this exercise decision.
+        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
+        deploy[t] = (coef, mean, scale, knots)
+
+    coefficients = np.stack([v[0] for v in deploy])
+    means = np.stack([v[1] for v in deploy])
+    scales = np.stack([v[2] for v in deploy])
+    knots = np.stack([v[3] for v in deploy])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
+             scales=scales, knots=knots)
+
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
+    t = int(request["time_index"])
+    states = np.load(input_dir / "states.npy", allow_pickle=False)
+    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
+    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
+        x = features(states, immediate, model["knots"][t])
+        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
+    # A strictly positive floor prevents zero-payoff states from exercising on
+    # harmless negative regression extrapolation.
+    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
+    prediction = np.maximum(prediction, 1e-10)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    commands = parser.add_subparsers(dest="command", required=True)
+    train = commands.add_parser("fit")
+    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
+    train.add_argument("--seed", required=True, type=int)
+    query = commands.add_parser("predict")
+    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
+    query.add_argument("--output", required=True)
+    args = parser.parse_args()
+    if args.command == "fit":
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+
+
+if __name__ == "__main__":
+    main()
+
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a54b4d8950b035bc756fc7a1e8e3a60c6108fca0
+--- /dev/null
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/PROPOSAL.md
+@@ -0,0 +1,16 @@
++# Proposal: cross-fitted spline state transition
++
++- Mechanism: `direct_r0_1`
++- Operator: `ast_mutation`
++- Scope: `whole_program`
++- Target slice: `instance:public-put-atm`
++- Materialized change: preserve the parent's normalized ridge continuation
++  program, but replace its in-sample backward stopping update with deterministic
++  five-fold continuation estimates and replace duplicate linear columns with a
++  compact polynomial/payoff-hinge basis.
++- Falsifiable prediction: positive mean paired discounted-payoff improvement on
++  `instance:public-put-atm` under the evaluator's identical seed and budget.
++- Falsifier: the upper endpoint of the 95% paired confidence interval is below
++  zero.
++- Matched control: the unchanged parent program, evaluated with identical input,
++  seed, and compute budget.
+diff --git a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+index 4aa2fadb11bc93821524580c437394c021f43d02..29774e5dd993583d2b9386e0ce9c540ec565f01e
+--- a/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
++++ b/artifacts/mathai-bermudan-live-v2-20260905/runs/direct_generation-s29/drafts/r0-c2/algorithm.py
+@@ -1,76 +1,160 @@
+-"""Complete fit/predict seed for the open Python-program track.
++"""Cross-fitted spline LSMC candidate for the open program track.
+ 
+-This is deliberately just one ordinary starting program. Search candidates
+-may replace every function, model representation, objective, and update rule.
++The inherited normalized linear LSMC is retained as the numerical backbone,
++but its backward state transition is mutated to use out-of-fold continuation
++estimates.  A small hinge basis lets the stopping boundary bend without a
++large or stochastic model.
+ """
+ from __future__ import annotations
++
+ import argparse
+ import json
+ from pathlib import Path
++
+ import numpy as np
+ 
+-def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+-    states = np.asarray(states, dtype=np.float64)
+-    logged = np.log(np.maximum(states, 1e-12))
+-    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] * 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+-    return np.column_stack(columns)
+ 
++def _base_features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
++    """A bounded, product-agnostic polynomial summary of the current state."""
++    s = np.asarray(states, dtype=np.float64)
++    if s.ndim == 1:
++        s = s[:, None]
++    z = np.log(np.maximum(s, 1e-12))
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    cols = [np.ones(len(s)), p, np.sqrt(p + 1e-12), p * p]
++    for j in range(z.shape[1]):
++        cols.extend((z[:, j], z[:, j] ** 2, z[:, j] ** 3))
++    if z.shape[1] > 1:
++        cols.extend((z.mean(1), z.min(1), z.max(1), z.std(1)))
++        for j in range(z.shape[1]):
++            for k in range(j + 1, z.shape[1]):
++                cols.append(z[:, j] * z[:, k])
++    return np.column_stack(cols)
++
++
++def features(states: np.ndarray, immediate: np.ndarray, knots: np.ndarray) -> np.ndarray:
++    """Retain the parent basis and add payoff splines near exercise boundaries."""
++    base = _base_features(states, immediate)
++    p = np.maximum(np.asarray(immediate, dtype=np.float64).reshape(-1), 0.0)
++    hinges = [np.maximum(p - float(k), 0.0) for k in np.asarray(knots).reshape(-1)]
++    return np.column_stack([base, *hinges]) if hinges else base
++
++
++def _normalizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    mean[0] = 0.0
++    scale[scale < 1e-10] = 1.0
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x: np.ndarray, y: np.ndarray, alpha: float = 3e-3) -> np.ndarray:
++    """Stable primal/dual ridge solve; the intercept is effectively unpenalized."""
++    n, d = x.shape
++    if n == 0:
++        return np.zeros(d)
++    if n >= d:
++        gram = x.T @ x
++        penalty = alpha * max(n, 1)
++        gram.flat[:: d + 1] += penalty
++        gram[0, 0] -= penalty
++        try:
++            return np.linalg.solve(gram, x.T @ y)
++        except np.linalg.LinAlgError:
++            return np.linalg.lstsq(gram, x.T @ y, rcond=1e-10)[0]
++    return x.T @ np.linalg.solve(x @ x.T + alpha * max(n, 1) * np.eye(n), y)
++
++
++def _fit_on_mask(x: np.ndarray, y: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++    """Fit on economically relevant paths, falling back safely for tiny samples."""
++    use = np.asarray(mask, dtype=bool)
++    if use.sum() < max(20, x.shape[1] + 3):
++        use = np.ones(len(x), dtype=bool)
++    xn, mean, scale = _normalizer(x[use])
++    return _ridge(xn, y[use]), mean, scale
++
++
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    del seed
+-    paths = np.load(input_dir / 'training_paths.npy', allow_pickle=False)
+-    payoffs = np.load(input_dir / 'payoffs.npy', allow_pickle=False)
+-    n_steps = paths.shape[1] - 1
+-    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+-    coefficients = np.zeros((n_steps, feature_count), dtype=np.float64)
+-    means = np.zeros_like(coefficients)
+-    scales = np.ones_like(coefficients)
+-    cash_flow = np.asarray(payoffs[:, -1], dtype=np.float64).copy()
+-    for time_index in range(n_steps - 1, -1, -1):
+-        design = features(paths[:, time_index, :], payoffs[:, time_index])
+-        mean = np.mean(design, axis=0)
+-        scale = np.std(design, axis=0)
+-        mean[0] = 0.0
+-        scale[scale < 1e-10] = 1.0
+-        normalized = (design - mean) / scale
+-        gram = normalized.T @ normalized
+-        gram.flat[::feature_count + 1] += 1e-06
+-        coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
+-        continuation = normalized @ coefficient
+-        exercise = payoffs[:, time_index] >= continuation
+-        cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
+-        coefficients[time_index] = coefficient
+-        means[time_index] = mean
+-        scales[time_index] = scale
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.asarray(np.load(input_dir / "payoffs.npy", allow_pickle=False), dtype=np.float64)
++    steps = paths.shape[1] - 1
++    # Fixed fold assignment makes replay deterministic while allowing the
++    # evaluator seed to vary the bias-control partition across repetitions.
++    rng = np.random.default_rng(int(seed))
++    folds = rng.permutation(len(paths)) % 5
++    cash = payoffs[:, -1].copy()
++    deploy = [None] * steps
++
++    for t in range(steps - 1, -1, -1):
++        immediate = payoffs[:, t]
++        positive = immediate > 1e-14
++        pos_values = immediate[positive]
++        if len(pos_values) >= 20:
++            knots = np.unique(np.quantile(pos_values, [0.18, 0.36, 0.55, 0.72, 0.86]))
++        else:
++            knots = np.zeros(5, dtype=np.float64)
++        if len(knots) < 5:
++            knots = np.pad(knots, (0, 5 - len(knots)), mode="edge") if len(knots) else np.zeros(5)
++        x = features(paths[:, t, :], immediate, knots)
++        target = cash.copy()
++
++        # Out-of-fold predictions drive the stopping transition.  This is the
++        # AST-level mutation: a path can no longer train its own exercise rule.
++        continuation = np.empty(len(paths), dtype=np.float64)
++        for fold in range(5):
++            train = (folds != fold) & positive
++            coef, mean, scale = _fit_on_mask(x, target, train)
++            test = folds == fold
++            continuation[test] = ((x[test] - mean) / scale) @ coef
++        continuation = np.maximum(continuation, 1e-10)
++        exercise = positive & (immediate >= continuation)
++        cash = np.where(exercise, immediate, target)
++
++        # The deployable model sees all relevant paths, but its target is the
++        # cash flow entering (not resulting from) this exercise decision.
++        coef, mean, scale = _fit_on_mask(x, target, payoffs[:, t] > 1e-14)
++        deploy[t] = (coef, mean, scale, knots)
++
++    coefficients = np.stack([v[0] for v in deploy])
++    means = np.stack([v[1] for v in deploy])
++    scales = np.stack([v[2] for v in deploy])
++    knots = np.stack([v[3] for v in deploy])
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
++    np.savez(output_dir / "model.npz", coefficients=coefficients, means=means,
++             scales=scales, knots=knots)
++
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+-    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+-    time_index = int(request['time_index'])
+-    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+-    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+-    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+-        design = features(states, immediate)
+-        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+-        predictions = normalized @ model['coefficients'][time_index]
++    request = json.loads((input_dir / "request.json").read_text(encoding="utf-8"))
++    t = int(request["time_index"])
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as model:
++        x = features(states, immediate, model["knots"][t])
++        prediction = ((x - model["means"][t]) / model["scales"][t]) @ model["coefficients"][t]
++    # A strictly positive floor prevents zero-payoff states from exercising on
++    # harmless negative regression extrapolation.
++    prediction = np.nan_to_num(prediction, nan=1e-10, posinf=1e6, neginf=1e-10)
++    prediction = np.maximum(prediction, 1e-10)
+     output_dir.mkdir(parents=True, exist_ok=True)
+-    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
++    np.save(output_dir / "predictions.npy", prediction.astype(np.float64), allow_pickle=False)
++
+ 
+ def main() -> None:
+     parser = argparse.ArgumentParser()
+-    subparsers = parser.add_subparsers(dest='command', required=True)
+-    fit_parser = subparsers.add_parser('fit')
+-    fit_parser.add_argument('--input', required=True)
+-    fit_parser.add_argument('--output', required=True)
+-    fit_parser.add_argument('--seed', required=True, type=int)
+-    predict_parser = subparsers.add_parser('predict')
+-    predict_parser.add_argument('--model', required=True)
+-    predict_parser.add_argument('--input', required=True)
+-    predict_parser.add_argument('--output', required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    train = commands.add_parser("fit")
++    train.add_argument("--input", required=True); train.add_argument("--output", required=True)
++    train.add_argument("--seed", required=True, type=int)
++    query = commands.add_parser("predict")
++    query.add_argument("--model", required=True); query.add_argument("--input", required=True)
++    query.add_argument("--output", required=True)
+     args = parser.parse_args()
+-    if args.command == 'fit':
++    if args.command == "fit":
+         fit(Path(args.input), Path(args.output), args.seed)
+     else:
+         predict(Path(args.model), Path(args.input), Path(args.output))
+-if __name__ == '__main__':
++
++
++if __name__ == "__main__":
+     main()
+
+2026-09-05T16:30:14.398191Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+The repaired program now passes an end-to-end synthetic ATM-put fit/predict run: it emits 73 finite, strictly positive continuation values with the exact required shape. I’m doing the final bounded-tree, determinism, and interface checks now.

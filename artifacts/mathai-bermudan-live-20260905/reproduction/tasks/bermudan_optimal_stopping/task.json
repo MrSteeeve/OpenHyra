@@ -1,0 +1,65 @@
+{
+  "name": "bermudan_optimal_stopping",
+  "direction": "max",
+  "metric": "paired_lower_bound_lcb",
+  "protocol": "bermudan-lsmc-feature-ir.v1",
+  "seed_description": "official Ridge LSMC baseline feature program",
+  "editable_files": ["feature_program.json"],
+  "allowed_context_phases": ["numeric"],
+  "candidate_instructions": [
+    "Modify only feature_program.json and submit only the bounded data-only openhyra-feature-program.v1 IR.",
+    "Do not add Python, reported prices, stopping decisions, paths, seeds, confidence intervals, or dual values."
+  ],
+  "sandbox_timeout_s": 10,
+  "eval_concurrency": 1,
+  "candidates_per_context": 4,
+  "candidate_repair_attempts": 1,
+  "research_revision_attempts": 0,
+  "max_memory_mb": 512,
+  "max_output_mb": 8,
+  "max_artifact_bytes": 65536,
+  "evaluator_timeout_s": 120,
+  "evaluator_max_memory_mb": 2048,
+  "evaluation": {
+    "search_stage": {
+      "suite_id": "bermudan-public-v1",
+      "direction": "max",
+      "metric": "paired_lower_bound_lcb",
+      "confidence_level": 0.95,
+      "instance_count": 4,
+      "repeats": 2,
+      "training_paths": 1024,
+      "pricing_paths": 2048,
+      "ridge_alpha": 0.000001
+    },
+    "audit_stage": {
+      "suite_id": "bermudan-hidden-v1",
+      "top_k": 3,
+      "direction": "min",
+      "metric": "normalized_primal_dual_confidence_gap",
+      "confidence_level": 0.95,
+      "instance_count": 3,
+      "repeats": 2,
+      "training_paths": 1536,
+      "pricing_paths": 3072,
+      "outer_paths": 768,
+      "inner_paths": 64,
+      "ridge_alpha": 0.000001
+    }
+  },
+  "engineering_invariants": [
+    "Candidates submit only the bounded typed feature IR; model, contract, simulation, payoff, discounting, regression, stopping, and scoring remain evaluator-owned.",
+    "Policy-fit paths, out-of-sample pricing paths, dual outer paths, and dual inner draws use domain-separated random streams.",
+    "Every stopping decision uses only the current state, current exercise time, public parameters, and a policy frozen before pricing paths are generated.",
+    "The dual martingale starts at zero and uses conditionally centered one-step increments; raw empirical bound-order failures are reported and never clipped.",
+    "Search feedback uses the public suite and paired common-random-number differences against the frozen baseline; audit uses a suite derived from a sealed private seed."
+  ],
+  "fallback_directions": [
+    "Add low-degree transformations of normalized underlying and intrinsic value, staying within the typed IR bounds.",
+    "Test time-to-maturity interactions with intrinsic value or normalized underlying.",
+    "Use dimension-agnostic max, mean, minimum, or basket state summaries so the feature transfers across products.",
+    "Remove redundant or unstable features and retain changes only when the paired lower-confidence-bound improves.",
+    "Combine one bounded monotone transform with one low-degree polynomial rather than expanding feature count indiscriminately.",
+    "Check whether a feature improves both one-dimensional puts and multi-asset contracts instead of overfitting one public instance."
+  ]
+}
