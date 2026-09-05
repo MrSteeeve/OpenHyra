@@ -19,7 +19,7 @@ READ_CHUNK_BYTES = 64 * 1024
 SOURCE_TREE_IGNORES = {
     ".venv", "__pycache__", ".git", ".tmp",
     "run.log", "train.log", "solution.json", "solution.snapshot.json",
-    "evidence.json",
+    "evidence.json", "PROPOSAL.md",
 }
 ALGORITHM_SOURCE_FILES = ("train.py", "manifest.json")
 PYTHON_PROGRAM_SOURCE_TREE_SENTINEL = "__openhyra_python_source_tree__"

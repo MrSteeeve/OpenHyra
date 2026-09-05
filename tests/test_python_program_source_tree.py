@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from harness import Task, check_frozen
-from sandbox import snapshot_algorithm_source
+from sandbox import snapshot_algorithm_source, source_tree_hash
 from tasks.bermudan_optimal_stopping import evaluator
 
 
@@ -29,6 +29,22 @@ def test_python_program_snapshot_and_digest_include_nested_helpers():
         assert not (sealed / "solve.sh").exists()
         validated, _manifest = evaluator._candidate_source_manifest(sealed)
         assert validated == sealed.resolve()
+
+
+def test_python_program_snapshot_ignores_harness_proposal_metadata():
+    task = Task("bermudan_python_search", "source-tree-metadata")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source = root / "source"
+        source.mkdir()
+        (source / "algorithm.py").write_text("def fit(*a): pass\n")
+        (source / "manifest.json").write_text(json.dumps({
+            "schema": "openhyra-python-program.v1", "interface": "continuation",
+        }))
+        (source / "PROPOSAL.md").write_text("# harness metadata\n")
+        sealed = snapshot_algorithm_source(source, root / "sealed", task, 1_000_000)
+        assert not (sealed / "PROPOSAL.md").exists()
+        assert "PROPOSAL.md" not in source_tree_hash(source, 1_000_000)[1]
 
 
 def test_python_program_source_tree_rejects_unsupported_files():
