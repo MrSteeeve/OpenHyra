@@ -74,6 +74,22 @@ def _context_operator(family: str, mechanism: str, scope: str) -> str:
     return "ast_mutation"
 
 
+def canonical_program_operator(item: dict[str, Any]) -> str:
+    """Return the operator actually supported by the Python Proposal path."""
+    value = str(item.get("intervention_operator") or item.get("operator") or "").lower()
+    aliases = {
+        "restart": "whole_program_restart", "restart_from_skeleton": "whole_program_restart",
+        "mutate": "ast_mutation", "local_mutation": "ast_mutation",
+        "crossover": "ast_crossover", "compose": "ast_crossover",
+        "composition": "ast_crossover", "combine": "ast_crossover",
+    }
+    value = aliases.get(value, value)
+    if value in {"whole_program_restart", "ast_mutation", "ast_crossover", "subsystem_rewrite"}:
+        return value
+    return _context_operator(str(item.get("family", "")), str(item.get("mechanism", "")),
+                             str(item.get("intervention_scope") or item.get("scope") or ""))
+
+
 @dataclass(frozen=True)
 class MechanismHypothesis:
     """A concise, falsifiable algorithm-design hypothesis."""
@@ -229,6 +245,11 @@ def _normalize_hypothesis(item: Any, *, source: str) -> MechanismHypothesis | No
             _context_operator(family, mechanism, scope)
             if source == "context" else "replace"
         )
+    if source == "context":
+        operator = canonical_program_operator({
+            "operator": operator, "family": family,
+            "mechanism": mechanism, "scope": scope,
+        })
     target_slice = item.get("target_slice", "")
     if isinstance(target_slice, (list, tuple)):
         target_slice = ", ".join(
@@ -420,7 +441,7 @@ def candidate_hypotheses(
         round_number = max(0, int(iteration))
     except (TypeError, ValueError):
         round_number = 0
-    offset = (round_number * count) % len(pool)
+    offset = 0 if context_hypotheses else (round_number * count) % len(pool)
     return [
         pool[(offset + slot) % len(pool)].to_dict()
         for slot in range(count)

@@ -33,6 +33,7 @@ from mechanism_hypotheses import (
     hypothesis_to_analogy,
     load_mechanism_design,
     mechanism_generation_operator,
+    canonical_program_operator,
     matched_control_enabled,
 )
 from intervention_router import AcquisitionRouter, PendingHypothesisQueue
@@ -1046,36 +1047,7 @@ def _candidate_seed(context_seed, candidate_index):
 
 
 def _canonical_program_operator(mechanism):
-    """Normalize Context operator aliases for executable program dispatch."""
-    if not isinstance(mechanism, dict):
-        return ""
-    raw = mechanism.get("intervention_operator", mechanism.get("operator", ""))
-    value = raw.strip().lower() if isinstance(raw, str) else ""
-    if value in {"restart", "whole_program_restart", "restart_from_skeleton"}:
-        return "whole_program_restart"
-    if value in {"ast_mutation", "mutate", "local_mutation"}:
-        return "ast_mutation"
-    if value in {"ast_crossover", "crossover", "compose", "composition"}:
-        return "ast_crossover"
-    scope = mechanism.get("intervention_scope", mechanism.get("scope", ""))
-    if value == "subsystem_rewrite" or (
-        value == "replace" and str(scope).lower() in {
-            "fit", "predict", "subsystem",
-        }
-    ) or str(scope).lower() in {"fit", "predict", "subsystem"}:
-        return "subsystem_rewrite"
-    # Context-generated mechanisms often omit the low-level operator while
-    # still declaring a family such as ``representation`` or ``residual``.
-    # Preserve the existing semantic inference instead of forcing a mutation
-    # merely to satisfy the round-level diversity guard.
-    inferred = mechanism_generation_operator(mechanism)
-    if inferred in {"restart_from_skeleton"}:
-        return "whole_program_restart"
-    if inferred in {"composition"}:
-        return "ast_crossover"
-    if inferred in {"ablation", "analogy_transfer", "local_mutation"}:
-        return "ast_mutation"
-    return value
+    return canonical_program_operator(mechanism) if isinstance(mechanism, dict) else ""
 
 
 def _mechanism_hypothesis_id(iteration, parent_id, mechanism_id, pair_index=0):
@@ -1161,10 +1133,16 @@ def _mechanism_slots(task, context_meta, iteration, baseline, candidate_count):
                 # invariant explicit even for a custom task with one declared
                 # hypothesis.  The Proposal layer still validates the actual
                 # operator and may record a controlled failure.
+                alternate = (
+                    "whole_program_restart"
+                    if _canonical_program_operator(selected[0]) == "ast_mutation"
+                    else "ast_mutation"
+                )
                 selected[1] = {
                     **selected[1],
-                    "intervention_operator": "ast_mutation",
-                    "operator": "ast_mutation",
+                    "id": str(selected[1].get("id", "probe"))[:40] + "_diversity",
+                    "intervention_operator": alternate,
+                    "operator": alternate,
                 }
     if not selected:
         return [{} for _ in range(candidate_count)]
@@ -1192,6 +1170,8 @@ def _mechanism_slots(task, context_meta, iteration, baseline, candidate_count):
             mechanism = dict(selected[min(candidate_index, len(selected) - 1)])
             pair_seed = _candidate_seed(trial_seed, candidate_index)
             pair_id = ""
+        if getattr(task, "candidate_mode", "legacy") == "python_program":
+            mechanism["intervention_operator"] = _canonical_program_operator(mechanism)
         mechanism_id = mechanism.get("id", "mechanism")
         mechanism["hypothesis_id"] = _mechanism_hypothesis_id(
             iteration, parent_id, mechanism_id, pair_index,
@@ -1402,6 +1382,7 @@ def _write_prediction_observation(task, item, record, result):
         },
         "proposal": {
             "operator": metrics.get("generation_operator", _canonical_program_operator(mechanism)),
+            "execution": item.get("operator_execution", {}),
             "source_digest": (
                 metrics.get("source_snapshot_sha256")
                 or metrics.get("algorithm_bundle_sha256")
@@ -1450,6 +1431,12 @@ def _write_prediction_observation(task, item, record, result):
     # Materialize a compact table as well as the append-only ledger. Context
     # can consume this directly on the next round without parsing every EB
     # record, while the ledger remains the lossless provenance source.
+    _materialize_prediction_table(ledger_path)
+
+
+def _materialize_prediction_table(ledger_path):
+    """Join the append-only candidate and paired ledgers at the round barrier."""
+    ledger_path = Path(ledger_path)
     try:
         rows = [
             json.loads(line)
@@ -1458,6 +1445,18 @@ def _write_prediction_observation(task, item, record, result):
         ]
         rows = [row for row in rows if isinstance(row, dict)]
         rows.sort(key=lambda row: (int(row.get("iteration", 0)), str(row.get("record_id", ""))))
+        paired_path = ledger_path.with_name("matched_controls.jsonl")
+        pairs = [json.loads(line) for line in paired_path.read_text().splitlines() if line.strip()] if paired_path.exists() else []
+        paired = {p["pair"]["guided_record_id"]: p for p in pairs}
+        for row in rows:
+            row["prediction_basis"] = "candidate_vs_evaluator_baseline"
+            pair = paired.get(row.get("record_id"))
+            if pair:
+                observation = pair.get("prediction_test", {})
+                row["matched_observation"] = observation
+                row["prediction_basis"] = "guided_vs_matched_control_on_target_slice"
+                row["prediction_verdict"] = observation.get("prediction_verdict", "not_observed")
+                row["next_action"] = observation.get("next_action", "revise")
         table_path = ledger_path.with_name("prediction_table.json")
         table_path.write_text(
             json.dumps({
@@ -1610,6 +1609,17 @@ def _finalize_matched_controls(
             "pair": pair.to_dict(),
             "result": analogy_result.to_dict(),
         }
+        from bermudan_research import paired_slice_effects
+        if guided["record"].get("score") is None or control["record"].get("score") is None:
+            payload["prediction_test"] = {
+                "prediction_verdict": "execution_failed", "next_action": "falsify",
+                "reason": "candidate failed before a paired effect could be estimated",
+            }
+        else:
+            payload["prediction_test"] = paired_slice_effects(
+                guided["record"].get("metrics", {}), control["record"].get("metrics", {}),
+                mechanism.get("target_slice", ""),
+            )
         _append_jsonl_once(
             Path(getattr(task, "run_dir", eb.root.parent))
             / "research" / "matched_controls.jsonl",
@@ -1629,6 +1639,9 @@ def _finalize_matched_controls(
                     file=sys.stderr,
                 )
         results.append(payload)
+    _materialize_prediction_table(
+        Path(getattr(task, "run_dir", eb.root.parent)) / "research" / "prediction_ledger.jsonl"
+    )
     return results
 
 
@@ -3133,6 +3146,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                             f"{exc!r}",
                             file=sys.stderr,
                         )
+                item["operator_execution"] = {}
                 ok, description = propose(
                     Path(parent["path"]), draft, proposal_prompt, task.editable_files,
                     backend=backend, model=model, cancel_event=cancel_event,
@@ -3140,6 +3154,7 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                     entrypoint=getattr(task, "candidate_entrypoint", None),
                     artifact_protocol=getattr(task, "artifact_protocol", None),
                     source_files=getattr(task, "candidate_source_files", None),
+                    execution_metadata=item["operator_execution"],
                     allow_no_change=(
                         _is_program_candidate(task)
                         and item.get("matched_arm") == "control"

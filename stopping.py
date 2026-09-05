@@ -23,6 +23,7 @@ CONTEXT_PHASES = (
 INTERVENTION_SCOPES = {
     "parameter", "target", "representation", "architecture", "mechanism", "family",
     "objective", "loss", "feature", "protocol", "probe",
+    "whole_program", "program_subtree", "fit", "predict", "subsystem",
 }
 INTERVENTION_OPERATORS = {
     "tune", "replace", "combine", "ablate", "transfer", "abandon", "probe",

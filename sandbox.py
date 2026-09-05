@@ -532,66 +532,6 @@ def _training_tree_usage(roots, *, entry_limit, byte_limit):
     return entries, total_bytes
 
 
-def _research_fallback_permissions(paths, command):
-    """Temporarily enforce the most important path boundary without Seatbelt.
-
-    This is a compatibility aid for managed macOS hosts where ``sandbox-exec``
-    itself is unavailable.  It is intentionally narrower than a real Seatbelt
-    profile: candidate source/input trees are made read-only, and explicit
-    command arguments that name files outside the allowlist are unreadable for
-    the child.  Callers receive a ``research_fallback`` marker so this mode is
-    never confused with production isolation.
-    """
-    protected = (paths.source_dir, paths.input_dir)
-    saved: list[tuple[Path, int]] = []
-
-    def remember(path: Path, mode: int) -> None:
-        try:
-            info = os.lstat(path)
-        except OSError:
-            return
-        if stat.S_ISREG(info.st_mode):
-            saved.append((path, stat.S_IMODE(info.st_mode)))
-            path.chmod(mode)
-
-    for root in protected:
-        for current, directories, filenames in os.walk(root, followlinks=False):
-            current_path = Path(current)
-            try:
-                current_path.chmod(0o500)
-            except OSError:
-                pass
-            for name in filenames:
-                remember(current_path / name, 0o400)
-
-    allowed = tuple(
-        root for root in (
-            paths.source_dir, paths.input_dir, paths.output_dir,
-            paths.tmp_dir, *paths.runtime_roots,
-        )
-    )
-    for value in command:
-        try:
-            candidate = Path(value)
-        except (TypeError, ValueError):
-            continue
-        if not candidate.is_absolute() or not candidate.is_file():
-            continue
-        resolved = candidate.resolve()
-        if any(resolved == root or root in resolved.parents for root in allowed):
-            continue
-        remember(resolved, 0o000)
-    return saved
-
-
-def _restore_research_fallback_permissions(saved):
-    for path, mode in reversed(saved):
-        try:
-            path.chmod(mode)
-        except OSError:
-            pass
-
-
 def _wait_training_process(
         proc, timeout_s, memory_bytes, writable_roots,
         max_output_entries, max_total_output_bytes, cancel_event=None):
@@ -711,7 +651,6 @@ def run_training_sandbox(
     started = time.monotonic()
     state = "completed"
     state_note = ""
-    research_fallback_used = False
     usage = {
         "peak_memory_bytes": 0,
         "peak_writable_entries": 0,
@@ -761,61 +700,6 @@ def run_training_sandbox(
                 except subprocess.TimeoutExpired:
                     _kill_process_group(proc)
             log_tail = _read_log_tail(log_stream)
-            # Managed macOS hosts can deny ``sandbox-exec`` itself with EPERM.
-            # Retry the same limited command directly as an explicitly marked
-            # research fallback so evaluator experiments remain runnable. The
-            # parent still enforces fresh input/output roots, immutable source
-            # snapshots, file-size/time/output limits, and deterministic env;
-            # only the host confidentiality layer is weaker and is surfaced in
-            # the returned ``isolation`` field. A normal Seatbelt failure or a
-            # candidate failure never enters this branch.
-            if (
-                sys.platform == "darwin"
-                and isolation == "seatbelt"
-                and proc.returncode == 71
-                and "sandbox_apply: Operation not permitted" in log_tail
-                and not (cancel_event is not None and cancel_event.is_set())
-            ):
-                try:
-                    if any(paths.output_dir.iterdir()):
-                        raise RuntimeError("Seatbelt fallback output root is not fresh")
-                    log_stream.seek(0)
-                    log_stream.truncate(0)
-                    saved_modes = _research_fallback_permissions(paths, command)
-                    try:
-                        proc = subprocess.Popen(
-                            limited,
-                            cwd=paths.tmp_dir,
-                            env=env,
-                            stdin=subprocess.DEVNULL,
-                            stdout=log_stream,
-                            stderr=subprocess.STDOUT,
-                            start_new_session=True,
-                        )
-                        research_fallback_used = True
-                        state, state_note, usage = _wait_training_process(
-                            proc,
-                            timeout_s,
-                            int(memory_bytes),
-                            (paths.output_dir, paths.tmp_dir),
-                            int(max_output_entries),
-                            int(max_total_output_bytes),
-                            cancel_event,
-                        )
-                    finally:
-                        _restore_research_fallback_permissions(saved_modes)
-                finally:
-                    _kill_process_group(proc)
-                    try:
-                        proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        _kill_process_group(proc)
-                log_tail = _read_log_tail(log_stream)
-                state_note = (
-                    "Seatbelt unavailable; used research fallback with parent "
-                    "path, output, time, and deterministic-environment guards."
-                    + ((" " + state_note) if state_note else "")
-                )
             output_entries, output_bytes = _training_tree_usage(
                 (paths.output_dir,),
                 entry_limit=int(max_output_entries),
@@ -843,7 +727,7 @@ def run_training_sandbox(
         "log_tail": log_tail,
         "wall_seconds": time.monotonic() - started,
         "isolation": isolation,
-        "research_fallback": research_fallback_used,
+        "research_fallback": False,
         **usage,
         "output_entries": output_entries,
         "output_bytes": output_bytes,
@@ -1895,7 +1779,6 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
 
     solver_started = time.perf_counter()
     wait_state = "completed"
-    research_fallback_used = False
     with open(log_path, "w") as log_stream:
         proc = subprocess.Popen(
             command, cwd=sandbox_dir, env=env,
@@ -1912,36 +1795,6 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 pass
-        log_stream.flush()
-        initial_log = log_path.read_text(errors="replace") if log_path.exists() else ""
-        # See the training-sandbox fallback above: managed macOS hosts may
-        # deny sandbox-exec itself. Retry the same resource-limited solver
-        # command directly and expose a research-fallback marker. The trusted
-        # artifact/evaluator snapshots remain parent-controlled and the normal
-        # timeout/cancellation process-group cleanup still applies.
-        if (
-            sys.platform == "darwin"
-            and proc.returncode == 71
-            and "sandbox_apply: Operation not permitted" in initial_log
-            and not (cancel_event is not None and cancel_event.is_set())
-        ):
-            log_stream.seek(0)
-            log_stream.truncate(0)
-            proc = subprocess.Popen(
-                _limited_cmd(task, solver_command),
-                cwd=sandbox_dir,
-                env=env,
-                stdout=log_stream,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-            research_fallback_used = True
-            wait_state = _wait_process(proc, task.timeout_s, cancel_event)
-            _kill_process_group(proc)
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
     solver_seconds = time.perf_counter() - solver_started
 
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
@@ -1949,7 +1802,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     base_metrics = {
         "solver_seconds": solver_seconds,
         "source_snapshot_sha256": source_snapshot_sha256,
-        "research_fallback": research_fallback_used,
+        "research_fallback": False,
     }
     if wait_state == "cancelled":
         return None, "cancelled", (
