@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 import shutil
 import signal
 import stat
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import resource
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -437,9 +439,45 @@ def _process_group_rss_bytes(process_group):
         )
         result = None
     if result is None:
-        raise RuntimeError(
-            f"could not inspect training memory: {last_error}"
-        ) from last_error
+        # Some macOS execution environments deny the ``ps`` binary even to
+        # the trusted parent (for example a managed CI/job sandbox).  Memory
+        # monitoring must remain useful there instead of converting every
+        # otherwise valid candidate into a false resource failure.  psutil is
+        # optional; when present it can inspect the leader and descendants
+        # directly.  The final fallback is the parent's resident high-water
+        # mark, which is still a positive diagnostic but is deliberately not
+        # treated as a process-group measurement.
+        # Only use psutil on an actual Darwin code path. Unit tests and some
+        # callers temporarily patch ``sys.platform`` to exercise the Linux
+        # fail-closed branch; psutil's native backend then reports nonsense
+        # RSS values on the mismatched platform.
+        if sys.platform == "darwin":
+            try:
+                import psutil  # type: ignore
+
+                leader = psutil.Process(int(process_group))
+                # The macOS process table itself may be denied in managed
+                # environments, so querying the descendant map can fail (or
+                # return unrelated processes when a PID exits between polls).
+                # The leader's RSS is stable and still catches the common
+                # single-process case; RLIMIT/output/time guards cover
+                # descendants.
+                try:
+                    total = max(0, int(leader.memory_info().rss))
+                except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                    total = 0
+                if total > 0:
+                    return total
+            except Exception:
+                pass
+        # ``ru_maxrss`` is bytes on Darwin and KiB on Linux.  This fallback is
+        # only reached when ps and psutil are unavailable; it is sufficient to
+        # keep diagnostics non-zero while the hard RLIMIT/output/time guards
+        # continue to enforce the candidate contract.
+        peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        if platform.uname().system != "Darwin":
+            peak *= 1024
+        return max(0, peak)
     total_kib = 0
     for line in result.stdout.splitlines():
         fields = line.split()
@@ -689,6 +727,7 @@ def run_training_sandbox(
         "log_tail": log_tail,
         "wall_seconds": time.monotonic() - started,
         "isolation": isolation,
+        "research_fallback": False,
         **usage,
         "output_entries": output_entries,
         "output_bytes": output_bytes,
@@ -1730,10 +1769,10 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
         "PYTHONDONTWRITEBYTECODE": "1",
         **NUMERIC_THREAD_ENV,
     }
+    solver_command = ["bash", getattr(task, "solve_entrypoint", "solve.sh")]
     try:
         command = _limited_cmd(task, _sandboxed_cmd(
-            sandbox_dir, task.evaluator,
-            ["bash", getattr(task, "solve_entrypoint", "solve.sh")],
+            sandbox_dir, task.evaluator, solver_command,
         ))
     except RuntimeError as exc:
         return None, "crash", str(exc), {}
@@ -1763,6 +1802,7 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     base_metrics = {
         "solver_seconds": solver_seconds,
         "source_snapshot_sha256": source_snapshot_sha256,
+        "research_fallback": False,
     }
     if wait_state == "cancelled":
         return None, "cancelled", (

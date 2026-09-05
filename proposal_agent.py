@@ -7,6 +7,7 @@ evaluator, and commits the result to the Experience Bank.
 
 import ast
 import copy
+import hashlib
 import json
 import shutil
 import subprocess
@@ -70,7 +71,7 @@ def _subsystem_rewrite_target(intervention):
         if target and target != scope:
             raise ValueError("subsystem rewrite scope and target disagree")
         return scope
-    if scope != "subsystem" and not target:
+    if scope != "subsystem" and not target and operator != "subsystem_rewrite":
         return None
     if target not in {"fit", "predict"}:
         raise ValueError(
@@ -380,7 +381,8 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
             timeout_s: int = 600, backend: str = "claude", model=None,
             cancel_event=None, candidate_mode="legacy", entrypoint=None,
             artifact_protocol=None, source_files=None,
-            allow_no_change: bool = False, intervention=None):
+            allow_no_change: bool = False, intervention=None,
+            execution_metadata=None):
     """Copy parent solution to draft_dir, let the agent edit the editable files.
 
     Returns (ok, description).
@@ -420,6 +422,13 @@ def propose(parent_dir: Path, draft_dir: Path, prompt: str, editable_files,
                 source_files=source_files,
                 intervention=intervention,
             )
+            if isinstance(execution_metadata, dict):
+                execution_metadata.update({
+                    "declared_operator": (intervention or {}).get("intervention_operator"),
+                    "applied_operator": applied_operator,
+                    "executed": bool(applied_operator),
+                    "materialized_source_sha256": hashlib.sha256(program_path.read_bytes()).hexdigest(),
+                })
             if applied_operator.startswith("subsystem_rewrite:"):
                 subsystem_target = applied_operator.rsplit(":", 1)[-1]
             if applied_operator == "fit_predict_program_composition":

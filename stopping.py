@@ -23,11 +23,17 @@ CONTEXT_PHASES = (
 INTERVENTION_SCOPES = {
     "parameter", "target", "representation", "architecture", "mechanism", "family",
     "objective", "loss", "feature", "protocol", "probe",
+    "whole_program", "program_subtree", "fit", "predict", "subsystem",
 }
 INTERVENTION_OPERATORS = {
     "tune", "replace", "combine", "ablate", "transfer", "abandon", "probe",
     "mutate", "switch", "adjust", "compose", "remove", "restart", "inspect",
     "modify", "change", "add", "delete",
+    # Executable whole-program operators.  The legacy spellings above remain
+    # accepted for archived Context packets; new research packets should use
+    # these four explicit names so the Harness can dispatch them without
+    # interpreting free-form prose.
+    "whole_program_restart", "ast_mutation", "ast_crossover", "subsystem_rewrite",
 }
 
 
