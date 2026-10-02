@@ -1,0 +1,29 @@
+{
+  "evidence": {},
+  "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s17/structured_memory/subsystem_rewrite/draft/algorithm.py'",
+  "metrics": {},
+  "request": {
+    "config": {
+      "independent_validation": false,
+      "inner_paths": 8,
+      "instance_count": 2,
+      "outer_paths": 128,
+      "pricing_paths": 1024,
+      "repeats": 1,
+      "research_mode": true,
+      "training_paths": 256,
+      "training_timeout_s": 30
+    },
+    "protocol": "bermudan-python-program-search.v1",
+    "schema": "openhyra-evaluation-request.v1",
+    "seed": 330017,
+    "stage": "audit",
+    "suite_id": "bermudan-python-hidden-v2",
+    "task": "bermudan_python_search"
+  },
+  "score": null,
+  "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "source_unchanged": true,
+  "status": "error",
+  "wall_seconds": 0
+}

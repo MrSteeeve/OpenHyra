@@ -1,0 +1,9 @@
+CALL ablation/s29/score_only/whole_program_restart/calls context rc=0 23.9s
+ATTEMPT seed=29 arm=score_only op=whole_program_restart error None
+CALL ablation/s29/structured_memory/whole_program_restart/calls context rc=0 25.8s
+ATTEMPT seed=29 arm=structured_memory op=whole_program_restart error None
+CALL ablation/s29/structured_memory/subsystem_rewrite/calls context rc=0 29.8s
+ATTEMPT seed=29 arm=structured_memory op=subsystem_rewrite error None
+CALL ablation/s29/score_only/subsystem_rewrite/calls context rc=0 20.6s
+ATTEMPT seed=29 arm=score_only op=subsystem_rewrite error None
+ABLATION SEED 29 COMPLETE

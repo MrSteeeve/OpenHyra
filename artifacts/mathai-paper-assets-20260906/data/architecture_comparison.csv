@@ -1,0 +1,5 @@
+experiment,arm,context_agent,parent,history,selection,test_feedback
+original,context_proposal,True,adaptive between rounds,structured experience records,public payoff LCB,False
+original,direct_generation,False,frozen reference,direct generation control,public payoff LCB,False
+feedback_ablation,structured_memory,True,same fixed reference for both arms,"same IDs and scores plus bounds, uncertainty and labeled historical behavior/mechanisms",calibration confidence-gap score,False
+feedback_ablation,score_only,True,same fixed reference for both arms,"same IDs, source hashes, status and scalar gaps",calibration confidence-gap score,False

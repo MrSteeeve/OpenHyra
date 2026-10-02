@@ -1,0 +1,15 @@
+% Delta columns are gap-score reductions vs. the shared parent in units of 1e-3; positive = better than parent; failed proposals keep the parent (0).
+\begin{tabular}{l l r rr rr}
+\toprule
+ & & Parent & \multicolumn{2}{c}{Structured memory} & \multicolumn{2}{c}{Score-only memory} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Seed & Operator & calib.\ $S$ & $\Delta$calib. & $\Delta$holdout & $\Delta$calib. & $\Delta$holdout \\
+\midrule
+17 & whole-program restart & 0.20115 & failed (0) & --- & -1.648 & -1.616 \\
+17 & subsystem rewrite & 0.20115 & -2.533 & +0.180 & +0.303 & -1.156 \\
+29 & whole-program restart & 1.86031 & -2.295 & -2.354 & -4.423 & -0.578 \\
+29 & subsystem rewrite & 1.86031 & -5.346 & -0.005 & -0.681 & -0.245 \\
+41 & whole-program restart & 3.99635 & failed (0) & --- & -2.024 & -0.524 \\
+41 & subsystem rewrite & 3.99635 & -2.974 & -0.925 & -0.250 & -0.082 \\
+\bottomrule
+\end{tabular}

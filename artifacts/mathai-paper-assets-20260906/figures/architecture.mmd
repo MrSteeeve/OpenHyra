@@ -1,0 +1,9 @@
+flowchart LR
+  EB[Experience Bank] --> C[Context Agent]
+  C --> P[Proposal Agent]
+  P --> A[Python stopping algorithm]
+  A --> E[Public payoff evaluator]
+  E --> EB
+  A --> F[Freeze selected candidate]
+  F --> H[Independent primal-dual evaluation]
+  U[Common evaluator-owned upper bound] --> H

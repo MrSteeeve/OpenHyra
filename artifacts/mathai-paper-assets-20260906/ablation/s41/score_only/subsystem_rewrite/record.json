@@ -1,0 +1,56 @@
+{
+  "arm": "score_only",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 11023,
+      "wall_seconds": 24.37795012499555
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Exercise labels should become less sensitive to individual high-leverage paths and noisy continuation targets, yielding a more stable boundary and higher genuinely out-of-sample discounted payoff. Unlike fixed K-fold cross-fitting, every decision uses 255 training observations and the calculation requires only small linear solves, comfortably fitting the 30-second budget. The ridge references’ scores motivate retaining a linear representation, but do not establish that leave-one-out induction is causal; the proposed gain comes specifically from changing how training-path stopping decisions are generated.",
+    "failure_condition": "This can fail if feature dimension is large enough that leverages approach one, if the GCV-selected penalty is unstable across backward steps, or if deliberate in-sample optimism happens to improve the tested policy. Guard against numerical explosions by clipping 1-h_i, rejecting non-finite candidates, and falling back to a moderate fixed ridge penalty.",
+    "implementation": "At each time step, construct and standardize the existing feature matrix. Fit ridge regression to the current downstream cash-flow targets, selecting lambda from a small fixed log-grid such as [1e-4, 1e-3, 1e-2, 1e-1, 1, 10] by generalized cross-validation. From the selected ridge fit compute fitted values yhat, residuals r, and leverage h_i = x_i^T(X^T X + lambda I)^{-1}x_i. Use continuation_i_LOO = yhat_i - h_i*r_i/max(1-h_i, 1e-3) solely to update each training path’s exercise/cash-flow decision. Store the ordinary full-sample ridge coefficient, mean, and scale for prediction, preserving the parent model format and predict routine. Do not penalize the intercept.",
+    "mechanism": "Replace in-sample backward induction with leave-one-out ridge LSM. The parent uses each path both to fit its continuation value and to decide that path’s exercise action, creating influential-path bias with only 256 paths. Analytic leave-one-out predictions provide an approximately out-of-sample stopping decision without sacrificing data to fixed folds."
+  },
+  "memory_sha256": "0dbc23f748566a9dfc7f5960b9ec2806942470c5ec16ef18629ec51625fa6924",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s41-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s41/score_only/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s41/score_only/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330041,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 41
+}

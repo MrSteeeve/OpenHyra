@@ -1,0 +1,9 @@
+CALL ablation/s41/structured_memory/whole_program_restart/calls context rc=124 120.0s
+ATTEMPT seed=41 arm=structured_memory op=whole_program_restart error None
+CALL ablation/s41/score_only/whole_program_restart/calls context rc=0 24.6s
+ATTEMPT seed=41 arm=score_only op=whole_program_restart error None
+CALL ablation/s41/score_only/subsystem_rewrite/calls context rc=0 24.4s
+ATTEMPT seed=41 arm=score_only op=subsystem_rewrite error None
+CALL ablation/s41/structured_memory/subsystem_rewrite/calls context rc=0 28.2s
+ATTEMPT seed=41 arm=structured_memory op=subsystem_rewrite error None
+ABLATION SEED 41 COMPLETE

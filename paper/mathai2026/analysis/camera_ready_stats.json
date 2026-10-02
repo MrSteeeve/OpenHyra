@@ -1,0 +1,93 @@
+{
+  "mean_v_star": 0.15138941290513566,
+  "early_exercise_premium": {
+    "17/hidden-000": 3.2359001256310194e-06,
+    "17/hidden-003": -1.988912196299042e-06,
+    "29/hidden-000": 0.009085793649994803,
+    "29/hidden-003": 0.0016946336722559463,
+    "41/hidden-000": 2.7157686095236055e-06,
+    "41/hidden-003": 0.0003025075549223377
+  },
+  "mean_early_exercise_premium": 0.0018478162722853238,
+  "cells_with_premium_below_4e-4": 4,
+  "bonferroni_z_simultaneous_95": {
+    "1": 1.9599639845400536,
+    "2": 2.2414027276049464,
+    "4": 2.4977054744123737,
+    "6": 2.638257273476751
+  },
+  "methods": {
+    "Ridge, PCA + Ridge, Pol.\\ iter.$^\\dagger$": {
+      "n": 6,
+      "raw_gap": 0.09729588668621668,
+      "policy_loss": 0.0010751661801856698,
+      "policy_loss_ucb95": 0.0031995568749557737,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 6,
+      "looseness_share": 0.9889495207166039
+    },
+    "Gated Ridge": {
+      "n": 6,
+      "raw_gap": 0.09743519203046667,
+      "policy_loss": 0.0012144715244356726,
+      "policy_loss_ucb95": 0.0033308419131120514,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 5,
+      "looseness_share": 0.9875355967476727
+    },
+    "MLP": {
+      "n": 6,
+      "raw_gap": 0.103441412628,
+      "policy_loss": 0.007220692121969001,
+      "policy_loss_ucb95": 0.009042289520162148,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 1,
+      "looseness_share": 0.9301953449926642
+    },
+    "Ridge + MLP residual": {
+      "n": 6,
+      "raw_gap": 0.09779215701331667,
+      "policy_loss": 0.0015714365072856697,
+      "policy_loss_ucb95": 0.0037019838090704476,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 6,
+      "looseness_share": 0.9839308534009359
+    },
+    "Threshold policy": {
+      "n": 6,
+      "raw_gap": 0.18744693622231667,
+      "policy_loss": 0.09122621571628566,
+      "policy_loss_ucb95": 0.09155969214937516,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 0,
+      "looseness_share": 0.5133224497833928
+    },
+    "Original planner: best generated": {
+      "n": 6,
+      "raw_gap": 0.09838172311198334,
+      "policy_loss": 0.002161002605952337,
+      "policy_loss_ucb95": 0.004260497377681848,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 5,
+      "looseness_share": 0.9780345115170164
+    },
+    "Original direct: best generated": {
+      "n": 6,
+      "raw_gap": 0.09851272328698334,
+      "policy_loss": 0.002292002780952334,
+      "policy_loss_ucb95": 0.0043513160754099,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 5,
+      "looseness_share": 0.9767339415206767
+    },
+    "Score-only rewrites (one per seed)": {
+      "n": 6,
+      "raw_gap": 0.09782745565883333,
+      "policy_loss": 0.0016067351528023313,
+      "policy_loss_ucb95": 0.0036853230505835446,
+      "dual_looseness": 0.09622072050603099,
+      "within_noise": 6,
+      "looseness_share": 0.9835758260093596
+    }
+  }
+}

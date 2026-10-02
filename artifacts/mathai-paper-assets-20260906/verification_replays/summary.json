@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "results": [
+    {
+      "key": "reference-s17-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+      "exact_numeric_match": true,
+      "score": 0.07464744235497332,
+      "wall_seconds": 4.522150457996759,
+      "verified_scalar_fields": 29
+    },
+    {
+      "key": "ablation-score_only-s17-subsystem_rewrite",
+      "source_digest": "3024db5bbdcc2f90cd09e25f4270bbf718f5fa1b03efd6e1bb10f362e538966d",
+      "exact_numeric_match": true,
+      "score": 0.0758032916294853,
+      "wall_seconds": 4.577197333012009,
+      "verified_scalar_fields": 29
+    }
+  ]
+}

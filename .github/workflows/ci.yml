@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # macOS: the sandbox layer targets Seatbelt (sandbox-exec); tests that
+    # exercise it must run on the platform the harness actually supports.
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install "numpy>=1.26" "pytest>=8.0"
+      - run: python -m pytest tests/ -q

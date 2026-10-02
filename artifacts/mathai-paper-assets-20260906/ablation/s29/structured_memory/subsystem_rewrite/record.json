@@ -1,0 +1,56 @@
+{
+  "arm": "structured_memory",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 18042,
+      "wall_seconds": 29.81893870800559
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "The intervention should alter decisions mainly on small-margin paths while preserving stable deep-in/out-of-the-money decisions. It should reduce premature exercise for the high-volatility put and better capture the exercise tradeoff for the correlated max-call, increasing out-of-sample discounted payoff and therefore reducing the normalized confidence gap. The ridge fallback and shrinkage should limit variance under the 256-path budget.",
+    "failure_condition": "The mechanism is unsupported if, under matched seeds and budgets, the upper endpoint of a 95% paired confidence interval for optimized-minus-parent discounted payoff is below zero, or if gains appear only in the smooth training objective while held-out hard-policy payoff and exercise timing do not improve.",
+    "implementation": "Keep features(), predict(), and model.npz fields unchanged. Initialize every date’s normalized coefficients with the parent ridge solution. Jointly refine all coefficients using Adam on a differentiable stopping payoff: at date t set exercise probability sigmoid((immediate_t-continuation_t)/temperature), propagate survival probabilities forward, and maximize mean pathwise discounted payoff minus an L2 penalty toward the ridge initialization. Use deterministic 4-fold cross-validation over the 256 paths to select temperature from {0.02,0.05,0.1} times the positive-payoff scale and shrinkage from {0.01,0.1,1}; score each setting using hard stopping on held-out folds. Refit the selected setting on all paths for at most 300 iterations with early stopping, then save coefficients with the parent means and scales. Clip coefficient updates and retain the ridge model if cross-validated hard payoff does not improve.",
+    "mechanism": "Replace backward continuation-value least squares with cross-validated direct policy optimization. Because the evaluator’s upper bound is fixed, fit the existing linear prediction interface to maximize discounted stopping payoff rather than minimize continuation MSE. A smooth stopping surrogate supplies useful gradients near exercise boundaries, where coefficient errors matter most."
+  },
+  "memory_sha256": "ee583fb4e2c305107e7dd299423b3246de804132495fbb3e43fc4b2d2503e556",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s29-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s29/structured_memory/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s29/structured_memory/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330029,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 29
+}

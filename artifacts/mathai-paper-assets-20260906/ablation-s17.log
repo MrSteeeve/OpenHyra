@@ -1,0 +1,9 @@
+CALL ablation/s17/structured_memory/whole_program_restart/calls context rc=124 120.0s
+ATTEMPT seed=17 arm=structured_memory op=whole_program_restart error None
+CALL ablation/s17/score_only/whole_program_restart/calls context rc=0 20.6s
+ATTEMPT seed=17 arm=score_only op=whole_program_restart error None
+CALL ablation/s17/score_only/subsystem_rewrite/calls context rc=0 28.4s
+ATTEMPT seed=17 arm=score_only op=subsystem_rewrite error None
+CALL ablation/s17/structured_memory/subsystem_rewrite/calls context rc=0 28.2s
+ATTEMPT seed=17 arm=structured_memory op=subsystem_rewrite error None
+ABLATION SEED 17 COMPLETE

@@ -1,0 +1,905 @@
+2026-09-06T06:47:24.411592Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.413792Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.416462Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.418409Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.448281Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.449827Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.451028Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.452225Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.453354Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.454344Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.455552Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.456998Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.458163Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:47:24.459795Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07578-c5f6-75e1-a9fa-c187ed7ea790
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+
+Implement the Context plan below as an executable program. Optimize actual causal stopping decisions for expected discounted payoff, measured by primal-dual confidence gap. Do not alter evaluation or read outside this draft directory. Use only Python standard library and NumPy. Fit cap: 30 seconds; training paths: 256. Queries contain only causal history and current state. Use terminal/files only to edit this draft; do not search the repository or access network. Do not execute the generated candidate here: the independent evaluator performs execution.
+Context plan:
+{"expected_behavior": "Exercise labels should become less sensitive to individual high-leverage paths and noisy continuation targets, yielding a more stable boundary and higher genuinely out-of-sample discounted payoff. Unlike fixed K-fold cross-fitting, every decision uses 255 training observations and the calculation requires only small linear solves, comfortably fitting the 30-second budget. The ridge references’ scores motivate retaining a linear representation, but do not establish that leave-one-out induction is causal; the proposed gain comes specifically from changing how training-path stopping decisions are generated.", "failure_condition": "This can fail if feature dimension is large enough that leverages approach one, if the GCV-selected penalty is unstable across backward steps, or if deliberate in-sample optimism happens to improve the tested policy. Guard against numerical explosions by clipping 1-h_i, rejecting non-finite candidates, and falling back to a moderate fixed ridge penalty.", "implementation": "At each time step, construct and standardize the existing feature matrix. Fit ridge regression to the current downstream cash-flow targets, selecting lambda from a small fixed log-grid such as [1e-4, 1e-3, 1e-2, 1e-1, 1, 10] by generalized cross-validation. From the selected ridge fit compute fitted values yhat, residuals r, and leverage h_i = x_i^T(X^T X + lambda I)^{-1}x_i. Use continuation_i_LOO = yhat_i - h_i*r_i/max(1-h_i, 1e-3) solely to update each training path’s exercise/cash-flow decision. Store the ordinary full-sample ridge coefficient, mean, and scale for prediction, preserving the parent model format and predict routine. Do not penalize the intercept.", "mechanism": "Replace in-sample backward induction with leave-one-out ridge LSM. The parent uses each path both to fit its continuation value and to decide that path’s exercise action, creating influential-path bias with only 256 paths. Analytic leave-one-out predictions provide an approximately out-of-sample stopping decision without sacrificing data to fixed folds."}
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: fit
+- operator: subsystem_rewrite
+- target_slice: all
+- prediction: Exercise labels should become less sensitive to individual high-leverage paths and noisy continuation targets, yielding a more stable boundary and higher genuinely out-of-sample discounted payoff. Unlike fixed K-fold cross-fitting, every decision uses 255 training observations and the calculation requires only small linear solves, comfortably fitting the 30-second budget. The ridge references’ scores motivate retaining a linear representation, but do not establish that leave-one-out induction is
+- falsifier: This can fail if feature dimension is large enough that leverages approach one, if the GCV-selected penalty is unstable across backward steps, or if deliberate in-sample optimism happens to improve the tested policy. Guard against numerical explosions by clipping 1-h_i, rejecting non-finite candidates, and falling back to a moderate fixed ridge penalty.
+
+The `fit(...)` subsystem has been cleared. Rewrite only the body of the top-level `fit` function. Put any new imports or helper functions inside that function: after this call the system will keep only its body and rebuild every other function, module definition, source file, and CLI from the parent program.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 40 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect only the draft’s protocol and current `algorithm.py`, then replace exactly the top-level `fit(...)` body while preserving the parent’s model/prediction contract. I will not run the candidate.
+exec
+/bin/zsh -lc "sed -n '1,240p' algorithm.py && sed -n '1,240p' PYTHON_PROGRAM_PROTOCOL_V1.md && sed -n '1,80p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft
+ exited 1 in 0ms:
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    raise NotImplementedError('rewrite the fit subsystem')
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+sed: PYTHON_PROGRAM_PROTOCOL_V1.md: No such file or directory
+
+codex
+The parent predictor expects one normalized linear model per exercise index in `model.npz`. I found an important compatibility detail: the constant feature must remain uncentered (`mean=0`, `scale=1`), otherwise prediction would erase the unpenalized intercept. The rewrite will preserve that convention, select ridge penalties by GCV, and use analytic LOO values only for backward training decisions.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..bcc38e53aa64d06b168d881edebf3dfbccf1f231
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,100 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep the complete implementation local to this function: subsystem
++    # crossover retains this body while rebuilding the surrounding program.
++    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
++        """Return the selected full-sample coefficients and its LOO fits."""
++        n_rows, n_columns = design.shape
++        gram = design.T @ design
++        rhs = design.T @ target
++        penalty_mask = np.ones(n_columns, dtype=np.float64)
++        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
++        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
++
++        best = None
++        for ridge in lambdas:
++            system = gram + ridge * np.diag(penalty_mask)
++            try:
++                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
++                coefficients = inverse @ rhs
++            except np.linalg.LinAlgError:
++                continue
++            fitted = design @ coefficients
++            residual = target - fitted
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++            effective_df = float(np.sum(leverage))
++            denominator = max(float(n_rows) - effective_df, 1e-6)
++            score = float(np.dot(residual, residual)) / (denominator * denominator)
++            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
++                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
++                candidate = (score, coefficients, fitted, residual, leverage)
++                if best is None or score < best[0]:
++                    best = candidate
++
++        # A moderate fixed ridge is the numerical fallback requested by the
++        # intervention.  lstsq also handles a singular unpenalized intercept.
++        if best is None:
++            ridge = 1.0
++            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
++            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
++            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
++            fitted = design @ coefficients
++            residual = target - fitted
++            system = gram + ridge * np.diag(penalty_mask)
++            inverse = np.linalg.pinv(system, rcond=1e-12)
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++        else:
++            _, coefficients, fitted, residual, leverage = best
++
++        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
++        loo = fitted - leverage * residual / safe_one_minus_h
++        # Reject any pathwise numerical explosion without changing the stored
++        # ordinary full-sample fit.
++        loo = np.where(np.isfinite(loo), loo, fitted)
++        return coefficients, loo
++
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('training path and payoff grids do not match')
++
++    # Determine the fixed representation size once and allocate a dense model
++    # compatible with the unchanged parent prediction routine.
++    initial_design = features(paths[:, 0, :], payoffs[:, 0])
++    n_features = initial_design.shape[1]
++    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++    means = np.zeros((n_times, n_features), dtype=np.float64)
++    scales = np.ones((n_times, n_features), dtype=np.float64)
++
++    # Payoffs are evaluator-supplied discounted values, so the downstream
++    # realized cash flow needs no additional multiplication by discount factors.
++    downstream = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        column_means = np.mean(design, axis=0)
++        column_scales = np.std(design, axis=0)
++        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
++                                 column_scales, 1.0)
++        # Preserve the literal constant column as the unpenalized intercept.
++        column_means[0] = 0.0
++        column_scales[0] = 1.0
++        normalized = (design - column_means) / column_scales
++
++        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
++        coefficients[time_index] = step_coefficients
++        means[time_index] = column_means
++        scales[time_index] = column_scales
++
++        immediate = payoffs[:, time_index]
++        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
++        downstream = np.where(exercise, immediate, downstream)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..bcc38e53aa64d06b168d881edebf3dfbccf1f231
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,100 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep the complete implementation local to this function: subsystem
++    # crossover retains this body while rebuilding the surrounding program.
++    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
++        """Return the selected full-sample coefficients and its LOO fits."""
++        n_rows, n_columns = design.shape
++        gram = design.T @ design
++        rhs = design.T @ target
++        penalty_mask = np.ones(n_columns, dtype=np.float64)
++        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
++        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
++
++        best = None
++        for ridge in lambdas:
++            system = gram + ridge * np.diag(penalty_mask)
++            try:
++                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
++                coefficients = inverse @ rhs
++            except np.linalg.LinAlgError:
++                continue
++            fitted = design @ coefficients
++            residual = target - fitted
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++            effective_df = float(np.sum(leverage))
++            denominator = max(float(n_rows) - effective_df, 1e-6)
++            score = float(np.dot(residual, residual)) / (denominator * denominator)
++            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
++                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
++                candidate = (score, coefficients, fitted, residual, leverage)
++                if best is None or score < best[0]:
++                    best = candidate
++
++        # A moderate fixed ridge is the numerical fallback requested by the
++        # intervention.  lstsq also handles a singular unpenalized intercept.
++        if best is None:
++            ridge = 1.0
++            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
++            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
++            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
++            fitted = design @ coefficients
++            residual = target - fitted
++            system = gram + ridge * np.diag(penalty_mask)
++            inverse = np.linalg.pinv(system, rcond=1e-12)
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++        else:
++            _, coefficients, fitted, residual, leverage = best
++
++        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
++        loo = fitted - leverage * residual / safe_one_minus_h
++        # Reject any pathwise numerical explosion without changing the stored
++        # ordinary full-sample fit.
++        loo = np.where(np.isfinite(loo), loo, fitted)
++        return coefficients, loo
++
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('training path and payoff grids do not match')
++
++    # Determine the fixed representation size once and allocate a dense model
++    # compatible with the unchanged parent prediction routine.
++    initial_design = features(paths[:, 0, :], payoffs[:, 0])
++    n_features = initial_design.shape[1]
++    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++    means = np.zeros((n_times, n_features), dtype=np.float64)
++    scales = np.ones((n_times, n_features), dtype=np.float64)
++
++    # Payoffs are evaluator-supplied discounted values, so the downstream
++    # realized cash flow needs no additional multiplication by discount factors.
++    downstream = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        column_means = np.mean(design, axis=0)
++        column_scales = np.std(design, axis=0)
++        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
++                                 column_scales, 1.0)
++        # Preserve the literal constant column as the unpenalized intercept.
++        column_means[0] = 0.0
++        column_scales[0] = 1.0
++        normalized = (design - column_means) / column_scales
++
++        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
++        coefficients[time_index] = step_coefficients
++        means[time_index] = column_means
++        scales[time_index] = column_scales
++
++        immediate = payoffs[:, time_index]
++        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
++        downstream = np.where(exercise, immediate, downstream)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+exec
+/bin/zsh -lc "git diff -- algorithm.py manifest.json && sed -n '1,20p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..bcc38e53aa64d06b168d881edebf3dfbccf1f231
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,100 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep the complete implementation local to this function: subsystem
++    # crossover retains this body while rebuilding the surrounding program.
++    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
++        """Return the selected full-sample coefficients and its LOO fits."""
++        n_rows, n_columns = design.shape
++        gram = design.T @ design
++        rhs = design.T @ target
++        penalty_mask = np.ones(n_columns, dtype=np.float64)
++        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
++        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
++
++        best = None
++        for ridge in lambdas:
++            system = gram + ridge * np.diag(penalty_mask)
++            try:
++                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
++                coefficients = inverse @ rhs
++            except np.linalg.LinAlgError:
++                continue
++            fitted = design @ coefficients
++            residual = target - fitted
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++            effective_df = float(np.sum(leverage))
++            denominator = max(float(n_rows) - effective_df, 1e-6)
++            score = float(np.dot(residual, residual)) / (denominator * denominator)
++            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
++                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
++                candidate = (score, coefficients, fitted, residual, leverage)
++                if best is None or score < best[0]:
++                    best = candidate
++
++        # A moderate fixed ridge is the numerical fallback requested by the
++        # intervention.  lstsq also handles a singular unpenalized intercept.
++        if best is None:
++            ridge = 1.0
++            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
++            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
++            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
++            fitted = design @ coefficients
++            residual = target - fitted
++            system = gram + ridge * np.diag(penalty_mask)
++            inverse = np.linalg.pinv(system, rcond=1e-12)
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++        else:
++            _, coefficients, fitted, residual, leverage = best
++
++        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
++        loo = fitted - leverage * residual / safe_one_minus_h
++        # Reject any pathwise numerical explosion without changing the stored
++        # ordinary full-sample fit.
++        loo = np.where(np.isfinite(loo), loo, fitted)
++        return coefficients, loo
++
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('training path and payoff grids do not match')
++
++    # Determine the fixed representation size once and allocate a dense model
++    # compatible with the unchanged parent prediction routine.
++    initial_design = features(paths[:, 0, :], payoffs[:, 0])
++    n_features = initial_design.shape[1]
++    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++    means = np.zeros((n_times, n_features), dtype=np.float64)
++    scales = np.ones((n_times, n_features), dtype=np.float64)
++
++    # Payoffs are evaluator-supplied discounted values, so the downstream
++    # realized cash flow needs no additional multiplication by discount factors.
++    downstream = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        column_means = np.mean(design, axis=0)
++        column_scales = np.std(design, axis=0)
++        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
++                                 column_scales, 1.0)
++        # Preserve the literal constant column as the unpenalized intercept.
++        column_means[0] = 0.0
++        column_scales[0] = 1.0
++        normalized = (design - column_means) / column_scales
++
++        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
++        coefficients[time_index] = step_coefficients
++        means[time_index] = column_means
++        scales[time_index] = column_scales
++
++        immediate = payoffs[:, time_index]
++        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
++        downstream = np.where(exercise, immediate, downstream)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+codex
+The fit body is now implemented and the manifest already declares the required `continuation` interface. I’m doing a final source-only consistency check; per your instruction, I am not invoking, importing, or compiling the candidate.
+exec
+/bin/zsh -lc "sed -n '15,155p' algorithm.py && find . -maxdepth 1 -type f -print" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    # Keep the complete implementation local to this function: subsystem
+    # crossover retains this body while rebuilding the surrounding program.
+    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Return the selected full-sample coefficients and its LOO fits."""
+        n_rows, n_columns = design.shape
+        gram = design.T @ design
+        rhs = design.T @ target
+        penalty_mask = np.ones(n_columns, dtype=np.float64)
+        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
+        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
+
+        best = None
+        for ridge in lambdas:
+            system = gram + ridge * np.diag(penalty_mask)
+            try:
+                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
+                coefficients = inverse @ rhs
+            except np.linalg.LinAlgError:
+                continue
+            fitted = design @ coefficients
+            residual = target - fitted
+            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
+            effective_df = float(np.sum(leverage))
+            denominator = max(float(n_rows) - effective_df, 1e-6)
+            score = float(np.dot(residual, residual)) / (denominator * denominator)
+            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
+                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
+                candidate = (score, coefficients, fitted, residual, leverage)
+                if best is None or score < best[0]:
+                    best = candidate
+
+        # A moderate fixed ridge is the numerical fallback requested by the
+        # intervention.  lstsq also handles a singular unpenalized intercept.
+        if best is None:
+            ridge = 1.0
+            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
+            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
+            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
+            fitted = design @ coefficients
+            residual = target - fitted
+            system = gram + ridge * np.diag(penalty_mask)
+            inverse = np.linalg.pinv(system, rcond=1e-12)
+            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
+        else:
+            _, coefficients, fitted, residual, leverage = best
+
+        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
+        loo = fitted - leverage * residual / safe_one_minus_h
+        # Reject any pathwise numerical explosion without changing the stored
+        # ordinary full-sample fit.
+        loo = np.where(np.isfinite(loo), loo, fitted)
+        return coefficients, loo
+
+    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
+    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
+    if paths.ndim != 3 or payoffs.ndim != 2:
+        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
+    n_paths, n_times, _ = paths.shape
+    if payoffs.shape != (n_paths, n_times):
+        raise ValueError('training path and payoff grids do not match')
+
+    # Determine the fixed representation size once and allocate a dense model
+    # compatible with the unchanged parent prediction routine.
+    initial_design = features(paths[:, 0, :], payoffs[:, 0])
+    n_features = initial_design.shape[1]
+    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
+    means = np.zeros((n_times, n_features), dtype=np.float64)
+    scales = np.ones((n_times, n_features), dtype=np.float64)
+
+    # Payoffs are evaluator-supplied discounted values, so the downstream
+    # realized cash flow needs no additional multiplication by discount factors.
+    downstream = payoffs[:, -1].copy()
+    for time_index in range(n_times - 2, -1, -1):
+        design = features(paths[:, time_index, :], payoffs[:, time_index])
+        column_means = np.mean(design, axis=0)
+        column_scales = np.std(design, axis=0)
+        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
+                                 column_scales, 1.0)
+        # Preserve the literal constant column as the unpenalized intercept.
+        column_means[0] = 0.0
+        column_scales[0] = 1.0
+        normalized = (design - column_means) / column_scales
+
+        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
+        coefficients[time_index] = step_coefficients
+        means[time_index] = column_means
+        scales[time_index] = column_scales
+
+        immediate = payoffs[:, time_index]
+        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
+        downstream = np.where(exercise, immediate, downstream)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+./algorithm.py
+./manifest.json
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..bcc38e53aa64d06b168d881edebf3dfbccf1f231
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,100 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep the complete implementation local to this function: subsystem
++    # crossover retains this body while rebuilding the surrounding program.
++    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
++        """Return the selected full-sample coefficients and its LOO fits."""
++        n_rows, n_columns = design.shape
++        gram = design.T @ design
++        rhs = design.T @ target
++        penalty_mask = np.ones(n_columns, dtype=np.float64)
++        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
++        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
++
++        best = None
++        for ridge in lambdas:
++            system = gram + ridge * np.diag(penalty_mask)
++            try:
++                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
++                coefficients = inverse @ rhs
++            except np.linalg.LinAlgError:
++                continue
++            fitted = design @ coefficients
++            residual = target - fitted
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++            effective_df = float(np.sum(leverage))
++            denominator = max(float(n_rows) - effective_df, 1e-6)
++            score = float(np.dot(residual, residual)) / (denominator * denominator)
++            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
++                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
++                candidate = (score, coefficients, fitted, residual, leverage)
++                if best is None or score < best[0]:
++                    best = candidate
++
++        # A moderate fixed ridge is the numerical fallback requested by the
++        # intervention.  lstsq also handles a singular unpenalized intercept.
++        if best is None:
++            ridge = 1.0
++            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
++            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
++            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
++            fitted = design @ coefficients
++            residual = target - fitted
++            system = gram + ridge * np.diag(penalty_mask)
++            inverse = np.linalg.pinv(system, rcond=1e-12)
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++        else:
++            _, coefficients, fitted, residual, leverage = best
++
++        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
++        loo = fitted - leverage * residual / safe_one_minus_h
++        # Reject any pathwise numerical explosion without changing the stored
++        # ordinary full-sample fit.
++        loo = np.where(np.isfinite(loo), loo, fitted)
++        return coefficients, loo
++
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('training path and payoff grids do not match')
++
++    # Determine the fixed representation size once and allocate a dense model
++    # compatible with the unchanged parent prediction routine.
++    initial_design = features(paths[:, 0, :], payoffs[:, 0])
++    n_features = initial_design.shape[1]
++    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++    means = np.zeros((n_times, n_features), dtype=np.float64)
++    scales = np.ones((n_times, n_features), dtype=np.float64)
++
++    # Payoffs are evaluator-supplied discounted values, so the downstream
++    # realized cash flow needs no additional multiplication by discount factors.
++    downstream = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        column_means = np.mean(design, axis=0)
++        column_scales = np.std(design, axis=0)
++        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
++                                 column_scales, 1.0)
++        # Preserve the literal constant column as the unpenalized intercept.
++        column_means[0] = 0.0
++        column_scales[0] = 1.0
++        normalized = (design - column_means) / column_scales
++
++        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
++        coefficients[time_index] = step_coefficients
++        means[time_index] = column_means
++        scales[time_index] = column_scales
++
++        immediate = payoffs[:, time_index]
++        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
++        downstream = np.where(exercise, immediate, downstream)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+codex
+Implemented the requested leave-one-out ridge LSM fit subsystem in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py:18).
+
+It includes:
+
+- Standardized existing features with an unpenalized intercept
+- GCV selection over the specified ridge grid
+- Analytic leverage-based LOO continuation estimates
+- Leverage denominator clipping and non-finite fallback
+- Full-sample coefficients saved in the parent predictor’s format
+- Backward stopping induction using discounted evaluator payoffs
+
+[manifest.json](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/manifest.json) remains a `continuation` interface. No candidate execution, repository search, or network access was performed.
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..bcc38e53aa64d06b168d881edebf3dfbccf1f231
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,100 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep the complete implementation local to this function: subsystem
++    # crossover retains this body while rebuilding the surrounding program.
++    def ridge_gcv(design: np.ndarray, target: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
++        """Return the selected full-sample coefficients and its LOO fits."""
++        n_rows, n_columns = design.shape
++        gram = design.T @ design
++        rhs = design.T @ target
++        penalty_mask = np.ones(n_columns, dtype=np.float64)
++        penalty_mask[0] = 0.0  # The first normalized column is the intercept.
++        lambdas = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0)
++
++        best = None
++        for ridge in lambdas:
++            system = gram + ridge * np.diag(penalty_mask)
++            try:
++                inverse = np.linalg.solve(system, np.eye(n_columns, dtype=np.float64))
++                coefficients = inverse @ rhs
++            except np.linalg.LinAlgError:
++                continue
++            fitted = design @ coefficients
++            residual = target - fitted
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++            effective_df = float(np.sum(leverage))
++            denominator = max(float(n_rows) - effective_df, 1e-6)
++            score = float(np.dot(residual, residual)) / (denominator * denominator)
++            if (np.isfinite(score) and np.all(np.isfinite(coefficients))
++                    and np.all(np.isfinite(fitted)) and np.all(np.isfinite(leverage))):
++                candidate = (score, coefficients, fitted, residual, leverage)
++                if best is None or score < best[0]:
++                    best = candidate
++
++        # A moderate fixed ridge is the numerical fallback requested by the
++        # intervention.  lstsq also handles a singular unpenalized intercept.
++        if best is None:
++            ridge = 1.0
++            augmented_x = np.vstack((design, np.diag(np.sqrt(ridge * penalty_mask))))
++            augmented_y = np.concatenate((target, np.zeros(n_columns, dtype=np.float64)))
++            coefficients = np.linalg.lstsq(augmented_x, augmented_y, rcond=None)[0]
++            fitted = design @ coefficients
++            residual = target - fitted
++            system = gram + ridge * np.diag(penalty_mask)
++            inverse = np.linalg.pinv(system, rcond=1e-12)
++            leverage = np.einsum('ij,jk,ik->i', design, inverse, design)
++        else:
++            _, coefficients, fitted, residual, leverage = best
++
++        safe_one_minus_h = np.maximum(1.0 - leverage, 1e-3)
++        loo = fitted - leverage * residual / safe_one_minus_h
++        # Reject any pathwise numerical explosion without changing the stored
++        # ordinary full-sample fit.
++        loo = np.where(np.isfinite(loo), loo, fitted)
++        return coefficients, loo
++
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('training path and payoff grids do not match')
++
++    # Determine the fixed representation size once and allocate a dense model
++    # compatible with the unchanged parent prediction routine.
++    initial_design = features(paths[:, 0, :], payoffs[:, 0])
++    n_features = initial_design.shape[1]
++    coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++    means = np.zeros((n_times, n_features), dtype=np.float64)
++    scales = np.ones((n_times, n_features), dtype=np.float64)
++
++    # Payoffs are evaluator-supplied discounted values, so the downstream
++    # realized cash flow needs no additional multiplication by discount factors.
++    downstream = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        column_means = np.mean(design, axis=0)
++        column_scales = np.std(design, axis=0)
++        column_scales = np.where(np.isfinite(column_scales) & (column_scales > 1e-12),
++                                 column_scales, 1.0)
++        # Preserve the literal constant column as the unpenalized intercept.
++        column_means[0] = 0.0
++        column_scales[0] = 1.0
++        normalized = (design - column_means) / column_scales
++
++        step_coefficients, loo_continuation = ridge_gcv(normalized, downstream)
++        coefficients[time_index] = step_coefficients
++        means[time_index] = column_means
++        scales[time_index] = column_scales
++
++        immediate = payoffs[:, time_index]
++        exercise = (immediate > 0.0) & (immediate >= loo_continuation)
++        downstream = np.where(exercise, immediate, downstream)
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients, means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+2026-09-06T06:48:39.096588Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/williamqian/.codex/shell_snapshots/01a07578-c5f6-75e1-a9fa-c187ed7ea790.1788677244406566000.sh"): Os { code: 2, kind: NotFound, message: "No such file or directory" }
+tokens used
+18,891

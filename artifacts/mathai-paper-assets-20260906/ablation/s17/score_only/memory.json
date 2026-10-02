@@ -1,0 +1,86 @@
+[
+  {
+    "gap_score": 0.3520968236401876,
+    "id": "reference-s17-direct_decision",
+    "source_digest": "3747567f7fb88efa3ab3f0588c58ee43f97ce729dc8f9837e48952f4fbb4536d",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20000229030982086,
+    "id": "reference-s17-gated_ridge",
+    "source_digest": "64443d12c9e5f1c791ec3eb6a999d070018910238ba0a23114eb7d7b459f75ad",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20114555782375262,
+    "id": "reference-s17-linear_ridge",
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20350518522685343,
+    "id": "reference-s17-mlp",
+    "source_digest": "3b547bfcff4e0368687689aa2fd166d12f7ba6acf7db31a391cd5420f0a7f2de",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20216973108314604,
+    "id": "reference-s17-pca_ridge",
+    "source_digest": "a1e0305f82d129a1a532bd62698755404d0b7b9dbcee29254e072cb9e2b1098b",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20216973108314604,
+    "id": "reference-s17-policy_iteration",
+    "source_digest": "33857e8c7717ee3e20066a29aaad29d87d84460e9afe5c1172c8488a7fcc27ba",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.2021611337552291,
+    "id": "reference-s17-residual_hybrid",
+    "source_digest": "5702b3a8bb0156cb7c92c62e15aa7e91f83f78471ae0b0d3bd429dcc2674a26c",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.2024873192382199,
+    "id": "legacy-context_proposal-s17-sol_0003",
+    "source_digest": "4a55935e7efc10943817bc5a6af5a6bce44bf749662c0f7875389ea1a36e0115",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20172113630530628,
+    "id": "legacy-context_proposal-s17-sol_0007",
+    "source_digest": "794aa4713ceeb747e44184301154577627eba866688d573cdd542408f8f2cebc",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20323456239568108,
+    "id": "legacy-context_proposal-s17-sol_0009",
+    "source_digest": "25b4c0a8d11f0420e5c6c2452e19bd8aa9e456fcf68428ed032519c8f9f3344a",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20350912689427209,
+    "id": "legacy-direct_generation-s17-sol_0003",
+    "source_digest": "26155c402dfbb2929e8dd420e3f79f2efdb2df728d3cda0b9435667dd5f7128b",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.2001022712154441,
+    "id": "legacy-direct_generation-s17-sol_0005",
+    "source_digest": "6291dcba577e57672b1e67a2be131ac5aba23f1f62f3ff40f369655b51a5c47d",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.2006666759181077,
+    "id": "legacy-direct_generation-s17-sol_0007",
+    "source_digest": "0e265500a23d5608dba98508d6d9485a6518eb9d6881717dbde9d67d3fc07ce1",
+    "status": "ok"
+  },
+  {
+    "gap_score": 0.20544629971143794,
+    "id": "legacy-direct_generation-s17-sol_0009",
+    "source_digest": "dd1db2642e368cabdaa10f48c1ee6c63f1dfbcfd1a6597d490db5a380f1905a1",
+    "status": "ok"
+  }
+]

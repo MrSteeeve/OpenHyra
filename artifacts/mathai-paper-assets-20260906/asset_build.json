@@ -1,0 +1,16 @@
+{
+  "figures": [
+    "fig07_cost_and_reliability",
+    "fig01_pipeline",
+    "fig02_feedback_design",
+    "fig04_search_trajectory",
+    "fig06_stopping_behavior",
+    "fig03_bounds_and_results",
+    "fig05_feedback_ablation"
+  ],
+  "n_evaluations": 116,
+  "n_cells": 302,
+  "original_attempts": 24,
+  "feedback_attempts": 12,
+  "input_protocol_sha256": "ae7468e9b60443dc74e0eb470556d3772e77d379ba79fe59039f0e66972019cc"
+}

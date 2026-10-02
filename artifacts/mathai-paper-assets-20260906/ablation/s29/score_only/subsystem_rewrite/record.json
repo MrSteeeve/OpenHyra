@@ -1,0 +1,56 @@
+{
+  "arm": "score_only",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 4906,
+      "wall_seconds": 20.567878000001656
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Exercise labels near the stopping boundary should become less optimistic and less sensitive to individual training paths. The final full-data regressions retain sample efficiency, while cross-fitting governs the recursive targets. This should improve held-out expected discounted payoff and therefore reduce the fixed-upper-bound gap, particularly relative to ordinary linear ridge; the small prior score differences are treated only as motivation, not causal evidence.",
+    "failure_condition": "The intervention can fail if folds contain too few relevant in-the-money or boundary observations, making out-of-fold continuation estimates noisier than the original fit, or if the optimal policy is sufficiently nonlinear that bias from the fixed feature map dominates look-ahead overfitting.",
+    "implementation": "Assign paths deterministically into 8 folds using the supplied seed. At each exercise time, standardize the existing features globally. For every fold, fit ridge continuation regression on the other seven folds against their current realized cash flows, predict only the held-out fold, and update every path’s cash flow using these out-of-fold predictions. Select one ridge penalty per time from {0.001, 0.01, 0.1, 1, 10} by minimizing pooled out-of-fold squared error, with a slight preference for the larger penalty on near-ties. After updating cash flows, refit ridge on all 256 paths using the selected penalty and save that full-sample coefficient, mean, and scale in the existing model.npz schema so predict remains unchanged. Keep the intercept unpenalized and use a stable Cholesky solve.",
+    "mechanism": "Rewrite fit as cross-fitted backward induction. Out-of-fold continuation estimates prevent each path’s regression noise from favorably influencing its own stopping decision, reducing look-ahead overfitting with only 256 paths."
+  },
+  "memory_sha256": "7515e740599d1947d86af92951844564d98c7bae6656abd9a3046942cce48362",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s29-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s29/score_only/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s29/score_only/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330029,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 29
+}

@@ -1,0 +1,8 @@
+{
+  "key": "reference-s41-linear_ridge",
+  "kind": "reference",
+  "method": "linear_ridge",
+  "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/linear_ridge.json",
+  "program_path": "programs/reference-s41-linear_ridge",
+  "seed": 41
+}

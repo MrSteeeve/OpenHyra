@@ -1,0 +1,20 @@
+% Calibration-panel score decomposition (K=1): S = mean(raw gap + MC margin) + 0.25*Q90.
+\begin{tabular}{l l l rrrrrr}
+\toprule
+Seed & Arm & Operator & $\hat L$ & $\hat U$ & $\hat U-\hat L$ & MC margin & $\tfrac14 Q_{90}$ & $S$ \\
+\midrule
+17 & parent & Ridge (parent) & 0.19265 & 0.30378 & 0.11113 & 0.04335 & 0.04666 & 0.20115 \\
+17 & structured & rewrite & 0.19069 & 0.30378 & 0.11308 & 0.04313 & 0.04747 & 0.20368 \\
+17 & score-only & restart & 0.19075 & 0.30378 & 0.11303 & 0.04246 & 0.04731 & 0.20279 \\
+17 & score-only & rewrite & 0.19247 & 0.30378 & 0.11131 & 0.04283 & 0.04670 & 0.20084 \\
+29 & parent & Ridge (parent) & 0.11862 & 1.25658 & 1.13796 & 0.27673 & 0.44562 & 1.86031 \\
+29 & structured & restart & 0.11648 & 1.25658 & 1.14010 & 0.27636 & 0.44614 & 1.86261 \\
+29 & structured & rewrite & 0.11429 & 1.25658 & 1.14229 & 0.27609 & 0.44728 & 1.86566 \\
+29 & score-only & restart & 0.11439 & 1.25658 & 1.14219 & 0.27563 & 0.44691 & 1.86473 \\
+29 & score-only & rewrite & 0.11758 & 1.25658 & 1.13900 & 0.27620 & 0.44579 & 1.86099 \\
+41 & parent & Ridge (parent) & 0.12683 & 2.40959 & 2.28275 & 0.48173 & 1.23187 & 3.99635 \\
+41 & structured & rewrite & 0.12366 & 2.40959 & 2.28593 & 0.48107 & 1.23232 & 3.99932 \\
+41 & score-only & restart & 0.12437 & 2.40959 & 2.28522 & 0.48113 & 1.23203 & 3.99837 \\
+41 & score-only & rewrite & 0.12627 & 2.40959 & 2.28332 & 0.48131 & 1.23197 & 3.99660 \\
+\bottomrule
+\end{tabular}

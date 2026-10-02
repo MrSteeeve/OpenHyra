@@ -1,0 +1,1355 @@
+2026-09-06T06:49:17.725179Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.727388Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.729660Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.731862Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.733906Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.736349Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.737784Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.739339Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.741437Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.744067Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.745684Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.774424Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.775625Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:49:17.777049Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0757a-8098-7e70-8cf9-2ef644f9ed66
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+
+Implement the Context plan below as an executable program. Optimize actual causal stopping decisions for expected discounted payoff, measured by primal-dual confidence gap. Do not alter evaluation or read outside this draft directory. Use only Python standard library and NumPy. Fit cap: 30 seconds; training paths: 256. Queries contain only causal history and current state. Use terminal/files only to edit this draft; do not search the repository or access network. Do not execute the generated candidate here: the independent evaluator performs execution.
+Context plan:
+{"expected_behavior": "The intervention should alter decisions mainly on small-margin paths while preserving stable deep-in/out-of-the-money decisions. It should reduce premature exercise for the high-volatility put and better capture the exercise tradeoff for the correlated max-call, increasing out-of-sample discounted payoff and therefore reducing the normalized confidence gap. The ridge fallback and shrinkage should limit variance under the 256-path budget.", "failure_condition": "The mechanism is unsupported if, under matched seeds and budgets, the upper endpoint of a 95% paired confidence interval for optimized-minus-parent discounted payoff is below zero, or if gains appear only in the smooth training objective while held-out hard-policy payoff and exercise timing do not improve.", "implementation": "Keep features(), predict(), and model.npz fields unchanged. Initialize every date’s normalized coefficients with the parent ridge solution. Jointly refine all coefficients using Adam on a differentiable stopping payoff: at date t set exercise probability sigmoid((immediate_t-continuation_t)/temperature), propagate survival probabilities forward, and maximize mean pathwise discounted payoff minus an L2 penalty toward the ridge initialization. Use deterministic 4-fold cross-validation over the 256 paths to select temperature from {0.02,0.05,0.1} times the positive-payoff scale and shrinkage from {0.01,0.1,1}; score each setting using hard stopping on held-out folds. Refit the selected setting on all paths for at most 300 iterations with early stopping, then save coefficients with the parent means and scales. Clip coefficient updates and retain the ridge model if cross-validated hard payoff does not improve.", "mechanism": "Replace backward continuation-value least squares with cross-validated direct policy optimization. Because the evaluator’s upper bound is fixed, fit the existing linear prediction interface to maximize discounted stopping payoff rather than minimize continuation MSE. A smooth stopping surrogate supplies useful gradients near exercise boundaries, where coefficient errors matter most."}
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: fit
+- operator: subsystem_rewrite
+- target_slice: all
+- prediction: The intervention should alter decisions mainly on small-margin paths while preserving stable deep-in/out-of-the-money decisions. It should reduce premature exercise for the high-volatility put and better capture the exercise tradeoff for the correlated max-call, increasing out-of-sample discounted payoff and therefore reducing the normalized confidence gap. The ridge fallback and shrinkage should limit variance under the 256-path budget.
+- falsifier: The mechanism is unsupported if, under matched seeds and budgets, the upper endpoint of a 95% paired confidence interval for optimized-minus-parent discounted payoff is below zero, or if gains appear only in the smooth training objective while held-out hard-policy payoff and exercise timing do not improve.
+
+The `fit(...)` subsystem has been cleared. Rewrite only the body of the top-level `fit` function. Put any new imports or helper functions inside that function: after this call the system will keep only its body and rebuild every other function, module definition, source file, and CLI from the parent program.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 40 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect only the files in this draft and the local protocol, then replace just the top-level `fit(...)` body. I’ll preserve the prediction interface, feature construction, model fields, and task-owned transport exactly as required.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!.*'"' -g '*.py' -g '*.json' -g '*.toml' -g '*.md' -g '*.sh' ." in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+./manifest.json
+./algorithm.py
+
+exec
+/bin/zsh -lc "sed -n '1,260p' algorithm.py && sed -n '1,80p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+ succeeded in 0ms:
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    raise NotImplementedError('rewrite the fit subsystem')
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+codex
+The retained parent uses a continuation-valued interface with normalized linear features. I’ll therefore optimize the stopping policy through those same continuation coefficients, while keeping prediction and `model.npz` compatibility intact. The fit will use fold-specific preprocessing to avoid validation leakage and will fall back to full-sample ridge unless held-out hard stopping actually improves.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..6d27fd6a0fa20178db6f5a9c1870fc9a9a972210
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,171 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # All implementation details deliberately live in this body: fit is the
++    # replaceable subsystem used by whole-program crossover.
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('paths and payoffs have inconsistent shapes')
++
++    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
++    n_features = raw[0].shape[1]
++
++    def normalization(indices):
++        means = np.empty((n_times, n_features), dtype=np.float64)
++        scales = np.empty_like(means)
++        for t in range(n_times):
++            sample = raw[t][indices]
++            means[t] = np.mean(sample, axis=0)
++            scales[t] = np.std(sample, axis=0)
++            constant = scales[t] < 1e-10
++            # In particular, retain the leading constant feature as an
++            # intercept rather than centering it to an all-zero column.
++            means[t, constant] = 0.0
++            scales[t, constant] = 1.0
++            scales[t] = np.maximum(scales[t], 1e-8)
++        return means, scales
++
++    def designs(indices, means, scales):
++        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
++
++    def ridge_initialization(indices, means, scales):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++        realized = gs[:, -1].copy()
++        eye = np.eye(n_features, dtype=np.float64)
++        # Backward ridge is both a stable initializer and the explicit parent
++        # policy against which the intervention is judged.
++        for t in range(n_times - 2, -1, -1):
++            x = xs[t]
++            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
++            try:
++                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
++            except np.linalg.LinAlgError:
++                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
++            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
++            coefficients[t] = beta
++            continuation = x @ beta
++            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
++            realized = np.where(exercise, gs[:, t], realized)
++        return coefficients
++
++    def hard_values(indices, coefficients, means, scales):
++        alive = np.ones(len(indices), dtype=bool)
++        values = np.zeros(len(indices), dtype=np.float64)
++        for t in range(n_times - 1):
++            x = (raw[t][indices] - means[t]) / scales[t]
++            g = payoffs[indices, t]
++            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
++            values[exercise] = g[exercise]
++            alive[exercise] = False
++        values[alive] = payoffs[indices[alive], -1]
++        return values
++
++    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        beta = initial.copy()
++        first = np.zeros_like(beta)
++        second = np.zeros_like(beta)
++        best = beta.copy()
++        best_objective = -np.inf
++        stale = 0
++        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
++        penalty_weight = shrinkage * payoff_scale
++        for iteration in range(1, iterations + 1):
++            probabilities = []
++            survival = []
++            alive_probability = np.ones(len(indices), dtype=np.float64)
++            for t in range(n_times - 1):
++                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
++                p = 1.0 / (1.0 + np.exp(-margin))
++                # Exercising for zero payoff is never useful and creates noisy
++                # gradients on far out-of-the-money paths.
++                p = np.where(gs[:, t] > 0.0, p, 0.0)
++                survival.append(alive_probability.copy())
++                probabilities.append(p)
++                alive_probability *= 1.0 - p
++            value = gs[:, -1].copy()
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                value = p * gs[:, t] + (1.0 - p) * value
++            delta = beta - initial
++            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
++            if objective > best_objective + 1e-10:
++                best_objective = objective
++                best = beta.copy()
++                stale = 0
++            else:
++                stale += 1
++            if stale >= 35:
++                break
++
++            # Backward conditional values plus forward survival give the exact
++            # gradient of the differentiable stopping recursion.
++            future = gs[:, -1].copy()
++            gradient = np.zeros_like(beta)
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
++                gradient[t] = xs[t].T @ weight / len(indices)
++                future = p * gs[:, t] + (1.0 - p) * future
++            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
++            norm = float(np.linalg.norm(gradient[:-1]))
++            if norm > 10.0:
++                gradient[:-1] *= 10.0 / norm
++            first = 0.9 * first + 0.1 * gradient
++            second = 0.999 * second + 0.001 * gradient * gradient
++            first_hat = first / (1.0 - 0.9 ** iteration)
++            second_hat = second / (1.0 - 0.999 ** iteration)
++            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
++            # Update clipping is important at the small temperatures in the
++            # search grid, where a few boundary paths can otherwise dominate.
++            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
++            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
++        return best
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    fold_ids = np.empty(n_paths, dtype=np.int64)
++    fold_ids[order] = np.arange(n_paths) % 4
++    positive = payoffs[payoffs > 0.0]
++    positive_scale = float(np.median(positive)) if positive.size else 1.0
++    positive_scale = max(positive_scale, 1e-8)
++    settings = [(fraction * positive_scale, shrinkage)
++                for fraction in (0.02, 0.05, 0.1)
++                for shrinkage in (0.01, 0.1, 1.0)]
++    setting_totals = np.zeros(len(settings), dtype=np.float64)
++    baseline_total = 0.0
++    for fold in range(4):
++        train = np.flatnonzero(fold_ids != fold)
++        held_out = np.flatnonzero(fold_ids == fold)
++        means, scales = normalization(train)
++        initial = ridge_initialization(train, means, scales)
++        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
++        for setting_index, (temperature, shrinkage) in enumerate(settings):
++            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
++            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
++
++    best_index = int(np.argmax(setting_totals))
++    all_indices = np.arange(n_paths)
++    means, scales = normalization(all_indices)
++    initial = ridge_initialization(all_indices, means, scales)
++    coefficients = initial
++    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
++    # from replacing the lower-variance ridge policy.
++    if setting_totals[best_index] > baseline_total + 1e-12:
++        temperature, shrinkage = settings[best_index]
++        coefficients = optimize(all_indices, initial, means, scales,
++                                temperature, shrinkage, 300)
++    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients,
++             means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..6d27fd6a0fa20178db6f5a9c1870fc9a9a972210
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,171 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # All implementation details deliberately live in this body: fit is the
++    # replaceable subsystem used by whole-program crossover.
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('paths and payoffs have inconsistent shapes')
++
++    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
++    n_features = raw[0].shape[1]
++
++    def normalization(indices):
++        means = np.empty((n_times, n_features), dtype=np.float64)
++        scales = np.empty_like(means)
++        for t in range(n_times):
++            sample = raw[t][indices]
++            means[t] = np.mean(sample, axis=0)
++            scales[t] = np.std(sample, axis=0)
++            constant = scales[t] < 1e-10
++            # In particular, retain the leading constant feature as an
++            # intercept rather than centering it to an all-zero column.
++            means[t, constant] = 0.0
++            scales[t, constant] = 1.0
++            scales[t] = np.maximum(scales[t], 1e-8)
++        return means, scales
++
++    def designs(indices, means, scales):
++        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
++
++    def ridge_initialization(indices, means, scales):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++        realized = gs[:, -1].copy()
++        eye = np.eye(n_features, dtype=np.float64)
++        # Backward ridge is both a stable initializer and the explicit parent
++        # policy against which the intervention is judged.
++        for t in range(n_times - 2, -1, -1):
++            x = xs[t]
++            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
++            try:
++                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
++            except np.linalg.LinAlgError:
++                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
++            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
++            coefficients[t] = beta
++            continuation = x @ beta
++            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
++            realized = np.where(exercise, gs[:, t], realized)
++        return coefficients
++
++    def hard_values(indices, coefficients, means, scales):
++        alive = np.ones(len(indices), dtype=bool)
++        values = np.zeros(len(indices), dtype=np.float64)
++        for t in range(n_times - 1):
++            x = (raw[t][indices] - means[t]) / scales[t]
++            g = payoffs[indices, t]
++            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
++            values[exercise] = g[exercise]
++            alive[exercise] = False
++        values[alive] = payoffs[indices[alive], -1]
++        return values
++
++    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        beta = initial.copy()
++        first = np.zeros_like(beta)
++        second = np.zeros_like(beta)
++        best = beta.copy()
++        best_objective = -np.inf
++        stale = 0
++        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
++        penalty_weight = shrinkage * payoff_scale
++        for iteration in range(1, iterations + 1):
++            probabilities = []
++            survival = []
++            alive_probability = np.ones(len(indices), dtype=np.float64)
++            for t in range(n_times - 1):
++                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
++                p = 1.0 / (1.0 + np.exp(-margin))
++                # Exercising for zero payoff is never useful and creates noisy
++                # gradients on far out-of-the-money paths.
++                p = np.where(gs[:, t] > 0.0, p, 0.0)
++                survival.append(alive_probability.copy())
++                probabilities.append(p)
++                alive_probability *= 1.0 - p
++            value = gs[:, -1].copy()
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                value = p * gs[:, t] + (1.0 - p) * value
++            delta = beta - initial
++            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
++            if objective > best_objective + 1e-10:
++                best_objective = objective
++                best = beta.copy()
++                stale = 0
++            else:
++                stale += 1
++            if stale >= 35:
++                break
++
++            # Backward conditional values plus forward survival give the exact
++            # gradient of the differentiable stopping recursion.
++            future = gs[:, -1].copy()
++            gradient = np.zeros_like(beta)
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
++                gradient[t] = xs[t].T @ weight / len(indices)
++                future = p * gs[:, t] + (1.0 - p) * future
++            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
++            norm = float(np.linalg.norm(gradient[:-1]))
++            if norm > 10.0:
++                gradient[:-1] *= 10.0 / norm
++            first = 0.9 * first + 0.1 * gradient
++            second = 0.999 * second + 0.001 * gradient * gradient
++            first_hat = first / (1.0 - 0.9 ** iteration)
++            second_hat = second / (1.0 - 0.999 ** iteration)
++            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
++            # Update clipping is important at the small temperatures in the
++            # search grid, where a few boundary paths can otherwise dominate.
++            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
++            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
++        return best
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    fold_ids = np.empty(n_paths, dtype=np.int64)
++    fold_ids[order] = np.arange(n_paths) % 4
++    positive = payoffs[payoffs > 0.0]
++    positive_scale = float(np.median(positive)) if positive.size else 1.0
++    positive_scale = max(positive_scale, 1e-8)
++    settings = [(fraction * positive_scale, shrinkage)
++                for fraction in (0.02, 0.05, 0.1)
++                for shrinkage in (0.01, 0.1, 1.0)]
++    setting_totals = np.zeros(len(settings), dtype=np.float64)
++    baseline_total = 0.0
++    for fold in range(4):
++        train = np.flatnonzero(fold_ids != fold)
++        held_out = np.flatnonzero(fold_ids == fold)
++        means, scales = normalization(train)
++        initial = ridge_initialization(train, means, scales)
++        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
++        for setting_index, (temperature, shrinkage) in enumerate(settings):
++            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
++            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
++
++    best_index = int(np.argmax(setting_totals))
++    all_indices = np.arange(n_paths)
++    means, scales = normalization(all_indices)
++    initial = ridge_initialization(all_indices, means, scales)
++    coefficients = initial
++    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
++    # from replacing the lower-variance ridge policy.
++    if setting_totals[best_index] > baseline_total + 1e-12:
++        temperature, shrinkage = settings[best_index]
++        coefficients = optimize(all_indices, initial, means, scales,
++                                temperature, shrinkage, 300)
++    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients,
++             means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+2026-09-06T06:50:40.296857Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc 'git diff -- algorithm.py manifest.json && git status --short' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+ succeeded in 0ms:
+?? ../../../../../
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..6d27fd6a0fa20178db6f5a9c1870fc9a9a972210
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,171 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # All implementation details deliberately live in this body: fit is the
++    # replaceable subsystem used by whole-program crossover.
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('paths and payoffs have inconsistent shapes')
++
++    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
++    n_features = raw[0].shape[1]
++
++    def normalization(indices):
++        means = np.empty((n_times, n_features), dtype=np.float64)
++        scales = np.empty_like(means)
++        for t in range(n_times):
++            sample = raw[t][indices]
++            means[t] = np.mean(sample, axis=0)
++            scales[t] = np.std(sample, axis=0)
++            constant = scales[t] < 1e-10
++            # In particular, retain the leading constant feature as an
++            # intercept rather than centering it to an all-zero column.
++            means[t, constant] = 0.0
++            scales[t, constant] = 1.0
++            scales[t] = np.maximum(scales[t], 1e-8)
++        return means, scales
++
++    def designs(indices, means, scales):
++        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
++
++    def ridge_initialization(indices, means, scales):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++        realized = gs[:, -1].copy()
++        eye = np.eye(n_features, dtype=np.float64)
++        # Backward ridge is both a stable initializer and the explicit parent
++        # policy against which the intervention is judged.
++        for t in range(n_times - 2, -1, -1):
++            x = xs[t]
++            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
++            try:
++                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
++            except np.linalg.LinAlgError:
++                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
++            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
++            coefficients[t] = beta
++            continuation = x @ beta
++            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
++            realized = np.where(exercise, gs[:, t], realized)
++        return coefficients
++
++    def hard_values(indices, coefficients, means, scales):
++        alive = np.ones(len(indices), dtype=bool)
++        values = np.zeros(len(indices), dtype=np.float64)
++        for t in range(n_times - 1):
++            x = (raw[t][indices] - means[t]) / scales[t]
++            g = payoffs[indices, t]
++            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
++            values[exercise] = g[exercise]
++            alive[exercise] = False
++        values[alive] = payoffs[indices[alive], -1]
++        return values
++
++    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        beta = initial.copy()
++        first = np.zeros_like(beta)
++        second = np.zeros_like(beta)
++        best = beta.copy()
++        best_objective = -np.inf
++        stale = 0
++        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
++        penalty_weight = shrinkage * payoff_scale
++        for iteration in range(1, iterations + 1):
++            probabilities = []
++            survival = []
++            alive_probability = np.ones(len(indices), dtype=np.float64)
++            for t in range(n_times - 1):
++                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
++                p = 1.0 / (1.0 + np.exp(-margin))
++                # Exercising for zero payoff is never useful and creates noisy
++                # gradients on far out-of-the-money paths.
++                p = np.where(gs[:, t] > 0.0, p, 0.0)
++                survival.append(alive_probability.copy())
++                probabilities.append(p)
++                alive_probability *= 1.0 - p
++            value = gs[:, -1].copy()
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                value = p * gs[:, t] + (1.0 - p) * value
++            delta = beta - initial
++            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
++            if objective > best_objective + 1e-10:
++                best_objective = objective
++                best = beta.copy()
++                stale = 0
++            else:
++                stale += 1
++            if stale >= 35:
++                break
++
++            # Backward conditional values plus forward survival give the exact
++            # gradient of the differentiable stopping recursion.
++            future = gs[:, -1].copy()
++            gradient = np.zeros_like(beta)
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
++                gradient[t] = xs[t].T @ weight / len(indices)
++                future = p * gs[:, t] + (1.0 - p) * future
++            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
++            norm = float(np.linalg.norm(gradient[:-1]))
++            if norm > 10.0:
++                gradient[:-1] *= 10.0 / norm
++            first = 0.9 * first + 0.1 * gradient
++            second = 0.999 * second + 0.001 * gradient * gradient
++            first_hat = first / (1.0 - 0.9 ** iteration)
++            second_hat = second / (1.0 - 0.999 ** iteration)
++            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
++            # Update clipping is important at the small temperatures in the
++            # search grid, where a few boundary paths can otherwise dominate.
++            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
++            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
++        return best
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    fold_ids = np.empty(n_paths, dtype=np.int64)
++    fold_ids[order] = np.arange(n_paths) % 4
++    positive = payoffs[payoffs > 0.0]
++    positive_scale = float(np.median(positive)) if positive.size else 1.0
++    positive_scale = max(positive_scale, 1e-8)
++    settings = [(fraction * positive_scale, shrinkage)
++                for fraction in (0.02, 0.05, 0.1)
++                for shrinkage in (0.01, 0.1, 1.0)]
++    setting_totals = np.zeros(len(settings), dtype=np.float64)
++    baseline_total = 0.0
++    for fold in range(4):
++        train = np.flatnonzero(fold_ids != fold)
++        held_out = np.flatnonzero(fold_ids == fold)
++        means, scales = normalization(train)
++        initial = ridge_initialization(train, means, scales)
++        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
++        for setting_index, (temperature, shrinkage) in enumerate(settings):
++            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
++            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
++
++    best_index = int(np.argmax(setting_totals))
++    all_indices = np.arange(n_paths)
++    means, scales = normalization(all_indices)
++    initial = ridge_initialization(all_indices, means, scales)
++    coefficients = initial
++    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
++    # from replacing the lower-variance ridge policy.
++    if setting_totals[best_index] > baseline_total + 1e-12:
++        temperature, shrinkage = settings[best_index]
++        coefficients = optimize(all_indices, initial, means, scales,
++                                temperature, shrinkage, 300)
++    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients,
++             means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+2026-09-06T06:50:47.475384Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc "sed -n '1,300p' algorithm.py && sed -n '1,20p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft
+ succeeded in 0ms:
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    # All implementation details deliberately live in this body: fit is the
+    # replaceable subsystem used by whole-program crossover.
+    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
+    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
+    if paths.ndim != 3 or payoffs.ndim != 2:
+        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
+    n_paths, n_times, _ = paths.shape
+    if payoffs.shape != (n_paths, n_times):
+        raise ValueError('paths and payoffs have inconsistent shapes')
+
+    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
+    n_features = raw[0].shape[1]
+
+    def normalization(indices):
+        means = np.empty((n_times, n_features), dtype=np.float64)
+        scales = np.empty_like(means)
+        for t in range(n_times):
+            sample = raw[t][indices]
+            means[t] = np.mean(sample, axis=0)
+            scales[t] = np.std(sample, axis=0)
+            constant = scales[t] < 1e-10
+            # In particular, retain the leading constant feature as an
+            # intercept rather than centering it to an all-zero column.
+            means[t, constant] = 0.0
+            scales[t, constant] = 1.0
+            scales[t] = np.maximum(scales[t], 1e-8)
+        return means, scales
+
+    def designs(indices, means, scales):
+        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
+
+    def ridge_initialization(indices, means, scales):
+        xs = designs(indices, means, scales)
+        gs = payoffs[indices]
+        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
+        realized = gs[:, -1].copy()
+        eye = np.eye(n_features, dtype=np.float64)
+        # Backward ridge is both a stable initializer and the explicit parent
+        # policy against which the intervention is judged.
+        for t in range(n_times - 2, -1, -1):
+            x = xs[t]
+            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
+            try:
+                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
+            except np.linalg.LinAlgError:
+                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
+            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
+            coefficients[t] = beta
+            continuation = x @ beta
+            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
+            realized = np.where(exercise, gs[:, t], realized)
+        return coefficients
+
+    def hard_values(indices, coefficients, means, scales):
+        alive = np.ones(len(indices), dtype=bool)
+        values = np.zeros(len(indices), dtype=np.float64)
+        for t in range(n_times - 1):
+            x = (raw[t][indices] - means[t]) / scales[t]
+            g = payoffs[indices, t]
+            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
+            values[exercise] = g[exercise]
+            alive[exercise] = False
+        values[alive] = payoffs[indices[alive], -1]
+        return values
+
+    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
+        xs = designs(indices, means, scales)
+        gs = payoffs[indices]
+        beta = initial.copy()
+        first = np.zeros_like(beta)
+        second = np.zeros_like(beta)
+        best = beta.copy()
+        best_objective = -np.inf
+        stale = 0
+        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
+        penalty_weight = shrinkage * payoff_scale
+        for iteration in range(1, iterations + 1):
+            probabilities = []
+            survival = []
+            alive_probability = np.ones(len(indices), dtype=np.float64)
+            for t in range(n_times - 1):
+                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
+                p = 1.0 / (1.0 + np.exp(-margin))
+                # Exercising for zero payoff is never useful and creates noisy
+                # gradients on far out-of-the-money paths.
+                p = np.where(gs[:, t] > 0.0, p, 0.0)
+                survival.append(alive_probability.copy())
+                probabilities.append(p)
+                alive_probability *= 1.0 - p
+            value = gs[:, -1].copy()
+            for t in range(n_times - 2, -1, -1):
+                p = probabilities[t]
+                value = p * gs[:, t] + (1.0 - p) * value
+            delta = beta - initial
+            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
+            if objective > best_objective + 1e-10:
+                best_objective = objective
+                best = beta.copy()
+                stale = 0
+            else:
+                stale += 1
+            if stale >= 35:
+                break
+
+            # Backward conditional values plus forward survival give the exact
+            # gradient of the differentiable stopping recursion.
+            future = gs[:, -1].copy()
+            gradient = np.zeros_like(beta)
+            for t in range(n_times - 2, -1, -1):
+                p = probabilities[t]
+                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
+                gradient[t] = xs[t].T @ weight / len(indices)
+                future = p * gs[:, t] + (1.0 - p) * future
+            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
+            norm = float(np.linalg.norm(gradient[:-1]))
+            if norm > 10.0:
+                gradient[:-1] *= 10.0 / norm
+            first = 0.9 * first + 0.1 * gradient
+            second = 0.999 * second + 0.001 * gradient * gradient
+            first_hat = first / (1.0 - 0.9 ** iteration)
+            second_hat = second / (1.0 - 0.999 ** iteration)
+            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
+            # Update clipping is important at the small temperatures in the
+            # search grid, where a few boundary paths can otherwise dominate.
+            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
+            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
+        return best
+
+    rng = np.random.default_rng(int(seed))
+    order = rng.permutation(n_paths)
+    fold_ids = np.empty(n_paths, dtype=np.int64)
+    fold_ids[order] = np.arange(n_paths) % 4
+    positive = payoffs[payoffs > 0.0]
+    positive_scale = float(np.median(positive)) if positive.size else 1.0
+    positive_scale = max(positive_scale, 1e-8)
+    settings = [(fraction * positive_scale, shrinkage)
+                for fraction in (0.02, 0.05, 0.1)
+                for shrinkage in (0.01, 0.1, 1.0)]
+    setting_totals = np.zeros(len(settings), dtype=np.float64)
+    baseline_total = 0.0
+    for fold in range(4):
+        train = np.flatnonzero(fold_ids != fold)
+        held_out = np.flatnonzero(fold_ids == fold)
+        means, scales = normalization(train)
+        initial = ridge_initialization(train, means, scales)
+        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
+        for setting_index, (temperature, shrinkage) in enumerate(settings):
+            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
+            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
+
+    best_index = int(np.argmax(setting_totals))
+    all_indices = np.arange(n_paths)
+    means, scales = normalization(all_indices)
+    initial = ridge_initialization(all_indices, means, scales)
+    coefficients = initial
+    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
+    # from replacing the lower-variance ridge policy.
+    if setting_totals[best_index] > baseline_total + 1e-12:
+        temperature, shrinkage = settings[best_index]
+        coefficients = optimize(all_indices, initial, means, scales,
+                                temperature, shrinkage, 300)
+    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(output_dir / 'model.npz', coefficients=coefficients,
+             means=means, scales=scales)
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..6d27fd6a0fa20178db6f5a9c1870fc9a9a972210
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,171 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # All implementation details deliberately live in this body: fit is the
++    # replaceable subsystem used by whole-program crossover.
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('paths and payoffs have inconsistent shapes')
++
++    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
++    n_features = raw[0].shape[1]
++
++    def normalization(indices):
++        means = np.empty((n_times, n_features), dtype=np.float64)
++        scales = np.empty_like(means)
++        for t in range(n_times):
++            sample = raw[t][indices]
++            means[t] = np.mean(sample, axis=0)
++            scales[t] = np.std(sample, axis=0)
++            constant = scales[t] < 1e-10
++            # In particular, retain the leading constant feature as an
++            # intercept rather than centering it to an all-zero column.
++            means[t, constant] = 0.0
++            scales[t, constant] = 1.0
++            scales[t] = np.maximum(scales[t], 1e-8)
++        return means, scales
++
++    def designs(indices, means, scales):
++        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
++
++    def ridge_initialization(indices, means, scales):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++        realized = gs[:, -1].copy()
++        eye = np.eye(n_features, dtype=np.float64)
++        # Backward ridge is both a stable initializer and the explicit parent
++        # policy against which the intervention is judged.
++        for t in range(n_times - 2, -1, -1):
++            x = xs[t]
++            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
++            try:
++                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
++            except np.linalg.LinAlgError:
++                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
++            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
++            coefficients[t] = beta
++            continuation = x @ beta
++            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
++            realized = np.where(exercise, gs[:, t], realized)
++        return coefficients
++
++    def hard_values(indices, coefficients, means, scales):
++        alive = np.ones(len(indices), dtype=bool)
++        values = np.zeros(len(indices), dtype=np.float64)
++        for t in range(n_times - 1):
++            x = (raw[t][indices] - means[t]) / scales[t]
++            g = payoffs[indices, t]
++            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
++            values[exercise] = g[exercise]
++            alive[exercise] = False
++        values[alive] = payoffs[indices[alive], -1]
++        return values
++
++    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        beta = initial.copy()
++        first = np.zeros_like(beta)
++        second = np.zeros_like(beta)
++        best = beta.copy()
++        best_objective = -np.inf
++        stale = 0
++        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
++        penalty_weight = shrinkage * payoff_scale
++        for iteration in range(1, iterations + 1):
++            probabilities = []
++            survival = []
++            alive_probability = np.ones(len(indices), dtype=np.float64)
++            for t in range(n_times - 1):
++                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
++                p = 1.0 / (1.0 + np.exp(-margin))
++                # Exercising for zero payoff is never useful and creates noisy
++                # gradients on far out-of-the-money paths.
++                p = np.where(gs[:, t] > 0.0, p, 0.0)
++                survival.append(alive_probability.copy())
++                probabilities.append(p)
++                alive_probability *= 1.0 - p
++            value = gs[:, -1].copy()
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                value = p * gs[:, t] + (1.0 - p) * value
++            delta = beta - initial
++            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
++            if objective > best_objective + 1e-10:
++                best_objective = objective
++                best = beta.copy()
++                stale = 0
++            else:
++                stale += 1
++            if stale >= 35:
++                break
++
++            # Backward conditional values plus forward survival give the exact
++            # gradient of the differentiable stopping recursion.
++            future = gs[:, -1].copy()
++            gradient = np.zeros_like(beta)
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
++                gradient[t] = xs[t].T @ weight / len(indices)
++                future = p * gs[:, t] + (1.0 - p) * future
++            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
++            norm = float(np.linalg.norm(gradient[:-1]))
++            if norm > 10.0:
++                gradient[:-1] *= 10.0 / norm
++            first = 0.9 * first + 0.1 * gradient
++            second = 0.999 * second + 0.001 * gradient * gradient
++            first_hat = first / (1.0 - 0.9 ** iteration)
++            second_hat = second / (1.0 - 0.999 ** iteration)
++            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
++            # Update clipping is important at the small temperatures in the
++            # search grid, where a few boundary paths can otherwise dominate.
++            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
++            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
++        return best
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    fold_ids = np.empty(n_paths, dtype=np.int64)
++    fold_ids[order] = np.arange(n_paths) % 4
++    positive = payoffs[payoffs > 0.0]
++    positive_scale = float(np.median(positive)) if positive.size else 1.0
++    positive_scale = max(positive_scale, 1e-8)
++    settings = [(fraction * positive_scale, shrinkage)
++                for fraction in (0.02, 0.05, 0.1)
++                for shrinkage in (0.01, 0.1, 1.0)]
++    setting_totals = np.zeros(len(settings), dtype=np.float64)
++    baseline_total = 0.0
++    for fold in range(4):
++        train = np.flatnonzero(fold_ids != fold)
++        held_out = np.flatnonzero(fold_ids == fold)
++        means, scales = normalization(train)
++        initial = ridge_initialization(train, means, scales)
++        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
++        for setting_index, (temperature, shrinkage) in enumerate(settings):
++            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
++            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
++
++    best_index = int(np.argmax(setting_totals))
++    all_indices = np.arange(n_paths)
++    means, scales = normalization(all_indices)
++    initial = ridge_initialization(all_indices, means, scales)
++    coefficients = initial
++    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
++    # from replacing the lower-variance ridge policy.
++    if setting_totals[best_index] > baseline_total + 1e-12:
++        temperature, shrinkage = settings[best_index]
++        coefficients = optimize(all_indices, initial, means, scales,
++                                temperature, shrinkage, 300)
++    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients,
++             means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+2026-09-06T06:50:55.948044Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+Implemented the fit subsystem in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py:17).
+
+It now includes:
+
+- Backward ridge initialization.
+- Joint Adam optimization of differentiable stopping payoff.
+- Deterministic four-fold cross-validation over the specified temperature/shrinkage grid.
+- Held-out hard-policy scoring and ridge fallback.
+- Early stopping and clipped coefficient updates.
+- Compatible `coefficients`, `means`, and `scales` fields in `model.npz`.
+- Unchanged `features()`, `predict()`, manifest, and continuation interface.
+
+Per instruction, I did not execute the candidate.
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..6d27fd6a0fa20178db6f5a9c1870fc9a9a972210
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,171 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # All implementation details deliberately live in this body: fit is the
++    # replaceable subsystem used by whole-program crossover.
++    paths = np.asarray(np.load(input_dir / 'training_paths.npy', allow_pickle=False), dtype=np.float64)
++    payoffs = np.asarray(np.load(input_dir / 'payoffs.npy', allow_pickle=False), dtype=np.float64)
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('expected paths (n_paths,n_times,n_assets) and payoffs (n_paths,n_times)')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times):
++        raise ValueError('paths and payoffs have inconsistent shapes')
++
++    raw = [features(paths[:, t, :], payoffs[:, t]) for t in range(n_times)]
++    n_features = raw[0].shape[1]
++
++    def normalization(indices):
++        means = np.empty((n_times, n_features), dtype=np.float64)
++        scales = np.empty_like(means)
++        for t in range(n_times):
++            sample = raw[t][indices]
++            means[t] = np.mean(sample, axis=0)
++            scales[t] = np.std(sample, axis=0)
++            constant = scales[t] < 1e-10
++            # In particular, retain the leading constant feature as an
++            # intercept rather than centering it to an all-zero column.
++            means[t, constant] = 0.0
++            scales[t, constant] = 1.0
++            scales[t] = np.maximum(scales[t], 1e-8)
++        return means, scales
++
++    def designs(indices, means, scales):
++        return [(raw[t][indices] - means[t]) / scales[t] for t in range(n_times)]
++
++    def ridge_initialization(indices, means, scales):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        coefficients = np.zeros((n_times, n_features), dtype=np.float64)
++        realized = gs[:, -1].copy()
++        eye = np.eye(n_features, dtype=np.float64)
++        # Backward ridge is both a stable initializer and the explicit parent
++        # policy against which the intervention is judged.
++        for t in range(n_times - 2, -1, -1):
++            x = xs[t]
++            ridge = 1e-3 * (1.0 + np.mean(np.sum(x * x, axis=1)))
++            try:
++                beta = np.linalg.solve(x.T @ x + ridge * eye, x.T @ realized)
++            except np.linalg.LinAlgError:
++                beta = np.linalg.lstsq(x.T @ x + ridge * eye, x.T @ realized, rcond=None)[0]
++            beta = np.nan_to_num(beta, nan=0.0, posinf=0.0, neginf=0.0)
++            coefficients[t] = beta
++            continuation = x @ beta
++            exercise = (gs[:, t] > 0.0) & (gs[:, t] >= continuation)
++            realized = np.where(exercise, gs[:, t], realized)
++        return coefficients
++
++    def hard_values(indices, coefficients, means, scales):
++        alive = np.ones(len(indices), dtype=bool)
++        values = np.zeros(len(indices), dtype=np.float64)
++        for t in range(n_times - 1):
++            x = (raw[t][indices] - means[t]) / scales[t]
++            g = payoffs[indices, t]
++            exercise = alive & (g > 0.0) & (g >= x @ coefficients[t])
++            values[exercise] = g[exercise]
++            alive[exercise] = False
++        values[alive] = payoffs[indices[alive], -1]
++        return values
++
++    def optimize(indices, initial, means, scales, temperature, shrinkage, iterations):
++        xs = designs(indices, means, scales)
++        gs = payoffs[indices]
++        beta = initial.copy()
++        first = np.zeros_like(beta)
++        second = np.zeros_like(beta)
++        best = beta.copy()
++        best_objective = -np.inf
++        stale = 0
++        payoff_scale = max(float(np.mean(gs[gs > 0.0])) if np.any(gs > 0.0) else 1.0, 1e-8)
++        penalty_weight = shrinkage * payoff_scale
++        for iteration in range(1, iterations + 1):
++            probabilities = []
++            survival = []
++            alive_probability = np.ones(len(indices), dtype=np.float64)
++            for t in range(n_times - 1):
++                margin = np.clip((gs[:, t] - xs[t] @ beta[t]) / temperature, -35.0, 35.0)
++                p = 1.0 / (1.0 + np.exp(-margin))
++                # Exercising for zero payoff is never useful and creates noisy
++                # gradients on far out-of-the-money paths.
++                p = np.where(gs[:, t] > 0.0, p, 0.0)
++                survival.append(alive_probability.copy())
++                probabilities.append(p)
++                alive_probability *= 1.0 - p
++            value = gs[:, -1].copy()
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                value = p * gs[:, t] + (1.0 - p) * value
++            delta = beta - initial
++            objective = float(np.mean(value) - 0.5 * penalty_weight * np.mean(delta[:-1] ** 2))
++            if objective > best_objective + 1e-10:
++                best_objective = objective
++                best = beta.copy()
++                stale = 0
++            else:
++                stale += 1
++            if stale >= 35:
++                break
++
++            # Backward conditional values plus forward survival give the exact
++            # gradient of the differentiable stopping recursion.
++            future = gs[:, -1].copy()
++            gradient = np.zeros_like(beta)
++            for t in range(n_times - 2, -1, -1):
++                p = probabilities[t]
++                weight = -survival[t] * p * (1.0 - p) * (gs[:, t] - future) / temperature
++                gradient[t] = xs[t].T @ weight / len(indices)
++                future = p * gs[:, t] + (1.0 - p) * future
++            gradient[:-1] -= penalty_weight * delta[:-1] / max((n_times - 1) * n_features, 1)
++            norm = float(np.linalg.norm(gradient[:-1]))
++            if norm > 10.0:
++                gradient[:-1] *= 10.0 / norm
++            first = 0.9 * first + 0.1 * gradient
++            second = 0.999 * second + 0.001 * gradient * gradient
++            first_hat = first / (1.0 - 0.9 ** iteration)
++            second_hat = second / (1.0 - 0.999 ** iteration)
++            step = 0.03 * first_hat / (np.sqrt(second_hat) + 1e-8)
++            # Update clipping is important at the small temperatures in the
++            # search grid, where a few boundary paths can otherwise dominate.
++            beta[:-1] += np.clip(step[:-1], -0.08, 0.08)
++            beta[:-1] = initial[:-1] + np.clip(beta[:-1] - initial[:-1], -4.0, 4.0)
++        return best
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    fold_ids = np.empty(n_paths, dtype=np.int64)
++    fold_ids[order] = np.arange(n_paths) % 4
++    positive = payoffs[payoffs > 0.0]
++    positive_scale = float(np.median(positive)) if positive.size else 1.0
++    positive_scale = max(positive_scale, 1e-8)
++    settings = [(fraction * positive_scale, shrinkage)
++                for fraction in (0.02, 0.05, 0.1)
++                for shrinkage in (0.01, 0.1, 1.0)]
++    setting_totals = np.zeros(len(settings), dtype=np.float64)
++    baseline_total = 0.0
++    for fold in range(4):
++        train = np.flatnonzero(fold_ids != fold)
++        held_out = np.flatnonzero(fold_ids == fold)
++        means, scales = normalization(train)
++        initial = ridge_initialization(train, means, scales)
++        baseline_total += float(np.sum(hard_values(held_out, initial, means, scales)))
++        for setting_index, (temperature, shrinkage) in enumerate(settings):
++            candidate = optimize(train, initial, means, scales, temperature, shrinkage, 140)
++            setting_totals[setting_index] += float(np.sum(hard_values(held_out, candidate, means, scales)))
++
++    best_index = int(np.argmax(setting_totals))
++    all_indices = np.arange(n_paths)
++    means, scales = normalization(all_indices)
++    initial = ridge_initialization(all_indices, means, scales)
++    coefficients = initial
++    # A strict held-out hard-payoff gate prevents a smooth-objective-only gain
++    # from replacing the lower-variance ridge policy.
++    if setting_totals[best_index] > baseline_total + 1e-12:
++        temperature, shrinkage = settings[best_index]
++        coefficients = optimize(all_indices, initial, means, scales,
++                                temperature, shrinkage, 300)
++    coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(output_dir / 'model.npz', coefficients=coefficients,
++             means=means, scales=scales)
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+tokens used
+23,566

@@ -1,0 +1,310 @@
+[
+  {
+    "key": "reference-s17-direct_decision",
+    "kind": "reference",
+    "method": "direct_decision",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/direct_decision.json",
+    "program_path": "programs/reference-s17-direct_decision",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-gated_ridge",
+    "kind": "reference",
+    "method": "gated_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/gated_ridge.json",
+    "program_path": "programs/reference-s17-gated_ridge",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-linear_ridge",
+    "kind": "reference",
+    "method": "linear_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/linear_ridge.json",
+    "program_path": "programs/reference-s17-linear_ridge",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-mlp",
+    "kind": "reference",
+    "method": "mlp",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/mlp.json",
+    "program_path": "programs/reference-s17-mlp",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-pca_ridge",
+    "kind": "reference",
+    "method": "pca_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/pca_ridge.json",
+    "program_path": "programs/reference-s17-pca_ridge",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-policy_iteration",
+    "kind": "reference",
+    "method": "policy_iteration",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/policy_iteration.json",
+    "program_path": "programs/reference-s17-policy_iteration",
+    "seed": 17
+  },
+  {
+    "key": "reference-s17-residual_hybrid",
+    "kind": "reference",
+    "method": "residual_hybrid",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s17/residual_hybrid.json",
+    "program_path": "programs/reference-s17-residual_hybrid",
+    "seed": 17
+  },
+  {
+    "key": "reference-s29-direct_decision",
+    "kind": "reference",
+    "method": "direct_decision",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/direct_decision.json",
+    "program_path": "programs/reference-s29-direct_decision",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-gated_ridge",
+    "kind": "reference",
+    "method": "gated_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/gated_ridge.json",
+    "program_path": "programs/reference-s29-gated_ridge",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-linear_ridge",
+    "kind": "reference",
+    "method": "linear_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/linear_ridge.json",
+    "program_path": "programs/reference-s29-linear_ridge",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-mlp",
+    "kind": "reference",
+    "method": "mlp",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/mlp.json",
+    "program_path": "programs/reference-s29-mlp",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-pca_ridge",
+    "kind": "reference",
+    "method": "pca_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/pca_ridge.json",
+    "program_path": "programs/reference-s29-pca_ridge",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-policy_iteration",
+    "kind": "reference",
+    "method": "policy_iteration",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/policy_iteration.json",
+    "program_path": "programs/reference-s29-policy_iteration",
+    "seed": 29
+  },
+  {
+    "key": "reference-s29-residual_hybrid",
+    "kind": "reference",
+    "method": "residual_hybrid",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s29/residual_hybrid.json",
+    "program_path": "programs/reference-s29-residual_hybrid",
+    "seed": 29
+  },
+  {
+    "key": "reference-s41-direct_decision",
+    "kind": "reference",
+    "method": "direct_decision",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/direct_decision.json",
+    "program_path": "programs/reference-s41-direct_decision",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-gated_ridge",
+    "kind": "reference",
+    "method": "gated_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/gated_ridge.json",
+    "program_path": "programs/reference-s41-gated_ridge",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-linear_ridge",
+    "kind": "reference",
+    "method": "linear_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/linear_ridge.json",
+    "program_path": "programs/reference-s41-linear_ridge",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-mlp",
+    "kind": "reference",
+    "method": "mlp",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/mlp.json",
+    "program_path": "programs/reference-s41-mlp",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-pca_ridge",
+    "kind": "reference",
+    "method": "pca_ridge",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/pca_ridge.json",
+    "program_path": "programs/reference-s41-pca_ridge",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-policy_iteration",
+    "kind": "reference",
+    "method": "policy_iteration",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/policy_iteration.json",
+    "program_path": "programs/reference-s41-policy_iteration",
+    "seed": 41
+  },
+  {
+    "key": "reference-s41-residual_hybrid",
+    "kind": "reference",
+    "method": "residual_hybrid",
+    "original_public_result": "/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-bermudan-live-v2-20260905/references/s41/residual_hybrid.json",
+    "program_path": "programs/reference-s41-residual_hybrid",
+    "seed": 41
+  },
+  {
+    "candidate_id": "sol_0007",
+    "is_original_winner": true,
+    "key": "legacy-context_proposal-s17-sol_0007",
+    "kind": "legacy_generated",
+    "method": "context_proposal",
+    "program_path": "programs/legacy-context_proposal-s17-sol_0007",
+    "round": 1,
+    "seed": 17
+  },
+  {
+    "candidate_id": "sol_0003",
+    "is_original_winner": true,
+    "key": "legacy-direct_generation-s17-sol_0003",
+    "kind": "legacy_generated",
+    "method": "direct_generation",
+    "program_path": "programs/legacy-direct_generation-s17-sol_0003",
+    "round": 0,
+    "seed": 17
+  },
+  {
+    "candidate_id": "sol_0005",
+    "is_original_winner": true,
+    "key": "legacy-context_proposal-s29-sol_0005",
+    "kind": "legacy_generated",
+    "method": "context_proposal",
+    "program_path": "programs/legacy-context_proposal-s29-sol_0005",
+    "round": 0,
+    "seed": 29
+  },
+  {
+    "candidate_id": "sol_0007",
+    "is_original_winner": true,
+    "key": "legacy-direct_generation-s29-sol_0007",
+    "kind": "legacy_generated",
+    "method": "direct_generation",
+    "program_path": "programs/legacy-direct_generation-s29-sol_0007",
+    "round": 1,
+    "seed": 29
+  },
+  {
+    "candidate_id": "sol_0009",
+    "is_original_winner": true,
+    "key": "legacy-context_proposal-s41-sol_0009",
+    "kind": "legacy_generated",
+    "method": "context_proposal",
+    "program_path": "programs/legacy-context_proposal-s41-sol_0009",
+    "round": 1,
+    "seed": 41
+  },
+  {
+    "candidate_id": "sol_0009",
+    "is_original_winner": true,
+    "key": "legacy-direct_generation-s41-sol_0009",
+    "kind": "legacy_generated",
+    "method": "direct_generation",
+    "program_path": "programs/legacy-direct_generation-s41-sol_0009",
+    "round": 1,
+    "seed": 41
+  },
+  {
+    "key": "ablation-structured_memory-s17-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "structured_memory",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s17/structured_memory/subsystem_rewrite/program",
+    "seed": 17
+  },
+  {
+    "key": "ablation-score_only-s17-whole_program_restart",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "whole_program_restart",
+    "program_path": "ablation_recovered/s17/score_only/whole_program_restart/program",
+    "seed": 17
+  },
+  {
+    "key": "ablation-score_only-s17-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s17/score_only/subsystem_rewrite/program",
+    "seed": 17
+  },
+  {
+    "key": "ablation-structured_memory-s29-whole_program_restart",
+    "kind": "ablation",
+    "method": "structured_memory",
+    "operator": "whole_program_restart",
+    "program_path": "ablation_recovered/s29/structured_memory/whole_program_restart/program",
+    "seed": 29
+  },
+  {
+    "key": "ablation-structured_memory-s29-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "structured_memory",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s29/structured_memory/subsystem_rewrite/program",
+    "seed": 29
+  },
+  {
+    "key": "ablation-score_only-s29-whole_program_restart",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "whole_program_restart",
+    "program_path": "ablation_recovered/s29/score_only/whole_program_restart/program",
+    "seed": 29
+  },
+  {
+    "key": "ablation-score_only-s29-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s29/score_only/subsystem_rewrite/program",
+    "seed": 29
+  },
+  {
+    "key": "ablation-structured_memory-s41-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "structured_memory",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s41/structured_memory/subsystem_rewrite/program",
+    "seed": 41
+  },
+  {
+    "key": "ablation-score_only-s41-whole_program_restart",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "whole_program_restart",
+    "program_path": "ablation_recovered/s41/score_only/whole_program_restart/program",
+    "seed": 41
+  },
+  {
+    "key": "ablation-score_only-s41-subsystem_rewrite",
+    "kind": "ablation",
+    "method": "score_only",
+    "operator": "subsystem_rewrite",
+    "program_path": "ablation_recovered/s41/score_only/subsystem_rewrite/program",
+    "seed": 41
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "active_record_directory": "ablation_recovered",
+  "amendment_sha256": "5e7811eac158a99467481687f09d65ac333d65dbde6cb822945385893370163a",
+  "n_holdout_programs": 37,
+  "protocol_sha256": "ae7468e9b60443dc74e0eb470556d3772e77d379ba79fe59039f0e66972019cc",
+  "selections_sha256": "4dda12d2e5b9562022be33aa7545b91d6cbaec4a620bf77b9cbde173163db46c"
+}

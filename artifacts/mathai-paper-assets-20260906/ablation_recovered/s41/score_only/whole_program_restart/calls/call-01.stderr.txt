@@ -1,0 +1,1901 @@
+2026-09-06T06:44:57.485241Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.489463Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.493508Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.496650Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.499505Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.502762Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.505382Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.508062Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.512834Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.515038Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.517849Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.546976Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.548967Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:44:57.550848Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07576-8804-7081-9145-b3b9c26a8375
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+
+Implement the Context plan below as an executable program. Optimize actual causal stopping decisions for expected discounted payoff, measured by primal-dual confidence gap. Do not alter evaluation or read outside this draft directory. Use only Python standard library and NumPy. Fit cap: 30 seconds; training paths: 256. Queries contain only causal history and current state. Use terminal/files only to edit this draft; do not search the repository or access network. Do not execute the generated candidate here: the independent evaluator performs execution.
+Context plan:
+{"expected_behavior": "Exercise boundaries should become less sensitive to individual training paths, especially near payoff-continuation ties. The richer but strongly regularized basis can capture moderate boundary curvature without the variance of an MLP or tree ensemble. Cross-fitting may lower apparent training payoff while increasing evaluation payoff and therefore reducing the fixed-upper-bound gap. The near-equality of prior ridge-family scores is only motivation to address decision bias, not evidence that cross-fitting caused an improvement.", "failure_condition": "The intervention can fail if payoffs or path states are so sparse that each fold lacks representative exercise-region observations, if the optimal boundary requires discontinuities beyond the compact basis, or if the evaluator’s training payoffs are already constructed to eliminate same-path look-ahead bias. In those cases cross-fitting adds variance and may produce worse stopping decisions.", "implementation": "Build the same backward recursion using 8 folds fixed by the supplied seed. At each exercise time, fit ridge continuation models on seven folds and predict only the held-out fold; use these out-of-fold predictions to update every path’s realized future cash flow. Standardize features within each training fold and use a compact basis containing log-state levels, squares, pairwise products, immediate payoff, and payoff-by-log-state interactions. Select ridge strength independently per time from {0.01, 0.1, 1, 10, 100} by minimizing accumulated held-out squared error. After the cross-fitted recursion fixes pathwise future-cash-flow targets, refit one ridge model per time on all 256 paths with the selected penalty and save its preprocessing statistics and coefficients for prediction. Preserve the dataset’s payoff units and timing convention.", "mechanism": "Replace in-sample backward induction with deterministic cross-fitted least-squares Monte Carlo. The parent uses each path both to fit continuation values and to decide that path’s exercise, creating optimistic continuation estimates and unstable stopping decisions with only 256 paths. Out-of-fold decisions directly target better out-of-sample discounted payoff."}
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: whole_program_restart
+- target_slice: all
+- prediction: Exercise boundaries should become less sensitive to individual training paths, especially near payoff-continuation ties. The richer but strongly regularized basis can capture moderate boundary curvature without the variance of an MLP or tree ensemble. Cross-fitting may lower apparent training payoff while increasing evaluation payoff and therefore reducing the fixed-upper-bound gap. The near-equality of prior ridge-family scores is only motivation to address decision bias, not evidence that cros
+- falsifier: The intervention can fail if payoffs or path states are so sparse that each fold lacks representative exercise-region observations, if the optimal boundary requires discontinuities beyond the compact basis, or if the evaluator’s training payoffs are already constructed to eliminate same-path look-ahead bias. In those cases cross-fitting adds variance and may produce worse stopping decisions.
+
+The inherited implementation has been removed and replaced with a blank fit/predict scaffold. Build a complete new program from the proposed principle; do not reconstruct the parent by default.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 40 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect the local protocol and blank scaffold, then implement the cross-fitted continuation program within the stated interface. I’ll only perform static checks—no candidate execution.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!*__pycache__*'"' -g '"'!.*'"' | sort && sed -n '1,260p' PYTHON_PROGRAM_PROTOCOL_V1.md && sed -n '1,260p' algorithm.py && sed -n '1,80p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+ exited 1 in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+algorithm.py
+manifest.json
+sed: PYTHON_PROGRAM_PROTOCOL_V1.md: No such file or directory
+
+codex
+The referenced protocol file is not present inside the permitted draft directory, so I’m using the complete contract included in your prompt and inspecting the two available anchors directly.
+exec
+/bin/zsh -lc "sed -n '1,320p' algorithm.py; sed -n '1,120p' manifest.json; wc -c algorithm.py manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+ succeeded in 0ms:
+"""Blank whole-program restart scaffold."""
+
+def fit(input_dir, output_dir, seed):
+    raise NotImplementedError("implement a new fit algorithm")
+
+def predict(model_dir, input_dir, output_dir):
+    raise NotImplementedError("implement a new predict algorithm")
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+     261 algorithm.py
+      76 manifest.json
+     337 total
+
+codex
+I’ve settled the timing convention: each regression target is the already-discounted realized future cash flow, so no extra discounting is applied. Fold assignment is seed-deterministic, penalties are chosen from aggregate out-of-fold error independently at each time, and the final deployable models are refit on all paths.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..2e3c64038da834fa548b930a6cf9239ec06264b0
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,216 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
++
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
+ 
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
++
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        oof, errors = _cross_fitted_predictions(x, realized, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(
++            standardized, realized if False else np.where(exercise,
++            payoffs[:, time_index], realized), penalties[time_index]
++        )
++
++    # Refit targets must be the future cash flows entering each time, not the
++    # post-decision recursion value.  Reconstruct them once using the fixed OOF
++    # policy, storing snapshots before each decision.
++    realized = payoffs[:, -1].copy()
++    targets = [None] * (n_times - 1)
++    for time_index in range(n_times - 2, -1, -1):
++        targets[time_index] = realized.copy()
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        oof, errors = _cross_fitted_predictions(x, realized, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (payoffs[:, time_index] >= continuation)
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++    for time_index in range(n_times - 1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        standardized, means[time_index], scales[time_index] = _standardize(x)
++        coefficients[time_index] = _ridge(standardized, targets[time_index],
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..2e3c64038da834fa548b930a6cf9239ec06264b0
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,216 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
++
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
+ 
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
+ 
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
++
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        oof, errors = _cross_fitted_predictions(x, realized, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(
++            standardized, realized if False else np.where(exercise,
++            payoffs[:, time_index], realized), penalties[time_index]
++        )
++
++    # Refit targets must be the future cash flows entering each time, not the
++    # post-decision recursion value.  Reconstruct them once using the fixed OOF
++    # policy, storing snapshots before each decision.
++    realized = payoffs[:, -1].copy()
++    targets = [None] * (n_times - 1)
++    for time_index in range(n_times - 2, -1, -1):
++        targets[time_index] = realized.copy()
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        oof, errors = _cross_fitted_predictions(x, realized, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (payoffs[:, time_index] >= continuation)
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++    for time_index in range(n_times - 1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        standardized, means[time_index], scales[time_index] = _standardize(x)
++        coefficients[time_index] = _ridge(standardized, targets[time_index],
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+2026-09-06T06:46:29.792215Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+codex
+A static review caught redundant recursion left in the first draft of the implementation. I’m simplifying it to one backward pass that snapshots the future-cash-flow target before each stopping decision; this is the key guard against accidentally fitting post-exercise values.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..9be137d29db00adea5e8fcc70aeedd32ed6e9fa6
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,195 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
+ 
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
++
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
+ 
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        target = realized.copy()
++        oof, errors = _cross_fitted_predictions(x, target, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(standardized, target,
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..9be137d29db00adea5e8fcc70aeedd32ed6e9fa6
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,195 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
+ 
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
++
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
+ 
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        target = realized.copy()
++        oof, errors = _cross_fitted_predictions(x, target, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(standardized, target,
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+2026-09-06T06:46:50.651161Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 132 column 5
+exec
+/bin/zsh -lc "python3 -c 'import ast, pathlib; ast.parse(pathlib.Path(\"algorithm.py\").read_text()); print(\"AST parse: ok\")' && python3 -c 'import json; x=json.load(open(\"manifest.json\")); assert x == {\"schema\":\"openhyra-python-program.v1\",\"interface\":\"continuation\"}; print(\"manifest: ok\")' && rg -n \"def fit|def predict|allow_pickle|RIDGES|N_FOLDS|solve\\.sh|TODO|NotImplemented\" algorithm.py manifest.json && git diff -- algorithm.py manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+ succeeded in 0ms:
+AST parse: ok
+manifest: ok
+algorithm.py:15:RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
+algorithm.py:16:N_FOLDS = 8
+algorithm.py:69:    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
+algorithm.py:75:    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
+algorithm.py:81:        for index, penalty in enumerate(RIDGES):
+algorithm.py:89:def fit(input_dir, output_dir, seed):
+algorithm.py:90:    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
+algorithm.py:91:    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
+algorithm.py:94:    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
+algorithm.py:123:        penalties[time_index] = RIDGES[choice]
+algorithm.py:154:def predict(model_dir, input_dir, output_dir):
+algorithm.py:155:    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
+algorithm.py:156:    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
+algorithm.py:157:    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
+algorithm.py:160:    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..9be137d29db00adea5e8fcc70aeedd32ed6e9fa6
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,195 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
+ 
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
++
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
+ 
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        target = realized.copy()
++        oof, errors = _cross_fitted_predictions(x, target, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(standardized, target,
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+exec
+/bin/zsh -lc "sed -n '1,260p' algorithm.py; git status --short -- algorithm.py manifest.json; find . -maxdepth 2 -type f -print | sort" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft
+ succeeded in 0ms:
+"""Cross-fitted least-squares Monte Carlo continuation estimator.
+
+The evaluator supplies payoffs already expressed in the units in which exercise
+decisions are made.  Consequently the backward recursion deliberately applies
+no additional discount factor.
+"""
+
+import argparse
+import json
+import os
+
+import numpy as np
+
+
+RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
+N_FOLDS = 8
+
+
+def _as_matrix(values):
+    """Return one row per path and one column per state coordinate."""
+    values = np.asarray(values, dtype=np.float64)
+    if values.ndim == 1:
+        return values[:, None]
+    return values.reshape(values.shape[0], -1)
+
+
+def _features(states, immediate):
+    """Compact curved basis specified by the intervention."""
+    states = _as_matrix(states)
+    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
+    # Prices are positive in the benchmark.  Clipping also makes malformed or
+    # numerically underflowed coordinates harmless rather than non-finite.
+    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
+    columns = [logs, logs * logs]
+    if logs.shape[1] > 1:
+        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
+                    for i in range(logs.shape[1])
+                    for j in range(i + 1, logs.shape[1])]
+        columns.extend(products)
+    columns.extend([immediate, immediate * logs])
+    result = np.concatenate(columns, axis=1)
+    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
+
+
+def _standardize(x):
+    mean = x.mean(axis=0)
+    scale = x.std(axis=0)
+    scale = np.where(scale > 1.0e-12, scale, 1.0)
+    return (x - mean) / scale, mean, scale
+
+
+def _ridge(x, y, penalty):
+    """Fit an unpenalized intercept and penalized standardized coefficients."""
+    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
+    gram = design.T @ design
+    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
+    regularizer[0, 0] = 0.0
+    rhs = design.T @ y
+    try:
+        return np.linalg.solve(gram + regularizer, rhs)
+    except np.linalg.LinAlgError:
+        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
+
+
+def _fold_ids(n_paths, seed):
+    rng = np.random.default_rng(int(seed))
+    order = rng.permutation(n_paths)
+    folds = np.empty(n_paths, dtype=np.int64)
+    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
+    return folds
+
+
+def _cross_fitted_predictions(x, target, folds):
+    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
+    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
+    for fold in np.unique(folds):
+        validation = folds == fold
+        training = ~validation
+        train_x, mean, scale = _standardize(x[training])
+        valid_x = (x[validation] - mean) / scale
+        for index, penalty in enumerate(RIDGES):
+            coef = _ridge(train_x, target[training], penalty)
+            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
+    residual = predictions - target[None, :]
+    errors = np.sum(residual * residual, axis=1)
+    return predictions, errors
+
+
+def fit(input_dir, output_dir, seed):
+    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
+    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
+    # Loading validates the evaluator-owned timing input.  It is not multiplied
+    # into targets because payoffs are already discounted by contract.
+    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
+    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
+        json.load(handle)
+
+    paths = np.asarray(paths, dtype=np.float64)
+    payoffs = np.asarray(payoffs, dtype=np.float64)
+    if paths.ndim < 3 or payoffs.ndim != 2:
+        raise ValueError("unexpected training array rank")
+    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
+        raise ValueError("paths and payoffs must share path and time axes")
+    n_paths, n_times = payoffs.shape
+    if n_paths < 2 or n_times < 2:
+        raise ValueError("at least two paths and two exercise times are required")
+
+    folds = _fold_ids(n_paths, seed)
+    realized = payoffs[:, -1].copy()
+    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
+    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
+    scales = np.empty_like(means)
+    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
+    penalties = np.empty(n_times - 1, dtype=np.float64)
+
+    for time_index in range(n_times - 2, -1, -1):
+        x = _features(paths[:, time_index], payoffs[:, time_index])
+        if x.shape[1] != feature_count:
+            raise ValueError("state dimension changes across exercise times")
+        target = realized.copy()
+        oof, errors = _cross_fitted_predictions(x, target, folds)
+        choice = int(np.argmin(errors))
+        penalties[time_index] = RIDGES[choice]
+        continuation = np.maximum(oof[choice], 0.0)
+        exercise = (payoffs[:, time_index] > 0.0) & (
+            payoffs[:, time_index] >= continuation
+        )
+        realized = np.where(exercise, payoffs[:, time_index], realized)
+
+        standardized, mean, scale = _standardize(x)
+        means[time_index] = mean
+        scales[time_index] = scale
+        coefficients[time_index] = _ridge(standardized, target,
+                                           penalties[time_index])
+
+    os.makedirs(output_dir, exist_ok=True)
+    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
+             coefficients=coefficients, penalties=penalties,
+             n_times=np.asarray(n_times, dtype=np.int64))
+
+
+def _request_time(request, history, n_models):
+    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
+        value = request.get(key)
+        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
+            return int(value)
+    if history.ndim >= 2:
+        index = history.shape[1] - 1
+        if 0 <= index < n_models:
+            return index
+    raise ValueError("cannot determine exercise-time index from request")
+
+
+def predict(model_dir, input_dir, output_dir):
+    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
+    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
+    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
+    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
+        request = json.load(handle)
+    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
+        means = model["means"]
+        scales = model["scales"]
+        coefficients = model["coefficients"]
+    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
+    x = _features(states, immediate)
+    if x.shape[1] != means.shape[1]:
+        raise ValueError("query state dimension differs from training")
+    values = coefficients[time_index, 0] + (
+        (x - means[time_index]) / scales[time_index]
+    ) @ coefficients[time_index, 1:]
+    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
+    os.makedirs(output_dir, exist_ok=True)
+    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
+
+
+def _main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    fit_parser = subparsers.add_parser("fit")
+    fit_parser.add_argument("--input", required=True)
+    fit_parser.add_argument("--output", required=True)
+    fit_parser.add_argument("--seed", required=True, type=int)
+    predict_parser = subparsers.add_parser("predict")
+    predict_parser.add_argument("--model", required=True)
+    predict_parser.add_argument("--input", required=True)
+    predict_parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    if args.command == "fit":
+        fit(args.input, args.output, args.seed)
+    else:
+        predict(args.model, args.input, args.output)
+
+
+if __name__ == "__main__":
+    _main()
+?? algorithm.py
+?? manifest.json
+./algorithm.py
+./manifest.json
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..9be137d29db00adea5e8fcc70aeedd32ed6e9fa6
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,195 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
+ 
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
++
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
+ 
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        target = realized.copy()
++        oof, errors = _cross_fitted_predictions(x, target, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(standardized, target,
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+codex
+Implemented the complete cross-fitted LSM continuation algorithm in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py).
+
+Key elements:
+
+- Seed-deterministic 8-fold backward recursion
+- Per-fold feature standardization
+- Log levels, squares, pairwise products, payoff, and payoff–log interactions
+- Per-time ridge selection from `{0.01, 0.1, 1, 10, 100}` using aggregate held-out squared error
+- Full-data refitting against pre-decision future-cash-flow targets
+- Discounted payoff units preserved without additional discounting
+- Causal continuation prediction with finite, nonnegative outputs
+- Required top-level `fit(...)` and `predict(...)` functions and CLI
+
+[manifest.json](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/manifest.json) declares the `continuation` interface. Static AST and manifest validation passed. The candidate itself was not executed.
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..9be137d29db00adea5e8fcc70aeedd32ed6e9fa6
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s41/score_only/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,195 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted least-squares Monte Carlo continuation estimator.
++
++The evaluator supplies payoffs already expressed in the units in which exercise
++decisions are made.  Consequently the backward recursion deliberately applies
++no additional discount factor.
++"""
++
++import argparse
++import json
++import os
++
++import numpy as np
++
++
++RIDGES = np.asarray([0.01, 0.1, 1.0, 10.0, 100.0], dtype=np.float64)
++N_FOLDS = 8
++
++
++def _as_matrix(values):
++    """Return one row per path and one column per state coordinate."""
++    values = np.asarray(values, dtype=np.float64)
++    if values.ndim == 1:
++        return values[:, None]
++    return values.reshape(values.shape[0], -1)
+ 
++
++def _features(states, immediate):
++    """Compact curved basis specified by the intervention."""
++    states = _as_matrix(states)
++    immediate = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices are positive in the benchmark.  Clipping also makes malformed or
++    # numerically underflowed coordinates harmless rather than non-finite.
++    logs = np.log(np.maximum(states, np.finfo(np.float64).tiny))
++    columns = [logs, logs * logs]
++    if logs.shape[1] > 1:
++        products = [logs[:, i : i + 1] * logs[:, j : j + 1]
++                    for i in range(logs.shape[1])
++                    for j in range(i + 1, logs.shape[1])]
++        columns.extend(products)
++    columns.extend([immediate, immediate * logs])
++    result = np.concatenate(columns, axis=1)
++    return np.nan_to_num(result, nan=0.0, posinf=1.0e6, neginf=-1.0e6)
++
++
++def _standardize(x):
++    mean = x.mean(axis=0)
++    scale = x.std(axis=0)
++    scale = np.where(scale > 1.0e-12, scale, 1.0)
++    return (x - mean) / scale, mean, scale
++
++
++def _ridge(x, y, penalty):
++    """Fit an unpenalized intercept and penalized standardized coefficients."""
++    design = np.column_stack((np.ones(x.shape[0], dtype=np.float64), x))
++    gram = design.T @ design
++    regularizer = np.eye(design.shape[1], dtype=np.float64) * penalty
++    regularizer[0, 0] = 0.0
++    rhs = design.T @ y
++    try:
++        return np.linalg.solve(gram + regularizer, rhs)
++    except np.linalg.LinAlgError:
++        return np.linalg.lstsq(gram + regularizer, rhs, rcond=None)[0]
++
++
++def _fold_ids(n_paths, seed):
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n_paths)
++    folds = np.empty(n_paths, dtype=np.int64)
++    folds[order] = np.arange(n_paths, dtype=np.int64) % min(N_FOLDS, n_paths)
++    return folds
++
++
++def _cross_fitted_predictions(x, target, folds):
++    """Return OOF predictions for every penalty and its aggregate OOF SSE."""
++    predictions = np.empty((RIDGES.size, x.shape[0]), dtype=np.float64)
++    for fold in np.unique(folds):
++        validation = folds == fold
++        training = ~validation
++        train_x, mean, scale = _standardize(x[training])
++        valid_x = (x[validation] - mean) / scale
++        for index, penalty in enumerate(RIDGES):
++            coef = _ridge(train_x, target[training], penalty)
++            predictions[index, validation] = coef[0] + valid_x @ coef[1:]
++    residual = predictions - target[None, :]
++    errors = np.sum(residual * residual, axis=1)
++    return predictions, errors
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    paths = np.load(os.path.join(input_dir, "training_paths.npy"), allow_pickle=False)
++    payoffs = np.load(os.path.join(input_dir, "payoffs.npy"), allow_pickle=False)
++    # Loading validates the evaluator-owned timing input.  It is not multiplied
++    # into targets because payoffs are already discounted by contract.
++    np.load(os.path.join(input_dir, "discount_factors.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "instance.json"), "r", encoding="utf-8") as handle:
++        json.load(handle)
++
++    paths = np.asarray(paths, dtype=np.float64)
++    payoffs = np.asarray(payoffs, dtype=np.float64)
++    if paths.ndim < 3 or payoffs.ndim != 2:
++        raise ValueError("unexpected training array rank")
++    if paths.shape[0] != payoffs.shape[0] or paths.shape[1] != payoffs.shape[1]:
++        raise ValueError("paths and payoffs must share path and time axes")
++    n_paths, n_times = payoffs.shape
++    if n_paths < 2 or n_times < 2:
++        raise ValueError("at least two paths and two exercise times are required")
+ 
++    folds = _fold_ids(n_paths, seed)
++    realized = payoffs[:, -1].copy()
++    feature_count = _features(paths[:, 0], payoffs[:, 0]).shape[1]
++    means = np.empty((n_times - 1, feature_count), dtype=np.float64)
++    scales = np.empty_like(means)
++    coefficients = np.empty((n_times - 1, feature_count + 1), dtype=np.float64)
++    penalties = np.empty(n_times - 1, dtype=np.float64)
++
++    for time_index in range(n_times - 2, -1, -1):
++        x = _features(paths[:, time_index], payoffs[:, time_index])
++        if x.shape[1] != feature_count:
++            raise ValueError("state dimension changes across exercise times")
++        target = realized.copy()
++        oof, errors = _cross_fitted_predictions(x, target, folds)
++        choice = int(np.argmin(errors))
++        penalties[time_index] = RIDGES[choice]
++        continuation = np.maximum(oof[choice], 0.0)
++        exercise = (payoffs[:, time_index] > 0.0) & (
++            payoffs[:, time_index] >= continuation
++        )
++        realized = np.where(exercise, payoffs[:, time_index], realized)
++
++        standardized, mean, scale = _standardize(x)
++        means[time_index] = mean
++        scales[time_index] = scale
++        coefficients[time_index] = _ridge(standardized, target,
++                                           penalties[time_index])
++
++    os.makedirs(output_dir, exist_ok=True)
++    np.savez(os.path.join(output_dir, "model.npz"), means=means, scales=scales,
++             coefficients=coefficients, penalties=penalties,
++             n_times=np.asarray(n_times, dtype=np.int64))
++
++
++def _request_time(request, history, n_models):
++    for key in ("time_index", "exercise_index", "time_idx", "step_index", "step"):
++        value = request.get(key)
++        if isinstance(value, (int, np.integer)) and 0 <= int(value) < n_models:
++            return int(value)
++    if history.ndim >= 2:
++        index = history.shape[1] - 1
++        if 0 <= index < n_models:
++            return index
++    raise ValueError("cannot determine exercise-time index from request")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    history = np.load(os.path.join(input_dir, "history.npy"), allow_pickle=False)
++    states = np.load(os.path.join(input_dir, "states.npy"), allow_pickle=False)
++    immediate = np.load(os.path.join(input_dir, "immediate_payoffs.npy"), allow_pickle=False)
++    with open(os.path.join(input_dir, "request.json"), "r", encoding="utf-8") as handle:
++        request = json.load(handle)
++    with np.load(os.path.join(model_dir, "model.npz"), allow_pickle=False) as model:
++        means = model["means"]
++        scales = model["scales"]
++        coefficients = model["coefficients"]
++    time_index = _request_time(request, np.asarray(history), coefficients.shape[0])
++    x = _features(states, immediate)
++    if x.shape[1] != means.shape[1]:
++        raise ValueError("query state dimension differs from training")
++    values = coefficients[time_index, 0] + (
++        (x - means[time_index]) / scales[time_index]
++    ) @ coefficients[time_index, 1:]
++    values = np.maximum(np.nan_to_num(values, nan=0.0, posinf=1.0e100, neginf=0.0), 0.0)
++    os.makedirs(output_dir, exist_ok=True)
++    np.save(os.path.join(output_dir, "predictions.npy"), values.astype(np.float64))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    subparsers = parser.add_subparsers(dest="command", required=True)
++    fit_parser = subparsers.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    predict_parser = subparsers.add_parser("predict")
++    predict_parser.add_argument("--model", required=True)
++    predict_parser.add_argument("--input", required=True)
++    predict_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+2026-09-06T06:47:20.544536Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/williamqian/.codex/shell_snapshots/01a07576-8804-7081-9145-b3b9c26a8375.1788677097477015000.sh"): Os { code: 2, kind: NotFound, message: "No such file or directory" }
+tokens used
+25,808

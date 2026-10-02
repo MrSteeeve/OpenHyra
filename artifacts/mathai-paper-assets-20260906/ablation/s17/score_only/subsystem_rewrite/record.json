@@ -1,0 +1,56 @@
+{
+  "arm": "score_only",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 11231,
+      "wall_seconds": 28.391366250012652
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Compared with the parent, continuation estimates should be less optimistically contaminated by self-fit and less diluted by irrelevant out-of-money observations. This should reduce unstable premature or delayed exercise decisions under only 256 paths, improve out-of-sample discounted payoff, and therefore lower the fixed-construction primal-dual gap. The intervention is motivated by bias control rather than the small score differences among prior candidates.",
+    "failure_condition": "It can fail when very few paths are in the money, fold-specific exercise regions differ sharply, or the true continuation surface is strongly nonlinear; then cross-fitting increases variance and a linear ridge may underfit enough to reduce payoff.",
+    "implementation": "In fit, create four deterministic folds using seed. Work backward with one cash-flow vector. At each date, train standardized ridge regressions on the other three folds using only paths with immediate payoff > 0, predict continuation for the held-out fold, and assemble out-of-fold predictions for all paths. Select lambda from {1e-4,1e-3,1e-2,1e-1,1,10} by inner-fold squared error, with preference for the larger lambda within one standard error. Update each path's cash flow using only its out-of-fold decision: exercise when immediate payoff exceeds continuation. After all out-of-fold decisions at that date are fixed, fit one deployment ridge on all in-the-money paths against the cross-fitted future cash-flow targets and store its normalization and coefficients in the existing model format. For dates with fewer than 12 in-the-money samples, use a constant continuation equal to the mean target. Keep predict unchanged.",
+    "mechanism": "Replace in-sample backward induction with cross-fitted, in-the-money ridge LSM. Out-of-fold continuation estimates prevent each path from influencing its own stopping decision, while excluding zero-payoff paths concentrates limited capacity near the economically relevant exercise boundary."
+  },
+  "memory_sha256": "bcac06a921af0596a7ba99ac48bf333f5cbb49893b873bd572a18b999273ba08",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s17-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s17/score_only/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s17/score_only/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330017,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 17
+}

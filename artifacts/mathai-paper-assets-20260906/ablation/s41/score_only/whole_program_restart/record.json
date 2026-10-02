@@ -1,0 +1,56 @@
+{
+  "arm": "score_only",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 11062,
+      "wall_seconds": 24.649524207998184
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Exercise boundaries should become less sensitive to individual training paths, especially near payoff-continuation ties. The richer but strongly regularized basis can capture moderate boundary curvature without the variance of an MLP or tree ensemble. Cross-fitting may lower apparent training payoff while increasing evaluation payoff and therefore reducing the fixed-upper-bound gap. The near-equality of prior ridge-family scores is only motivation to address decision bias, not evidence that cross-fitting caused an improvement.",
+    "failure_condition": "The intervention can fail if payoffs or path states are so sparse that each fold lacks representative exercise-region observations, if the optimal boundary requires discontinuities beyond the compact basis, or if the evaluator’s training payoffs are already constructed to eliminate same-path look-ahead bias. In those cases cross-fitting adds variance and may produce worse stopping decisions.",
+    "implementation": "Build the same backward recursion using 8 folds fixed by the supplied seed. At each exercise time, fit ridge continuation models on seven folds and predict only the held-out fold; use these out-of-fold predictions to update every path’s realized future cash flow. Standardize features within each training fold and use a compact basis containing log-state levels, squares, pairwise products, immediate payoff, and payoff-by-log-state interactions. Select ridge strength independently per time from {0.01, 0.1, 1, 10, 100} by minimizing accumulated held-out squared error. After the cross-fitted recursion fixes pathwise future-cash-flow targets, refit one ridge model per time on all 256 paths with the selected penalty and save its preprocessing statistics and coefficients for prediction. Preserve the dataset’s payoff units and timing convention.",
+    "mechanism": "Replace in-sample backward induction with deterministic cross-fitted least-squares Monte Carlo. The parent uses each path both to fit continuation values and to decide that path’s exercise, creating optimistic continuation estimates and unstable stopping decisions with only 256 paths. Out-of-fold decisions directly target better out-of-sample discounted payoff."
+  },
+  "memory_sha256": "0dbc23f748566a9dfc7f5960b9ec2806942470c5ec16ef18629ec51625fa6924",
+  "operator": "whole_program_restart",
+  "operator_execution": {},
+  "parent_key": "reference-s41-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s41/score_only/whole_program_restart/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s41/score_only/whole_program_restart/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330041,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 41
+}

@@ -1,0 +1,56 @@
+{
+  "arm": "structured_memory",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 19260,
+      "wall_seconds": 28.16358962500817
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Cross-fitted policy targets should reduce optimistic boundary errors, and positivity calibration should delay spurious zero-payoff exercise, especially for the near-ATM two-asset max call where the parent has the larger gap. Strong ridge selection should preserve the stable one-dimensional put boundary. The computation is small relative to 30 seconds.",
+    "failure_condition": "Reject the intervention if, under paired evaluation with identical seeds and paths, the upper endpoint of the 95% confidence interval for candidate-minus-parent mean discounted payoff is below zero on either hidden slice, or if positivity calibration materially lowers payoff by delaying genuinely optimal positive-payoff exercise.",
+    "implementation": "Run backward induction with four deterministic folds. At each exercise time, fit ridge regressions on the other three folds using the existing features and normalization, considering alpha in {1e-4, 1e-3, 1e-2, 1e-1, 1}; choose alpha by training-fold generalized cross-validation. Predict only the held-out fold and update its cash flow, allowing exercise only when immediate payoff is strictly positive. After all held-out cash-flow targets are formed, refit one ridge model on all 256 paths. Increase its constant-feature coefficient by max(0, -q01), where q01 is the first percentile of fitted continuation predictions among zero-payoff training states. Save coefficients, means, and scales in the parent model.npz schema, leaving predict unchanged.",
+    "mechanism": "Rewrite fitting as honest cross-fitted, positivity-calibrated ridge LSMC. Fold-separated continuation estimates reduce look-ahead bias from reusing 256 paths, while an intercept calibration suppresses economically invalid negative continuation values that make the unchanged predictor exercise zero-payoff states prematurely."
+  },
+  "memory_sha256": "a2420dca34ddfd75dd0ff92898c68a5bdc06295923e3772dcc9357450173e93d",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s17-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s17/structured_memory/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s17/structured_memory/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330017,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 17
+}

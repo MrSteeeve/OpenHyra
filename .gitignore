@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store
+nohup.out
+runs/
+paper/**/*.aux
+paper/**/*.blg
+paper/**/*.out
+paper/**/*.synctex.gz

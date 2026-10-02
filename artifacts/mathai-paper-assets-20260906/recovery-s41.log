@@ -1,0 +1,11 @@
+RETAIN seed=41 arm=structured_memory op=whole_program_restart: Context timeout
+CALL ablation_recovered/s41/score_only/whole_program_restart/calls proposal rc=0 145.1s
+EVAL ablation_recovered/s41/score_only/whole_program_restart/calibration.json ok score=3.9983736986295897 1.8s
+RECOVERED seed=41 arm=score_only op=whole_program_restart ok 3.9983736986295897
+CALL ablation_recovered/s41/score_only/subsystem_rewrite/calls proposal rc=0 76.5s
+EVAL ablation_recovered/s41/score_only/subsystem_rewrite/calibration.json ok score=3.996599245773675 1.7s
+RECOVERED seed=41 arm=score_only op=subsystem_rewrite ok 3.996599245773675
+CALL ablation_recovered/s41/structured_memory/subsystem_rewrite/calls proposal rc=0 98.0s
+EVAL ablation_recovered/s41/structured_memory/subsystem_rewrite/calibration.json ok score=3.9993236017355422 1.9s
+RECOVERED seed=41 arm=structured_memory op=subsystem_rewrite ok 3.9993236017355422
+RECOVERY SEED 41 COMPLETE

@@ -1,0 +1,30 @@
+{
+  "fig01_pipeline": [
+    "data/architecture_comparison.csv",
+    "protocol.json"
+  ],
+  "fig02_feedback_design": [
+    "data/architecture_comparison.csv",
+    "protocol.json",
+    "recovery_amendment.json"
+  ],
+  "fig03_bounds_and_results": [
+    "data/main_results_by_seed.csv",
+    "data/evaluation_cells.csv"
+  ],
+  "fig04_search_trajectory": [
+    "data/original_search_trajectory.csv",
+    "data/original_search_attempts.csv"
+  ],
+  "fig05_feedback_ablation": [
+    "data/feedback_pairs.csv",
+    "data/selected_incumbents.csv"
+  ],
+  "fig06_stopping_behavior": [
+    "data/stopping_behavior.csv"
+  ],
+  "fig07_cost_and_reliability": [
+    "data/cost_and_reliability.csv",
+    "data/model_calls.csv"
+  ]
+}

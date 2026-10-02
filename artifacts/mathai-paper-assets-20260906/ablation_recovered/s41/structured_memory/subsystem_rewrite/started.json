@@ -1,0 +1,6 @@
+{
+  "amendment_sha256": "5e7811eac158a99467481687f09d65ac333d65dbde6cb822945385893370163a",
+  "arm": "structured_memory",
+  "operator": "subsystem_rewrite",
+  "seed": 41
+}

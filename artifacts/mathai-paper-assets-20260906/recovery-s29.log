@@ -1,0 +1,13 @@
+CALL ablation_recovered/s29/score_only/whole_program_restart/calls proposal rc=0 113.5s
+EVAL ablation_recovered/s29/score_only/whole_program_restart/calibration.json ok score=1.8647339162511076 2.2s
+RECOVERED seed=29 arm=score_only op=whole_program_restart ok 1.8647339162511076
+CALL ablation_recovered/s29/structured_memory/whole_program_restart/calls proposal rc=0 143.5s
+EVAL ablation_recovered/s29/structured_memory/whole_program_restart/calibration.json ok score=1.8626056335107302 2.1s
+RECOVERED seed=29 arm=structured_memory op=whole_program_restart ok 1.8626056335107302
+CALL ablation_recovered/s29/structured_memory/subsystem_rewrite/calls proposal rc=0 108.8s
+EVAL ablation_recovered/s29/structured_memory/subsystem_rewrite/calibration.json ok score=1.865656588050887 2.9s
+RECOVERED seed=29 arm=structured_memory op=subsystem_rewrite ok 1.865656588050887
+CALL ablation_recovered/s29/score_only/subsystem_rewrite/calls proposal rc=0 95.8s
+EVAL ablation_recovered/s29/score_only/subsystem_rewrite/calibration.json ok score=1.8609919362847558 2.2s
+RECOVERED seed=29 arm=score_only op=subsystem_rewrite ok 1.8609919362847558
+RECOVERY SEED 29 COMPLETE

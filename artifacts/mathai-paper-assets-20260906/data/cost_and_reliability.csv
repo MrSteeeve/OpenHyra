@@ -1,0 +1,5 @@
+experiment,method,attempts,valid_candidates,failed_attempts,context_calls,proposal_calls,model_seconds,reported_tokens_lower_bound,calls_without_token_report,failures_in_denominator,wall_time_scope
+original,context_proposal,12,10,2,6,12,1690.56736779,362639,2,True,Sum of model-call duration; not parallel elapsed time
+original,direct_generation,12,9,3,0,12,1588.66063705,273605,3,True,Sum of model-call duration; not parallel elapsed time
+feedback_ablation,structured_memory,6,4,2,6,4,773.911365874,183867,2,True,Sum of model-call duration; not parallel elapsed time
+feedback_ablation,score_only,6,6,0,6,6,812.417187793,196375,0,True,Sum of model-call duration; not parallel elapsed time

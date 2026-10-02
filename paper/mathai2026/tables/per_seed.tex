@@ -1,0 +1,23 @@
+% Holdout gap score S and normalized policy lower bound per seed; common dual upper bound per seed in last row.
+\begin{tabular}{l rrr rrr}
+\toprule
+ & \multicolumn{3}{c}{Gap score $S$ (lower is better)} & \multicolumn{3}{c}{$\hat L_\pi/K$} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Method / selection rule & Seed 17 & Seed 29 & Seed 41 & Seed 17 & Seed 29 & Seed 41 \\
+\midrule
+Ridge & 0.07465 & 0.22849 & 0.25267 & 0.17786 & 0.13396 & 0.14132 \\
+PCA + Ridge / Policy iteration$^\dagger$ & 0.07490 & 0.22750 & 0.25270 & 0.17760 & 0.13477 & 0.14136 \\
+Gated Ridge & 0.07613 & 0.22851 & 0.25341 & 0.17640 & 0.13389 & 0.14073 \\
+MLP & 0.08926 & 0.23642 & 0.26112 & 0.16374 & 0.12765 & 0.13372 \\
+Ridge + MLP & 0.07607 & 0.22867 & 0.25235 & 0.17674 & 0.13380 & 0.14171 \\
+Threshold policy & 0.20579 & 0.32121 & 0.34179 & 0.06665 & 0.05148 & 0.05761 \\
+Original planner: best generated & 0.07687 & 0.22908 & 0.25372 & 0.17595 & 0.13337 & 0.14031 \\
+Original direct: best generated & 0.07706 & 0.22851 & 0.25355 & 0.17590 & 0.13381 & 0.14069 \\
+Original planner incumbent & 0.07687 & 0.22849 & 0.25235 & 0.17595 & 0.13396 & 0.14171 \\
+Original direct incumbent & 0.07607 & 0.22851 & 0.25355 & 0.17674 & 0.13381 & 0.14069 \\
+Structured-memory incumbent & 0.07465 & 0.22849 & 0.25267 & 0.17786 & 0.13396 & 0.14132 \\
+Score-only incumbent & 0.07580 & 0.22849 & 0.25267 & 0.17675 & 0.13396 & 0.14132 \\
+\midrule
+Common $\hat U/K$ & 0.21423 & 0.26348 & 0.28841 & & & \\
+\bottomrule
+\end{tabular}

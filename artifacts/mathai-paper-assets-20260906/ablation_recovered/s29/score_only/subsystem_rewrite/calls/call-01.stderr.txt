@@ -1,0 +1,1016 @@
+2026-09-06T06:51:09.490369Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-06T06:51:10.566452Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.569176Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.571776Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.574007Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.576429Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.579013Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.581513Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.584179Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.587759Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.589680Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.591557Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.593281Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.594554Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:51:10.596096Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0757c-3947-7d23-9048-60e3059d8c71
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+
+Implement the Context plan below as an executable program. Optimize actual causal stopping decisions for expected discounted payoff, measured by primal-dual confidence gap. Do not alter evaluation or read outside this draft directory. Use only Python standard library and NumPy. Fit cap: 30 seconds; training paths: 256. Queries contain only causal history and current state. Use terminal/files only to edit this draft; do not search the repository or access network. Do not execute the generated candidate here: the independent evaluator performs execution.
+Context plan:
+{"expected_behavior": "Exercise labels near the stopping boundary should become less optimistic and less sensitive to individual training paths. The final full-data regressions retain sample efficiency, while cross-fitting governs the recursive targets. This should improve held-out expected discounted payoff and therefore reduce the fixed-upper-bound gap, particularly relative to ordinary linear ridge; the small prior score differences are treated only as motivation, not causal evidence.", "failure_condition": "The intervention can fail if folds contain too few relevant in-the-money or boundary observations, making out-of-fold continuation estimates noisier than the original fit, or if the optimal policy is sufficiently nonlinear that bias from the fixed feature map dominates look-ahead overfitting.", "implementation": "Assign paths deterministically into 8 folds using the supplied seed. At each exercise time, standardize the existing features globally. For every fold, fit ridge continuation regression on the other seven folds against their current realized cash flows, predict only the held-out fold, and update every path’s cash flow using these out-of-fold predictions. Select one ridge penalty per time from {0.001, 0.01, 0.1, 1, 10} by minimizing pooled out-of-fold squared error, with a slight preference for the larger penalty on near-ties. After updating cash flows, refit ridge on all 256 paths using the selected penalty and save that full-sample coefficient, mean, and scale in the existing model.npz schema so predict remains unchanged. Keep the intercept unpenalized and use a stable Cholesky solve.", "mechanism": "Rewrite fit as cross-fitted backward induction. Out-of-fold continuation estimates prevent each path’s regression noise from favorably influencing its own stopping decision, reducing look-ahead overfitting with only 256 paths."}
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: fit
+- operator: subsystem_rewrite
+- target_slice: all
+- prediction: Exercise labels near the stopping boundary should become less optimistic and less sensitive to individual training paths. The final full-data regressions retain sample efficiency, while cross-fitting governs the recursive targets. This should improve held-out expected discounted payoff and therefore reduce the fixed-upper-bound gap, particularly relative to ordinary linear ridge; the small prior score differences are treated only as motivation, not causal evidence.
+- falsifier: The intervention can fail if folds contain too few relevant in-the-money or boundary observations, making out-of-fold continuation estimates noisier than the original fit, or if the optimal policy is sufficiently nonlinear that bias from the fixed feature map dominates look-ahead overfitting.
+
+The `fit(...)` subsystem has been cleared. Rewrite only the body of the top-level `fit` function. Put any new imports or helper functions inside that function: after this call the system will keep only its body and rebuild every other function, module definition, source file, and CLI from the parent program.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 53 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect only the draft’s protocol and candidate files, then replace precisely the top-level `fit(...)` body while preserving prediction, helpers, manifest, and transport files.
+exec
+/bin/zsh -lc "pwd && rg --files -g 'PYTHON_PROGRAM_PROTOCOL_V1.md' -g 'algorithm.py' -g 'manifest.json' -g 'AGENTS.md'" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+manifest.json
+algorithm.py
+
+exec
+/bin/zsh -lc "sed -n '1,260p' algorithm.py && sed -n '1,80p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    raise NotImplementedError('rewrite the fit subsystem')
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+codex
+The preserved predictor reveals the required `model.npz` layout and feature normalization convention. I’ll make the constant feature remain a true unpenalized intercept (`mean=0`, `scale=1`), use deterministic shuffled 8-fold assignments, select penalties from pooled out-of-fold error with a narrow larger-penalty tie break, and retain each time step’s pre-decision cash-flow target for the final full-data continuation fit.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..16a046468eefec52b9148071b16367f01e8f1e7d
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,115 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep all implementation details local: subsystem crossover retains only
++    # this function body and reconstructs the surrounding parent program.
++    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++        mean = np.mean(design, axis=0)
++        scale = np.std(design, axis=0)
++        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
++        # features() explicitly places the intercept in column zero.  Leaving
++        # it centered would turn that column into zeros.
++        mean[0] = 0.0
++        scale[0] = 1.0
++        return (design - mean) / scale, mean, scale
++
++    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
++        gram = design.T @ design
++        rhs = design.T @ target
++        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
++        diagonal[0] = 0.0
++        gram.flat[:: gram.shape[0] + 1] += diagonal
++        # Positive ridge curvature plus a represented intercept makes this
++        # positive definite; a scale-aware numerical jitter guards roundoff.
++        jitter = np.finfo(np.float64).eps * max(
++            1.0, float(np.max(np.diag(gram)))
++        )
++        for _ in range(5):
++            try:
++                factor = np.linalg.cholesky(gram)
++                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
++            except np.linalg.LinAlgError:
++                gram.flat[:: gram.shape[0] + 1] += jitter
++                jitter *= 10.0
++        # All ordinary cases return above.  Preserve a finite model even for
++        # a pathologically rank-deficient or non-finite evaluator instance.
++        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
++
++    paths = np.asarray(
++        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    payoffs = np.asarray(
++        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('training paths and payoffs have invalid dimensions')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
++        raise ValueError('training paths and payoffs have incompatible shapes')
++
++    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
++    means = np.zeros_like(coefficients)
++    scales = np.ones_like(coefficients)
++
++    # A seeded permutation followed by round-robin assignment is deterministic
++    # and keeps fold sizes within one observation of each other.
++    fold_count = min(8, n_paths)
++    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
++    fold_id = np.empty(n_paths, dtype=np.int64)
++    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
++    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
++
++    # Payoffs are supplied already discounted on the exercise grid, so the
++    # realized future cash flow can be compared directly with immediate payoff.
++    cash_flow = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        normalized, mean, scale = normalization(design)
++        target = cash_flow.copy()
++        predictions_by_penalty = np.empty(
++            (penalties.size, n_paths), dtype=np.float64
++        )
++
++        for penalty_index, penalty in enumerate(penalties):
++            out_of_fold = predictions_by_penalty[penalty_index]
++            for held_out in range(fold_count):
++                validation = fold_id == held_out
++                training = ~validation
++                beta = ridge(normalized[training], target[training], float(penalty))
++                out_of_fold[validation] = normalized[validation] @ beta
++
++        errors = np.mean(
++            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
++            axis=1,
++        )
++        best_error = float(np.min(errors))
++        # Among numerically near-equivalent fits, choose the larger penalty.
++        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
++        eligible = np.flatnonzero(errors <= best_error + tolerance)
++        selected = int(eligible[-1])
++        continuation = predictions_by_penalty[selected]
++
++        exercise = payoffs[:, time_index] >= continuation
++        cash_flow = np.where(exercise, payoffs[:, time_index], target)
++
++        # The full-data model predicts continuation (the pre-decision target),
++        # while only out-of-fold predictions govern recursive exercise labels.
++        coefficients[time_index] = ridge(
++            normalized, target, float(penalties[selected])
++        )
++        means[time_index] = mean
++        scales[time_index] = scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..16a046468eefec52b9148071b16367f01e8f1e7d
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,115 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep all implementation details local: subsystem crossover retains only
++    # this function body and reconstructs the surrounding parent program.
++    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++        mean = np.mean(design, axis=0)
++        scale = np.std(design, axis=0)
++        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
++        # features() explicitly places the intercept in column zero.  Leaving
++        # it centered would turn that column into zeros.
++        mean[0] = 0.0
++        scale[0] = 1.0
++        return (design - mean) / scale, mean, scale
++
++    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
++        gram = design.T @ design
++        rhs = design.T @ target
++        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
++        diagonal[0] = 0.0
++        gram.flat[:: gram.shape[0] + 1] += diagonal
++        # Positive ridge curvature plus a represented intercept makes this
++        # positive definite; a scale-aware numerical jitter guards roundoff.
++        jitter = np.finfo(np.float64).eps * max(
++            1.0, float(np.max(np.diag(gram)))
++        )
++        for _ in range(5):
++            try:
++                factor = np.linalg.cholesky(gram)
++                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
++            except np.linalg.LinAlgError:
++                gram.flat[:: gram.shape[0] + 1] += jitter
++                jitter *= 10.0
++        # All ordinary cases return above.  Preserve a finite model even for
++        # a pathologically rank-deficient or non-finite evaluator instance.
++        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
++
++    paths = np.asarray(
++        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    payoffs = np.asarray(
++        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('training paths and payoffs have invalid dimensions')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
++        raise ValueError('training paths and payoffs have incompatible shapes')
++
++    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
++    means = np.zeros_like(coefficients)
++    scales = np.ones_like(coefficients)
++
++    # A seeded permutation followed by round-robin assignment is deterministic
++    # and keeps fold sizes within one observation of each other.
++    fold_count = min(8, n_paths)
++    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
++    fold_id = np.empty(n_paths, dtype=np.int64)
++    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
++    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
++
++    # Payoffs are supplied already discounted on the exercise grid, so the
++    # realized future cash flow can be compared directly with immediate payoff.
++    cash_flow = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        normalized, mean, scale = normalization(design)
++        target = cash_flow.copy()
++        predictions_by_penalty = np.empty(
++            (penalties.size, n_paths), dtype=np.float64
++        )
++
++        for penalty_index, penalty in enumerate(penalties):
++            out_of_fold = predictions_by_penalty[penalty_index]
++            for held_out in range(fold_count):
++                validation = fold_id == held_out
++                training = ~validation
++                beta = ridge(normalized[training], target[training], float(penalty))
++                out_of_fold[validation] = normalized[validation] @ beta
++
++        errors = np.mean(
++            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
++            axis=1,
++        )
++        best_error = float(np.min(errors))
++        # Among numerically near-equivalent fits, choose the larger penalty.
++        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
++        eligible = np.flatnonzero(errors <= best_error + tolerance)
++        selected = int(eligible[-1])
++        continuation = predictions_by_penalty[selected]
++
++        exercise = payoffs[:, time_index] >= continuation
++        cash_flow = np.where(exercise, payoffs[:, time_index], target)
++
++        # The full-data model predicts continuation (the pre-decision target),
++        # while only out-of-fold predictions govern recursive exercise labels.
++        coefficients[time_index] = ridge(
++            normalized, target, float(penalties[selected])
++        )
++        means[time_index] = mean
++        scales[time_index] = scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+exec
+/bin/zsh -lc "git diff -- algorithm.py manifest.json 2>/dev/null || sed -n '1,220p' algorithm.py" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..16a046468eefec52b9148071b16367f01e8f1e7d
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,115 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep all implementation details local: subsystem crossover retains only
++    # this function body and reconstructs the surrounding parent program.
++    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++        mean = np.mean(design, axis=0)
++        scale = np.std(design, axis=0)
++        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
++        # features() explicitly places the intercept in column zero.  Leaving
++        # it centered would turn that column into zeros.
++        mean[0] = 0.0
++        scale[0] = 1.0
++        return (design - mean) / scale, mean, scale
++
++    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
++        gram = design.T @ design
++        rhs = design.T @ target
++        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
++        diagonal[0] = 0.0
++        gram.flat[:: gram.shape[0] + 1] += diagonal
++        # Positive ridge curvature plus a represented intercept makes this
++        # positive definite; a scale-aware numerical jitter guards roundoff.
++        jitter = np.finfo(np.float64).eps * max(
++            1.0, float(np.max(np.diag(gram)))
++        )
++        for _ in range(5):
++            try:
++                factor = np.linalg.cholesky(gram)
++                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
++            except np.linalg.LinAlgError:
++                gram.flat[:: gram.shape[0] + 1] += jitter
++                jitter *= 10.0
++        # All ordinary cases return above.  Preserve a finite model even for
++        # a pathologically rank-deficient or non-finite evaluator instance.
++        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
++
++    paths = np.asarray(
++        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    payoffs = np.asarray(
++        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('training paths and payoffs have invalid dimensions')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
++        raise ValueError('training paths and payoffs have incompatible shapes')
++
++    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
++    means = np.zeros_like(coefficients)
++    scales = np.ones_like(coefficients)
++
++    # A seeded permutation followed by round-robin assignment is deterministic
++    # and keeps fold sizes within one observation of each other.
++    fold_count = min(8, n_paths)
++    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
++    fold_id = np.empty(n_paths, dtype=np.int64)
++    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
++    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
++
++    # Payoffs are supplied already discounted on the exercise grid, so the
++    # realized future cash flow can be compared directly with immediate payoff.
++    cash_flow = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        normalized, mean, scale = normalization(design)
++        target = cash_flow.copy()
++        predictions_by_penalty = np.empty(
++            (penalties.size, n_paths), dtype=np.float64
++        )
++
++        for penalty_index, penalty in enumerate(penalties):
++            out_of_fold = predictions_by_penalty[penalty_index]
++            for held_out in range(fold_count):
++                validation = fold_id == held_out
++                training = ~validation
++                beta = ridge(normalized[training], target[training], float(penalty))
++                out_of_fold[validation] = normalized[validation] @ beta
++
++        errors = np.mean(
++            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
++            axis=1,
++        )
++        best_error = float(np.min(errors))
++        # Among numerically near-equivalent fits, choose the larger penalty.
++        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
++        eligible = np.flatnonzero(errors <= best_error + tolerance)
++        selected = int(eligible[-1])
++        continuation = predictions_by_penalty[selected]
++
++        exercise = payoffs[:, time_index] >= continuation
++        cash_flow = np.where(exercise, payoffs[:, time_index], target)
++
++        # The full-data model predicts continuation (the pre-decision target),
++        # while only out-of-fold predictions govern recursive exercise labels.
++        coefficients[time_index] = ridge(
++            normalized, target, float(penalties[selected])
++        )
++        means[time_index] = mean
++        scales[time_index] = scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+exec
+/bin/zsh -lc "sed -n '1,230p' algorithm.py && sed -n '1,20p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft
+ succeeded in 0ms:
+"""Complete fit/predict seed for the open Python-program track.
+
+This is deliberately just one ordinary starting program. Search candidates
+may replace every function, model representation, objective, and update rule.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+def features(states: np.ndarray, immediate: np.ndarray) -> np.ndarray:
+    states = np.asarray(states, dtype=np.float64)
+    logged = np.log(np.maximum(states, 1e-12))
+    columns = [np.ones(states.shape[0], dtype=np.float64), *[logged[:, index] for index in range(logged.shape[1])], *[logged[:, index] ** 2 for index in range(logged.shape[1])], np.mean(logged, axis=1), np.min(logged, axis=1), np.max(logged, axis=1), np.asarray(immediate, dtype=np.float64)]
+    return np.column_stack(columns)
+
+def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+    # Keep all implementation details local: subsystem crossover retains only
+    # this function body and reconstructs the surrounding parent program.
+    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mean = np.mean(design, axis=0)
+        scale = np.std(design, axis=0)
+        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
+        # features() explicitly places the intercept in column zero.  Leaving
+        # it centered would turn that column into zeros.
+        mean[0] = 0.0
+        scale[0] = 1.0
+        return (design - mean) / scale, mean, scale
+
+    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
+        gram = design.T @ design
+        rhs = design.T @ target
+        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
+        diagonal[0] = 0.0
+        gram.flat[:: gram.shape[0] + 1] += diagonal
+        # Positive ridge curvature plus a represented intercept makes this
+        # positive definite; a scale-aware numerical jitter guards roundoff.
+        jitter = np.finfo(np.float64).eps * max(
+            1.0, float(np.max(np.diag(gram)))
+        )
+        for _ in range(5):
+            try:
+                factor = np.linalg.cholesky(gram)
+                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
+            except np.linalg.LinAlgError:
+                gram.flat[:: gram.shape[0] + 1] += jitter
+                jitter *= 10.0
+        # All ordinary cases return above.  Preserve a finite model even for
+        # a pathologically rank-deficient or non-finite evaluator instance.
+        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
+
+    paths = np.asarray(
+        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
+        dtype=np.float64,
+    )
+    payoffs = np.asarray(
+        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
+        dtype=np.float64,
+    )
+    if paths.ndim != 3 or payoffs.ndim != 2:
+        raise ValueError('training paths and payoffs have invalid dimensions')
+    n_paths, n_times, _ = paths.shape
+    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
+        raise ValueError('training paths and payoffs have incompatible shapes')
+
+    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
+    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
+    means = np.zeros_like(coefficients)
+    scales = np.ones_like(coefficients)
+
+    # A seeded permutation followed by round-robin assignment is deterministic
+    # and keeps fold sizes within one observation of each other.
+    fold_count = min(8, n_paths)
+    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
+    fold_id = np.empty(n_paths, dtype=np.int64)
+    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
+    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
+
+    # Payoffs are supplied already discounted on the exercise grid, so the
+    # realized future cash flow can be compared directly with immediate payoff.
+    cash_flow = payoffs[:, -1].copy()
+    for time_index in range(n_times - 2, -1, -1):
+        design = features(paths[:, time_index, :], payoffs[:, time_index])
+        normalized, mean, scale = normalization(design)
+        target = cash_flow.copy()
+        predictions_by_penalty = np.empty(
+            (penalties.size, n_paths), dtype=np.float64
+        )
+
+        for penalty_index, penalty in enumerate(penalties):
+            out_of_fold = predictions_by_penalty[penalty_index]
+            for held_out in range(fold_count):
+                validation = fold_id == held_out
+                training = ~validation
+                beta = ridge(normalized[training], target[training], float(penalty))
+                out_of_fold[validation] = normalized[validation] @ beta
+
+        errors = np.mean(
+            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
+            axis=1,
+        )
+        best_error = float(np.min(errors))
+        # Among numerically near-equivalent fits, choose the larger penalty.
+        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
+        eligible = np.flatnonzero(errors <= best_error + tolerance)
+        selected = int(eligible[-1])
+        continuation = predictions_by_penalty[selected]
+
+        exercise = payoffs[:, time_index] >= continuation
+        cash_flow = np.where(exercise, payoffs[:, time_index], target)
+
+        # The full-data model predicts continuation (the pre-decision target),
+        # while only out-of-fold predictions govern recursive exercise labels.
+        coefficients[time_index] = ridge(
+            normalized, target, float(penalties[selected])
+        )
+        means[time_index] = mean
+        scales[time_index] = scale
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        output_dir / 'model.npz',
+        coefficients=coefficients,
+        means=means,
+        scales=scales,
+    )
+
+def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+    request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+    time_index = int(request['time_index'])
+    states = np.load(input_dir / 'states.npy', allow_pickle=False)
+    immediate = np.load(input_dir / 'immediate_payoffs.npy', allow_pickle=False)
+    with np.load(model_dir / 'model.npz', allow_pickle=False) as model:
+        design = features(states, immediate)
+        normalized = (design - model['means'][time_index]) / model['scales'][time_index]
+        predictions = normalized @ model['coefficients'][time_index]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    np.save(output_dir / 'predictions.npy', np.asarray(predictions, dtype=np.float64), allow_pickle=False)
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='command', required=True)
+    fit_parser = subparsers.add_parser('fit')
+    fit_parser.add_argument('--input', required=True)
+    fit_parser.add_argument('--output', required=True)
+    fit_parser.add_argument('--seed', required=True, type=int)
+    predict_parser = subparsers.add_parser('predict')
+    predict_parser.add_argument('--model', required=True)
+    predict_parser.add_argument('--input', required=True)
+    predict_parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.command == 'fit':
+        fit(Path(args.input), Path(args.output), args.seed)
+    else:
+        predict(Path(args.model), Path(args.input), Path(args.output))
+if __name__ == '__main__':
+    main()
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..16a046468eefec52b9148071b16367f01e8f1e7d
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,115 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep all implementation details local: subsystem crossover retains only
++    # this function body and reconstructs the surrounding parent program.
++    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++        mean = np.mean(design, axis=0)
++        scale = np.std(design, axis=0)
++        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
++        # features() explicitly places the intercept in column zero.  Leaving
++        # it centered would turn that column into zeros.
++        mean[0] = 0.0
++        scale[0] = 1.0
++        return (design - mean) / scale, mean, scale
++
++    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
++        gram = design.T @ design
++        rhs = design.T @ target
++        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
++        diagonal[0] = 0.0
++        gram.flat[:: gram.shape[0] + 1] += diagonal
++        # Positive ridge curvature plus a represented intercept makes this
++        # positive definite; a scale-aware numerical jitter guards roundoff.
++        jitter = np.finfo(np.float64).eps * max(
++            1.0, float(np.max(np.diag(gram)))
++        )
++        for _ in range(5):
++            try:
++                factor = np.linalg.cholesky(gram)
++                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
++            except np.linalg.LinAlgError:
++                gram.flat[:: gram.shape[0] + 1] += jitter
++                jitter *= 10.0
++        # All ordinary cases return above.  Preserve a finite model even for
++        # a pathologically rank-deficient or non-finite evaluator instance.
++        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
++
++    paths = np.asarray(
++        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    payoffs = np.asarray(
++        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('training paths and payoffs have invalid dimensions')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
++        raise ValueError('training paths and payoffs have incompatible shapes')
++
++    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
++    means = np.zeros_like(coefficients)
++    scales = np.ones_like(coefficients)
++
++    # A seeded permutation followed by round-robin assignment is deterministic
++    # and keeps fold sizes within one observation of each other.
++    fold_count = min(8, n_paths)
++    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
++    fold_id = np.empty(n_paths, dtype=np.int64)
++    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
++    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
++
++    # Payoffs are supplied already discounted on the exercise grid, so the
++    # realized future cash flow can be compared directly with immediate payoff.
++    cash_flow = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        normalized, mean, scale = normalization(design)
++        target = cash_flow.copy()
++        predictions_by_penalty = np.empty(
++            (penalties.size, n_paths), dtype=np.float64
++        )
++
++        for penalty_index, penalty in enumerate(penalties):
++            out_of_fold = predictions_by_penalty[penalty_index]
++            for held_out in range(fold_count):
++                validation = fold_id == held_out
++                training = ~validation
++                beta = ridge(normalized[training], target[training], float(penalty))
++                out_of_fold[validation] = normalized[validation] @ beta
++
++        errors = np.mean(
++            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
++            axis=1,
++        )
++        best_error = float(np.min(errors))
++        # Among numerically near-equivalent fits, choose the larger penalty.
++        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
++        eligible = np.flatnonzero(errors <= best_error + tolerance)
++        selected = int(eligible[-1])
++        continuation = predictions_by_penalty[selected]
++
++        exercise = payoffs[:, time_index] >= continuation
++        cash_flow = np.where(exercise, payoffs[:, time_index], target)
++
++        # The full-data model predicts continuation (the pre-decision target),
++        # while only out-of-fold predictions govern recursive exercise labels.
++        coefficients[time_index] = ridge(
++            normalized, target, float(penalties[selected])
++        )
++        means[time_index] = mean
++        scales[time_index] = scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+codex
+Implemented the cross-fitted backward-induction `fit(...)` in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py:18).
+
+It now includes:
+
+- Deterministic seeded 8-fold assignment.
+- Global per-time feature standardization.
+- Unpenalized intercept handling.
+- Stable Cholesky ridge fitting.
+- Pooled out-of-fold selection over the five specified penalties.
+- Larger-penalty preference on near-ties.
+- Out-of-fold recursive stopping updates.
+- Full-data continuation refits saved in the existing `model.npz` schema.
+
+Only the `fit(...)` body was changed. `predict(...)`, the continuation manifest, and task-owned transport were left untouched. Per instruction, I did not execute the candidate.
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+index 310428a8438ba3aa3430e32a423ab181289f24d5..16a046468eefec52b9148071b16367f01e8f1e7d
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/score_only/subsystem_rewrite/draft/algorithm.py
+@@ -16,7 +16,115 @@
+     return np.column_stack(columns)
+ 
+ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
+-    raise NotImplementedError('rewrite the fit subsystem')
++    # Keep all implementation details local: subsystem crossover retains only
++    # this function body and reconstructs the surrounding parent program.
++    def normalization(design: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
++        mean = np.mean(design, axis=0)
++        scale = np.std(design, axis=0)
++        scale = np.where(np.isfinite(scale) & (scale > 1e-12), scale, 1.0)
++        # features() explicitly places the intercept in column zero.  Leaving
++        # it centered would turn that column into zeros.
++        mean[0] = 0.0
++        scale[0] = 1.0
++        return (design - mean) / scale, mean, scale
++
++    def ridge(design: np.ndarray, target: np.ndarray, penalty: float) -> np.ndarray:
++        gram = design.T @ design
++        rhs = design.T @ target
++        diagonal = np.full(design.shape[1], penalty, dtype=np.float64)
++        diagonal[0] = 0.0
++        gram.flat[:: gram.shape[0] + 1] += diagonal
++        # Positive ridge curvature plus a represented intercept makes this
++        # positive definite; a scale-aware numerical jitter guards roundoff.
++        jitter = np.finfo(np.float64).eps * max(
++            1.0, float(np.max(np.diag(gram)))
++        )
++        for _ in range(5):
++            try:
++                factor = np.linalg.cholesky(gram)
++                return np.linalg.solve(factor.T, np.linalg.solve(factor, rhs))
++            except np.linalg.LinAlgError:
++                gram.flat[:: gram.shape[0] + 1] += jitter
++                jitter *= 10.0
++        # All ordinary cases return above.  Preserve a finite model even for
++        # a pathologically rank-deficient or non-finite evaluator instance.
++        return np.linalg.lstsq(gram, rhs, rcond=None)[0]
++
++    paths = np.asarray(
++        np.load(input_dir / 'training_paths.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    payoffs = np.asarray(
++        np.load(input_dir / 'payoffs.npy', allow_pickle=False),
++        dtype=np.float64,
++    )
++    if paths.ndim != 3 or payoffs.ndim != 2:
++        raise ValueError('training paths and payoffs have invalid dimensions')
++    n_paths, n_times, _ = paths.shape
++    if payoffs.shape != (n_paths, n_times) or n_paths == 0 or n_times == 0:
++        raise ValueError('training paths and payoffs have incompatible shapes')
++
++    feature_count = features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefficients = np.zeros((n_times, feature_count), dtype=np.float64)
++    means = np.zeros_like(coefficients)
++    scales = np.ones_like(coefficients)
++
++    # A seeded permutation followed by round-robin assignment is deterministic
++    # and keeps fold sizes within one observation of each other.
++    fold_count = min(8, n_paths)
++    permutation = np.random.default_rng(int(seed)).permutation(n_paths)
++    fold_id = np.empty(n_paths, dtype=np.int64)
++    fold_id[permutation] = np.arange(n_paths, dtype=np.int64) % fold_count
++    penalties = np.asarray((0.001, 0.01, 0.1, 1.0, 10.0), dtype=np.float64)
++
++    # Payoffs are supplied already discounted on the exercise grid, so the
++    # realized future cash flow can be compared directly with immediate payoff.
++    cash_flow = payoffs[:, -1].copy()
++    for time_index in range(n_times - 2, -1, -1):
++        design = features(paths[:, time_index, :], payoffs[:, time_index])
++        normalized, mean, scale = normalization(design)
++        target = cash_flow.copy()
++        predictions_by_penalty = np.empty(
++            (penalties.size, n_paths), dtype=np.float64
++        )
++
++        for penalty_index, penalty in enumerate(penalties):
++            out_of_fold = predictions_by_penalty[penalty_index]
++            for held_out in range(fold_count):
++                validation = fold_id == held_out
++                training = ~validation
++                beta = ridge(normalized[training], target[training], float(penalty))
++                out_of_fold[validation] = normalized[validation] @ beta
++
++        errors = np.mean(
++            (predictions_by_penalty - target[np.newaxis, :]) ** 2,
++            axis=1,
++        )
++        best_error = float(np.min(errors))
++        # Among numerically near-equivalent fits, choose the larger penalty.
++        tolerance = 1e-12 + 1e-6 * max(1.0, abs(best_error))
++        eligible = np.flatnonzero(errors <= best_error + tolerance)
++        selected = int(eligible[-1])
++        continuation = predictions_by_penalty[selected]
++
++        exercise = payoffs[:, time_index] >= continuation
++        cash_flow = np.where(exercise, payoffs[:, time_index], target)
++
++        # The full-data model predicts continuation (the pre-decision target),
++        # while only out-of-fold predictions govern recursive exercise labels.
++        coefficients[time_index] = ridge(
++            normalized, target, float(penalties[selected])
++        )
++        means[time_index] = mean
++        scales[time_index] = scale
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez(
++        output_dir / 'model.npz',
++        coefficients=coefficients,
++        means=means,
++        scales=scales,
++    )
+ 
+ def predict(model_dir: Path, input_dir: Path, output_dir: Path) -> None:
+     request = json.loads((input_dir / 'request.json').read_text(encoding='utf-8'))
+
+tokens used
+20,351

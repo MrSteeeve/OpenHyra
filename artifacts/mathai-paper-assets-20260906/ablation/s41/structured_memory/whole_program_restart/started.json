@@ -1,0 +1,5 @@
+{
+  "arm": "structured_memory",
+  "operator": "whole_program_restart",
+  "seed": 41
+}

@@ -1,0 +1,80 @@
+[
+  {
+    "gap_score": 4.056181575891761,
+    "id": "reference-s41-direct_decision",
+    "source_digest": "3747567f7fb88efa3ab3f0588c58ee43f97ce729dc8f9837e48952f4fbb4536d",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.99861673885672,
+    "id": "reference-s41-gated_ridge",
+    "source_digest": "64443d12c9e5f1c791ec3eb6a999d070018910238ba0a23114eb7d7b459f75ad",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.9963495069601596,
+    "id": "reference-s41-linear_ridge",
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "status": "ok"
+  },
+  {
+    "gap_score": 4.005629399265464,
+    "id": "reference-s41-mlp",
+    "source_digest": "3b547bfcff4e0368687689aa2fd166d12f7ba6acf7db31a391cd5420f0a7f2de",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.996971183076122,
+    "id": "reference-s41-pca_ridge",
+    "source_digest": "a1e0305f82d129a1a532bd62698755404d0b7b9dbcee29254e072cb9e2b1098b",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.996971183076122,
+    "id": "reference-s41-policy_iteration",
+    "source_digest": "33857e8c7717ee3e20066a29aaad29d87d84460e9afe5c1172c8488a7fcc27ba",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.9969067681312564,
+    "id": "reference-s41-residual_hybrid",
+    "source_digest": "5702b3a8bb0156cb7c92c62e15aa7e91f83f78471ae0b0d3bd429dcc2674a26c",
+    "status": "ok"
+  },
+  {
+    "gap_score": 4.002262224308234,
+    "id": "legacy-context_proposal-s41-sol_0005",
+    "source_digest": "db66e068a190899d2b37b0448eff7f3f6a7ff8776b03e48a9a6c51319e9f1314",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.997062900509594,
+    "id": "legacy-context_proposal-s41-sol_0007",
+    "source_digest": "087096006736f7377b08f905a79a5d9e5bc83b9327cf18f4266d37359c9f1a74",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.9979046256783457,
+    "id": "legacy-context_proposal-s41-sol_0009",
+    "source_digest": "fbf80ac6510b8ad3fa8ad5b939ff140f940bdb9abf896c04862b0297e5c0fc6a",
+    "status": "ok"
+  },
+  {
+    "gap_score": 4.000747490452543,
+    "id": "legacy-direct_generation-s41-sol_0003",
+    "source_digest": "f70da1aa2d72e7a5565f8d6bf18e09713cb1d5c4a2601f2e6bc007bf208b1136",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.99835642392292,
+    "id": "legacy-direct_generation-s41-sol_0007",
+    "source_digest": "ac45a8ba5e2e2feb0f4ab8eaff393cfe06987151c179335371c19dc461f888b7",
+    "status": "ok"
+  },
+  {
+    "gap_score": 3.9994778395301194,
+    "id": "legacy-direct_generation-s41-sol_0009",
+    "source_digest": "345ce802cfbb4f31618349d0e6ee4cb08c45ebd1b454c8cf5c8a7352e9ae96d4",
+    "status": "ok"
+  }
+]

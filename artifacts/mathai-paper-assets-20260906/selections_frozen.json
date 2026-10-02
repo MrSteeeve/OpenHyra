@@ -1,0 +1,73 @@
+{
+  "amendment_sha256": "5e7811eac158a99467481687f09d65ac333d65dbde6cb822945385893370163a",
+  "protocol_sha256": "ae7468e9b60443dc74e0eb470556d3772e77d379ba79fe59039f0e66972019cc",
+  "rule": "calibration only; parent included; no holdout reselection",
+  "selections": [
+    {
+      "arm": "structured_memory",
+      "best_generated_operator": "subsystem_rewrite",
+      "best_generated_program_path": "ablation_recovered/s17/structured_memory/subsystem_rewrite/program",
+      "calibration_score": 0.20114555782375262,
+      "parent_key": "reference-s17-linear_ridge",
+      "seed": 17,
+      "selected_operator": "initial_reference",
+      "selected_program_path": "programs/reference-s17-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac"
+    },
+    {
+      "arm": "score_only",
+      "best_generated_operator": "subsystem_rewrite",
+      "best_generated_program_path": "ablation_recovered/s17/score_only/subsystem_rewrite/program",
+      "calibration_score": 0.2008430245521115,
+      "parent_key": "reference-s17-linear_ridge",
+      "seed": 17,
+      "selected_operator": "subsystem_rewrite",
+      "selected_program_path": "ablation_recovered/s17/score_only/subsystem_rewrite/program",
+      "source_digest": "3024db5bbdcc2f90cd09e25f4270bbf718f5fa1b03efd6e1bb10f362e538966d"
+    },
+    {
+      "arm": "structured_memory",
+      "best_generated_operator": "whole_program_restart",
+      "best_generated_program_path": "ablation_recovered/s29/structured_memory/whole_program_restart/program",
+      "calibration_score": 1.8603104668181956,
+      "parent_key": "reference-s29-linear_ridge",
+      "seed": 29,
+      "selected_operator": "initial_reference",
+      "selected_program_path": "programs/reference-s29-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac"
+    },
+    {
+      "arm": "score_only",
+      "best_generated_operator": "subsystem_rewrite",
+      "best_generated_program_path": "ablation_recovered/s29/score_only/subsystem_rewrite/program",
+      "calibration_score": 1.8603104668181956,
+      "parent_key": "reference-s29-linear_ridge",
+      "seed": 29,
+      "selected_operator": "initial_reference",
+      "selected_program_path": "programs/reference-s29-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac"
+    },
+    {
+      "arm": "structured_memory",
+      "best_generated_operator": "subsystem_rewrite",
+      "best_generated_program_path": "ablation_recovered/s41/structured_memory/subsystem_rewrite/program",
+      "calibration_score": 3.9963495069601596,
+      "parent_key": "reference-s41-linear_ridge",
+      "seed": 41,
+      "selected_operator": "initial_reference",
+      "selected_program_path": "programs/reference-s41-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac"
+    },
+    {
+      "arm": "score_only",
+      "best_generated_operator": "subsystem_rewrite",
+      "best_generated_program_path": "ablation_recovered/s41/score_only/subsystem_rewrite/program",
+      "calibration_score": 3.9963495069601596,
+      "parent_key": "reference-s41-linear_ridge",
+      "seed": 41,
+      "selected_operator": "initial_reference",
+      "selected_program_path": "programs/reference-s41-linear_ridge",
+      "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac"
+    }
+  ]
+}

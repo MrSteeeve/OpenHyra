@@ -1,0 +1,56 @@
+{
+  "arm": "structured_memory",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 0,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": 23898,
+      "wall_seconds": 28.166351125008077
+    }
+  ],
+  "context_plan": {
+    "expected_behavior": "Exercise decisions become less optimistic and less sensitive to extreme high-volatility targets. The largest expected benefit is on the one-dimensional deep-out-of-the-money high-volatility put, which dominates the score; the stronger-ridge fallback should preserve the near-ATM two-dimensional max-call performance. Runtime remains far below 30 seconds.",
+    "failure_condition": "Reject the intervention if, under matched seeds and evaluation paths, its mean discounted payoff is below the unchanged parent, or if sparse positive-payoff folds repeatedly trigger unstable coefficients or materially delay valuable exercise.",
+    "implementation": "Keep features(), model.npz, and predict() unchanged. In fit(), use deterministic 4-fold splits from seed. At each date, for ridge values {1e-6, 1e-4, 1e-2, 1e-1}, train standardized ridge models on each fold's complement using only rows with payoff > 0; generate held-out continuation predictions and update pathwise cash_flow solely from these out-of-fold predictions. Select the ridge value maximizing the resulting mean realized cash_flow, preferably with a one-standard-error tie-break toward stronger regularization. After completing the selected cross-fitted backward pass, rerun backward induction and, at every date, fit the serialized coefficient on all positive-payoff paths against the selected pass's downstream out-of-fold cash_flow targets. Use the existing all-path fit only when fewer than max(20, 2*feature_count) positive-payoff rows exist.",
+    "mechanism": "Replace the in-sample backward regression with cross-fitted, in-the-money ridge LSMC. Out-of-fold continuation estimates prevent each path's noisy future payoff from influencing its own stopping decision, while restricting regression to positive-payoff paths concentrates the 256 samples on the exercise boundary. This should reduce look-ahead exercise errors and increase out-of-sample discounted payoff."
+  },
+  "memory_sha256": "e10db2fcb6e9f742bd085f736ebc38c9e5462625d13fda392d5d23838011d06e",
+  "operator": "subsystem_rewrite",
+  "operator_execution": {},
+  "parent_key": "reference-s41-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": "ablation/s41/structured_memory/subsystem_rewrite/program",
+  "result": {
+    "evidence": {},
+    "failure_reason": "could not apply Python program operator: [Errno 13] Permission denied: '/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation/s41/structured_memory/subsystem_rewrite/draft/algorithm.py'",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330041,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 41
+}

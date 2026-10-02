@@ -1,0 +1,1825 @@
+2026-09-06T06:46:52.107420Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 132 column 5
+2026-09-06T06:46:53.275608Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.279456Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.283510Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.286047Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.288535Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.290620Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.292487Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.321060Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.323751Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.326109Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.330914Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.333354Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.334929Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-09-06T06:46:53.338993Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+OpenAI Codex v0.146.0
+--------
+workdir: /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a07578-4c19-7602-8812-41bf8e17c47a
+--------
+user
+# Task: Bermudan whole-program algorithm search
+
+This track searches complete Python algorithms. A candidate is not a choice
+among registered continuation runners: it owns training, representation,
+model state, inference, and either the continuation rule or the stopping
+decision itself.
+
+The financial problem remains evaluator-owned so independently generated
+programs can be compared on the same paths and objective. Reusing the
+Bermudan benchmark does not make it a new mathematical task; the research
+question here is whether program-level search discovers useful algorithmic
+structure beyond the historical bounded artifact track.
+
+## Candidate program
+
+The editable candidate consists of a bounded source tree:
+
+- `algorithm.py`: an arbitrary finite Python program;
+- `manifest.json`: the two-field interface declaration;
+- additional `.py`, `.json`, or `.toml` helper/configuration files at any
+  relative depth (up to 64 files and the task source-byte limit). Symlinks,
+  undeclared binary extensions, and hidden runtime directories are rejected.
+- `solve.sh` remains task-owned and copies the manifest to
+  `solution.json` for the harness transport.
+
+The complete command and data contract is specified in
+[`PYTHON_PROGRAM_PROTOCOL_V1.md`](PYTHON_PROGRAM_PROTOCOL_V1.md).
+
+The manifest is one of:
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"continuation"}
+```
+
+```json
+{"schema":"openhyra-python-program.v1","interface":"decision"}
+```
+
+There is no model-family, layer, feature-grammar, optimizer, loss, or artifact
+file menu in this declaration. `manifest.json` remains the only candidate
+declaration; the source-tree policy is task-owned and independently checked by
+the harness and trusted evaluator.
+
+## Fit lifecycle
+
+For each evaluator-owned instance and seed:
+
+```text
+python3 algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER
+```
+
+`INPUT_DIR` contains:
+
+| File | Content |
+| --- | --- |
+| `training_paths.npy` | causal training paths `(n_paths, n_times, n_assets)` |
+| `payoffs.npy` | evaluator-computed discounted payoffs |
+| `discount_factors.npy` | discount factors on the exercise grid |
+| `instance.json` | contract and exercise-grid parameters |
+
+The program may write any model tree beneath `MODEL_DIR`. It may implement
+new features, objectives, iterative solvers, symbolic or numerical programs,
+ensembles, state machines, internal search, or other finite algorithms.
+The CLI should delegate to top-level `fit(...)` and `predict(...)`
+functions; this is the structural composition hook, not a restriction on the
+algorithm inside those functions.
+
+## Predict lifecycle
+
+At each non-terminal exercise time the evaluator invokes:
+
+```text
+python3 algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR
+```
+
+`QUERY_DIR` contains `history.npy`, `states.npy`,
+`immediate_payoffs.npy`, and `request.json`. History stops at the current
+exercise time. The program writes exactly one vector to
+`RESULT_DIR/predictions.npy`:
+
+- `continuation`: finite discounted continuation values;
+- `decision`: booleans or zero/one values indicating exercise now.
+
+The evaluator applies those predictions on independent paths and owns the
+reported score. Direct-decision programs supply only their lower-bound policy;
+the hidden upper-bound diagnostic comes from a separate evaluator-owned value
+approximation rather than pretending the candidate implemented continuation.
+
+
+Implement the Context plan below as an executable program. Optimize actual causal stopping decisions for expected discounted payoff, measured by primal-dual confidence gap. Do not alter evaluation or read outside this draft directory. Use only Python standard library and NumPy. Fit cap: 30 seconds; training paths: 256. Queries contain only causal history and current state. Use terminal/files only to edit this draft; do not search the repository or access network. Do not execute the generated candidate here: the independent evaluator performs execution.
+Context plan:
+{"expected_behavior": "The median ensemble suppresses extreme continuation estimates, while out-of-fold policy construction prevents optimistic reuse of fitted paths. Positive-payoff filtering concentrates capacity where exercise is feasible. Buffer calibration directly targets the primal objective and should improve both the high-volatility out-of-the-money put and correlated max-call lower bounds, with fewer low-margin premature exercises and lower seed sensitivity than the parent.", "failure_condition": "Reject the intervention if matched-seed evaluation shows a negative mean discounted-payoff difference versus the unchanged parent, or if improvement disappears when buffer selection is evaluated strictly out of fold. Also fail safe to a strongly regularized linear model when an exercise date has fewer than 24 positive-payoff samples.", "implementation": "Run backward induction with 4 deterministic folds. At each exercise date, fit continuation only on paths with positive immediate payoff, using standardized features containing log-prices, squares, pairwise products, immediate payoff, cross-sectional min/max/mean, and payoff-relevant extrema. For each fold, select ridge lambda from {1e-4, 1e-3, 1e-2, 1e-1, 1, 10} by minimizing validation squared error near the exercise boundary, generate out-of-fold continuation predictions, and update that fold’s cash flows without leakage. After completing the backward pass, refit four bootstrap ridge models per date using the selected lambda. At prediction, use the median continuation across models plus a date-specific exercise buffer. Choose each buffer from empirical margin quantiles {-0.15, -0.10, -0.05, 0, 0.05, 0.10, 0.15} times the payoff scale by maximizing cross-fitted mean discounted payoff, with a one-standard-error rule favoring the more conservative, later-exercise buffer. Save ensemble coefficients, normalizers, and buffers in model.npz. This remains comfortably within 30 seconds for 256 paths.", "mechanism": "Replace the parent with a cross-fitted, payoff-aware ensemble LSMC policy. The parent’s nearly unregularized full-sample regression can produce unstable continuation estimates from only 256 paths and train decisions on their own fitted targets. Out-of-fold prediction, stronger shrinkage, and conservative aggregation should reduce boundary overfitting and improve independent-path discounted payoff."}
+
+Open Python program contract:
+- Required source anchors: `algorithm.py`, `manifest.json`; entrypoint: `algorithm.py`. This task
+  admits a bounded recursive source tree: you may add relative-depth `.py`,
+  `.json`, or `.toml` helper/configuration files (up to the task file cap).
+  `solve.sh` is task-owned transport and must not be edited or imported.
+- `manifest.json` has schema `openhyra-python-program.v1` and declares only whether the program
+  returns `continuation` values or direct `decision` outputs.
+- Implement a complete finite Python program, not parameters for a registered
+  model family. You may replace the representation, training method, search
+  procedure, losses, control flow, and data structures.
+- Fit with `algorithm.py fit --input INPUT_DIR --output MODEL_DIR --seed INTEGER`.
+- Predict with `algorithm.py predict --model MODEL_DIR --input QUERY_DIR --output RESULT_DIR`.
+- Expose the command bodies as top-level `fit(...)` and `predict(...)`
+  functions so program crossover can compose live parent function graphs.
+- Prediction queries contain only causal history/current state and immediate
+  payoff; write the result to `RESULT_DIR/predictions.npy`.
+
+## Typed intervention contract
+Implement only the stated intervention scope/operator. Treat prediction and falsifier as hypotheses; the evaluator supplies the result.
+- scope: whole_program
+- operator: whole_program_restart
+- target_slice: all
+- prediction: The median ensemble suppresses extreme continuation estimates, while out-of-fold policy construction prevents optimistic reuse of fitted paths. Positive-payoff filtering concentrates capacity where exercise is feasible. Buffer calibration directly targets the primal objective and should improve both the high-volatility out-of-the-money put and correlated max-call lower bounds, with fewer low-margin premature exercises and lower seed sensitivity than the parent.
+- falsifier: Reject the intervention if matched-seed evaluation shows a negative mean discounted-payoff difference versus the unchanged parent, or if improvement disappears when buffer selection is evaluated strictly out of fold. Also fail safe to a strongly regularized linear model when an exercise date has fewer than 24 positive-payoff samples.
+
+The inherited implementation has been removed and replaced with a blank fit/predict scaffold. Build a complete new program from the proposed principle; do not reconstruct the parent by default.
+
+warning: Exceeded skills context budget of 2%. All skill descriptions were removed and 53 additional skills were not included in the model-visible skills list.
+codex
+I’ll inspect only the draft-local protocol and scaffold, then implement the complete continuation program without running it. I’ll preserve `solve.sh` untouched and validate only by static inspection.
+exec
+/bin/zsh -lc "pwd && rg --files -g '"'!*__pycache__*'"' -g '"'!.*'"'" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft
+ succeeded in 0ms:
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft
+manifest.json
+algorithm.py
+
+exec
+/bin/zsh -lc "sed -n '1,240p' algorithm.py && sed -n '1,80p' manifest.json" in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft
+ succeeded in 0ms:
+"""Blank whole-program restart scaffold."""
+
+def fit(input_dir, output_dir, seed):
+    raise NotImplementedError("implement a new fit algorithm")
+
+def predict(model_dir, input_dir, output_dir):
+    raise NotImplementedError("implement a new predict algorithm")
+{
+  "schema": "openhyra-python-program.v1",
+  "interface": "continuation"
+}
+
+codex
+The scaffold exposes no local copy of the linked protocol, so I’m implementing against the command/data contract provided in the task. The core policy will use truly held-out fold predictions for both stopping updates and buffer selection; hyperparameter selection will occur inside each outer training split to avoid leaking the held-out path targets.
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..a5b6c89425505007e7413e5f847cc1a882b44816
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,258 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
+ 
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
++
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_index", "date_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..a5b6c89425505007e7413e5f847cc1a882b44816
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,258 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
+ 
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
++
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
++
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_index", "date_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
+ 
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+apply patch
+patch: completed
+/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e5c442f95aab8691dcc0b81bc0c6d9f3c7c00499
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,260 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
++
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
+ 
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
+ 
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        future_cashflow = cashflow.copy()
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, future_cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], future_cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, future_cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], future_cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_time_index", "exercise_index",
++                "date_index", "step_index", "current_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e5c442f95aab8691dcc0b81bc0c6d9f3c7c00499
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,260 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
++
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
+ 
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
+ 
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        future_cashflow = cashflow.copy()
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, future_cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], future_cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, future_cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], future_cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_time_index", "exercise_index",
++                "date_index", "step_index", "current_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+codex
+The implementation is now complete. I caught and corrected an important backward-induction detail: deployable continuation models are trained on the pre-exercise future cash flow, while only the next backward step receives the buffer-adjusted stopping cash flow. I’m doing a final static contract review only—no candidate execution.
+exec
+/bin/zsh -lc 'wc -c algorithm.py manifest.json && rg -n "''^(def fit|def predict|if __name__)|predictions.npy|model.npz|interface|solve.sh|subprocess|socket|requests" algorithm.py manifest.json && git diff -- algorithm.py manifest.json' in /Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft
+ succeeded in 0ms:
+   10972 algorithm.py
+      76 manifest.json
+   11048 total
+manifest.json:3:  "interface": "continuation"
+algorithm.py:129:def fit(input_dir, output_dir, seed):
+algorithm.py:199:    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
+algorithm.py:217:def predict(model_dir, input_dir, output_dir):
+algorithm.py:224:    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
+algorithm.py:238:    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
+algorithm.py:259:if __name__ == "__main__":
+
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e5c442f95aab8691dcc0b81bc0c6d9f3c7c00499
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,260 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
++
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
+ 
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
+ 
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        future_cashflow = cashflow.copy()
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, future_cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], future_cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, future_cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], future_cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_time_index", "exercise_index",
++                "date_index", "step_index", "current_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+codex
+Implemented the complete whole-program continuation algorithm in [algorithm.py](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py).
+
+It includes:
+
+- Four-fold leakage-free backward induction
+- Boundary-weighted ridge selection
+- Positive-payoff training
+- Strongly regularized linear fallback below 24 samples
+- Strictly out-of-fold buffer calibration with the one-SE rule
+- Four-model bootstrap ensembles with median inference
+- Causal prediction and robust request-time resolution
+- Compressed `model.npz` persistence
+- Required top-level `fit(...)` and `predict(...)` functions and CLI
+
+[manifest.json](/Users/williamqian/GitHub/OpenHyra/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/manifest.json) remains a valid `continuation` declaration. `solve.sh` was not accessed or modified. Per instruction, the candidate was not executed.
+diff --git a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+index 3b3b04bd5370cab86e2ac9c8c6547f763845b97d..e5c442f95aab8691dcc0b81bc0c6d9f3c7c00499
+--- a/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
++++ b/artifacts/mathai-paper-assets-20260906/ablation_recovered/s29/structured_memory/whole_program_restart/draft/algorithm.py
+@@ -1,7 +1,260 @@
+-"""Blank whole-program restart scaffold."""
++"""Cross-fitted, payoff-aware ensemble LSMC for Bermudan stopping.
++
++Only NumPy and the Python standard library are used.  Training payoffs and
++predictions are in the evaluator's discounted units, so no private market or
++contract reconstruction is needed here.
++"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++
++import numpy as np
++
++
++LAMBDAS = np.asarray([1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0])
++BUFFER_MULTIPLIERS = np.asarray([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
++N_FOLDS = 4
++N_MODELS = 4
++
++
++def _features(states, immediate):
++    """Payoff-aware features with a fixed dimension for a given asset count."""
++    x = np.asarray(states, dtype=np.float64)
++    if x.ndim == 1:
++        x = x[:, None]
++    p = np.asarray(immediate, dtype=np.float64).reshape(-1, 1)
++    # Prices ought to be positive, but clipping makes malformed/extreme paths
++    # harmless and keeps every prediction finite.
++    z = np.log(np.maximum(x, 1e-12))
++    cols = [z, z * z]
++    if z.shape[1] > 1:
++        cols.append(np.column_stack(
++            [z[:, i] * z[:, j] for i in range(z.shape[1])
++             for j in range(i + 1, z.shape[1])]
++        ))
++    extrema = np.column_stack((
++        p[:, 0], p[:, 0] * p[:, 0],
++        x.min(axis=1), x.max(axis=1), x.mean(axis=1),
++        z.min(axis=1), z.max(axis=1), z.mean(axis=1),
++    ))
++    cols.append(extrema)
++    return np.column_stack(cols)
++
++
++def _linear_mask(n_assets):
++    """Mask for the fail-safe strongly regularized linear specification."""
++    d = 2 * n_assets + n_assets * (n_assets - 1) // 2 + 8
++    mask = np.zeros(d, dtype=bool)
++    mask[:n_assets] = True                  # log prices
++    tail = 2 * n_assets + n_assets * (n_assets - 1) // 2
++    mask[tail] = True                       # immediate payoff
++    mask[tail + 2:tail + 5] = True          # price min/max/mean
++    return mask
++
++
++def _ridge(x, y, lam, mask=None):
++    """Fit standardized ridge and return full-width (coef, mean, scale, bias)."""
++    x = np.asarray(x, dtype=np.float64)
++    y = np.asarray(y, dtype=np.float64).reshape(-1)
++    d = x.shape[1]
++    use = np.ones(d, dtype=bool) if mask is None else np.asarray(mask, bool)
++    xu = x[:, use]
++    mean = xu.mean(axis=0)
++    scale = xu.std(axis=0)
++    scale = np.where(scale > 1e-8, scale, 1.0)
++    zs = np.clip((xu - mean) / scale, -12.0, 12.0)
++    bias = float(y.mean())
++    yc = y - bias
++    gram = zs.T @ zs
++    rhs = zs.T @ yc
++    penalty = float(lam) * max(1, len(y))
++    try:
++        beta = np.linalg.solve(gram + penalty * np.eye(gram.shape[0]), rhs)
++    except np.linalg.LinAlgError:
++        beta = np.linalg.pinv(gram + penalty * np.eye(gram.shape[0])) @ rhs
++    coef = np.zeros(d)
++    full_mean = np.zeros(d)
++    full_scale = np.ones(d)
++    coef[use], full_mean[use], full_scale[use] = beta, mean, scale
++    return coef, full_mean, full_scale, bias
+ 
++
++def _apply(model, x):
++    coef, mean, scale, bias = model
++    z = np.clip((x - mean) / scale, -12.0, 12.0)
++    return np.nan_to_num(bias + z @ coef, nan=bias, posinf=bias, neginf=bias)
++
++
++def _choose_lambda(x, y, immediate, train_idx, valid_idx, fallback_mask):
++    """Inner validation weighted toward the stopping boundary."""
++    tr = train_idx[immediate[train_idx] > 0.0]
++    va = valid_idx[immediate[valid_idx] > 0.0]
++    if len(tr) < 24 or len(va) < 4:
++        return 10.0
++    scale = max(float(np.median(np.abs(y[va] - immediate[va]))),
++                float(np.std(immediate[va])) * 0.1, 1e-8)
++    weights = 0.15 + np.exp(-np.abs(y[va] - immediate[va]) / scale)
++    losses = []
++    for lam in LAMBDAS:
++        pred = _apply(_ridge(x[tr], y[tr], lam), x[va])
++        losses.append(float(np.average((pred - y[va]) ** 2, weights=weights)))
++    return float(LAMBDAS[int(np.argmin(losses))])
++
++
++def _scale(payoff):
++    positive = np.asarray(payoff)[np.asarray(payoff) > 0.0]
++    if len(positive):
++        return max(float(np.median(positive)), float(np.std(positive)) * 0.25, 1e-8)
++    return 1.0
++
++
++def _select_buffer(immediate, continuation, future_value):
++    """Cross-fitted primal selection with a conservative one-SE tie rule."""
++    candidates = BUFFER_MULTIPLIERS * _scale(immediate)
++    values = np.empty((len(candidates), len(immediate)), dtype=np.float64)
++    for j, buffer in enumerate(candidates):
++        exercise = (immediate > 0.0) & (immediate > continuation + buffer)
++        values[j] = np.where(exercise, immediate, future_value)
++    means = values.mean(axis=1)
++    best = int(np.argmax(means))
++    se = values[best].std(ddof=1) / np.sqrt(max(1, len(immediate))) if len(immediate) > 1 else 0.0
++    eligible = np.flatnonzero(means >= means[best] - se)
++    # Larger continuation buffer means fewer marginal early exercises.
++    chosen = int(eligible[-1])
++    return float(candidates[chosen]), values[chosen]
++
++
+ def fit(input_dir, output_dir, seed):
+-    raise NotImplementedError("implement a new fit algorithm")
++    input_dir, output_dir = Path(input_dir), Path(output_dir)
++    paths = np.load(input_dir / "training_paths.npy", allow_pickle=False)
++    payoffs = np.load(input_dir / "payoffs.npy", allow_pickle=False).astype(np.float64)
++    # Reading these validates the supplied instance, while discounted payoffs
++    # remain the single source of value units.
++    np.load(input_dir / "discount_factors.npy", allow_pickle=False)
++    with open(input_dir / "instance.json", "r", encoding="utf-8") as fh:
++        json.load(fh)
++    if paths.ndim != 3 or payoffs.shape != paths.shape[:2]:
++        raise ValueError("incompatible training_paths/payoffs shapes")
++    n, n_times, n_assets = paths.shape
++    if n < N_FOLDS or n_times < 2:
++        raise ValueError("need at least four paths and two exercise dates")
+ 
++    rng = np.random.default_rng(int(seed))
++    order = rng.permutation(n)
++    fold_id = np.empty(n, dtype=np.int8)
++    fold_id[order] = np.arange(n, dtype=np.int64) % N_FOLDS
++    cashflow = payoffs[:, -1].copy()
++    d = _features(paths[:, 0, :], payoffs[:, 0]).shape[1]
++    coefs = np.zeros((n_times - 1, N_MODELS, d))
++    means = np.zeros_like(coefs)
++    scales = np.ones_like(coefs)
++    biases = np.zeros((n_times - 1, N_MODELS))
++    buffers = np.zeros(n_times - 1)
++    lambdas = np.zeros(n_times - 1)
++    fallback = np.zeros(n_times - 1, dtype=np.int8)
++    linear_mask = _linear_mask(n_assets)
++
++    for t in range(n_times - 2, -1, -1):
++        immediate = payoffs[:, t]
++        x = _features(paths[:, t, :], immediate)
++        future_cashflow = cashflow.copy()
++        oof = np.empty(n)
++        fold_lams = []
++        positive_count = int(np.count_nonzero(immediate > 0.0))
++        use_fallback = positive_count < 24
++        fallback[t] = use_fallback
++        for held in range(N_FOLDS):
++            test = np.flatnonzero(fold_id == held)
++            valid_fold = (held + 1) % N_FOLDS
++            valid = np.flatnonzero(fold_id == valid_fold)
++            train = np.flatnonzero((fold_id != held) & (fold_id != valid_fold))
++            lam = 10.0 if use_fallback else _choose_lambda(
++                x, future_cashflow, immediate, train, valid, linear_mask)
++            fold_lams.append(lam)
++            outer_train = np.flatnonzero((fold_id != held) & (immediate > 0.0))
++            if len(outer_train) == 0:
++                outer_train = np.flatnonzero(fold_id != held)
++            model = _ridge(x[outer_train], future_cashflow[outer_train], lam,
++                           linear_mask if use_fallback else None)
++            oof[test] = _apply(model, x[test])
++
++        buffer, updated = _select_buffer(immediate, oof, future_cashflow)
++        buffers[t] = buffer
++        cashflow = updated
++        selected_lam = float(np.median(fold_lams))
++        lambdas[t] = selected_lam
++
++        eligible = np.flatnonzero(immediate > 0.0)
++        if len(eligible) == 0:
++            eligible = np.arange(n)
++        for m in range(N_MODELS):
++            sample = rng.choice(eligible, size=len(eligible), replace=True)
++            model = _ridge(x[sample], future_cashflow[sample], selected_lam,
++                           linear_mask if use_fallback else None)
++            coefs[t, m], means[t, m], scales[t, m], biases[t, m] = model
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.savez_compressed(output_dir / "model.npz", coefs=coefs, means=means,
++                        scales=scales, biases=biases, buffers=buffers,
++                        lambdas=lambdas, fallback=fallback,
++                        n_assets=np.asarray(n_assets), n_times=np.asarray(n_times))
++
++
++def _request_time(request, history, n_times):
++    for key in ("time_index", "exercise_time_index", "exercise_index",
++                "date_index", "step_index", "current_index", "index", "time"):
++        if key in request:
++            value = request[key]
++            if isinstance(value, (int, np.integer)):
++                return int(value)
++    if history.ndim >= 2:
++        return int(history.shape[-2] - 1)
++    raise ValueError("request has no recognizable exercise-time index")
++
++
+ def predict(model_dir, input_dir, output_dir):
+-    raise NotImplementedError("implement a new predict algorithm")
++    model_dir, input_dir, output_dir = Path(model_dir), Path(input_dir), Path(output_dir)
++    states = np.load(input_dir / "states.npy", allow_pickle=False)
++    immediate = np.load(input_dir / "immediate_payoffs.npy", allow_pickle=False).reshape(-1)
++    history = np.load(input_dir / "history.npy", allow_pickle=False)
++    with open(input_dir / "request.json", "r", encoding="utf-8") as fh:
++        request = json.load(fh)
++    with np.load(model_dir / "model.npz", allow_pickle=False) as data:
++        n_times = int(data["n_times"])
++        t = _request_time(request, history, n_times)
++        if not 0 <= t < n_times - 1:
++            raise ValueError("prediction requested outside a non-terminal exercise date")
++        x = _features(states, immediate)
++        predictions = []
++        for m in range(data["coefs"].shape[1]):
++            model = (data["coefs"][t, m], data["means"][t, m],
++                     data["scales"][t, m], float(data["biases"][t, m]))
++            predictions.append(_apply(model, x))
++        continuation = np.median(np.vstack(predictions), axis=0) + float(data["buffers"][t])
++    continuation = np.nan_to_num(continuation, nan=0.0, posinf=1e100, neginf=-1e100)
++    output_dir.mkdir(parents=True, exist_ok=True)
++    np.save(output_dir / "predictions.npy", continuation.astype(np.float64, copy=False))
++
++
++def _main():
++    parser = argparse.ArgumentParser()
++    sub = parser.add_subparsers(dest="command", required=True)
++    fit_parser = sub.add_parser("fit")
++    fit_parser.add_argument("--input", required=True)
++    fit_parser.add_argument("--output", required=True)
++    fit_parser.add_argument("--seed", required=True, type=int)
++    pred_parser = sub.add_parser("predict")
++    pred_parser.add_argument("--model", required=True)
++    pred_parser.add_argument("--input", required=True)
++    pred_parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    if args.command == "fit":
++        fit(args.input, args.output, args.seed)
++    else:
++        predict(args.model, args.input, args.output)
++
++
++if __name__ == "__main__":
++    _main()
+
+2026-09-06T06:49:13.583754Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/williamqian/.codex/shell_snapshots/01a07578-4c19-7602-8812-41bf8e17c47a.1788677213267979000.sh"): Os { code: 2, kind: NotFound, message: "No such file or directory" }
+tokens used
+34,560

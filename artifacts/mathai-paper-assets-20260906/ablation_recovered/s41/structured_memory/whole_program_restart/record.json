@@ -1,0 +1,63 @@
+{
+  "arm": "structured_memory",
+  "calls": [
+    {
+      "id": "call-00",
+      "model": "gpt-5.6-sol",
+      "returncode": 124,
+      "role": "context",
+      "timeout_s": 120,
+      "tokens_reported": null,
+      "wall_seconds": 120.01194129200303
+    }
+  ],
+  "context_plan": {},
+  "infrastructure_recovery": {
+    "amendment_sha256": "5e7811eac158a99467481687f09d65ac333d65dbde6cb822945385893370163a",
+    "arm": "structured_memory",
+    "context_sha256": "16186bc380c75c9f6175cbb4c77605fedc0bf74c9f95d77509cb8af9b1c2d649",
+    "eligible": false,
+    "memory_sha256": "e10db2fcb6e9f742bd085f736ebc38c9e5462625d13fda392d5d23838011d06e",
+    "operator": "whole_program_restart",
+    "original_failure": "Context call failed (124)",
+    "record_path": "ablation/s41/structured_memory/whole_program_restart/record.json",
+    "record_sha256": "fddd108472daa74d34de67de935696c2baee0630dec800d40c08bb1eebb448e8",
+    "seed": 41
+  },
+  "memory_sha256": "e10db2fcb6e9f742bd085f736ebc38c9e5462625d13fda392d5d23838011d06e",
+  "operator": "whole_program_restart",
+  "operator_execution": {},
+  "parent_key": "reference-s41-linear_ridge",
+  "parent_source_digest": "7f7bd504c3e76b6dcb0e0f4d503de3c369003155d9a8148edd5a5d78b469e3ac",
+  "program_path": null,
+  "result": {
+    "evidence": {},
+    "failure_reason": "Context call failed (124)",
+    "metrics": {},
+    "request": {
+      "config": {
+        "independent_validation": false,
+        "inner_paths": 8,
+        "instance_count": 2,
+        "outer_paths": 128,
+        "pricing_paths": 1024,
+        "repeats": 1,
+        "research_mode": true,
+        "training_paths": 256,
+        "training_timeout_s": 30
+      },
+      "protocol": "bermudan-python-program-search.v1",
+      "schema": "openhyra-evaluation-request.v1",
+      "seed": 330041,
+      "stage": "audit",
+      "suite_id": "bermudan-python-hidden-v2",
+      "task": "bermudan_python_search"
+    },
+    "score": null,
+    "source_digest": null,
+    "source_unchanged": true,
+    "status": "error",
+    "wall_seconds": 0
+  },
+  "seed": 41
+}
