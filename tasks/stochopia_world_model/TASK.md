@@ -122,8 +122,8 @@ python world_model.py --input IN --output OUT
 ## 7. 下一步（未实现）
 
 - ~~把通过 test 审计的世界模型接成 Stochopia 的 P 侧生成器~~：2026-11-08 已完成，`r02s01` 进入 Stochopia
-  `stochopia/research/world_models`，生成器为 `stochopia.research.world_model_generator`，标为
-  development-only，详见 Stochopia `docs/research/2026-11-08-market-world-model.md`。下一步是在它的分布下
+  `stochopia/research/world_models`，生成器为 `stochopia.research.world_model_generator`，处于草稿层
+  （development-only；层级定义见 StructurerDSL `docs/SPEC.md` 11.2），详见 Stochopia `docs/research/2026-11-08-market-world-model.md`。下一步是在它的分布下
   设计产品（OpenHyra 设计循环），再在真实路径上回看。
 - 允许程序在起点之间保存状态（在线学习），做法是把前一起点的输出状态传给下一起点，仍然只能传过去的信息。
 - 做匹配对照：冻结世界模型的智能体对比可更新世界模型的智能体，同样的模型、同样的调用预算。
