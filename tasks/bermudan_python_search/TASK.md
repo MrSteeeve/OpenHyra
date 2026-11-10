@@ -128,8 +128,9 @@ continuation targets are marked unobserved rather than inferred from those
 input hashes.
 
 Independent validation has two explicit probes for Python programs: a fresh
-same-seed fit with model/prediction digest comparison, and a lookahead probe
-that changes only the future suffix after a fixed history. These are evidence
+same-seed fit with model/prediction digest comparison, and a repeat-query
+determinism probe (the same prefix queried twice). No-look-ahead is structural:
+the evaluator passes only the history up to the decision time. These are evidence
 fields and do not enter the primary score. `research_mode` is a provenance
 flag and never bypasses isolation. The native Seatbelt sandbox must launch;
 if the host denies it, the evaluation fails explicitly. Making input files
@@ -167,8 +168,8 @@ pipelines, not a cost-matched causal estimate of Context's isolated effect.
 Reported token totals are lower bounds when failed calls do not report usage;
 wall time, timeouts and missing usage records must remain visible. A generation
 timeout is an execution failure, not a statistical refutation of a payoff
-hypothesis. The finite lookahead probe and replay are observed checks, not a
-universal no-lookahead theorem.
+hypothesis. The repeat-query probe and replay are observed determinism checks,
+not a universal reproducibility theorem.
 
 ## Running
 

@@ -216,7 +216,7 @@ def run(output):
            "This is a deterministic pilot of the protocol, not an estimate of an",
            "LLM search effect. The full metrics preserve source/model digests,",
            "training path and payoff hashes, evaluator target-stream hashes,",
-           "fit time, independent replay and causal lookahead probes. Candidate",
+           "fit time, independent replay and repeat-query determinism probes. Candidate",
            "internal continuation targets are explicitly unobserved.","",
            f"Rows: {len(rows)}; public pairs: {len(pairs)}; failures: {summary['failed_rows']}.",
            "The claim remains evaluator-guided open Python program search on Bermudan.",

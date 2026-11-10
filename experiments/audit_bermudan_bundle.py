@@ -194,7 +194,7 @@ def main():
         check(label + ":successful_heldout_evaluation", a["result"]["status"] == "ok")
         validation = a["result"]["metrics"].get("independent_validation", {})
         check(label + ":observed_probes", all(validation.get(k, {}).get("status") == "passed"
-              and validation[k].get("observed") for k in ("deterministic_replay", "lookahead_probe")))
+              and validation[k].get("observed") for k in ("deterministic_replay", "repeat_query_probe")))
         check(label + ":measured_probe_cost", all(validation.get("cost", {}).get(k, 0) > 0
               for k in ("replay_wall_seconds", "probe_wall_seconds")))
 

@@ -22,7 +22,6 @@ import json
 import math
 import os
 import re
-import shutil
 import stat
 import time
 from collections.abc import Iterable, Iterator, Mapping
@@ -30,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from sandbox import read_regular_file
+from sandbox import read_regular_file, remove_sealed_tree
 
 
 ALGORITHM_BUNDLE_SCHEMA = "openhyra-candidate-algorithm-bundle.v1"
@@ -847,13 +846,7 @@ def freeze_top_k_algorithm_bundles(
         )
     except Exception:
         if created:
-            destination_path.chmod(0o700)
-            for path in destination_path.rglob("*"):
-                try:
-                    path.chmod(0o700 if path.is_dir() else 0o600)
-                except OSError:
-                    pass
-            shutil.rmtree(destination_path, ignore_errors=True)
+            remove_sealed_tree(destination_path)
         raise
 
 

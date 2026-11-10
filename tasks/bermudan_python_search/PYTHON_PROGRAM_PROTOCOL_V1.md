@@ -123,9 +123,11 @@ their original aliases. After a round, Context reads the bounded
 the lossless provenance record.
 
 For every Python candidate the evaluator can run an independent same-seed fit
-and a causal lookahead check. The replay compares the opaque model digest and a
-fresh prediction; the lookahead changes only the suffix after the supplied
-history and requires identical predictions. Both probes are diagnostic
+and a repeat-query determinism check. The replay compares the opaque model digest
+and a fresh prediction; the repeat-query probe issues the same prefix query
+twice and requires identical predictions. It is not a causal look-ahead test:
+the evaluator adapter only ever passes the history up to the decision time, so
+no-look-ahead holds by construction. Both probes are diagnostic
 evidence and never modify the primary score. Per-cell records also include
 the exact training-path and discounted-payoff hashes, an evaluator target
 stream hash, the actual (folded) fit seed, separate simulator path seed, model-file digests,

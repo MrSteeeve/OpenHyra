@@ -4,7 +4,11 @@ results.tsv
 !artifacts/**/run.log
 nohup.out
 runs/
-experiments/
+experiments/*
+!experiments/run_stochopia_structuring.py
+!experiments/run_stochopia_path_research.py
+!experiments/run_stochopia_liquidity.py
+!experiments/run_stochopia_world_model.py
 tasks/*/seed_solution/solution.json
 
 # ---- 运行时产物 ----

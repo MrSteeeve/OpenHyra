@@ -5,14 +5,14 @@ import json
 import math
 import re
 import secrets
-import shutil
 import time
 from pathlib import Path
 
-from provenance import build_evaluation_request, sha256_json
+from provenance import build_evaluation_request, sha256_json, with_run_pricing_salt
 from sandbox import (
     evaluate_trusted_artifact,
     read_regular_file,
+    remove_sealed_tree,
     source_tree_hash,
 )
 from stopping import incomplete_contexts, write_termination
@@ -157,7 +157,7 @@ def _copy_algorithm_source(source_dir, destination, task):
         # The caller has already committed to a one-shot audit.  Remove a
         # partial source copy so a failed freeze cannot be mistaken for a
         # complete candidate bundle.
-        shutil.rmtree(destination, ignore_errors=True)
+        remove_sealed_tree(destination)
         raise
     return sha256_json({"schema": ALGORITHM_BUNDLE_SCHEMA, "files": files})
 
@@ -420,6 +420,8 @@ def _audit_termination(previous, report, report_path):
         "freeze_manifest_sha256": report.get("freeze_manifest_sha256"),
         "audit_winner_id": winner.get("id"),
         "audit_winner_score": winner.get("score"),
+        "failed_candidate_count": len(report.get("failed_candidate_ids", [])),
+        "failed_candidate_ids": list(report.get("failed_candidate_ids", [])),
     }
 
 
@@ -534,7 +536,9 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
             or not 0 <= seed <= (1 << 63) - 1
         ):
             raise ValueError("private audit seed must be a 63-bit integer")
-        request = build_evaluation_request(task, "audit", seed)
+        request = with_run_pricing_salt(
+            task, build_evaluation_request(task, "audit", seed),
+        )
         if request is None:
             raise RuntimeError("task has no configured private audit request")
         report.update({
@@ -649,8 +653,8 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
                 if evaluated_bundle_hash is None:
                     # A failed evaluator may not have had a chance to emit
                     # metrics.  Preserve the frozen identity in the private
-                    # report while leaving the candidate failure visible to
-                    # the normal all-candidates gate below.
+                    # report while leaving the candidate failure visible as
+                    # a per-candidate failure below.
                     result["metrics"] = dict(result.get("metrics", {}))
                     result["metrics"][identity_field] = candidate[
                         "candidate_source_sha256"
@@ -701,7 +705,12 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
         audit_direction = config.get("direction", task.direction)
         if audit_direction not in {"min", "max"}:
             raise RuntimeError("private audit direction must be min or max")
-        if len(successful) == len(results):
+        # A failed Top-K candidate is a per-candidate outcome (no retry);
+        # the remaining frozen candidates are still ranked.
+        report["failed_candidate_ids"] = [
+            item["id"] for item in results if item not in successful
+        ]
+        if successful:
             winner = (min if audit_direction == "min" else max)(
                 successful,
                 key=lambda item: (
@@ -723,7 +732,7 @@ def run_final_audit(task, eb, run_manifest, *, seed_factory=None, now=None):
             report["completed_at"] = now or _timestamp()
         else:
             report["status"] = "failed"
-            report["failure"] = "one_or_more_audit_candidates_failed"
+            report["failure"] = "all_audit_candidates_failed"
             report["completed_at"] = now or _timestamp()
     except (Exception, KeyboardInterrupt) as exc:
         report["status"] = "failed"

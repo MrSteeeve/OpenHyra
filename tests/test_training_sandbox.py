@@ -369,10 +369,10 @@ class TrainingSandboxTests(unittest.TestCase):
                 input_dir=roots["input"],
                 output_dir=roots["output"],
                 tmp_dir=roots["tmp"],
-                runtime_roots=[
-                    sys.prefix, "/bin", "/usr/lib", "/System/Library",
-                    "/Library/Apple",
-                ],
+                runtime_roots=list(dict.fromkeys((
+                    sys.prefix, sys.base_prefix, "/bin", "/usr/lib",
+                    "/System/Library", "/Library/Apple",
+                ))),
                 timeout_s=3,
                 cpu_seconds=3,
                 memory_bytes=256 * 1024 * 1024,
@@ -381,6 +381,127 @@ class TrainingSandboxTests(unittest.TestCase):
             self.assertEqual(result["status"], "ok", result["log_tail"])
             self.assertEqual(copied.read_text(), "allowed")
             self.assertEqual(frozen.read_text(), "frozen")
+
+
+
+class RemoveSealedTreeTests(unittest.TestCase):
+    def test_cleanup_failure_never_replaces_the_primary_exception(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            missing = Path(temporary) / "missing"
+            with self.assertRaisesRegex(ValueError, "prediction failed") as caught:
+                try:
+                    raise ValueError("candidate prediction failed: timeout")
+                finally:
+                    sandbox.remove_sealed_tree(missing)
+            if sys.version_info >= (3, 11):
+                self.assertIn("cleanup of", " ".join(caught.exception.__notes__))
+            with self.assertRaises(FileNotFoundError):
+                sandbox.remove_sealed_tree(missing)
+
+    def test_symlinked_root_is_refused_and_target_untouched(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "target"
+            target.mkdir()
+            target.chmod(0o500)
+            link = Path(temporary) / "link"
+            link.symlink_to(target)
+            with self.assertRaisesRegex(ValueError, "symlinked"):
+                sandbox.remove_sealed_tree(link)
+            self.assertEqual(target.stat().st_mode & 0o777, 0o500)
+            target.chmod(0o700)
+
+
+class CandidateLimitWrapperTests(unittest.TestCase):
+    def test_limited_cmd_ignores_candidate_modules_in_cwd(self):
+        import subprocess
+        import types
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            marker = root / "escaped.txt"
+            (root / "resource.py").write_text(
+                f"open({str(marker)!r}, 'w').write('escaped')\n"
+                "raise SystemExit(0)\n"
+            )
+            task = types.SimpleNamespace(max_memory_mb=512, max_output_mb=64, timeout_s=5)
+            result = subprocess.run(
+                sandbox._limited_cmd(task, ["/bin/echo", "inner"]),
+                cwd=root, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "inner")
+            self.assertFalse(marker.exists())
+
+    def test_limit_wrapper_applies_limits_or_fails_closed(self):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "-c", sandbox.LIMIT_WRAPPER, str(1 << 30),
+             str(1 << 20), "10", sys.executable, "-c", "print('ok')"],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "ok")
+        # A limit that cannot be applied is a hard failure, not a no-op.
+        with patch.object(sandbox, "LIMIT_WRAPPER", sandbox.LIMIT_WRAPPER.replace(
+            "applied > value", "True",
+        )):
+            failed = subprocess.run(
+                [sys.executable, "-c", sandbox.LIMIT_WRAPPER, str(1 << 30),
+                 str(1 << 20), "10", sys.executable, "-c", "print('ok')"],
+                capture_output=True, text=True, timeout=30,
+            )
+        self.assertEqual(failed.returncode, 126)
+        self.assertIn("could not apply", failed.stderr)
+
+    def test_wait_process_enforces_process_group_memory(self):
+        import subprocess
+        proc = subprocess.Popen(
+            [sys.executable, "-c",
+             # Incompressible bytes so macOS memory compression cannot hide RSS.
+             "import os, time; x = os.urandom(256 * 1024 * 1024); time.sleep(20)"],
+            start_new_session=True,
+        )
+        try:
+            state = sandbox._wait_process(proc, 15, memory_bytes=64 * 1024 * 1024)
+        finally:
+            sandbox._kill_process_group(proc)
+            proc.wait(timeout=5)
+        self.assertEqual(state, "memory_limit")
+
+    def test_unavailable_rss_measurement_never_kills(self):
+        import subprocess
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(0.5)"],
+            start_new_session=True,
+        )
+        try:
+            # ps denied and no psutil: only the parent's own peak would remain.
+            with patch.object(sandbox.subprocess, "run", side_effect=OSError("ps denied")), \
+                 patch.dict(sys.modules, {"psutil": None}):
+                self.assertIsNone(sandbox._process_group_rss_bytes(proc.pid))
+                state = sandbox._wait_process(proc, 15, memory_bytes=1)
+        finally:
+            sandbox._kill_process_group(proc)
+            proc.wait(timeout=5)
+        self.assertEqual(state, "completed")
+
+    def test_training_wait_never_kills_on_unmeasured_rss(self):
+        import subprocess
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(0.5)"],
+            start_new_session=True,
+        )
+        try:
+            with tempfile.TemporaryDirectory() as temporary, \
+                 patch.object(sandbox.subprocess, "run", side_effect=OSError("ps denied")), \
+                 patch.dict(sys.modules, {"psutil": None}):
+                state, _note, usage = sandbox._wait_training_process(
+                    proc, 15, 1, (Path(temporary),), 100, 1 << 20,
+                )
+        finally:
+            sandbox._kill_process_group(proc)
+            proc.wait(timeout=5)
+        self.assertEqual(state, "completed")
+        self.assertIs(usage["memory_limit_enforced"], False)
 
 
 if __name__ == "__main__":

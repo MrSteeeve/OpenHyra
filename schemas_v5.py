@@ -596,13 +596,6 @@ class AnalogyResult:
         """Descriptive alias for the evaluator-owned paired-cell SE."""
         return self.transfer_gain_standard_error
 
-    @property
-    def paired_ci(self) -> tuple[float, float] | None:
-        """Return the confidence interval when per-cell evidence exists."""
-        if self.transfer_gain_ci_low is None or self.transfer_gain_ci_high is None:
-            return None
-        return self.transfer_gain_ci_low, self.transfer_gain_ci_high
-
 
 @dataclass
 class ExperimentPlan:

@@ -41,6 +41,9 @@ class IslandScheduler:
         self._epochs: list[IslandEpoch] = []
         self._epoch_records: dict[str, list[str]] = {}
         self._last_review_round = 0
+        # Run/trial seed (``base_proposal_seed``); mixed into every RNG so
+        # island sampling and review donors differ across trials.
+        self._base_seed = 0
         self._load()
 
     @staticmethod
@@ -56,6 +59,7 @@ class IslandScheduler:
         if self._epochs:
             raise RuntimeError("islands are already initialized")
 
+        self._base_seed = int(base_proposal_seed)
         created = []
         for index in range(self.num_islands):
             epoch = IslandEpoch(
@@ -138,7 +142,7 @@ class IslandScheduler:
         active_ids = [self._epoch_id(epoch) for epoch in self.get_active_epochs()]
         if not active_ids:
             raise RuntimeError("no active island epochs")
-        return random.Random(rng_seed).choice(active_ids)
+        return random.Random(self._mixed_seed(rng_seed)).choice(active_ids)
 
     def should_review(self, context_round: int) -> bool:
         return (
@@ -228,7 +232,7 @@ class IslandScheduler:
                 raise ValueError("each surviving epoch must have a scored record")
 
         culled = ranked[-cull_count:]
-        review_rng = random.Random(context_round)
+        review_rng = random.Random(self._mixed_seed(context_round, "review"))
         replacements: dict[str, str] = {}
         for old_epoch in culled:
             old_epoch.status = "culled"
@@ -255,6 +259,13 @@ class IslandScheduler:
         self._persist()
         return replacements
 
+    def _mixed_seed(self, value: int, label: str = "") -> int | str:
+        # base_seed 0 (also every state file written before the seed was
+        # persisted) keeps the historical seeding so resumed runs replay.
+        if self._base_seed == 0:
+            return value
+        return f"{self._base_seed}:{label}:{value}"
+
     @staticmethod
     def _proposal_seed(context_round: int, old_epoch: IslandEpoch) -> int:
         island_number = int(old_epoch.island_id.rsplit("_", 1)[1])
@@ -268,6 +279,7 @@ class IslandScheduler:
         payload = {
             "schema": _STATE_SCHEMA,
             "direction": self.direction,
+            "base_seed": self._base_seed,
             "epochs": [epoch.to_dict() for epoch in self._epochs],
             "epoch_records": self._epoch_records,
             "last_review_round": self._last_review_round,
@@ -289,6 +301,7 @@ class IslandScheduler:
         if persisted_direction not in {"min", "max"}:
             raise ValueError("island state direction must be 'min' or 'max'")
         self.direction = persisted_direction
+        self._base_seed = int(payload.get("base_seed", 0))
         self._epochs = [IslandEpoch.from_dict(item) for item in payload["epochs"]]
         self._epoch_records = {
             epoch_id: list(record_ids)

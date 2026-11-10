@@ -13,7 +13,6 @@ import io
 import json
 import math
 import os
-import shutil
 import stat
 import sys
 from dataclasses import dataclass
@@ -22,7 +21,7 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from sandbox import read_regular_file, run_training_sandbox
+from sandbox import read_regular_file, remove_sealed_tree, run_training_sandbox
 from tasks.bermudan_optimal_stopping.evaluator import (
     BSInstance,
     discounted_rewards,
@@ -83,6 +82,8 @@ class TrainingCellResult:
     policy_artifact_sha256: str | None
     runner: ContinuationRunner | "SandboxedPythonProgramRunner" | None
     research_fallback: bool = False
+    # False when the supervisor could not measure process-group RSS (no kill).
+    memory_limit_enforced: bool = True
 
 
 @dataclass(frozen=True)
@@ -596,7 +597,7 @@ class SandboxedPythonProgramRunner:
                 raise ValueError("continuation predictions contain NaN or infinity")
             return np.clip(values, *PROTOCOL_OUTPUT_CLIP)
         finally:
-            shutil.rmtree(call_root, ignore_errors=True)
+            remove_sealed_tree(call_root)
 
     def _default_query(
         self,
@@ -742,6 +743,7 @@ def run_per_instance_training(
         "log_tail": sandbox_result["log_tail"],
         "wall_seconds": float(sandbox_result["wall_seconds"]),
         "peak_memory_bytes": int(sandbox_result["peak_memory_bytes"]),
+        "memory_limit_enforced": bool(sandbox_result.get("memory_limit_enforced", True)),
         "output_entries": int(sandbox_result["output_entries"]),
         "output_bytes": int(sandbox_result["output_bytes"]),
         "train_seed": seed,

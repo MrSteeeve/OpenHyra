@@ -62,7 +62,7 @@ normalization = {"steps": [
 
 
 def runtime_roots():
-    candidates = [Path(sys.prefix)]
+    candidates = [Path(sys.prefix), Path(sys.base_prefix)]
     if sys.platform == "darwin":
         candidates.extend((
             Path("/usr/lib"),
@@ -240,6 +240,19 @@ class BermudanTrainingPipelineTests(unittest.TestCase):
             self.assertEqual(result.status, "invalid_artifact")
             self.assertIn("unexpected file", result.log_tail)
             self.assertIsNone(result.runner)
+
+    def test_sealed_cell_tree_is_removed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, input_dir, _output, _tmp = pipeline._create_cell_directories(
+                Path(temporary) / "cell"
+            )
+            pipeline.write_training_input_bundle(self.instance, self.paths, input_dir)
+            query = root / "prediction" / "query"
+            query.mkdir(parents=True)
+            (query / "history.npy").write_bytes(b"x")
+            pipeline._seal_readonly_tree(root / "prediction")
+            pipeline.remove_sealed_tree(root)
+            self.assertFalse(root.exists())
 
 
 if __name__ == "__main__":

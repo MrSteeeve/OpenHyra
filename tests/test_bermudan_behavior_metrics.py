@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from tasks.bermudan_optimal_stopping import evaluator
 
@@ -44,7 +45,6 @@ def test_policy_behavior_descriptor_uses_early_exercise_rate() -> None:
     assert math.isclose(descriptor["stop_time_mean"], 7.0 / 12.0)
     assert math.isclose(descriptor["stop_time_std"], 0.4330127019, rel_tol=1e-9)
     assert descriptor["finite"] is True
-    assert descriptor["valid_stop_rate"] == 1.0
 
 
 def test_search_emits_per_instance_behavior_and_repeat_stability() -> None:
@@ -76,15 +76,99 @@ def test_search_emits_per_instance_behavior_and_repeat_stability() -> None:
         )
 
 
-def test_invalid_stopping_indices_are_marked_without_nonfinite_metrics() -> None:
-    descriptor = evaluator._policy_behavior_metrics(
-        np.asarray([1.0, 2.0]),
-        np.asarray([0.0, 2.0]),
-        2,
+def test_invalid_stopping_indices_raise_instead_of_placeholder_metrics() -> None:
+    with pytest.raises(ValueError, match="stopping indices"):
+        evaluator._policy_behavior_metrics(
+            np.asarray([1.0, 2.0]),
+            np.asarray([0.0, 2.0]),
+            2,
+        )
+
+
+def test_search_failure_rate_is_not_reported_as_a_measurement() -> None:
+    _score, metrics, _normalized, _evidence = evaluator.evaluate_submission(
+        evaluator.BASELINE_PROGRAM,
+        _search_request(repeats=1),
     )
-    assert descriptor["finite"] is False
-    assert descriptor["valid_stop_rate"] == 0.0
-    assert all(math.isfinite(value) for value in descriptor["exercise_rate_by_time"])
+    assert metrics["failure_rate"] is None
+    assert metrics["failure_rate_observed"] is False
+
+
+def test_search_pricing_paths_use_a_private_salt() -> None:
+    request = _search_request(repeats=1)
+    request["config"]["public_pathwise_samples"] = True
+    # Standalone call: a fresh salt is drawn per evaluation and recorded.
+    _s1, first, _n1, _e1 = evaluator.evaluate_submission(evaluator.BASELINE_PROGRAM, request)
+    _s2, second, _n2, _e2 = evaluator.evaluate_submission(evaluator.BASELINE_PROGRAM, request)
+    assert first["pricing_salt"] != second["pricing_salt"]
+    instance = evaluator.public_suite()[0]
+    pricing = request["config"]["pricing_paths"]
+    public_only = evaluator._derive_seed(request["seed"], request["suite_id"], 0, 0, "pricing")
+    salted = evaluator._derive_seed(
+        request["seed"], request["suite_id"], 0, 0, "pricing", first["pricing_salt"],
+    )
+    recorded = first["summaries"][0]["pricing_paths_sha256"]
+    assert evaluator._sha256_array(evaluator.simulate_paths(instance, pricing, public_only)) != recorded
+    assert evaluator._sha256_array(evaluator.simulate_paths(instance, pricing, salted)) == recorded
+
+
+def test_run_salt_gives_common_pricing_paths_across_candidates() -> None:
+    import math
+    from bermudan_research import paired_slice_effects
+
+    request = _search_request(repeats=2)
+    request["config"].update(public_pathwise_samples=True, pricing_salt=987654321)
+    other = {**evaluator.BASELINE_PROGRAM, "features": evaluator.BASELINE_PROGRAM["features"][:2]}
+    _sg, guided, _ng, _eg = evaluator.evaluate_submission(evaluator.BASELINE_PROGRAM, request)
+    _sc, control, _nc, _ec = evaluator.evaluate_submission(other, request)
+    # A supplied (run-private) salt never reaches the emitted metrics.
+    assert "pricing_salt" not in guided and "pricing_salt" not in control
+    stats = paired_slice_effects(guided, control)
+    assert stats["status"] == "observed"
+    assert all(c["uncertainty_method"] == "common_random_numbers_pathwise" for c in stats["cells"])
+    # Same independent recomputation as experiments/audit_bermudan_bundle.py.
+    moments = []
+    for a, b in zip(guided["summaries"], control["summaries"]):
+        diffs = [x - y for x, y in zip(a["paired_pathwise_improvements"], b["paired_pathwise_improvements"])]
+        mean = math.fsum(diffs) / len(diffs)
+        moments.append((mean, math.fsum((x - mean) ** 2 for x in diffs) / (len(diffs) - 1) / len(diffs)))
+    effect = math.fsum(m[0] for m in moments) / len(moments)
+    se = math.sqrt(math.fsum(m[1] for m in moments)) / len(moments)
+    assert math.isclose(effect, stats["effect"], abs_tol=1e-13)
+    assert math.isclose(se, stats["standard_error"], abs_tol=1e-13)
+
+
+def test_audit_dual_and_pricing_streams_use_the_salt() -> None:
+    request = {
+        "schema": evaluator.REQUEST_SCHEMA, "stage": "audit", "task": evaluator.TASK_NAME,
+        "protocol": evaluator.TASK_PROTOCOL, "seed": 9017, "suite_id": "salted-audit",
+        "config": {"instance_count": 1, "repeats": 1, "training_paths": 128,
+                   "pricing_paths": 128, "outer_paths": 64, "inner_paths": 2},
+    }
+    results = []
+    for salt in (1, 1, 2):
+        salted = {**request, "config": {**request["config"], "pricing_salt": salt}}
+        results.append(evaluator.evaluate_submission(evaluator.BASELINE_PROGRAM, salted))
+    assert results[0][0] == results[1][0] and results[0][0] != results[2][0]
+    assert "pricing_salt" not in results[0][1]
+    _score, drawn, _n, _e = evaluator.evaluate_submission(evaluator.BASELINE_PROGRAM, request)
+    assert isinstance(drawn["pricing_salt"], int)
+
+
+def test_harness_run_salt_is_private_stable_and_bermudan_only(tmp_path) -> None:
+    import os
+    from types import SimpleNamespace
+    from provenance import with_run_pricing_salt
+
+    task = SimpleNamespace(run_dir=tmp_path)
+    request = {"protocol": evaluator.TASK_PROTOCOL, "config": {"repeats": 1}}
+    first = with_run_pricing_salt(task, request)
+    second = with_run_pricing_salt(task, request)
+    assert first["config"]["pricing_salt"] == second["config"]["pricing_salt"]
+    assert "pricing_salt" not in request["config"]  # manifest copy untouched
+    assert os.stat(tmp_path / "private_pricing_salt").st_mode & 0o777 == 0o600
+    other = {"protocol": "stochopia-structuring-search.v1", "config": {}}
+    assert with_run_pricing_salt(task, other) is other
 
 
 def test_algorithm_bundle_search_exposes_the_same_behavior_projection() -> None:
@@ -133,3 +217,64 @@ for index in range(steps):
     assert metrics["training_cell_count"] == 1
     assert metrics["per_instance_exercise_rates"]
     assert metrics["per_instance_finite_rates"] == {"public-put-atm": 1.0}
+
+
+class _ConstantContinuation:
+    policy_interface = "continuation"
+    runner_type = "python_program"
+    policy_artifact_sha256 = "same-model"
+
+    def __init__(self, instance, bump_time=None):
+        self.instance = instance
+        self.bump_time = bump_time
+
+    def continuation(self, time_index, states, *, history, immediate_payoffs):
+        bump = 1.0 if time_index == self.bump_time else 0.0
+        return np.full(np.asarray(states).shape[0], 0.1 + bump)
+
+
+def test_replay_prediction_check_covers_every_decision_date(tmp_path, monkeypatch) -> None:
+    instance = evaluator.public_suite()[0]
+    # Same model digest; predictions differ only at t=2, which a t=0-only
+    # comparison could not see.
+    monkeypatch.setattr(
+        evaluator, "_fit_candidate_policy",
+        lambda *args, **kwargs: (_ConstantContinuation(instance, bump_time=2), {}),
+    )
+    result = evaluator._independent_validation(
+        policy=_ConstantContinuation(instance), source_dir=tmp_path, manifest=None,
+        instance=instance, training_paths=np.zeros((1, 1, 1)), train_seed=5,
+        training_root=tmp_path, config={},
+    )
+    replay = result["deterministic_replay"]
+    assert replay["model_equal"] is True
+    assert replay["prediction_equal"] is False
+    assert replay["status"] == "failed"
+    # The renamed probe is a determinism check, not a look-ahead claim.
+    assert "lookahead_probe" not in result
+    assert result["repeat_query_probe"]["status"] == "passed"
+
+
+def test_external_isolation_is_opt_in(tmp_path, monkeypatch) -> None:
+    from tasks.bermudan_optimal_stopping import training_pipeline
+
+    seen = []
+
+    def fake_training(**kwargs):
+        seen.append(kwargs["externally_isolated"])
+        return type("Result", (), {"status": "crash", "runner": None, "log_tail": "stub"})()
+
+    monkeypatch.setattr(training_pipeline, "run_per_instance_training", fake_training)
+    monkeypatch.setattr(evaluator, "_training_result_metrics", lambda result: {})
+    instance = evaluator.public_suite()[0]
+    for env_value, expected in ((None, False), ("1", True)):
+        if env_value is None:
+            monkeypatch.delenv("OPENHYRA_ALLOW_UNSANDBOXED", raising=False)
+        else:
+            monkeypatch.setenv("OPENHYRA_ALLOW_UNSANDBOXED", env_value)
+        with pytest.raises(ValueError, match="candidate training failed"):
+            evaluator._fit_algorithm_policy(
+                tmp_path, None, instance, np.zeros((4, 7, 1)), train_seed=1,
+                cell_dir=tmp_path / "cell", config={},
+            )
+        assert seen[-1] is expected

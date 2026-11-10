@@ -1,0 +1,68 @@
+{
+  "schema": "stochopia-comparison-api-models.v1",
+  "verified_on": "2026-10-09",
+  "reasoning_policy": "provider-default",
+  "models": {
+    "claude-haiku-5.5": {
+      "base_url": "https://api.anthropic.com/v1",
+      "api_format": "anthropic-messages",
+      "model": "claude-haiku-5-5",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "required_max_tokens": 128000,
+      "request_options": {},
+      "model_info": {
+        "provider": "Anthropic official",
+        "total_parameters_billion": null,
+        "active_parameters_billion": null,
+        "parameter_status": "not verified from official public information",
+        "max_output_verified_by": "authenticated GET /v1/models/claude-haiku-5-5; max_tokens=128000 on 2026-10-09",
+        "sources": ["https://platform.claude.com/docs/en/models/haiku-5-5/overview", "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"]
+      }
+    },
+    "deepseek-v4.1-flash": {
+      "base_url": "https://api.deepseek.com/v1",
+      "api_format": "chat-completions",
+      "model": "deepseek-flash",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "request_options": {},
+      "model_info": {
+        "provider": "DeepSeek official",
+        "total_parameters_billion": 552,
+        "active_parameters_billion": {"input": 8, "output": 16},
+        "parameter_status": "officially disclosed; encoder and decoder differ",
+        "model_id_is_alias": true,
+        "sources": ["https://api-docs.deepseek.com/news/news260910/", "https://api-docs.deepseek.com/api/create-chat-completion/"]
+      }
+    },
+    "step-5-preview": {
+      "base_url": "https://api.stepfun.com/v1",
+      "api_format": "chat-completions",
+      "model": "step-5-preview",
+      "api_key_env": "STEPFUN_API_KEY",
+      "request_options": {},
+      "model_info": {
+        "provider": "StepFun official",
+        "total_parameters_billion": null,
+        "active_parameters_billion": null,
+        "parameter_status": "not verified from official public information",
+        "model_id_verified_by": "authenticated GET /v1/models on 2026-10-09",
+        "sources": ["https://platform.stepfun.com/docs/zh/guides/models/step-5-preview", "https://api.stepfun.com/v1/models"]
+      }
+    },
+    "nemotron-3-super": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_format": "chat-completions",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "request_options": {"provider": {"allow_fallbacks": false}},
+      "model_info": {
+        "provider": "OpenRouter",
+        "total_parameters_billion": 120,
+        "active_parameters_billion": 12,
+        "parameter_status": "official model listing; not the Ultra variant",
+        "upstream_policy": "OpenRouter selection; no provider fallback; record actual provider when returned",
+        "sources": ["https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b/providers"]
+      }
+    }
+  }
+}

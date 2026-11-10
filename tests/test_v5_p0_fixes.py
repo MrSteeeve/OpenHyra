@@ -166,12 +166,18 @@ class TestProvenanceV5SourceFiles:
             "matched_control.py",
             "mechanism_cards.py",
             "object_store.py",
-            "probe_suite.py",
             "schemas_v5.py",
         )
 
-        assert len(v5_source_files) == 12
+        assert len(v5_source_files) == 11
         assert set(v5_source_files).issubset(set(SOURCE_FILES))
+        # Result-affecting modules reachable from the harness are hashed;
+        # the deleted, unimported probe_suite.py is not.
+        assert {
+            "program_search.py", "bermudan_research.py",
+            "agent_program_generator.py",
+        } <= set(SOURCE_FILES)
+        assert "probe_suite.py" not in SOURCE_FILES
 
 
 class TestV5LifecycleEndToEnd:

@@ -88,3 +88,113 @@ def test_denied_seatbelt_launch_never_runs_candidate_unisolated(tmp_path, monkey
     assert result["status"] == "crash"
     assert not result["research_fallback"]
     assert not marker.exists()
+
+
+def test_matched_control_reports_realized_calls_without_filtering_on_them(tmp_path):
+    from harness import _finalize_matched_controls
+
+    def entry(arm, attempts):
+        records = [{"id": f"{arm}-{index}", "status": "ok", "score": 0.1, "metrics": {}}
+                   for index in range(attempts)]
+        item = {"matched_pair_id": "pair-1", "matched_arm": arm, "matched_seed": 3,
+                "parent": {"id": "parent"}, "mechanism": {"id": "m1", "mechanism": "replace fit"}}
+        return {"item": item, "records": records}
+
+    eb = SimpleNamespace(root=tmp_path / "eb", records=lambda: [{"id": "parent", "score": 0.0}])
+    task = SimpleNamespace(run_dir=tmp_path, metric="paired_lower_bound_lcb",
+                           direction="max", candidate_repair_attempts=1)
+    # The guided arm needed its one allotted repair, the control none.  The
+    # realized counts are reported but must not drop the pair (that would
+    # select pairs on outcome).
+    [payload] = _finalize_matched_controls(task, 0, [entry("guided", 2), entry("control", 1)], eb)
+    control = payload["hypothesis"]["matched_control"]
+    assert (control["guided_llm_calls"], control["control_llm_calls"]) == (2, 1)
+    assert control["allotted_llm_calls"] == 2
+    assert control["same_compute_budget"] is True
+    assert payload["result"]["verdict"] != "invalid_control"
+
+
+
+def test_control_packet_does_not_enter_focal_mechanism_belief():
+    from feedback import BeliefReducer
+    from harness import _annotate_feedback_lineage
+
+    def packet(effect, candidate):
+        rows = [{"instance_id": "public-put-atm", "repeat": r, "paired_normalized_improvement": effect,
+                 "paired_normalized_standard_error": 1e-4, "slice_labels": []} for r in range(2)]
+        return evaluator._build_domain_feedback_packet(
+            stage="search", task="bermudan_python_search", suite_id="s",
+            request={"seed": 1, "candidate": candidate}, score=0.0, summaries=rows,
+            confidence_level=0.95).to_dict()
+
+    mechanism = {"id": "mech_X"}
+    guided = _annotate_feedback_lineage({"feedback_packet": packet(0.01, "g")},
+                                        {"mechanism": mechanism, "matched_arm": "guided"})
+    control = _annotate_feedback_lineage({"feedback_packet": packet(-0.02, "c")},
+                                         {"mechanism": mechanism, "matched_arm": "control"})
+    assert "feedback_lineage" not in control
+    state = BeliefReducer().rebuild([guided["feedback_packet"], control["feedback_packet"]])
+    focal = [cell for key, cell in state.cells.items() if key.startswith("mech_X::")]
+    assert [cell.n for cell in focal] == [2]
+    assert focal[0].mean == pytest.approx(0.01)
+
+def test_python_seed_never_exercises_zero_payoff_paths_in_fit(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "seed_algorithm",
+        Path(__file__).resolve().parents[1] / "tasks/bermudan_python_search/seed_solution/algorithm.py",
+    )
+    seed = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seed)
+    n = 64
+    x = np.linspace(-1.0, 1.0, n)
+    paths = np.exp(np.repeat(x[:, None, None], 3, axis=1))
+    payoffs = np.zeros((n, 3))
+    payoffs[:, 0] = 0.05
+    # Tail-heavy targets make the quadratic continuation negative mid-range;
+    # with all date-1 payoffs zero, nothing may be exercised there.
+    payoffs[:, 2] = np.where(np.abs(x) > 0.8, 1.0, 0.0)
+    payoffs[n // 2, 2] = 0.01
+
+    def coefficients(p, q, name):
+        (tmp_path / name).mkdir()
+        np.save(tmp_path / name / "training_paths.npy", p)
+        np.save(tmp_path / name / "payoffs.npy", q)
+        seed.fit(tmp_path / name, tmp_path / f"{name}-model", 0)
+        return np.load(tmp_path / f"{name}-model" / "model.npz")["coefficients"]
+
+    full = coefficients(paths, payoffs, "full")
+    skipped = coefficients(paths[:, [0, 2]], payoffs[:, [0, 2]], "skipped")
+    np.testing.assert_allclose(full[0], skipped[0])
+
+
+def test_bundle_replay_passes_the_recorded_pricing_salt(tmp_path, monkeypatch):
+    import importlib.util
+    bundle = tmp_path / "bundle"
+    runner_dir = bundle / "reproduction" / "experiments"
+    runner_dir.mkdir(parents=True)
+    # Stand-in for the frozen workshop runner: replays only match with the salt.
+    (runner_dir / "run_bermudan_live_workshop.py").write_text(
+        "import json\n"
+        "def save(path, value):\n"
+        "    path.parent.mkdir(parents=True, exist_ok=True); path.write_text(json.dumps(value))\n"
+        "def evaluate(source, req, path):\n"
+        "    salted = req['config'].get('pricing_salt') == 123\n"
+        "    return {'status': 'ok', 'score': 1.0 if salted else 2.0, 'source_digest': 'd',\n"
+        "            'source_unchanged': True, 'wall_seconds': 0.1,\n"
+        "            'metrics': {'training_cells': [{'model_file_sha256': 'm'}], 'summaries': []}}\n"
+    )
+    old = {"status": "ok", "score": 1.0, "source_digest": "d", "request": {"config": {}},
+           "metrics": {"pricing_salt": 123, "training_cells": [{"model_file_sha256": "m"}], "summaries": []}}
+    row = {"mode": "m", "seed": 1, "candidate_id": "c", "program_path": "p", "result": old}
+    (bundle / "candidate_ledger.jsonl").write_text(json.dumps(row) + "\n")
+    (bundle / "summary.json").write_text(json.dumps({"private_audits": []}))
+    spec = importlib.util.spec_from_file_location(
+        "replay_bundle", Path(__file__).resolve().parents[1] / "experiments/replay_bermudan_bundle.py",
+    )
+    replay = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(replay)
+    monkeypatch.setattr(sys, "argv", ["replay", "--bundle", str(bundle), "--output", str(tmp_path / "out")])
+    replay.main()
+    report = json.loads((tmp_path / "out" / "replay_verification.json").read_text())
+    assert report["all_equal"] is True

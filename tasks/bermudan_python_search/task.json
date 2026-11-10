@@ -92,7 +92,7 @@
   "max_memory_mb": 1024,
   "max_output_mb": 64,
   "max_artifact_bytes": 131072,
-  "evaluator_timeout_s": 900,
+  "evaluator_timeout_s": 1350,
   "evaluator_max_memory_mb": 2048,
   "evaluation": {
     "search_stage": {
@@ -122,7 +122,8 @@
       "outer_paths": 768,
       "inner_paths": 64,
       "ridge_alpha": 0.000001,
-      "training_timeout_s": 60,
+      "training_timeout_s": 90,
+      "prediction_timeout_s": 7.5,
       "training_memory_bytes": 1073741824,
       "training_file_size_bytes": 67108864
     }

@@ -49,7 +49,16 @@ def main():
                                       "scope": "recorded_generation_or_execution_failure_not_reexecuted"})
             continue
         path = output / kind / (identifier + ".json")
-        new = runner.evaluate(source, old["request"], path)
+        request = old["request"]
+        if "pricing_salt" in old["metrics"]:
+            # The evaluator drew this salt itself; replay needs it back.
+            request = {**request, "config": {**request["config"],
+                                             "pricing_salt": old["metrics"]["pricing_salt"]}}
+        elif "pricing_salt" not in request["config"] and (bundle / "private_pricing_salt.json").is_file():
+            # Saved requests omit the run salt; it is kept only in this private file.
+            request = {**request, "config": {**request["config"],
+                                             "pricing_salt": read(bundle / "private_pricing_salt.json")}}
+        new = runner.evaluate(source, request, path)
         model_hashes = lambda result: [c["model_file_sha256"] for c in result["metrics"].get("training_cells", [])]
         same_models = model_hashes(new) == model_hashes(old) and bool(model_hashes(old))
         old_paths = [s.get("paired_pathwise_improvements") for s in old["metrics"].get("summaries", [])]
@@ -57,7 +66,7 @@ def main():
         same_paths = new_paths == old_paths
         probes = new["metrics"].get("independent_validation", {})
         probes_pass = kind != "audit" or all(probes.get(k, {}).get("status") == "passed"
-                                             for k in ("lookahead_probe", "deterministic_replay"))
+                                             for k in ("repeat_query_probe", "deterministic_replay"))
         passed = (new["status"] == "ok" and new["score"] == old["score"] and
                   new["source_digest"] == old["source_digest"] and new["source_unchanged"] and
                   same_models and same_paths and probes_pass)

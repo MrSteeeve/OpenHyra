@@ -96,12 +96,6 @@ class AnalogyGraph:
                 )
             )
 
-    def get_edges_from(self, record_id: str) -> list[AnalogyEdge]:
-        return [edge for edge in self.edges if edge.source_id == record_id]
-
-    def get_edges_to(self, record_id: str) -> list[AnalogyEdge]:
-        return [edge for edge in self.edges if edge.target_id == record_id]
-
     def get_edges_by_type(self, edge_type: str) -> list[AnalogyEdge]:
         return [edge for edge in self.edges if edge.edge_type == edge_type]
 

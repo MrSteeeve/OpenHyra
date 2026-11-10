@@ -4,7 +4,6 @@ import hashlib
 import json
 import math
 import os
-import platform
 import shutil
 import signal
 import stat
@@ -12,7 +11,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import resource
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -415,7 +413,12 @@ def _read_log_tail(stream, max_bytes=TRAINING_SANDBOX_LOG_BYTES):
 
 
 def _process_group_rss_bytes(process_group):
-    """Return aggregate resident bytes for a process group via trusted ps."""
+    """Return aggregate resident bytes for a process group via trusted ps.
+
+    An unavailable measurement returns None (never the parent's own
+    high-water mark, which says nothing about the group and must not trigger
+    a kill).
+    """
     last_error = None
     result = None
     for _attempt in range(PROCESS_GROUP_PS_ATTEMPTS):
@@ -444,9 +447,7 @@ def _process_group_rss_bytes(process_group):
         # monitoring must remain useful there instead of converting every
         # otherwise valid candidate into a false resource failure.  psutil is
         # optional; when present it can inspect the leader and descendants
-        # directly.  The final fallback is the parent's resident high-water
-        # mark, which is still a positive diagnostic but is deliberately not
-        # treated as a process-group measurement.
+        # directly.  Otherwise the group is unmeasured.
         # Only use psutil on an actual Darwin code path. Unit tests and some
         # callers temporarily patch ``sys.platform`` to exercise the Linux
         # fail-closed branch; psutil's native backend then reports nonsense
@@ -470,14 +471,7 @@ def _process_group_rss_bytes(process_group):
                     return total
             except Exception:
                 pass
-        # ``ru_maxrss`` is bytes on Darwin and KiB on Linux.  This fallback is
-        # only reached when ps and psutil are unavailable; it is sufficient to
-        # keep diagnostics non-zero while the hard RLIMIT/output/time guards
-        # continue to enforce the candidate contract.
-        peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-        if platform.uname().system != "Darwin":
-            peak *= 1024
-        return max(0, peak)
+        return None
     total_kib = 0
     for line in result.stdout.splitlines():
         fields = line.split()
@@ -541,6 +535,7 @@ def _wait_training_process(
         "peak_memory_bytes": 0,
         "peak_writable_entries": 0,
         "peak_writable_bytes": 0,
+        "memory_limit_enforced": True,
     }
     while True:
         if cancel_event is not None and cancel_event.is_set():
@@ -552,6 +547,10 @@ def _wait_training_process(
             rss_bytes = _process_group_rss_bytes(proc.pid)
         except RuntimeError as exc:
             return "monitor_error", str(exc), usage
+        if rss_bytes is None:
+            # Unmeasurable (ps/psutil denied): never kill on a guess.
+            usage["memory_limit_enforced"] = False
+            rss_bytes = 0
         usage["peak_memory_bytes"] = max(
             usage["peak_memory_bytes"], rss_bytes,
         )
@@ -819,20 +818,29 @@ def _sandboxed_cmd(sandbox_dir, evaluator, cmd):
     )
 
 
+# Same policy as TRAINING_LIMIT_WRAPPER: limits that cannot be applied fail
+# closed, and on macOS (which rejects a finite RLIMIT_AS) memory is enforced
+# by the parent's process-group RSS polling in ``_wait_process``.
 LIMIT_WRAPPER = r"""
 import os, resource, sys
-limits = (
-    (resource.RLIMIT_AS, int(sys.argv[1])),
-    (resource.RLIMIT_FSIZE, int(sys.argv[2])),
-    (resource.RLIMIT_CPU, int(sys.argv[3])),
-)
-for key, value in limits:
+limits = [
+    (resource.RLIMIT_FSIZE, int(sys.argv[2]), "file-size"),
+    (resource.RLIMIT_CPU, int(sys.argv[3]), "cpu-time"),
+]
+if sys.platform != "darwin":
+    limits.insert(0, (resource.RLIMIT_AS, int(sys.argv[1]), "address-space"))
+for key, value, label in limits:
     try:
         _soft, hard = resource.getrlimit(key)
         target = value if hard == resource.RLIM_INFINITY else min(value, hard)
         resource.setrlimit(key, (target, target))
-    except (OSError, ValueError):
-        pass
+        applied, _hard = resource.getrlimit(key)
+        if applied == resource.RLIM_INFINITY or applied > value:
+            raise RuntimeError("limit was not applied")
+    except Exception as exc:
+        print("sandbox could not apply %s limit: %s" % (label, exc),
+              file=sys.stderr)
+        raise SystemExit(126)
 os.execvp(sys.argv[4], sys.argv[4:])
 """
 
@@ -840,8 +848,10 @@ os.execvp(sys.argv[4], sys.argv[4:])
 def _limited_cmd(task, command):
     memory = int(getattr(task, "max_memory_mb", 1024)) * 1024 * 1024
     output = int(getattr(task, "max_output_mb", 64)) * 1024 * 1024
+    # -I -S: the wrapper starts with cwd=sandbox_dir before Seatbelt applies,
+    # so a candidate ``resource.py`` there must not shadow trusted imports.
     return [
-        sys.executable, "-c", LIMIT_WRAPPER,
+        sys.executable, "-I", "-S", "-c", LIMIT_WRAPPER,
         str(memory), str(output), str(int(task.timeout_s) + 5),
         *command,
     ]
@@ -942,6 +952,45 @@ def _configured_algorithm_source_files(task):
     return tuple(result)
 
 
+def remove_sealed_tree(root):
+    """Delete a trusted tree whose directories were sealed read-only (0500).
+
+    Plain ``rmtree`` cannot unlink entries of a read-only directory, so every
+    directory is made owner-writable (top-down, before descending) first; a
+    leftover tree may keep salted pricing paths, hidden-suite inputs or frozen
+    sources readable by later processes.  A cleanup failure is raised only
+    when no exception is already propagating (this is meant for ``finally`` /
+    ``except`` blocks); otherwise the primary exception keeps priority and the
+    cleanup failure is attached to it as a note (logged on Python < 3.11).
+    """
+    primary = sys.exc_info()[1]
+    root = Path(root)
+    nofollow = os.chmod in os.supports_follow_symlinks
+
+    def unseal(path):
+        if nofollow:
+            os.chmod(path, 0o700, follow_symlinks=False)
+        elif not os.path.islink(path):
+            os.chmod(path, 0o700)
+
+    try:
+        if root.is_symlink():
+            raise ValueError(f"refusing to remove symlinked tree root {root}")
+        unseal(root)
+        for current, child_directories, _filenames in os.walk(root):
+            for name in child_directories:
+                unseal(os.path.join(current, name))
+        shutil.rmtree(root)
+    except (OSError, ValueError) as exc:
+        if primary is None:
+            raise
+        note = f"cleanup of {root} also failed: {exc!r}"
+        if hasattr(primary, "add_note"):
+            primary.add_note(note)
+        else:
+            print(note, file=sys.stderr)
+
+
 def snapshot_algorithm_source(source_dir, destination, task, max_bytes):
     """Copy only declared AlgorithmBundle source files into a trusted root.
 
@@ -989,7 +1038,7 @@ def snapshot_algorithm_source(source_dir, destination, task, max_bytes):
             directory.chmod(0o500)
         target_root.chmod(0o500)
     except Exception:
-        shutil.rmtree(target_root, ignore_errors=True)
+        remove_sealed_tree(target_root)
         raise
     return target_root
 
@@ -1103,8 +1152,8 @@ def _kill_process_group(proc):
         pass
 
 
-def _wait_process(proc, timeout_s, cancel_event=None):
-    """Return completed, timeout, or cancelled while polling shared state."""
+def _wait_process(proc, timeout_s, cancel_event=None, memory_bytes=None):
+    """Return completed, timeout, cancelled, or memory_limit while polling."""
     started = time.monotonic()
     while True:
         if cancel_event is not None and cancel_event.is_set():
@@ -1112,6 +1161,10 @@ def _wait_process(proc, timeout_s, cancel_event=None):
         remaining = timeout_s - (time.monotonic() - started)
         if remaining <= 0:
             return "timeout"
+        if memory_bytes is not None:
+            rss_bytes = _process_group_rss_bytes(proc.pid)
+            if rss_bytes is not None and rss_bytes > memory_bytes:
+                return "memory_limit"
         try:
             proc.wait(timeout=min(0.2, remaining))
             return "completed"
@@ -1155,7 +1208,7 @@ def _trusted_score(
         # responsible for validating the directory before using it.
         command.extend(("--candidate-source", str(source)))
     limited = [
-        sys.executable, "-c", LIMIT_WRAPPER,
+        sys.executable, "-I", "-S", "-c", LIMIT_WRAPPER,
         str(memory_mb * 1024 * 1024),
         str(output_mb * 1024 * 1024),
         str(timeout_s + 5),
@@ -1190,7 +1243,10 @@ def _trusted_score(
     )
     try:
         try:
-            state = _wait_process(proc, timeout_s, cancel_event)
+            state = _wait_process(
+                proc, timeout_s, cancel_event,
+                memory_bytes=memory_mb * 1024 * 1024,
+            )
         finally:
             # Trusted code should not leave descendants behind either, even
             # when final audit is interrupted while waiting.
@@ -1243,6 +1299,11 @@ def _trusted_score(
     if state == "cancelled":
         return (
             None, "cancelled", {}, "evaluator cancelled",
+            time.perf_counter() - started, None, None, request_sha256,
+        )
+    if state == "memory_limit":
+        return (
+            None, "crash", {}, f"evaluator exceeded {memory_mb} MB memory limit",
             time.perf_counter() - started, None, None, request_sha256,
         )
     elapsed = time.perf_counter() - started
@@ -1786,7 +1847,10 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
             start_new_session=True,
         )
         try:
-            wait_state = _wait_process(proc, task.timeout_s, cancel_event)
+            wait_state = _wait_process(
+                proc, task.timeout_s, cancel_event,
+                memory_bytes=int(getattr(task, "max_memory_mb", 1024)) * 1024 * 1024,
+            )
         finally:
             # Also removes descendants deliberately left behind after a normal
             # parent exit, closing the artifact mutation race before snapshot.
@@ -1811,6 +1875,11 @@ def run_solution(solution_dir: Path, sandbox_dir: Path, task):
     if wait_state == "timeout":
         return None, "timeout", (
             f"killed process group after {task.timeout_s}s\n{log_tail}"
+        ).strip(), base_metrics
+    if wait_state == "memory_limit":
+        return None, "crash", (
+            f"killed process group above {getattr(task, 'max_memory_mb', 1024)} MB"
+            f"\n{log_tail}"
         ).strip(), base_metrics
     if proc.returncode != 0:
         return None, "crash", log_tail, base_metrics

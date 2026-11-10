@@ -30,8 +30,9 @@ must not be fed back into further proposal or repair rounds.
 The public search suite contains one-dimensional Bermudan puts, a multi-asset
 max-call, and a basket put. For every instance and repeat, candidate and frozen
 baseline use the same policy-fit paths and the same independent pricing paths
-(Common Random Numbers). The score is the 95% lower confidence bound of the
-paired, strike-normalized candidate-minus-baseline lower-bound improvement.
+(Common Random Numbers). The score is the one-sided 97.5% lower confidence bound
+(the lower end of a two-sided 95% interval, `z = 1.96`) of the paired,
+strike-normalized candidate-minus-baseline lower-bound improvement.
 Higher is better.
 
 The estimand is the equally weighted mean over this fixed suite and its fixed
@@ -101,7 +102,13 @@ The evaluator fixes correlated geometric Brownian motion under the
 risk-neutral measure, exercise dates, strike, rates, dividends, volatility,
 correlation, contract payoff, discounting, path counts, and Ridge penalty.
 It fits backward only on policy-fit paths, freezes the policy, then generates
-an independent pricing sample. A decision at time `m` receives only `S_m`,
+an independent pricing sample. Pricing and dual seeds (search and audit) mix
+in a private salt, so a candidate cannot reconstruct those paths from the
+public request seed. The harness draws one salt per run, keeps it in the run
+directory outside the manifest, prompts and feedback, and passes it as
+`config.pricing_salt`, so every candidate shares the pricing paths. A
+standalone evaluator call without it draws a fresh salt and records it as
+`pricing_salt` in the metrics for replay. A decision at time `m` receives only `S_m`,
 the time index, and public instance parameters. Exercise occurs at most once
 and maturity settlement is mandatory for paths not stopped earlier.
 
@@ -123,6 +130,9 @@ Delta M_m = f_m(S_m outer)
             - mean_b f_m(S_m inner,b | S_(m-1) outer).
 ```
 
+For the Ridge LSMC policy, `f_m = max(Z_m, C_m)` where `C_m` is the same
+regression refitted on all policy-fit paths; the in-the-money-only fit that
+drives exercise extrapolates poorly off the money and loosens the bound.
 Outer and inner successors are conditionally iid, so every finite-inner-sample
 increment is conditionally mean zero. The resulting sample mean of
 `max_m(Z_m-M_m)` estimates a mathematically valid dual upper bound. The audit

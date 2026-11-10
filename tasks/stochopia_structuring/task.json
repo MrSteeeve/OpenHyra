@@ -1,0 +1,49 @@
+{
+  "name": "stochopia_structuring",
+  "direction": "max",
+  "metric": "expected_net_return",
+  "protocol": "stochopia-structuring-search.v1",
+  "seed_description": "handwritten protected upside control, scaled to a fixed purchase budget",
+  "editable_files": [
+    "contract.json"
+  ],
+  "candidate_instructions": [
+    "Submit a data-only Stochopia monthly DSL contract in contract.json.",
+    "Design an equity cashflow product for the public demand, not an investor persona or negotiation policy.",
+    "This generic scalar task profile is the legacy economic control. Use the research_entrypoint for mechanism discovery and frozen multi-mechanism evaluation; economic returns do not rank discovery across mechanisms."
+  ],
+  "candidate_repair_attempts": 0,
+  "eval_concurrency": 1,
+  "candidates_per_context": 2,
+  "evaluator_timeout_s": 120,
+  "evaluator_max_memory_mb": 4096,
+  "evaluation": {
+    "search_stage": {
+      "suite_id": "synthetic-equity-demand-development.v2",
+      "split": "development",
+      "demand_id": "upside-protected",
+      "paths": 4096,
+      "pricing_seed": 42,
+      "objective": "equity-demand-expected-return.v2",
+      "demand_protocol": "v2",
+      "eval_config": {
+        "score_mode": "mean"
+      }
+    },
+    "audit_stage": {
+      "suite_id": "synthetic-equity-demand-held-out.v2",
+      "split": "held_out",
+      "demand_id": "upside-protected",
+      "top_k": 1,
+      "direction": "max",
+      "paths": 4096,
+      "objective": "equity-demand-expected-return.v2",
+      "demand_protocol": "v2",
+      "eval_config": {
+        "score_mode": "mean"
+      }
+    }
+  },
+  "profile": "legacy-economic-control",
+  "research_entrypoint": "experiments/run_stochopia_structuring.py --research-goal discovery"
+}

@@ -47,6 +47,7 @@ from provenance import (
     build_run_manifest,
     load_run_manifest,
     validate_run_manifest,
+    with_run_pricing_salt,
     write_run_manifest,
 )
 from reporting import export_bundle
@@ -76,7 +77,6 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 STOP = object()
 MIN_CANDIDATES_PER_CONTEXT = 1
-MAX_STORED_LOG_CHARS = 6000
 REPAIRABLE_STATUSES = {"crash", "timeout"}
 V5_PACKET_TRUNCATION_MARKER = "\n\n[V5 packet clipped to fit the prompt budget]"
 CANDIDATE_MODES = frozenset({"legacy", "algorithm_bundle", "python_program"})
@@ -899,6 +899,10 @@ def _annotate_feedback_lineage(metrics, item):
     mechanism = item.get("mechanism") if isinstance(item, dict) else None
     if not isinstance(packet, dict) or not isinstance(mechanism, dict):
         return metrics
+    # The control arm shares the focal mechanism dict but is not evidence for
+    # it (as in ``_update_acquisition_from_round``); keep its packet unstamped.
+    if item.get("matched_arm") == "control":
+        return metrics
     mechanism_id = mechanism.get("id") or item.get("mechanism_id")
     if not mechanism_id:
         return metrics
@@ -1492,6 +1496,8 @@ def _finalize_matched_controls(
         groups.setdefault(pair_id, {})[arm] = {
             "item": item,
             "record": record,
+            # Each committed attempt (proposal or repair) is one LLM call.
+            "llm_calls": len(entry.get("records", [])),
         }
     if not groups:
         return []
@@ -1530,7 +1536,15 @@ def _finalize_matched_controls(
                     "description": mechanism.get("matched_control", ""),
                     "same_parent": True,
                     "same_seed": True,
+                    # Both arms are allotted the task's attempt budget; the
+                    # realized calls depend on outcomes (a repair follows a
+                    # failure) and are reported only, never used to filter.
                     "same_compute_budget": True,
+                    "allotted_llm_calls": 1 + int(
+                        getattr(task, "candidate_repair_attempts", 0)
+                    ),
+                    "guided_llm_calls": guided["llm_calls"],
+                    "control_llm_calls": control["llm_calls"],
                 },
             )
             pair = MatchedControlBuilder.build_pair(
@@ -1556,14 +1570,6 @@ def _finalize_matched_controls(
                 pair.guided_seed = int(guided_item["matched_seed"])
             if control_item.get("matched_seed") is not None:
                 pair.control_seed = int(control_item["matched_seed"])
-            # The evaluator summaries are already keyed by instance/repeat;
-            # retain their paired deltas so the reported SE/CI is computed
-            # across cells instead of from a relative scalar ratio.
-            MatchedControlBuilder.attach_per_cell_summaries(
-                pair,
-                guided["record"].get("metrics"),
-                control["record"].get("metrics"),
-            )
             # Match the evaluator-owned training-data budget when available.
             # Wall-clock time remains a reported outcome rather than a target:
             # different algorithm families may legitimately finish earlier.
@@ -1587,8 +1593,23 @@ def _finalize_matched_controls(
             pair.shared_seed = int(
                 guided_item.get("matched_seed", guided_item.get("candidate_seed", 0))
             )
+            # One verdict: the transfer result is the CRN paired effect with
+            # per-cell Monte Carlo SEs on the preregistered target slice.
+            from bermudan_research import paired_slice_effects
+            if pair.guided_score is None or pair.control_score is None:
+                prediction_test = {
+                    "prediction_verdict": "execution_failed", "next_action": "falsify",
+                    "reason": "candidate failed before a paired effect could be estimated",
+                }
+            else:
+                prediction_test = paired_slice_effects(
+                    guided["record"].get("metrics", {}),
+                    control["record"].get("metrics", {}),
+                    mechanism.get("target_slice", ""),
+                )
             analogy_result = MatchedControlBuilder.evaluate_pair(
-                pair, direction=getattr(task, "direction", "max")
+                pair, direction=getattr(task, "direction", "max"),
+                paired_effect=prediction_test,
             )
         except (TypeError, ValueError, KeyError) as exc:
             # A malformed optional mechanism annotation should not discard the
@@ -1608,18 +1629,8 @@ def _finalize_matched_controls(
             "hypothesis": hypothesis.to_dict(),
             "pair": pair.to_dict(),
             "result": analogy_result.to_dict(),
+            "prediction_test": prediction_test,
         }
-        from bermudan_research import paired_slice_effects
-        if guided["record"].get("score") is None or control["record"].get("score") is None:
-            payload["prediction_test"] = {
-                "prediction_verdict": "execution_failed", "next_action": "falsify",
-                "reason": "candidate failed before a paired effect could be estimated",
-            }
-        else:
-            payload["prediction_test"] = paired_slice_effects(
-                guided["record"].get("metrics", {}), control["record"].get("metrics", {}),
-                mechanism.get("target_slice", ""),
-            )
         _append_jsonl_once(
             Path(getattr(task, "run_dir", eb.root.parent))
             / "research" / "matched_controls.jsonl",
@@ -1810,10 +1821,6 @@ def _evaluate_candidate(item, task, print_lock):
         "log_tail": log_tail,
         "metrics": metrics,
     }
-
-
-def _stored_log(log_tail):
-    return (log_tail or "")[-MAX_STORED_LOG_CHARS:]
 
 
 def _evaluate_candidate_with_repair(item, task, backend, model, print_lock):
@@ -2662,11 +2669,16 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
     def context_producer():
         try:
             for iteration in range(start, start + iterations):
+                # A queued worker/evaluator error is fatal at the end of the
+                # run anyway; stop producing rounds instead of spending budget.
                 acquired = False
-                while not cancel_event.is_set():
+                while not cancel_event.is_set() and errors.empty():
                     if inflight.acquire(timeout=0.2):
                         acquired = True
                         break
+                if acquired and not errors.empty():
+                    inflight.release()
+                    acquired = False
                 if not acquired:
                     break
                 try:
@@ -2699,22 +2711,10 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                                 )
                             except (AttributeError, KeyError, RuntimeError):
                                 target_record_ids = []
-                            # Feedback/state implementations are deliberately
-                            # duck-typed so V5 can resume with older bridges.
-                            for state_method in (
-                                "get_problem_state",
-                                "get_feedback_state",
-                                "problem_state",
-                            ):
-                                getter = getattr(v5_bridge, state_method, None)
-                                if getter is None:
-                                    continue
-                                try:
-                                    feedback_state = getter() if callable(getter) else getter
-                                except Exception:
-                                    feedback_state = None
-                                if feedback_state is not None:
-                                    break
+                            try:
+                                feedback_state = v5_bridge.get_problem_state()
+                            except Exception:
+                                feedback_state = None
                             v5_context = v5_bridge.build_context(island_epoch_id)
                             v5_context_section = _build_v5_prompt_section(
                                 v5_context
@@ -3329,25 +3329,15 @@ def run_pipeline(task, eb, iterations, workers, backend, model, trial_seed,
                         if v5_bridge is not None:
                             state_updater = getattr(
                                 v5_bridge, "update_problem_state", None
-                            ) or getattr(v5_bridge, "append_feedback", None)
+                            )
                             if callable(state_updater):
-                                try:
-                                    state_updater(
-                                        iteration=item["iteration"],
-                                        result_ids=result_ids,
-                                        matched_results=matched_results,
-                                        records=eb.records(),
-                                        feedback_packets=feedback_packets,
-                                    )
-                                except TypeError:
-                                    # Compatibility with a reducer accepting a
-                                    # single payload positional argument.
-                                    state_updater({
-                                        "iteration": item["iteration"],
-                                        "result_ids": result_ids,
-                                        "matched_results": matched_results,
-                                        "feedback_packets": feedback_packets,
-                                    })
+                                state_updater(
+                                    iteration=item["iteration"],
+                                    result_ids=result_ids,
+                                    matched_results=matched_results,
+                                    records=eb.records(),
+                                    feedback_packets=feedback_packets,
+                                )
                         elif local_feedback_log is not None and local_feedback_reducer is not None:
                             # Non-V5 adaptive runs use the same packet schema
                             # and reducer, but keep their state local to this
@@ -3787,9 +3777,9 @@ def main():
                 v5_config=v5_config,
             )
             write_run_manifest(manifest_path, task.run_manifest)
-            task.search_evaluation_request = task.run_manifest.get(
-                "search", {}
-            ).get("evaluation_request")
+            task.search_evaluation_request = with_run_pricing_salt(
+                task, task.run_manifest.get("search", {}).get("evaluation_request"),
+            )
             init_seed(task, eb)
             if v5_bridge is not None:
                 seed = eb.records()[0]
@@ -3826,9 +3816,9 @@ def main():
                 v5_config=v5_config,
             )
             task.run_manifest = validate_run_manifest(recorded, current)
-            task.search_evaluation_request = task.run_manifest.get(
-                "search", {}
-            ).get("evaluation_request")
+            task.search_evaluation_request = with_run_pricing_salt(
+                task, task.run_manifest.get("search", {}).get("evaluation_request"),
+            )
             if v5_bridge is not None:
                 seeds = [r["id"] for r in eb.records() if r.get("metadata", {}).get("iteration") is None]
                 seed_record = eb.records()[0]
@@ -3918,9 +3908,11 @@ def main():
             report = run_final_audit(task, eb, task.run_manifest)
             winner = report.get("winner")
             if winner:
+                failed = report.get("failed_candidate_ids", [])
                 print(
                     f"[audit] complete: winner={winner['id']} "
-                    f"score={winner['score']}"
+                    f"score={winner['score']} "
+                    f"failed_candidates={len(failed)} {failed}"
                 )
             else:
                 print("[audit] failed: no successful private candidate")

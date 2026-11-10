@@ -187,3 +187,38 @@ def test_culled_epochs_not_active(tmp_path):
     assert set(replacements).isdisjoint(active_ids)
     assert set(replacements.values()).issubset(active_ids)
     assert len(active_ids) == 4
+
+
+def test_exploration_sampling_depends_on_trial_seed(tmp_path):
+    picks = {}
+    for trial_seed in range(8):
+        scheduler = IslandScheduler(tmp_path / f"islands-{trial_seed}.json")
+        scheduler.initialize(["seed"], context_round=0, base_proposal_seed=trial_seed)
+        picks[trial_seed] = tuple(
+            scheduler.sample_island_for_exploration(context_round)
+            for context_round in range(6)
+        )
+        # The trial seed persists, so a resumed scheduler samples identically.
+        restored = IslandScheduler(tmp_path / f"islands-{trial_seed}.json")
+        assert picks[trial_seed] == tuple(
+            restored.sample_island_for_exploration(context_round)
+            for context_round in range(6)
+        )
+    assert len(set(picks.values())) > 1
+
+
+def test_pre_seed_state_files_keep_historical_sampling(tmp_path):
+    import json
+    import random
+
+    scheduler = IslandScheduler(tmp_path / "islands.json")
+    scheduler.initialize(["seed"], context_round=0, base_proposal_seed=11)
+    payload = json.loads((tmp_path / "islands.json").read_text())
+    del payload["base_seed"]  # a state file written before this change
+    (tmp_path / "islands.json").write_text(json.dumps(payload))
+    restored = IslandScheduler(tmp_path / "islands.json")
+    active = [f"{e.island_id}_epoch_{e.epoch:02d}" for e in restored.get_active_epochs()]
+    for context_round in range(6):
+        assert restored.sample_island_for_exploration(context_round) == (
+            random.Random(context_round).choice(active)
+        )

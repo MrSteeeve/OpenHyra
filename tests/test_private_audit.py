@@ -345,6 +345,23 @@ class PrivateAuditTests(unittest.TestCase):
                 report["search_termination"]["reason"], "agent_converged",
             )
 
+    def test_failed_top_k_candidate_does_not_fail_the_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            task, bank, manifest = self._fixture(temporary)
+            good = self._commit(task, bank, manifest, 2.0, 3.0)
+            # The fixture evaluator crashes on a non-numeric audit score.
+            bad = self._commit(task, bank, manifest, 5.0, "crash")
+            report = run_final_audit(task, bank, manifest, seed_factory=lambda: 7)
+            self.assertEqual(report["status"], "complete")
+            self.assertEqual(report["winner"]["id"], good["id"])
+            self.assertEqual(report["failed_candidate_ids"], [bad["id"]])
+            termination = json.loads((task.run_dir / "termination.json").read_text())
+            self.assertEqual(termination["failed_candidate_count"], 1)
+            self.assertEqual(termination["failed_candidate_ids"], [bad["id"]])
+            statuses = {item["id"]: item["status"] for item in report["candidates"]}
+            self.assertEqual(statuses[good["id"]], "ok")
+            self.assertNotEqual(statuses[bad["id"]], "ok")
+
     def test_freeze_tampering_fails_before_seed_and_seals_run(self):
         with tempfile.TemporaryDirectory() as temporary:
             task, bank, manifest = self._fixture(temporary)

@@ -51,7 +51,7 @@ def fit(input_dir: Path, output_dir: Path, seed: int) -> None:
         gram.flat[:: feature_count + 1] += 1e-6
         coefficient = np.linalg.solve(gram, normalized.T @ cash_flow)
         continuation = normalized @ coefficient
-        exercise = payoffs[:, time_index] >= continuation
+        exercise = (payoffs[:, time_index] > 0.0) & (payoffs[:, time_index] >= continuation)
         cash_flow = np.where(exercise, payoffs[:, time_index], cash_flow)
         coefficients[time_index] = coefficient
         means[time_index] = mean

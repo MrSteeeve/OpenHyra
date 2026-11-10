@@ -157,10 +157,6 @@ class DirectionalFeedback:
         return self.mechanism_id
 
     @property
-    def feedback_id(self) -> str:
-        return self.id
-
-    @property
     def slice(self) -> str:
         return self.slice_key
 
@@ -273,12 +269,6 @@ class FeedbackPacket:
     @property
     def id(self) -> str:
         return self.packet_id
-
-    @property
-    def directional_feedback(self) -> list[DirectionalFeedback]:
-        """Long-form alias used by packet consumers."""
-
-        return self.directional
 
     def validate(self) -> None:
         _require_string(self.schema, "schema")
@@ -499,11 +489,6 @@ class ProblemState:
 
         return self.cells.get(f"{mechanism_id}::{slice_key}")
 
-    def get_cells(self) -> dict[str, BeliefCell]:
-        """Return a defensive copy of the derived cell map."""
-
-        return dict(self.cells)
-
     def validate(self) -> None:
         _require_string(self.schema, "schema")
         if self.schema != PROBLEM_STATE_SCHEMA:
@@ -671,6 +656,60 @@ def _iter_packet_observations(packet: FeedbackPacket) -> Iterator[dict[str, Any]
             }
 
 
+def _t_two_sided_mass(t: float, df: int) -> float:
+    """P(|T| <= t) for Student-t with integer ``df`` (A&S 26.7.3-26.7.4)."""
+    theta = math.atan(t / math.sqrt(df))
+    sin_t, cos_t = math.sin(theta), math.cos(theta)
+    if df % 2:
+        if df == 1:
+            return 2.0 * theta / math.pi
+        term = total = cos_t
+        for k in range(3, df - 1, 2):
+            term *= cos_t * cos_t * (k - 1) / k
+            total += term
+        return 2.0 / math.pi * (theta + sin_t * total)
+    term = total = 1.0
+    for k in range(2, df - 1, 2):
+        term *= cos_t * cos_t * (k - 1) / k
+        total += term
+    return sin_t * total
+
+
+# The exact CDF costs O(df); beyond this the normal is within 0.1%.
+_T_NORMAL_DF = 1000
+
+
+def student_t_cdf(value: float, df: int) -> float:
+    """Student-t CDF for integer ``df >= 1`` (normal above 1000 df)."""
+    if df > _T_NORMAL_DF:
+        return NormalDist().cdf(value)
+    mass = _t_two_sided_mass(abs(value), df)
+    return 0.5 + 0.5 * mass if value >= 0.0 else 0.5 - 0.5 * mass
+
+
+def student_t_quantile(probability: float, df: int) -> float:
+    """Student-t quantile for integer ``df >= 1`` by bisection on the CDF."""
+    if not isinstance(df, int) or df < 1:
+        raise ValueError("df must be a positive integer")
+    if not 0.0 < probability < 1.0:
+        raise ValueError("probability must be in (0, 1)")
+    if df > _T_NORMAL_DF:
+        return NormalDist().inv_cdf(probability)
+    if probability < 0.5:
+        return -student_t_quantile(1.0 - probability, df)
+    target = 2.0 * probability - 1.0
+    low, high = 0.0, 1.0
+    while _t_two_sided_mass(high, df) < target:
+        low, high = high, high * 2.0
+    for _ in range(100):
+        middle = 0.5 * (low + high)
+        if _t_two_sided_mass(middle, df) < target:
+            low = middle
+        else:
+            high = middle
+    return 0.5 * (low + high)
+
+
 def _cell_from_observations(
     mechanism_id: str,
     slice_key: str,
@@ -692,11 +731,15 @@ def _cell_from_observations(
     else:
         mean = variance = 0.0
     se = math.sqrt(variance / n) if n else 0.0
-    z = NormalDist().inv_cdf(0.5 + confidence_level / 2.0)
-    ci_lower = mean - z * se
-    ci_upper = mean + z * se
-    if se > 0.0:
-        p_positive = NormalDist().cdf(mean / se)
+    # Small cells (n=2 reaches a verdict) need the t critical value, not z.
+    critical = (
+        student_t_quantile(0.5 + confidence_level / 2.0, n - 1) if n > 1
+        else NormalDist().inv_cdf(0.5 + confidence_level / 2.0)
+    )
+    ci_lower = mean - critical * se
+    ci_upper = mean + critical * se
+    if se > 0.0:  # implies n > 1
+        p_positive = student_t_cdf(mean / se, n - 1)
     elif mean > 0.0:
         p_positive = 1.0
     elif mean < 0.0:

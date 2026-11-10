@@ -235,6 +235,9 @@ class AgentStoppingTests(unittest.TestCase):
         }))
         self.assertEqual(parsed.action, "stop")
         self.assertIsNone(_parse_context_decision("not JSON"))
+        # Valid JSON that is not an object is invalid output, not a crash.
+        for non_object in ("[1, 2]", '"stop"', "null", "3"):
+            self.assertIsNone(_parse_context_decision(non_object))
         self.assertIsNone(_parse_context_decision(json.dumps({
             "action": "stop",
             "analysis": "Stop but also proposes more work.",
@@ -287,6 +290,10 @@ class AgentStoppingTests(unittest.TestCase):
             self.assertEqual(decision.action, "continue")
             self.assertEqual(direction, "deterministic fallback")
             self.assertEqual(metadata["context_decision"]["action"], "continue")
+            self.assertIs(metadata["context_fallback"], True)
+            from context_agent import _analysis_path
+            recorded = json.loads(_analysis_path(bank, 0).read_text())
+            self.assertIs(recorded["context_fallback"], True)
 
     def test_stop_request_is_rejected_before_minimum_contexts(self):
         policy = StopPolicy(enabled=True, min_contexts_before_stop=6)
@@ -767,6 +774,60 @@ class AgentStoppingTests(unittest.TestCase):
                 [record["status"] for record in bank.records()[1:]],
                 ["ok", "ok"],
             )
+
+    def test_queued_worker_error_stops_context_production(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "solver.py").write_text("print('seed')\n")
+            bank = ExperienceBank(root / "eb", direction="max")
+            bank.commit(source, 1.0, "ok", "seed", None, "")
+            task = SimpleNamespace(
+                run_dir=root / "run",
+                eval_concurrency=1,
+                candidates_per_context=1,
+                candidate_repair_attempts=0,
+                editable_files=["solver.py"],
+                direction="max",
+                protocol="test-v1",
+                run_id="early-error",
+                context_barrier=True,
+            )
+            contexts = []
+
+            def fake_context(_task, _eb, iteration, **_kwargs):
+                contexts.append(iteration)
+                metadata = {
+                    "iteration": iteration,
+                    "eb_version": len(bank.records()),
+                    "visible_solution_ids": [r["id"] for r in bank.records()],
+                    "trial_seed": iteration,
+                    "direction": f"direction-{iteration}",
+                }
+                return _context_result(bank.best(), f"direction-{iteration}", metadata)
+
+            def fake_propose(parent_path, draft, _prompt, editable_files, **_kwargs):
+                prepare_draft(parent_path, draft)
+                (draft / editable_files[0]).write_text("print('candidate')\n")
+                return True, "candidate"
+
+            def fake_run_solution(_draft, sandbox, _task):
+                Path(sandbox).mkdir(parents=True)
+                return 1.0, "ok", "ok", {"set_hash": "same"}
+
+            with (patch("harness.build_inspiration", side_effect=fake_context),
+                  patch("harness.propose", side_effect=fake_propose),
+                  patch("harness.run_solution", side_effect=fake_run_solution),
+                  patch("harness._commit_candidate_result",
+                        side_effect=RuntimeError("commit failed"))):
+                with self.assertRaisesRegex(RuntimeError, "pipeline failure in evaluator iter 0"):
+                    run_pipeline(
+                        task, bank, iterations=5, workers=1, backend="codex",
+                        model="test", trial_seed=0,
+                    )
+            # The round-0 error stops production instead of running 5 rounds.
+            self.assertEqual(contexts, [0])
 
 
 class ReportingTests(unittest.TestCase):

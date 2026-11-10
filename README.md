@@ -38,7 +38,9 @@ private seed and evaluates every frozen artifact on the same hidden suite. The
 audit constructs a conditionally centered nested martingale and ranks the
 primal--dual confidence gap. Results are written to `final_audit.json`, never
 fed back into the Experience Bank or another search round. A completed audit
-means the frozen candidates were all evaluated; it is not an automatic claim
+means every frozen candidate was evaluated once and at least one succeeded; a
+failed candidate is reported per candidate (no retry) while the rest are still
+ranked. It is not an automatic claim
 that the winner beats a hidden baseline or is scientifically novel. The public
 termination record carries the seed commitment; exporting the completed audit
 record makes the private seed available for independent reproduction.

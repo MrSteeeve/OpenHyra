@@ -395,23 +395,6 @@ class PendingHypothesisQueue:
             item.last_reason = _text(reason, 500)
             self._save()
 
-    def mark_tested(
-        self,
-        identifier: str,
-        *,
-        result_id: str | None = None,
-        iteration: int | None = None,
-        reason: str = "",
-    ) -> None:
-        """Record that a hypothesis reached evaluation but has no verdict yet."""
-        self.mark_result(
-            identifier,
-            "tested",
-            result_id=result_id,
-            iteration=iteration,
-            reason=reason or "candidate evaluated; awaiting paired or held-out verdict",
-        )
-
     def pending(self, limit: int | None = None) -> list[dict[str, Any]]:
         values = [entry.to_dict() for entry in self.entries(include_terminal=False)]
         values.sort(key=lambda item: (-float(item.get("priority", 0.0)), item["hypothesis"]["id"]))

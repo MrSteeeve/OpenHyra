@@ -1,0 +1,66 @@
+{
+  "protocol": "stochopia-structuring-search.v1",
+  "contract": {
+    "version": "stochopia.dsl-contract.monthly.v1",
+    "program": {
+      "underlyings": [
+        "u"
+      ],
+      "maturity": 3,
+      "schedules": {
+        "obs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "body": {
+        "op": "funded",
+        "args": [
+          1,
+          {
+            "param": "issue_price"
+          },
+          {
+            "op": "pay",
+            "args": [
+              {
+                "op": "mul_const",
+                "args": [
+                  0.105,
+                  {
+                    "op": "clip",
+                    "args": [
+                      {
+                        "op": "lin",
+                        "args": [
+                          1,
+                          {
+                            "op": "terminal",
+                            "args": [
+                              {
+                                "op": "spot",
+                                "args": [
+                                  "u"
+                                ]
+                              }
+                            ]
+                          },
+                          -1
+                        ]
+                      },
+                      0,
+                      0.1
+                    ]
+                  }
+                ]
+              },
+              "maturity"
+            ]
+          }
+        ]
+      }
+    },
+    "notional": 1000000.0
+  }
+}

@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -54,10 +55,14 @@ def file_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+PRICING_SALT = None  # one private salt per workshop output; set in main()
+
+
 def request(stage, seed):
     cfg = dict(instance_count=2, repeats=2 if stage == "search" else 1,
                training_paths=256, pricing_paths=512, training_timeout_s=30,
                independent_validation=stage == "audit", research_mode=True)
+    if PRICING_SALT is not None: cfg["pricing_salt"] = PRICING_SALT
     if stage == "search": cfg["public_pathwise_samples"] = True
     else: cfg.update(outer_paths=128, inner_paths=4)
     return dict(schema=evaluator.REQUEST_SCHEMA, stage=stage, task="bermudan_python_search",
@@ -68,13 +73,18 @@ def request(stage, seed):
 def evaluate(source, req, destination):
     """A fresh trusted evaluator process; no candidate imports in this driver."""
     if destination.exists(): return read(destination)
-    req_path = destination.with_suffix(".request.json"); save(req_path, req)
+    # Saved copies omit the salt (kept only in private_pricing_salt.json); the
+    # salted request reaches the evaluator via a transient 0600 file.
+    public_req = {**req, "config": {k: v for k, v in req["config"].items() if k != "pricing_salt"}}
+    save(destination.with_suffix(".request.json"), public_req)
     source_digest = source_tree_hash(source, 1024 * 1024)[0]
     started = time.perf_counter()
     try:
-        r = subprocess.run([sys.executable, str(EVAL_PATH), str(source), str(req_path)],
-                           cwd=ROOT, env={**os.environ, **NUMERIC_THREAD_ENV}, text=True,
-                           capture_output=True, timeout=300)
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as salted:
+            salted.write(json.dumps(req)); salted.flush()
+            r = subprocess.run([sys.executable, str(EVAL_PATH), str(source), salted.name],
+                               cwd=ROOT, env={**os.environ, **NUMERIC_THREAD_ENV}, text=True,
+                               capture_output=True, timeout=300)
         payload = json.loads(r.stdout)
         if r.returncode or "error" in payload:
             raise ValueError(payload.get("error", r.stderr[-2000:]))
@@ -85,7 +95,7 @@ def evaluate(source, req, destination):
                       failure_reason=f"{type(exc).__name__}: {exc}"[-4000:])
     result.update(wall_seconds=time.perf_counter()-started, source_digest=source_digest,
                   source_unchanged=source_tree_hash(source, 1024 * 1024)[0] == source_digest,
-                  request=req)
+                  request=public_req)
     save(destination, result)
     return result
 
@@ -302,7 +312,8 @@ def replay(output):
         original=Path(row["program_path"])
         # Program paths are made relative to the bundle when exported below.
         source=output/original
-        result=evaluate(source,old["request"],output/"replay_results"/f"{i:03d}.json")
+        request={**old["request"],"config":{**old["request"]["config"],"pricing_salt":PRICING_SALT}}
+        result=evaluate(source,request,output/"replay_results"/f"{i:03d}.json")
         same = result["status"]=="ok" and result["score"]==old["score"]
         same = same and [c["model_file_sha256"] for c in result["metrics"].get("training_cells",[])] == [c["model_file_sha256"] for c in old["metrics"].get("training_cells",[])]
         reports.append({"index":i,"score_and_models_equal":same})
@@ -313,6 +324,13 @@ def replay(output):
 def main():
     p=argparse.ArgumentParser();p.add_argument("--output",type=Path,required=True);p.add_argument("--backend",default="codex");p.add_argument("--replay",action="store_true")
     a=p.parse_args(); output=a.output.resolve();output.mkdir(parents=True,exist_ok=True)
+    # Shared by every request so matched arms keep common pricing paths.
+    global PRICING_SALT
+    salt_path = output / "private_pricing_salt.json"
+    if not salt_path.exists():
+        if a.replay: raise SystemExit("replay needs the run's private_pricing_salt.json")
+        save(salt_path, int.from_bytes(os.urandom(8), "big"))
+    PRICING_SALT = read(salt_path)
     if a.replay: replay(output); return
     if not (output/"manifest.json").exists(): freeze_manifest(output,a.backend)
     for seed in SEEDS:

@@ -87,7 +87,26 @@ def test_belief_reducer_is_order_independent_and_ignores_recommendations() -> No
     assert np.isclose(cell.variance, 1.0)
     assert np.isclose(cell.se, 1.0 / np.sqrt(3.0))
     assert 0.0 <= cell.p_positive <= 1.0
-    assert cell.status == "promising"
+    # mean - t(0.975, df=2) * se < 0; a normal z would have called it promising.
+    assert cell.status == "uncertain"
+
+
+def test_belief_cell_uses_t_quantile_at_two_observations() -> None:
+    from feedback import student_t_quantile
+
+    assert np.isclose(student_t_quantile(0.975, 1), 12.7062, atol=1e-4)
+    assert np.isclose(student_t_quantile(0.975, 10), 2.2281, atol=1e-4)
+    state = BeliefReducer(confidence_level=0.95, min_observations=2).rebuild(
+        [_packet("p-1", [1.0, 3.0])], state_id="state-a",
+    )
+    cell = state.get_cell("normalization", "high-vol")
+    # mean 2, se 1: z gives [0.04, 3.96] ("promising"); t(df=1) does not.
+    assert cell.status == "uncertain"
+    assert np.isclose(cell.ci_lower, 2.0 - 12.7062, atol=1e-3)
+    # p_positive uses the same t(df=1): P(T <= 2) = 0.5 + atan(2) / pi.
+    assert np.isclose(cell.p_positive, 0.5 + np.arctan(2.0) / np.pi)
+    # Large df falls back to the normal instead of an O(df) CDF.
+    assert np.isclose(student_t_quantile(0.975, 10**6), 1.959964, atol=1e-6)
 
 
 def test_problem_state_append_is_immutable_and_idempotent() -> None:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from behavior_index import BehaviorIndex
@@ -70,7 +68,17 @@ def test_island_seed_records_are_members_and_min_review(tmp_path):
     assert scheduler.get_island_records(new_id) == ["r1"]
 
 
-def test_matched_control_reports_paired_cell_se_and_ci():
+def test_matched_control_verdict_is_the_mc_se_paired_effect():
+    from bermudan_research import paired_slice_effects
+
+    def metrics(values):
+        return {"summaries": [
+            {"instance_id": instance, "repeat": repeat,
+             "paired_normalized_improvement": value,
+             "paired_normalized_standard_error": 0.001}
+            for (instance, repeat), value in zip([("a", 0), ("a", 1), ("b", 0)], values)
+        ]}
+
     pair = ControlPair(
         hypothesis_id="h",
         guided_prompt_suffix="g",
@@ -81,27 +89,17 @@ def test_matched_control_reports_paired_cell_se_and_ci():
         control_score=0.1,
         baseline_score=0.0,
     )
-    MatchedControlBuilder.attach_per_cell_summaries(
-        pair,
-        {"summaries": [
-            {"instance_id": "a", "repeat": 0, "paired_normalized_improvement": 0.10},
-            {"instance_id": "a", "repeat": 1, "paired_normalized_improvement": 0.20},
-            {"instance_id": "b", "repeat": 0, "paired_normalized_improvement": 0.30},
-        ]},
-        {"summaries": [
-            {"instance_id": "a", "repeat": 0, "paired_normalized_improvement": 0.00},
-            {"instance_id": "a", "repeat": 1, "paired_normalized_improvement": 0.15},
-            {"instance_id": "b", "repeat": 0, "paired_normalized_improvement": 0.10},
-        ]},
-    )
-    result = MatchedControlBuilder.evaluate_pair(pair)
+    # Heterogeneous cells: a cross-cell t-test (df=2) would be inconclusive,
+    # while the per-cell Monte Carlo SEs make the paired effect decisive.
+    effect = paired_slice_effects(metrics([0.10, 0.20, 0.30]), metrics([0.0, 0.15, 0.10]))
+    result = MatchedControlBuilder.evaluate_pair(pair, paired_effect=effect)
+    assert effect["prediction_verdict"] == "supported"
+    assert result.verdict == "transfer_supported"
     assert result.paired_cell_count == 3
+    assert result.transfer_gain == pytest.approx(effect["effect"])
     assert result.transfer_gain == pytest.approx((0.10 + 0.05 + 0.20) / 3)
-    values = [0.10, 0.05, 0.20]
-    mean = sum(values) / len(values)
-    expected_se = math.sqrt(sum((value - mean) ** 2 for value in values) / 2 / 3)
-    assert result.transfer_gain_standard_error == pytest.approx(expected_se)
-    assert result.transfer_gain_ci_low < result.transfer_gain < result.transfer_gain_ci_high
+    assert result.transfer_gain_standard_error == pytest.approx(effect["standard_error"])
+    assert [result.transfer_gain_ci_low, result.transfer_gain_ci_high] == pytest.approx(effect["ci95"])
     assert result.relative_transfer_gain == pytest.approx(result.transfer_gain / 0.1)
     assert result.control_valid is True
 

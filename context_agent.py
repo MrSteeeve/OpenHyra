@@ -573,6 +573,8 @@ def _parse_context_decision(output, allowed_phases=None):
         payload = json.loads(text)
     except (TypeError, ValueError):
         return None
+    if not isinstance(payload, dict):
+        return None
     if allowed_phases is None:
         allowed_phases = DEFAULT_CONTEXT_PHASES
     elif isinstance(allowed_phases, str):
@@ -962,6 +964,7 @@ def build_inspiration(task, eb, iteration: int, backend="claude", model=None,
         target_island_epoch_id=target_island_epoch_id,
         prediction_table_text=prediction_table_text,
     )
+    context_fallback = decision is None
     if decision is not None:
         decision = _normalize_decision_phase(decision, allowed_phases)
         trusted_state_version, trusted_state_hash = _feedback_state_identity(
@@ -1017,6 +1020,7 @@ clear flaw in the reasoning; document that in PROPOSAL.md."""
             "trial_seed": trial_seed,
             "direction": direction,
             "decision": decision.to_dict(),
+            "context_fallback": True,
             "mechanism_candidates": [],
             "result_ids": [],
             "text": "Context LLM unavailable; deterministic fallback used.",
@@ -1189,6 +1193,7 @@ that adds, removes or modifies other files.
         "target_record_ids": sorted(local_ids),
         "baseline_record_id": baseline["id"],
         "context_decision": decision.to_dict(),
+        "context_fallback": context_fallback,
         "intervention_scope": getattr(decision, "intervention_scope", None),
         "intervention_operator": getattr(decision, "intervention_operator", None),
         "target_slice": getattr(decision, "target_slice", None),

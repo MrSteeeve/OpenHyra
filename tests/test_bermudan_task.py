@@ -1,3 +1,4 @@
+import dataclasses
 import importlib.util
 import json
 import math
@@ -161,6 +162,24 @@ class LSMCAndDualTests(unittest.TestCase):
         mean, se = EVALUATOR._mean_se(differences)
         self.assertLess(abs(mean), 4.0 * se + 1e-4)
 
+    def test_dual_value_uses_all_paths_regression_not_itm_extrapolation(self):
+        instance = next(
+            item for item in EVALUATOR.public_suite()
+            if item.instance_id == "public-put-high-vol"
+        )
+        policy = EVALUATOR.fit_lsmc(
+            EVALUATOR.BASELINE_PROGRAM, instance,
+            EVALUATOR.simulate_paths(instance, 4096, 1),
+        )
+        outer = EVALUATOR.simulate_paths(instance, 512, 2)
+        itm_only = dataclasses.replace(policy, value_steps=policy.steps)
+        upper = EVALUATOR.dual_upper_bound_samples(policy, outer, inner_paths=64, inner_seed=3)[0].mean()
+        loose = EVALUATOR.dual_upper_bound_samples(itm_only, outer, inner_paths=64, inner_seed=3)[0].mean()
+        lower = EVALUATOR.apply_policy(policy, EVALUATOR.simulate_paths(instance, 8192, 4))[0].mean()
+        # The ITM-only cubic extrapolates off the money (UB ~0.30 vs ~0.13).
+        self.assertLess(upper, 0.5 * loose)
+        self.assertLess(upper - lower, 0.02)
+
     def test_dual_samples_report_unclipped_bound_diagnostics(self):
         result = EVALUATOR.evaluate_submission(EVALUATOR.BASELINE_PROGRAM, tiny_request("audit", 31))
         score, metrics, normalized, evidence = result
@@ -179,13 +198,18 @@ class EvaluationProtocolTests(unittest.TestCase):
     def test_fixed_seed_reproduces_search_and_audit(self):
         for stage in ("search", "audit"):
             first = EVALUATOR.evaluate_submission(EVALUATOR.BASELINE_PROGRAM, tiny_request(stage, 71))
-            second = EVALUATOR.evaluate_submission(EVALUATOR.BASELINE_PROGRAM, tiny_request(stage, 71))
+            replay = tiny_request(stage, 71)
+            # Pricing/dual streams carry a private salt; a standalone call
+            # records the one it drew, and replay passes it back.
+            replay["config"]["pricing_salt"] = first[1]["pricing_salt"]
+            second = EVALUATOR.evaluate_submission(EVALUATOR.BASELINE_PROGRAM, replay)
             self.assertEqual(first[0], second[0])
             first_metrics, second_metrics = dict(first[1]), dict(second[1])
             first_metrics.pop("runtime_seconds")
             second_metrics.pop("runtime_seconds")
-            self.assertEqual(first_metrics, second_metrics)
-            self.assertEqual(first[2:], second[2:])
+            # The replay request carries the salt, so only request-bound
+            # digests differ; every numerical cell must match.
+            self.assertEqual(first_metrics["summaries"], second_metrics["summaries"])
 
     def test_baseline_search_has_exact_zero_paired_score(self):
         score, metrics, _, evidence = EVALUATOR.evaluate_submission(EVALUATOR.BASELINE_PROGRAM, tiny_request("search", 55))
@@ -201,7 +225,7 @@ class EvaluationProtocolTests(unittest.TestCase):
         lcb, mean, aggregate_se = EVALUATOR._fixed_suite_lcb(means, errors, 0.95)
         expected_mean = sum(means) / len(means)
         expected_se = math.sqrt(sum(value * value for value in errors)) / len(errors)
-        z = EVALUATOR.NormalDist().inv_cdf(0.975)
+        z = EVALUATOR.NormalDist().inv_cdf(0.975)  # one-sided 97.5% (two-sided 95%)
         self.assertAlmostEqual(mean, expected_mean)
         self.assertAlmostEqual(aggregate_se, expected_se)
         self.assertAlmostEqual(lcb, expected_mean - z * expected_se)

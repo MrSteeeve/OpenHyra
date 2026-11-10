@@ -345,7 +345,35 @@ class TestMatchedControlSchemaAlignment:
         assert result.guided_delta == pytest.approx(0.2)
         assert result.control_delta == pytest.approx(0.1)
         assert result.transfer_gain == pytest.approx(0.1)
-        assert result.verdict == "transfer_supported"
+        # A scalar pair has no standard error, so it cannot be definitive.
+        assert result.verdict == "inconclusive"
+
+    def test_evaluate_pair_verdict_follows_paired_effect(self):
+        from matched_control import MatchedControlBuilder
+        pair = MatchedControlBuilder.build_pair(self._make_hypothesis(), parent_id="p1", seed=42)
+        pair.guided_score, pair.control_score = 0.6, 0.5
+
+        def effect(verdict, low, high):
+            return {"status": "observed", "effect": (low + high) / 2, "standard_error": 0.001,
+                    "ci95": [low, high], "prediction_verdict": verdict, "cells": [{}, {}]}
+
+        assert MatchedControlBuilder.evaluate_pair(
+            pair, paired_effect=effect("supported", 0.001, 0.009)).verdict == "transfer_supported"
+        assert MatchedControlBuilder.evaluate_pair(
+            pair, paired_effect=effect("refuted", -0.009, -0.001)).verdict == "transfer_refuted"
+        result = MatchedControlBuilder.evaluate_pair(
+            pair, paired_effect=effect("inconclusive", -0.001, 0.009))
+        assert result.verdict == "inconclusive"
+        assert result.transfer_gain_ci_low == pytest.approx(-0.001)
+        assert MatchedControlBuilder.evaluate_pair(pair, paired_effect={
+            "status": "invalid_control", "reason": "pricing path identity/size mismatch",
+            "cells": []}).verdict == "invalid_control"
+        # Minimisation flips the maximisation-oriented summary effect.
+        result = MatchedControlBuilder.evaluate_pair(
+            pair, direction="min", paired_effect=effect("supported", 0.001, 0.009))
+        assert result.verdict == "transfer_refuted"
+        assert result.transfer_gain == pytest.approx(-0.005)
+        assert result.transfer_gain_ci_high == pytest.approx(-0.001)
 
     def test_evaluate_pair_execution_failed(self):
         from matched_control import MatchedControlBuilder, ControlPair

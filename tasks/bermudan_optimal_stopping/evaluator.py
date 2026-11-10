@@ -14,7 +14,7 @@ import json
 import math
 import os
 import re
-import shutil
+import secrets
 import stat
 import sys
 import tempfile
@@ -177,6 +177,20 @@ def _unique_object(pairs: Iterable[tuple[str, Any]]) -> dict[str, Any]:
             raise ValueError(f"duplicate JSON key: {key}")
         result[key] = value
     return result
+
+
+def _private_salt(config: Mapping[str, Any]) -> tuple[int, bool]:
+    """Return the evaluator-private seed salt and whether it was drawn here.
+
+    The request seed is public and a candidate sees its training paths, so a
+    request-only pricing/dual seed could be brute-forced and those paths
+    regenerated.  The harness passes one private salt per run as
+    ``config.pricing_salt`` (common random numbers across candidates); a
+    standalone call draws a fresh one, which is then recorded for replay.
+    """
+    if "pricing_salt" in config:
+        return int(config["pricing_salt"]), False
+    return secrets.randbits(64), True
 
 
 def _derive_seed(master_seed: int, *labels: Any) -> int:
@@ -628,21 +642,29 @@ class FrozenPolicy:
     instance: BSInstance
     steps: tuple[RidgeStep, ...]
     ridge_alpha: float
+    # Same regression fitted on all paths.  ``steps`` (ITM-only) drive the
+    # exercise policy; the dual's value approximation evaluates states off
+    # the money, where the ITM-only fit extrapolates badly.
+    value_steps: tuple[RidgeStep, ...]
 
-    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
+    def _predict(self, model: RidgeStep, time_index: int, states: np.ndarray) -> np.ndarray:
         features = evaluate_features(self.program, time_index, states, self.instance)
-        model = self.steps[time_index]
         flat = features.reshape(-1, features.shape[-1])
         standardized = (flat - model.mean) / model.scale
         design = np.column_stack((np.ones(flat.shape[0]), standardized))
         prediction = design @ model.coefficients
         return prediction.reshape(features.shape[:-1])
 
+    def continuation(self, time_index: int, states: np.ndarray) -> np.ndarray:
+        return self._predict(self.steps[time_index], time_index, states)
+
     def approximate_value(self, time_index: int, states: np.ndarray) -> np.ndarray:
         immediate = payoff(states, self.instance) * math.exp(-self.instance.rate * self.instance.exercise_times[time_index])
         if time_index == len(self.instance.exercise_times) - 1:
             return immediate
-        return np.maximum(immediate, self.continuation(time_index, states))
+        return np.maximum(
+            immediate, self._predict(self.value_steps[time_index], time_index, states),
+        )
 
 
 @dataclass(frozen=True)
@@ -773,6 +795,7 @@ def fit_lsmc(
     rewards = discounted_rewards(paths, instance)
     cashflow = rewards[:, -1].copy()
     step_models: list[RidgeStep | None] = [None] * (rewards.shape[1] - 1)
+    value_models: list[RidgeStep | None] = [None] * (rewards.shape[1] - 1)
     for time_index in range(rewards.shape[1] - 2, -1, -1):
         current_payoff = rewards[:, time_index]
         eligible = current_payoff > 0.0
@@ -782,13 +805,18 @@ def fit_lsmc(
         x = evaluate_features(program, time_index, paths[fit_mask, time_index, :], instance)
         model = _fit_ridge(x, cashflow[fit_mask], ridge_alpha)
         step_models[time_index] = model
+        all_x = evaluate_features(program, time_index, paths[:, time_index, :], instance)
+        value_models[time_index] = _fit_ridge(all_x, cashflow, ridge_alpha)
         if np.any(eligible):
             eligible_x = evaluate_features(program, time_index, paths[eligible, time_index, :], instance)
             flat = (eligible_x - model.mean) / model.scale
             continuation = np.column_stack((np.ones(flat.shape[0]), flat)) @ model.coefficients
             exercise_indices = np.flatnonzero(eligible)[current_payoff[eligible] >= continuation]
             cashflow[exercise_indices] = current_payoff[exercise_indices]
-    return FrozenPolicy(program=program, instance=instance, steps=tuple(step_models), ridge_alpha=ridge_alpha)  # type: ignore[arg-type]
+    return FrozenPolicy(  # type: ignore[arg-type]
+        program=program, instance=instance, steps=tuple(step_models),
+        ridge_alpha=ridge_alpha, value_steps=tuple(value_models),
+    )
 
 
 def apply_policy(policy: Any, paths: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -906,43 +934,25 @@ def _policy_behavior_metrics(
     if n_times < 2:
         raise ValueError("n_times must be at least two")
 
-    # ``apply_policy`` returns integer, in-range stopping indices.  Keep the
-    # descriptor total for direct callers as well: invalid indices are marked
-    # in the finite/valid flag and omitted from the histogram rather than
-    # causing a secondary metrics failure.
-    finite_values = bool(np.all(np.isfinite(rewards)))
-    integer_stops = np.issubdtype(stops.dtype, np.integer)
-    finite_stops = bool(np.all(np.isfinite(stops))) if np.issubdtype(stops.dtype, np.number) else False
-    valid_stops = (
-        integer_stops
-        and finite_stops
+    if not (
+        np.issubdtype(stops.dtype, np.integer)
         and bool(np.all((stops >= 0) & (stops < n_times)))
-    )
-    if valid_stops:
-        integer_indices = stops.astype(np.int64, copy=False)
-        counts = np.bincount(integer_indices, minlength=n_times)[:n_times]
-        rates = counts.astype(float) / float(stops.size)
-        normalized_stops = integer_indices.astype(float) / float(n_times - 1)
-        exercise_rate = float(np.mean(integer_indices < n_times - 1))
-        stop_time_mean = float(np.mean(normalized_stops))
-        stop_time_std = float(np.std(normalized_stops))
-    else:
-        # This branch is only defensive telemetry; the trusted policy path
-        # should never produce invalid indices.  Returning finite placeholders
-        # keeps diagnostics serializable if a future runner violates the
-        # interface and lets its validity flag explain the issue.
-        rates = np.zeros(n_times, dtype=float)
-        exercise_rate = 0.0
-        stop_time_mean = 0.0
-        stop_time_std = 0.0
+    ):
+        raise ValueError("stopping indices must be integers in [0, n_times)")
+    integer_indices = stops.astype(np.int64, copy=False)
+    counts = np.bincount(integer_indices, minlength=n_times)[:n_times]
+    rates = counts.astype(float) / float(stops.size)
+    normalized_stops = integer_indices.astype(float) / float(n_times - 1)
+    exercise_rate = float(np.mean(integer_indices < n_times - 1))
+    stop_time_mean = float(np.mean(normalized_stops))
+    stop_time_std = float(np.std(normalized_stops))
 
     return {
         "exercise_rate": exercise_rate,
         "exercise_rate_by_time": rates.tolist(),
         "stop_time_mean": stop_time_mean,
         "stop_time_std": stop_time_std,
-        "finite": bool(finite_values and valid_stops),
-        "valid_stop_rate": 1.0 if valid_stops else 0.0,
+        "finite": bool(np.all(np.isfinite(rewards))),
     }
 
 
@@ -1074,14 +1084,8 @@ def _build_domain_feedback_packet(
                 if isinstance(row.get("normalized_primal_dual_confidence_gap"), (int, float))
             ])) if summaries else None
 
-    finite_flags = [
-        bool(row.get("candidate_finite"))
-        for row in summaries
-        if "candidate_finite" in row
-    ]
-    failure_rate: Any = (
-        float(1.0 - np.mean(finite_flags)) if finite_flags else
-        _feedback_marker("candidate validity was not emitted for this stage")
+    failure_rate: Any = _feedback_marker(
+        "invalid candidate outputs abort the evaluation; no failure rate is observed"
     )
     runtime_value: Any = (
         float(runtime_seconds) if runtime_seconds is not None and math.isfinite(float(runtime_seconds))
@@ -1327,7 +1331,11 @@ def _fixed_suite_lcb(
     cell_standard_errors: list[float],
     confidence_level: float,
 ) -> tuple[float, float, float]:
-    """LCB for the equally weighted mean of fixed, independent suite cells."""
+    """LCB for the equally weighted mean of fixed, independent suite cells.
+
+    ``z = Phi^-1(0.5 + c/2)``: the lower end of a two-sided ``c`` interval,
+    i.e. a one-sided ``(1+c)/2`` bound (97.5% at the configured 0.95).
+    """
     means = np.asarray(cell_means, dtype=float)
     standard_errors = np.asarray(cell_standard_errors, dtype=float)
     if not len(means) or means.shape != standard_errors.shape:
@@ -1723,19 +1731,25 @@ def _training_runtime_roots() -> tuple[Path, ...]:
         exec_prefix / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}",
         prefix / "lib",
         exec_prefix / "lib",
+        # A venv's ``bin/python`` is a symlink; Seatbelt checks the exec of
+        # that literal path, so its directory must be allowed as well as the
+        # resolved interpreter directory.
+        Path(sys.executable).parent,
         Path(sys.executable).resolve().parent,
     ]
     # The macOS framework build links the interpreter against a sibling
-    # ``Python`` dynamic library (``$prefix/Python``), not merely the files
-    # under ``lib/pythonX.Y`` and ``bin``.  Allow that *versioned* framework
+    # ``Python`` dynamic library (``$base_prefix/Python``; under a venv
+    # ``sys.prefix`` is the venv), not merely the files under
+    # ``lib/pythonX.Y`` and ``bin``.  Allow that *versioned* framework
     # directory as one narrow root when the library is present.  Do not add
-    # ``sys.prefix`` on Linux/Unix installations where it is commonly the
-    # broad ``/usr/local`` root rejected by the training sandbox.
+    # the prefix on Linux/Unix installations where it is commonly the broad
+    # ``/usr/local`` root rejected by the training sandbox.
+    base_prefix = Path(sys.base_prefix)
     if (
         sys.platform == "darwin"
-        and (prefix / "Python").is_file()
+        and (base_prefix / "Python").is_file()
     ):
-        candidates.insert(0, prefix)
+        candidates.insert(0, base_prefix)
     for key in ("stdlib", "platstdlib", "purelib", "platlib"):
         configured = sysconfig.get_path(key)
         if configured:
@@ -1778,6 +1792,7 @@ def _training_result_metrics(result: Any) -> dict[str, Any]:
         "research_fallback": bool(getattr(result, "research_fallback", False)),
         "wall_seconds": float(result.wall_seconds),
         "peak_memory_bytes": int(result.peak_memory_bytes),
+        "memory_limit_enforced": bool(getattr(result, "memory_limit_enforced", True)),
         "output_entries": int(result.output_entries),
         "output_bytes": int(result.output_bytes),
         "train_seed": int(result.train_seed),
@@ -1872,7 +1887,9 @@ def _fit_algorithm_policy(
         prediction_file_size_bytes=int(config.get(
             "prediction_file_size_bytes", 16 * 1024 * 1024,
         )),
-        externally_isolated=sys.platform != "darwin",
+        # Opt-in only (same switch as sandbox._sandboxed_cmd): without it the
+        # training sandbox fails closed on hosts lacking Seatbelt.
+        externally_isolated=os.environ.get("OPENHYRA_ALLOW_UNSANDBOXED") == "1",
     )
     details = _training_result_metrics(result)
     if result.status != "ok" or result.runner is None:
@@ -1952,47 +1969,25 @@ def _policy_probe_output(policy: Any, paths: np.ndarray, time_index: int) -> np.
     return np.asarray(policy.continuation(time_index, states))
 
 
-def _lookahead_probe(policy: Any, instance: BSInstance, seed: int) -> dict[str, Any]:
-    """Check that changing an unobserved future suffix cannot change output.
+def _repeat_query_probe(policy: Any, instance: BSInstance, seed: int) -> dict[str, Any]:
+    """Check that two identical prefix queries return identical output.
 
-    The evaluator deliberately supplies only the current prefix to both
-    queries.  The two full paths differ after the prefix and their suffix
-    digests are recorded so the resulting equality is an auditable causal
-    probe rather than an assertion inferred from source inspection.
+    This is a determinism check, not a causal look-ahead test: the adapter in
+    ``_policy_probe_output`` only ever passes the prefix up to ``time_index``,
+    so no future suffix can reach the candidate.  No-look-ahead holds by that
+    construction rather than by this probe.
     """
     try:
         probe_paths = simulate_paths(instance, 8, int(seed))
         time_index = 0 if len(instance.exercise_times) <= 2 else 1
-        prefix = probe_paths[:, : time_index + 1, :].copy()
-        changed = simulate_paths(instance, 8, int(seed) + 1)
-        changed[:, : time_index + 1, :] = prefix
-        if np.array_equal(
-            probe_paths[:, time_index + 1 :, :],
-            changed[:, time_index + 1 :, :],
-        ):
-            changed[:, time_index + 1 :, :] *= 1.0001
         first = _policy_probe_output(policy, probe_paths, time_index)
-        second = _policy_probe_output(policy, changed, time_index)
+        second = _policy_probe_output(policy, probe_paths.copy(), time_index)
         equal = bool(np.array_equal(first, second))
         return {
             "status": "passed" if equal else "failed",
             "observed": True,
             "time_index": time_index,
-            "prefix_equal": bool(np.array_equal(
-                probe_paths[:, : time_index + 1, :],
-                changed[:, : time_index + 1, :],
-            )),
-            "future_changed": bool(not np.array_equal(
-                probe_paths[:, time_index + 1 :, :],
-                changed[:, time_index + 1 :, :],
-            )),
             "prediction_equal": equal,
-            "future_a_sha256": _sha256_json(
-                probe_paths[:, time_index + 1 :, :].tolist()
-            ),
-            "future_b_sha256": _sha256_json(
-                changed[:, time_index + 1 :, :].tolist()
-            ),
         }
     except Exception as exc:
         return {
@@ -2014,14 +2009,14 @@ def _independent_validation(
     training_root: Path | None,
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Run one fresh replay and a causal lookahead probe for a top candidate."""
+    """Run one fresh replay and a repeat-query determinism probe."""
     probe_started = time.perf_counter()
-    lookahead = _lookahead_probe(policy, instance, train_seed ^ 0x5EED)
+    repeat_query = _repeat_query_probe(policy, instance, train_seed ^ 0x5EED)
     probe_seconds = time.perf_counter() - probe_started
     result: dict[str, Any] = {
         "schema": "openhyra-bermudan-independent-validation.v1",
         "observed": True,
-        "lookahead_probe": lookahead,
+        "repeat_query_probe": repeat_query,
         "deterministic_replay": {
             "status": "not_applicable",
             "observed": False,
@@ -2050,9 +2045,15 @@ def _independent_validation(
             prediction_equal = False
             try:
                 first_query = simulate_paths(instance, 8, train_seed ^ 0xC0DE)
-                left = _policy_probe_output(policy, first_query, 0)
-                right = _policy_probe_output(replay_policy, first_query, 0)
-                prediction_equal = bool(np.array_equal(left, right))
+                # Compare at every decision date apply_policy queries, not
+                # only t=0 (a single scalar state for a common spot).
+                prediction_equal = all(
+                    np.array_equal(
+                        _policy_probe_output(policy, first_query, time_index),
+                        _policy_probe_output(replay_policy, first_query, time_index),
+                    )
+                    for time_index in range(first_query.shape[1] - 1)
+                )
             except Exception:
                 prediction_equal = False
             model_equal = (
@@ -2109,6 +2110,7 @@ def _evaluate_search(
         # directory and is removed after this stage.  The candidate source is
         # never copied into it or imported by this process.
         training_root = Path(tempfile.mkdtemp(prefix="openhyra-bermudan-train-"))
+    pricing_salt, salt_drawn = _private_salt(config)
     try:
         for instance_index, instance in enumerate(suite):
             for repeat in range(config["repeats"]):
@@ -2118,7 +2120,7 @@ def _evaluate_search(
                 )
                 pricing_seed = _derive_seed(
                     request["seed"], request["suite_id"], instance_index,
-                    repeat, "pricing",
+                    repeat, "pricing", pricing_salt,
                 )
                 training = simulate_paths(instance, config["training_paths"], train_seed)
                 pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
@@ -2228,9 +2230,6 @@ def _evaluate_search(
                         "stop_time_std"
                     ],
                     "candidate_finite": candidate_behavior["finite"],
-                    "candidate_valid_stop_rate": candidate_behavior[
-                        "valid_stop_rate"
-                    ],
                     "baseline_exercise_rate": baseline_behavior["exercise_rate"],
                     "baseline_exercise_rate_by_time": baseline_behavior[
                         "exercise_rate_by_time"
@@ -2248,7 +2247,8 @@ def _evaluate_search(
                 })
     finally:
         if training_root is not None:
-            shutil.rmtree(training_root, ignore_errors=True)
+            from sandbox import remove_sealed_tree
+            remove_sealed_tree(training_root)
     score, mean_improvement, aggregate_se = _fixed_suite_lcb(
         cluster_improvements,
         cluster_standard_errors,
@@ -2272,19 +2272,19 @@ def _evaluate_search(
         "test_path_count": config["pricing_paths"],
         "total_training_path_budget": config["training_paths"] * cell_count,
         "total_test_path_budget": config["pricing_paths"] * cell_count,
-        "failure_rate": (
-            float(1.0 - np.mean([
-                bool(row.get("candidate_finite", False)) for row in summaries
-            ])) if summaries else None
-        ),
-        "failure_rate_observed": bool(summaries),
-        "lookahead_violation": (
+        # A harness-supplied salt is run-private and must not reach feedback.
+        **({"pricing_salt": pricing_salt} if salt_drawn else {}),
+        # Invalid candidate outputs raise and abort the evaluation, so there
+        # is no per-cell failure rate to measure.
+        "failure_rate": None,
+        "failure_rate_observed": False,
+        "repeat_query_mismatch": (
             None if independent_validation is None else
-            independent_validation.get("lookahead_probe", {}).get("status") != "passed"
+            independent_validation.get("repeat_query_probe", {}).get("status") != "passed"
         ),
-        "lookahead_violation_observed": bool(
+        "repeat_query_mismatch_observed": bool(
             independent_validation is not None
-            and independent_validation.get("lookahead_probe", {}).get("observed")
+            and independent_validation.get("repeat_query_probe", {}).get("observed")
         ),
         "deterministic_reproduction_passed": (
             None if independent_validation is None else
@@ -2346,8 +2346,8 @@ def _evaluate_search(
             "status": independent_validation.get(
                 "deterministic_replay", {}
             ).get("status", "not_observed"),
-            "lookahead_probe": independent_validation.get(
-                "lookahead_probe", {}
+            "repeat_query_probe": independent_validation.get(
+                "repeat_query_probe", {}
             ),
         }
     metrics["feedback_packet"] = feedback_payload
@@ -2370,10 +2370,10 @@ def _evaluate_search(
                         "deterministic_replay", {}
                     ).get("status", "not_observed")
                 ),
-                "lookahead_probe": (independent_validation or {}).get(
-                    "lookahead_probe", {"status": "not_observed"}
+                "repeat_query_probe": (independent_validation or {}).get(
+                    "repeat_query_probe", {"status": "not_observed"}
                 ),
-                "reason": "one fresh top-candidate replay and causal probe",
+                "reason": "one fresh top-candidate replay and repeat-query determinism probe",
             },
         }
     }
@@ -2408,6 +2408,9 @@ def _evaluate_audit(
     # coverage without assuming independence between the estimators.
     z = _bonferroni_gap_z(config["confidence_level"])
     all_bound_order_ok = True
+    # Training paths are given to the candidate anyway; pricing and dual
+    # streams carry the private salt (see ``_private_salt``).
+    pricing_salt, salt_drawn = _private_salt(config)
     try:
         for instance_index, instance in enumerate(suite):
             for repeat in range(config["repeats"]):
@@ -2417,15 +2420,15 @@ def _evaluate_audit(
                 )
                 pricing_seed = _derive_seed(
                     request["seed"], request["suite_id"], instance_index,
-                    repeat, "audit-pricing",
+                    repeat, "audit-pricing", pricing_salt,
                 )
                 outer_seed = _derive_seed(
                     request["seed"], request["suite_id"], instance_index,
-                    repeat, "audit-outer",
+                    repeat, "audit-outer", pricing_salt,
                 )
                 inner_seed = _derive_seed(
                     request["seed"], request["suite_id"], instance_index,
-                    repeat, "audit-inner",
+                    repeat, "audit-inner", pricing_salt,
                 )
                 training = simulate_paths(instance, config["training_paths"], train_seed)
                 pricing = simulate_paths(instance, config["pricing_paths"], pricing_seed)
@@ -2532,7 +2535,8 @@ def _evaluate_audit(
                 })
     finally:
         if training_root is not None:
-            shutil.rmtree(training_root, ignore_errors=True)
+            from sandbox import remove_sealed_tree
+            remove_sealed_tree(training_root)
     mean_gap = float(np.mean(confidence_gaps))
     q90_gap = float(np.quantile(confidence_gaps, 0.9))
     score = mean_gap + 0.25 * q90_gap
@@ -2566,19 +2570,20 @@ def _evaluate_audit(
             * (len(instance.exercise_times) - 1) * config["repeats"]
             for instance in suite
         ),
+        **({"pricing_salt": pricing_salt} if salt_drawn else {}),
         # A failed audit cell aborts the trusted evaluation before a complete
         # summary is emitted, so this stage cannot estimate a failure rate from
         # its current contract.  ``None`` is intentional and is mirrored by
         # the packet's not_observed marker.
         "failure_rate": None,
         "failure_rate_observed": False,
-        "lookahead_violation": (
+        "repeat_query_mismatch": (
             None if independent_validation is None else
-            independent_validation.get("lookahead_probe", {}).get("status") != "passed"
+            independent_validation.get("repeat_query_probe", {}).get("status") != "passed"
         ),
-        "lookahead_violation_observed": bool(
+        "repeat_query_mismatch_observed": bool(
             independent_validation is not None
-            and independent_validation.get("lookahead_probe", {}).get("observed")
+            and independent_validation.get("repeat_query_probe", {}).get("observed")
         ),
         "deterministic_reproduction_passed": (
             None if independent_validation is None else
@@ -2634,8 +2639,8 @@ def _evaluate_audit(
             "status": independent_validation.get(
                 "deterministic_replay", {}
             ).get("status", "not_observed"),
-            "lookahead_probe": independent_validation.get(
-                "lookahead_probe", {}
+            "repeat_query_probe": independent_validation.get(
+                "repeat_query_probe", {}
             ),
         }
     metrics["feedback_packet"] = feedback_payload
@@ -2667,10 +2672,10 @@ def _evaluate_audit(
                         "deterministic_replay", {}
                     ).get("status", "not_observed")
                 ),
-                "lookahead_probe": (independent_validation or {}).get(
-                    "lookahead_probe", {"status": "not_observed"}
+                "repeat_query_probe": (independent_validation or {}).get(
+                    "repeat_query_probe", {"status": "not_observed"}
                 ),
-                "reason": "one fresh top-candidate replay and causal probe",
+                "reason": "one fresh top-candidate replay and repeat-query determinism probe",
             },
         }
     }
@@ -2691,7 +2696,7 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         # score, suite, seed, causal inputs, or evaluator-owned arithmetic.
         "research_mode", "independent_validation",
     }
-    allowed = common_allowed | ({"outer_paths", "inner_paths"} if stage == "audit" else {"public_pathwise_samples"})
+    allowed = common_allowed | {"pricing_salt"} | ({"outer_paths", "inner_paths"} if stage == "audit" else {"public_pathwise_samples"})
     _strict_keys(raw, required=set(), allowed=allowed, path="evaluation request.config")
     expected_direction = "max" if stage == "search" else "min"
     direction = raw.get("direction", expected_direction)
@@ -2768,6 +2773,12 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
         result["prediction_file_size_bytes"] = _strict_int(
             raw["prediction_file_size_bytes"], path="config.prediction_file_size_bytes",
             minimum=1024, maximum=256 * 1024 * 1024,
+        )
+    if "pricing_salt" in raw:
+        # Run-private salt from the harness, or a recorded one for replay.
+        result["pricing_salt"] = _strict_int(
+            raw["pricing_salt"], path="config.pricing_salt",
+            minimum=0, maximum=(1 << 64) - 1,
         )
     if "suite_id" in raw:
         suite_id = raw["suite_id"]

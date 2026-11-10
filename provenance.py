@@ -3,7 +3,9 @@
 import fcntl
 import hashlib
 import json
+import os
 import platform
+import secrets
 import subprocess
 import sys
 import time
@@ -12,9 +14,11 @@ from pathlib import Path
 RUN_MANIFEST_SCHEMA = 1
 EVALUATION_REQUEST_SCHEMA = "openhyra-evaluation-request.v1"
 SOURCE_FILES = (
+    "agent_program_generator.py",
     "analogy_graph.py",
     "algorithm_discovery.py",
     "auditing.py",
+    "bermudan_research.py",
     "behavior_index.py",
     "behavior_profiler.py",
     "context_agent.py",
@@ -32,7 +36,7 @@ SOURCE_FILES = (
     "mechanism_cards.py",
     "mechanism_hypotheses.py",
     "object_store.py",
-    "probe_suite.py",
+    "program_search.py",
     "proposal_agent.py",
     "provenance.py",
     "reporting.py",
@@ -112,6 +116,35 @@ def evaluation_suite_id(task, stage, config=None):
             )
         return configured
     return f"{task.name}.{stage}.v1"
+
+
+# Evaluators whose strict request config accepts ``pricing_salt``.
+PRICING_SALT_PROTOCOLS = frozenset({
+    "bermudan-lsmc-feature-ir.v1",
+    "bermudan-lsmc-python.v1",
+    "bermudan-python-program-search.v1",
+})
+
+
+def with_run_pricing_salt(task, request):
+    """Attach the run's private pricing salt to a Bermudan evaluator request.
+
+    The public request seed is derivable by a candidate, so the evaluator
+    mixes this salt into its pricing/dual seeds.  It is drawn once per run and
+    kept in a 0600 file in the run directory -- not in the run manifest,
+    prompts or feedback -- so all candidates share pricing paths (common
+    random numbers) that none of them can reconstruct.
+    """
+    if request is None or request.get("protocol") not in PRICING_SALT_PROTOCOLS:
+        return request
+    path = Path(task.run_dir) / "private_pricing_salt"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(str(secrets.randbits(64)))
+    salt = int(path.read_text())
+    return {**request, "config": {**request["config"], "pricing_salt": salt}}
 
 
 def derive_search_seed(task, trial_seed):
