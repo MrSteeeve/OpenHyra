@@ -7,8 +7,10 @@ import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from os import getpid
 from pathlib import Path
-from typing import Any
+from threading import Thread, current_thread
+from typing import Any, BinaryIO
 
 from stochopia.common import atomic_write_json
 from stochopia.harness.contract import (
@@ -52,6 +54,9 @@ class _JsonDirectory:
     def __init__(self, root: Path) -> None:
         """Resolve one caller-supplied root before opening any descendant files."""
         self.path = Path(root).expanduser().resolve()
+        self._lock_handle: BinaryIO | None = None
+        self._lock_owner: tuple[int, Thread] | None = None
+        self._lock_depth = 0
 
     def _file(self, *parts: str) -> Path:
         """Join literal components below the stored root and reject symlink redirects."""
@@ -77,6 +82,9 @@ class _JsonDirectory:
         An identical existing object is a no-op. A different object for an
         already registered key is rejected.
         """
+        assert self._lock_depth > 0 and self._lock_owner == (getpid(), current_thread()), (
+            "store writes require the current thread to own the run lock"
+        )
         if not isinstance(payload, dict):
             raise ValueError("expected a JSON object for publication")
         file = self._file(*parts)
@@ -86,18 +94,57 @@ class _JsonDirectory:
             return
         atomic_write_json(file, payload)
 
+    def _forget_lock(self) -> None:
+        self._lock_handle = None
+        self._lock_owner = None
+        self._lock_depth = 0
+
+    def _close_inherited_lock(self, pid: int) -> None:
+        """Drop a forked descriptor without unlocking its parent's open file description."""
+        owner = self._lock_owner
+        if owner is not None and owner[0] != pid:
+            handle = self._lock_handle
+            self._forget_lock()
+            if handle is not None:
+                handle.close()
+
     @contextmanager
     def lock(self) -> Iterator[None]:
-        """Hold a nonblocking process lock until this context exits."""
+        """Hold a nonblocking file lock, reentrant on this instance for its owning thread."""
+        pid = getpid()
+        owner = (pid, current_thread())
+        self._close_inherited_lock(pid)
+        if self._lock_owner == owner:
+            self._lock_depth += 1
+            try:
+                yield
+            finally:
+                exiting_pid = getpid()
+                if exiting_pid == pid:
+                    self._lock_depth -= 1
+                else:
+                    self._close_inherited_lock(exiting_pid)
+            return
+
         self.path.mkdir(parents=True, exist_ok=True)
-        # Keep the lock inode in place. Closing the descriptor releases it even
-        # if a process dies while writing a task.
+        # Keep the lock inode in place so other workers compete on the same file.
         with self._file(".lock").open("a+b") as handle:
             try:
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise RunBusyError(f"another worker owns {self.path}") from exc
-            yield
+            self._lock_handle = handle
+            self._lock_owner = owner
+            self._lock_depth = 1
+            try:
+                yield
+            finally:
+                if self._lock_owner == owner:
+                    self._forget_lock()
+                if getpid() == pid:
+                    # Explicit unlock also releases the lock if a forked child
+                    # is still holding a duplicate of this file descriptor.
+                    fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 # --- Development hand-off and round files ---

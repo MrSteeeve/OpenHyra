@@ -21,7 +21,7 @@ httpx = pytest.importorskip("httpx", reason="P0 selector tests require the Stoch
 from stochopia.harness.contract import (
     AnalysisSpec, ArmKind, CandidateRef, DataSplit, Direction, EvaluationTask, ExperimentManifest,
     FinalChoice, FitRecord, FrozenManifest, GroupSpec, PairedEvalResult, ReportStatus, ScenarioSpec,
-    SelectionRecord, UnitObservation,
+    SelectionRecord, StructuredPrediction, UnitObservation,
 )
 from stochopia.harness.paired_stats import evaluate_pairs
 
@@ -127,6 +127,86 @@ def _response(request: Mapping[str, Any]) -> dict[str, Any]:
 
 def _entry(tmp_path: Path, manifest: ExperimentManifest) -> Entry:
     return Entry(DevelopmentStore(tmp_path / "runs", manifest.exp_id), manifest)
+
+
+# --- Preregistration across registered LLM groups ---
+
+
+def _abstention_plan(manifest: ExperimentManifest, round_index: int = 1) -> tuple[
+    tuple[SelectionRecord, ...], tuple[StructuredPrediction, ...],
+]:
+    scenario = manifest.scenarios[0]
+    analysis = manifest.analysis[0]
+    selections = []
+    predictions = []
+    for group in manifest.groups:
+        inputs = {
+            "exp_id": manifest.exp_id, "group_id": group.group_id, "scenario_id": scenario.scenario_id,
+            "parent_id": scenario.parent_id, "round_index": round_index, "dev_snapshot_id": f"round-{round_index}",
+        }
+        selection_id = f"r{round_index}-{group.group_id}"
+        selections.append(SelectionRecord(
+            **inputs, selection_id=selection_id, sequence=round_index, menu_id="registered-menu",
+            action="keep_parent", reason="Retain the registered baseline for this test.",
+        ))
+        if group.kind != "no_llm":
+            for candidate in manifest.prediction_candidate_set[scenario.scenario_id]:
+                predictions.append(StructuredPrediction(
+                    **inputs, prediction_id=f"{selection_id}-{candidate}", explanation_id="registered",
+                    candidate_id=candidate, analysis_id=analysis.analysis_id, abstained=True,
+                    abstain_reason="No numerical forecast.",
+                ))
+    return tuple(selections), tuple(predictions)
+
+
+@pytest.mark.parametrize("llm_count", [1, 3])
+def test_entry_preregisters_one_or_three_llm_groups(
+    manifest: ExperimentManifest, tmp_path: Path, llm_count: int,
+) -> None:
+    evidence, metrics, fixed = manifest.groups
+    llms = (metrics,) if llm_count == 1 else (evidence, metrics, replace(metrics, group_id="metrics-2"))
+    manifest = replace(manifest, groups=(*llms, fixed))
+    entry = _entry(tmp_path, manifest)
+    selections, predictions = _abstention_plan(manifest)
+
+    entry.preregister_round(1, selections=selections, predictions=predictions, baseline_metrics={})
+
+    saved = entry.store.preregistered(1)
+    assert saved is not None
+    assert {row["group_id"] for row in saved["predictions"]} == {group.group_id for group in llms}
+
+
+def test_entry_rejects_intersecting_but_unequal_common_analyses(
+    manifest: ExperimentManifest, tmp_path: Path,
+) -> None:
+    extra = replace(manifest.analysis[0], analysis_id="second-forecast")
+    manifest = replace(manifest, analysis=(*manifest.analysis, extra))
+    entry = _entry(tmp_path, manifest)
+    selections, predictions = _abstention_plan(manifest)
+    unmatched = replace(predictions[0], prediction_id="extra-forecast", analysis_id=extra.analysis_id)
+
+    with pytest.raises(ValueError, match="common analysis"):
+        entry.preregister_round(1, selections=selections, predictions=(*predictions, unmatched), baseline_metrics={})
+
+    assert entry.store.preregistered(1) is None
+
+
+def test_entry_requires_same_round_selection_for_new_forecast(
+    manifest: ExperimentManifest, tmp_path: Path,
+) -> None:
+    entry = _entry(tmp_path, manifest)
+    selections, predictions = _abstention_plan(manifest)
+    entry.preregister_round(1, selections=selections, predictions=predictions, baseline_metrics={})
+
+    def unexpected_evaluation(request: SelectionRecord | CheckRequest) -> PairedEvalResult:
+        pytest.fail(f"retaining the baseline must not create a trial: {request}")
+
+    entry.run_round(1, evaluate=unexpected_evaluation)
+    selections, predictions = _abstention_plan(manifest, round_index=2)
+    with pytest.raises(ValueError, match="same-round selection"):
+        entry.preregister_round(
+            2, selections=(selections[0],), predictions=(predictions[-1],), baseline_metrics={},
+        )
 
 
 # --- Anonymization, retries and budget enforcement ---

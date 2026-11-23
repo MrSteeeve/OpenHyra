@@ -173,10 +173,10 @@ class Entry:
                 raise ValueError("all groups must use the same registered menu")
 
     def _validate_predictions(self, round_index: int, predictions: tuple[StructuredPrediction, ...],
-                              snapshots: dict[str, JsonObject], history: History) -> None:
+                              selected_groups: set[str], snapshots: dict[str, JsonObject], history: History) -> None:
         prior_ids = {row["prediction_id"] for plan, _ in history for row in plan["predictions"]}
         exposed = self._exposed_candidates(history)
-        common = {}
+        coverage: dict[tuple[str, str, str], set[str]] = {}
         targets = set()
         for row in predictions:
             row.validate()
@@ -197,18 +197,20 @@ class Entry:
                 raise ValueError("prediction does not match this round's group, menu, analysis or snapshot")
             if not row.abstained and (row.readout, row.unit, row.window) != (analysis.readout, analysis.unit, analysis.window):
                 raise ValueError("prediction readout, unit and window must match the registered analysis")
+            if row.group_id not in selected_groups:
+                raise ValueError("prediction requires a same-round selection from its group")
             prior_ids.add(row.prediction_id)
             targets.add(target)
-            common.setdefault(scope, set()).add(row.analysis_id)
+            coverage.setdefault(scope, set()).add(row.analysis_id)
         if round_index == 1:
-            llm_groups = [group for group, spec in self.groups.items() if spec.kind != "no_llm"]
-            left_group, right_group = llm_groups
+            first_group, *other_groups = [group for group, spec in self.groups.items() if spec.kind != "no_llm"]
             for scene, candidates in self.manifest.prediction_candidate_set.items():
                 for candidate in candidates:
-                    left = common.get((left_group, scene, candidate), set())
-                    right = common.get((right_group, scene, candidate), set())
-                    if not left & right:
-                        raise ValueError("both LLM groups must forecast or abstain on the same common analysis")
+                    expected = coverage.get((first_group, scene, candidate))
+                    if not expected or any(
+                        coverage.get((group, scene, candidate)) != expected for group in other_groups
+                    ):
+                        raise ValueError("LLM groups must cover the same nonempty common analysis set")
 
     def _completed_trials(self, history: History) -> tuple[SearchTrialRecord, ...]:
         records = []
@@ -273,7 +275,8 @@ class Entry:
                    predictions: tuple[StructuredPrediction, ...], checks: tuple[CheckRequest, ...],
                    snapshots: dict[str, JsonObject], history: History) -> JsonObject:
         self._validate_selections(round_index, selections, snapshots, history)
-        self._validate_predictions(round_index, predictions, snapshots, history)
+        selected_groups = {row.group_id for row in selections}
+        self._validate_predictions(round_index, predictions, selected_groups, snapshots, history)
         trials = self._plan_trials(round_index, selections, checks, history)
         plan = {
             "round_index": round_index,
