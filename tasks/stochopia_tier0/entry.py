@@ -26,7 +26,7 @@ from stochopia.harness.contract import (
 )
 
 from .scoring import TrialProjection, append_discovery_events, project_trial, published_feedback, score_development
-from .store import DevelopmentExport, DevelopmentStore, JsonObject, _read_json, validate_task_result
+from .store import DevelopmentExport, DevelopmentStore, JsonObject, read_json, validate_task_result
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class Entry:
     def _history(self, round_index: int) -> History:
         if round_index < 1:
             raise ValueError("development rounds start at 1")
-        rounds = self.store._rounds()
+        rounds = self.store.rounds()
         if any(index > round_index for index in rounds):
             raise ValueError("cannot reopen a round after another has started")
         if tuple(index for index in rounds if index < round_index) != tuple(range(1, round_index)):
@@ -219,7 +219,7 @@ class Entry:
         records = []
         for plan, _ in history:
             for row in plan["trials"]:
-                stored = self.store._measurement(plan["round_index"], row["trial_id"])
+                stored = self.store.measurement(plan["round_index"], row["trial_id"])
                 if stored is None:
                     raise ValueError(f"published development round is missing trial {row['trial_id']!r}")
                 records.append(SearchTrialRecord.from_dict(stored["trial"]))
@@ -234,7 +234,7 @@ class Entry:
             if (check.group_id not in self.groups or scenario is None
                     or check.candidate_id == scenario.parent_id or check.candidate_id not in scenario.candidate_ids
                     or check.purpose not in {"common_prediction", "unselected_check"}
-                    or type(check.visible_to_group) is not bool):
+                    or not isinstance(check.visible_to_group, bool)):
                 raise ValueError("check must match a registered group and non-baseline menu candidate")
             if (check.purpose == "common_prediction"
                     and check.candidate_id not in self.manifest.prediction_candidate_set[check.scenario_id]):
@@ -288,7 +288,7 @@ class Entry:
             "predictions": [row.to_dict() for row in predictions],
             "trials": [row.to_dict() for row in trials],
         }
-        self.store._preregister(round_index, plan)
+        self.store.preregister(round_index, plan)
         return plan
 
     # --- Selection, execution, and feedback ---
@@ -340,7 +340,7 @@ class Entry:
             real_executor = None if evaluate is not None else self._real_executor(history, plan)
             for row in plan["trials"]:
                 trial = SearchTrialRecord.from_dict(row)
-                stored = self.store._measurement(round_index, trial.trial_id)
+                stored = self.store.measurement(round_index, trial.trial_id)
                 if stored is None:
                     request = by_id[trial.selection_id] if trial.selection_id else CheckRequest(
                         trial.group_id, trial.scenario_id, trial.candidate_id, trial.purpose, trial.charged_to_search
@@ -350,10 +350,10 @@ class Entry:
                     else:
                         outcome = real_executor(request, trial.trial_id)
                     stored = self._measure(trial, outcome)
-                    self.store._commit_measurement(round_index, trial.trial_id, stored)
+                    self.store.commit_measurement(round_index, trial.trial_id, stored)
                 if trial.charged_to_search:
                     feedback[trial.group_id].append(published_feedback(stored))
-            self.store._publish(round_index, feedback)
+            self.store.publish_feedback(round_index, feedback)
             return feedback
 
     def _select(self, round_index: int, selectors: Mapping[str, Selector], baseline_metrics: Mapping[str, Any],
@@ -451,10 +451,10 @@ class Entry:
         if group_id not in self.groups:
             raise ValueError("discovery ledger requires a registered group")
         with self.store.lock():
-            ledger = DiscoveryLedger(self.store._file("discovery", group_id, "ledger.jsonl"))
+            ledger = DiscoveryLedger(self.store.discovery_ledger_path(group_id))
             rounds = (
                 (index, self.native_feedback(index, group_id))
-                for index in self.store._rounds() if self.store.feedback(index) is not None
+                for index in self.store.rounds() if self.store.feedback(index) is not None
             )
             append_discovery_events(ledger, exp_id=self.manifest.exp_id, group_id=group_id, rounds=rounds)
             return ledger
@@ -465,7 +465,7 @@ class Entry:
         plans = [plan for plan, _ in history] + [current]
         for plan in plans:
             for trial in plan["trials"]:
-                payload = self.store._measurement(plan["round_index"], trial["trial_id"])
+                payload = self.store.measurement(plan["round_index"], trial["trial_id"])
                 if payload is not None:
                     budget = "search" if trial["charged_to_search"] else "final_check"
                     group = trial["group_id"]
@@ -481,11 +481,11 @@ class Entry:
         accounted_fits = self._accounted_fits(history, current)
 
         def fit(candidate_id: str, repeat: str) -> FitRecord:
-            record = self.store._fit(candidate_id, repeat)
+            record = self.store.fit(candidate_id, repeat)
             if record is not None:
                 return record
-            record = runner.fit_candidate(candidate_id, repeat, self.store._model_directory())
-            self.store._save_fit(record)
+            record = runner.fit_candidate(candidate_id, repeat, self.store.model_directory())
+            self.store.save_fit(record)
             return record
 
         def execute(request: Request, trial_id: str) -> Iterable[PairedEvalResult]:
@@ -521,7 +521,7 @@ class Entry:
 
     def export(self, final_choices: Iterable[FinalChoice], fits: Iterable[FitRecord] | None = None) -> DevelopmentExport:
         with self.store.lock():
-            rounds = self.store._rounds()
+            rounds = self.store.rounds()
             history = self._history((rounds[-1] if rounds else 0) + 1)
             if not history:
                 raise ValueError("cannot export an experiment without a completed round")
@@ -529,7 +529,7 @@ class Entry:
                 stored_fits = []
                 for candidate in self.manifest.candidates:
                     for repeat in self.manifest.train_seeds:
-                        record = self.store._fit(candidate.candidate_id, repeat)
+                        record = self.store.fit(candidate.candidate_id, repeat)
                         if record is not None:
                             stored_fits.append(record)
                 fits = stored_fits
@@ -563,10 +563,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--inputs", type=Path, help="JSON with development baseline_metrics and evidence")
     parser.add_argument("--export", type=Path, help="Write a development export when the plan includes final_choices")
     args = parser.parse_args(argv)
-    manifest = ExperimentManifest.from_dict(_read_json(args.manifest))
+    manifest = ExperimentManifest.from_dict(read_json(args.manifest))
     entry = Entry(DevelopmentStore(args.runs_root, manifest.exp_id), manifest)
-    plan = _read_json(args.plan)
-    inputs = _read_json(args.inputs) if args.inputs else {}
+    plan = read_json(args.plan)
+    inputs = read_json(args.inputs) if args.inputs else {}
     if entry.store.feedback(args.round) is None:
         entry.preregister_round(
             args.round, selections=map(SelectionRecord.from_dict, plan["selections"]),

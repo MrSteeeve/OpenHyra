@@ -11,7 +11,9 @@ from feedback import DirectionalFeedback, FeedbackPacket, ProblemState, not_obse
 from stochopia.harness.contract import (
     AnalysisSpec, CandidateRef, PairedDelta, PairedEvalResult, ReportStatus, SearchTrialRecord, StructuredPrediction,
 )
-from stochopia.harness.report import _gain, _primary, assess_candidate, judge_prediction, summarize_candidate
+from stochopia.harness.report import (
+    assess_candidate, judge_prediction, model_score_gain, primary_analysis, summarize_candidate,
+)
 
 from .store import JsonObject
 
@@ -140,8 +142,8 @@ def project_trial(
     )
     algorithm = candidate_spec(candidate, trial, forecasts)
     deltas = {key: PairedDelta.from_dict(row) for key, row in published["paired_diffs"].items()}
-    primary = _primary(analyses)
-    score = _gain(primary, deltas.get(primary.analysis_id) if primary else None)
+    primary = primary_analysis(analyses)
+    score = model_score_gain(primary, deltas.get(primary.analysis_id) if primary else None)
     result_ids = [row["result_id"] for row in published["results"]]
     measurement_id = result_ids[0] if len(result_ids) == 1 else f"aggregate:dev:{trial.trial_id}"
     analysis_by_id = {analysis.analysis_id: analysis for analysis in analyses}

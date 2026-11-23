@@ -1,4 +1,4 @@
-"""One anonymous proposal protocol for the two P0 LLM groups."""
+"""One anonymous proposal protocol for the registered P0 LLM groups."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from math import isfinite
+from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from urllib.parse import quote
 
-from stochopia.common import atomic_write_json
 from stochopia.harness.contract import (
     AnalysisSpec,
     Direction,
@@ -24,7 +24,7 @@ from stochopia.harness.contract import (
     StructuredPrediction,
 )
 
-from .store import JsonObject, _component, _JsonDirectory
+from .store import JsonObject, SelectorUsageStore
 
 
 class ChatClient(Protocol):
@@ -101,29 +101,23 @@ class _UsageLedger:
             "retry_limit": retry_limit, "output_cap": output_cap,
         }
         self._memory: JsonObject = {"settings": self.settings, "attempts": []}
-        self._directory = None
-        if usage_root is not None:
-            root = Path(usage_root).expanduser().resolve()
-            folder = root / _component(exp_id) / _component(group.group_id)
-            if folder.resolve() != folder:
-                raise ValueError("selector usage ledger cannot redirect the experiment or group directory")
-            self._directory = _JsonDirectory(folder)
+        self._store = SelectorUsageStore(usage_root, exp_id, group.group_id) if usage_root is not None else None
 
     @contextmanager
     def _opened(self, *, write: bool = True) -> Iterator[JsonObject]:
         """Hold an optional group-scoped process lock while reading or editing usage."""
-        if self._directory is None:
+        if self._store is None:
             yield self._memory
             return
-        with self._directory.lock():
-            disk = self._directory._read("usage.json")
+        with self._store.lock():
+            disk = self._store.usage()
             if disk is None:
                 disk = {"settings": self.settings, "attempts": []}
             if disk["settings"] != self.settings:
                 raise ValueError("existing selector budget settings differ from this manifest")
             yield disk
             if write:
-                atomic_write_json(self._directory._file("usage.json"), disk)
+                self._store.save_usage(disk)
 
     def reserve(self, prompt_bound: int, output_limit: int) -> tuple[_Reservation | None, str | None]:
         with self._opened() as state:
@@ -174,11 +168,18 @@ def _usage_summary(state: JsonObject) -> dict[str, int]:
     }
 
 
+def _integer(value: Any) -> bool:
+    return isinstance(value, Integral) and not isinstance(value, bool)
+
+
 def _budget_limit(group: GroupSpec, name: str) -> int:
     value = group.llm_budget.get(name)
-    if type(value) not in (float, int) or value < 0 or int(value) != value:
-        raise ValueError(f"LLM budget requires a nonnegative integer {name}")
-    return int(value)
+    if _integer(value) and value >= 0:
+        return int(value)
+    number = _numeric(value)
+    if number is not None and value >= 0 and int(value) == value:
+        return int(value)
+    raise ValueError(f"LLM budget requires a nonnegative integer {name}")
 
 
 def _default_prompt_bound(messages: list[dict[str, str]]) -> int:
@@ -190,9 +191,9 @@ def _reported_usage(before: Mapping[str, Any], after: Mapping[str, Any]) -> tupl
     values = []
     for field in ("calls", "prompt_tokens", "completion_tokens"):
         left, right = before.get(field, 0), after.get(field)
-        if type(left) is not int or type(right) is not int or right < left:
+        if not _integer(left) or not _integer(right) or int(right) < int(left):
             return None
-        values.append(right - left)
+        values.append(int(right) - int(left))
     calls, prompt, completion = values
     if calls != 1 or prompt + completion == 0:
         return None
@@ -217,7 +218,7 @@ def _scope(snapshot: Any, scenario_id: str) -> Mapping[str, Any]:
 
 
 def _numeric(value: Any) -> float | None:
-    if type(value) not in (int, float):
+    if not isinstance(value, Real) or isinstance(value, bool):
         return None
     try:
         number = float(value)
@@ -427,10 +428,11 @@ class LLMSelector:
                 or self._scenarios.get(scenario.scenario_id) != scenario):
             raise ValueError("selector requires a registered development group and scenario")
         round_index = snapshot.get("round_index")
-        if (type(round_index) is not int or round_index < 1
+        if (not _integer(round_index) or round_index < 1
                 or snapshot.get("dev_snapshot_id") != f"round-{round_index}"):
             raise ValueError("selector requires an Entry development snapshot")
-        prompt = self._prompt(snapshot, scenario)
+        round_index = int(round_index)
+        prompt = self._prompt(snapshot, scenario, round_index=round_index)
         if not prompt.candidates:
             response = _fallback(prompt, "No eligible anonymous option remains.")
         elif self.mode == "offline":
@@ -439,7 +441,7 @@ class LLMSelector:
             return self._real(round_index, scenario, prompt)
         return self._decision(round_index, scenario, prompt, response)
 
-    def _prompt(self, snapshot: JsonObject, scenario: ScenarioSpec) -> _Prompt:
+    def _prompt(self, snapshot: JsonObject, scenario: ScenarioSpec, *, round_index: int) -> _Prompt:
         scene_id = scenario.scenario_id
         candidates = [candidate for candidate in scenario.candidate_ids if candidate != scenario.parent_id]
         aliases = {candidate: f"C{index}" for index, candidate in enumerate(candidates, start=1)}
@@ -458,7 +460,7 @@ class LLMSelector:
                 for analysis in forecasts:
                     targets[(alias, analysis_aliases[analysis.analysis_id])] = analysis
         payload = {
-            "round": snapshot["round_index"], "baseline": _baseline(snapshot, scene_id),
+            "round": round_index, "baseline": _baseline(snapshot, scene_id),
             "options": [
                 {"option": alias, "description": _OPTIONS.get(self._recipes[candidate], "Uses a registered structural change.")}
                 for alias, candidate in eligible.items()
@@ -497,10 +499,10 @@ class LLMSelector:
             except Exception:
                 failure = "Prompt token allowance could not be determined."
                 break
-            if type(prompt_bound) is not int or prompt_bound < 1:
+            if not _integer(prompt_bound) or prompt_bound < 1:
                 failure = "Prompt token allowance must be a positive integer."
                 break
-            reservation, budget_reason = self._ledger.reserve(prompt_bound, self.max_output_tokens)
+            reservation, budget_reason = self._ledger.reserve(int(prompt_bound), self.max_output_tokens)
             if reservation is None:
                 failure = budget_reason or "Group inference budget exhausted."
                 break
@@ -591,7 +593,7 @@ def build_selectors(manifest: ExperimentManifest, *, mode: Literal["offline", "r
                     client_factory: ClientFactory | None = None, usage_root: Path | None = None, retry_limit: int = 1,
                     max_output_tokens: int = 512, count_prompt_tokens: PromptCounter = _default_prompt_bound,
                     offline_responder: OfflineResponder | None = None) -> dict[str, LLMSelector]:
-    """Build matching policies for the two LLM groups of a development manifest.
+    """Build matching policies for the LLM groups of a development manifest.
 
     A real client factory must implement one reserved attempt per chat call.
     Supply usage_root to enforce the registered budget across process restarts.
@@ -600,12 +602,12 @@ def build_selectors(manifest: ExperimentManifest, *, mode: Literal["offline", "r
     manifest.validate()
     if mode not in ("offline", "real") or mode == "real" and client_factory is None:
         raise ValueError("a client factory is required for explicit real mode")
-    if type(retry_limit) is not int or retry_limit < 0 or type(max_output_tokens) is not int or max_output_tokens < 1:
+    if not _integer(retry_limit) or retry_limit < 0 or not _integer(max_output_tokens) or max_output_tokens < 1:
         raise ValueError("retry limit and completion cap must be valid integers")
     return {
         group.group_id: LLMSelector(
             manifest, group, mode=mode, client_factory=client_factory, usage_root=usage_root,
-            retry_limit=retry_limit, max_output_tokens=max_output_tokens, count_prompt_tokens=count_prompt_tokens,
+            retry_limit=int(retry_limit), max_output_tokens=int(max_output_tokens), count_prompt_tokens=count_prompt_tokens,
             offline_responder=offline_responder,
         )
         for group in manifest.groups if group.kind != "no_llm"

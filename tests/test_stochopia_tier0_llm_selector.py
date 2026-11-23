@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
 STOCHOPIA = Path(os.environ.get("STOCHOPIA_REPO", Path(__file__).resolve().parents[2] / "Stochopia"))
@@ -355,6 +356,28 @@ def test_registry_transport_pins_model_and_has_no_hidden_http_retries(
     assert len(requests) == selector.usage()["calls"] == 1
     assert requests[0]["model"] == "pinned-model"
     assert selector.usage()["reserved_tokens"] > 0
+
+
+def test_selector_normalizes_native_scalar_inputs(manifest: ExperimentManifest, tmp_path: Path) -> None:
+    client = FakeClient()
+    scene = manifest.scenarios[0]
+    entry = _entry(tmp_path, manifest)
+    selector = build_selectors(
+        manifest, mode="real", client_factory=lambda model, version: client,
+        retry_limit=np.int64(0), max_output_tokens=np.int64(256),
+        count_prompt_tokens=lambda messages: np.int64(200),
+    )["metrics"]
+    snapshot = entry.snapshot("metrics", 1, baseline_metrics={})
+    snapshot["round_index"] = np.int64(1)
+    snapshot["baseline_metrics"] = {scene.scenario_id: {
+        "end_response": np.float32(1.5), "nll": False, "clamped_rmse": np.float64(np.inf),
+    }}
+
+    record, _ = selector(snapshot, scene)
+
+    assert record.action == "select"
+    assert json.loads(client.messages[0][-1]["content"])["baseline"] == {"end_response": 1.5}
+    assert selector.usage()["calls"] == 1
 
 
 # --- Offline development, freeze and independent replay ---

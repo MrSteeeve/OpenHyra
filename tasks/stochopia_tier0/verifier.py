@@ -6,6 +6,9 @@ import argparse
 import json
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from errno import ENOENT
+from numbers import Integral
+from os import strerror
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -14,7 +17,7 @@ from stochopia.harness.contract import (
     DataSplit, EvaluationTask, FitRecord, FrozenManifest, PairedEvalResult,
 )
 
-from .store import DevelopmentExport, VerifierStore, _read_json, validate_task_result
+from .store import DevelopmentExport, VerifierStore, read_json, validate_task_result
 from .store import RunBusyError as VerifierBusyError
 
 
@@ -36,10 +39,10 @@ class VerifierConfig:
             raise ValueError("test configuration requires experiment and batch IDs")
         self.test_split.validate()
         if self.seeds.keys() != {"rollout", "delta_ci"} or any(
-            type(seed) is not int or seed < 0 for seed in self.seeds.values()
+            not isinstance(seed, Integral) or isinstance(seed, bool) or seed < 0 for seed in self.seeds.values()
         ):
             raise ValueError("test configuration requires integer rollout and delta_ci seeds")
-        object.__setattr__(self, "seeds", MappingProxyType(dict(self.seeds)))
+        object.__setattr__(self, "seeds", MappingProxyType({key: int(seed) for key, seed in self.seeds.items()}))
 
     def to_dict(self) -> dict[str, Any]:
         return {"exp_id": self.exp_id, "batch_id": self.batch_id, "test_split": self.test_split.to_dict(),
@@ -64,22 +67,26 @@ class Verifier:
     def register_config(self, config: VerifierConfig) -> None:
         """Seal the test split and seeds under the independent verifier root."""
         with self.store.lock():
-            self.store._seal(config.to_dict(), "test.json")
+            self.store.register_config(config.to_dict())
 
     def config(self) -> VerifierConfig:
         """Read the pre-registered held-out JSON from this verifier's root only."""
-        return VerifierConfig.from_dict(_read_json(self.store._file("test.json")))
+        payload = self.store.test_config()
+        if payload is None:
+            raise FileNotFoundError(ENOENT, strerror(ENOENT), str(self.store.path / "test.json"))
+        return VerifierConfig.from_dict(payload)
 
     def register(self, frozen: FrozenManifest) -> None:
         """Register a complete batch, requiring any pre-registered test config to match."""
         frozen.validate()
         config = VerifierConfig(frozen.exp_id, frozen.batch_id, frozen.test_split, frozen.seeds)
+        payload = config.to_dict()
         with self.store.lock():
-            previous = self.store._read("test.json")
-            if previous is not None and previous != config.to_dict():
+            previous = self.store.test_config()
+            if previous is not None and previous != payload:
                 raise ValueError("frozen manifest disagrees with the pre-registered test configuration")
-            self.store._seal(config.to_dict(), "test.json")
-            self.store._register_frozen(frozen)
+            self.store.register_config(payload)
+            self.store.register_frozen(frozen)
 
     def frozen(self) -> FrozenManifest:
         return self.store.frozen()
@@ -100,7 +107,7 @@ class Verifier:
             else:
                 build_report = self.build_report
             published = build_report(frozen, results)
-            self.store._publish(published)
+            self.store.publish_report(published)
             return self.store.report()
 
     def _complete(self, frozen: FrozenManifest) -> tuple[PairedEvalResult, ...]:
@@ -124,7 +131,7 @@ class Verifier:
             if result is None:
                 result = evaluator(task, parent, candidate, frozen)
                 validate_task_result(result, task, parent, candidate)
-                self.store._commit_result(task.task_id, result)
+                self.store.commit_result(task.task_id, result)
             else:
                 validate_task_result(result, task, parent, candidate)
             results.append(result)
@@ -174,14 +181,14 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     verifier = Verifier(args.verifier_root)
     if args.command == "register-config":
-        verifier.register_config(VerifierConfig.from_dict(_read_json(args.config)))
+        verifier.register_config(VerifierConfig.from_dict(read_json(args.config)))
     elif args.command == "freeze":
-        exported = DevelopmentExport.from_dict(_read_json(args.export))
-        tasks = map(EvaluationTask.from_dict, _read_json(args.tasks))
+        exported = DevelopmentExport.from_dict(read_json(args.export))
+        tasks = map(EvaluationTask.from_dict, read_json(args.tasks))
         freeze(exported, verifier.config(), args.verifier_root, tasks=tasks)
     else:
         if args.frozen:
-            verifier.register(FrozenManifest.from_dict(_read_json(args.frozen)))
+            verifier.register(FrozenManifest.from_dict(read_json(args.frozen)))
         print(json.dumps(verifier.run(), ensure_ascii=False, indent=2))
 
 

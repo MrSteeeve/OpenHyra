@@ -28,6 +28,11 @@ from stochopia.harness.contract import (
 
 JsonObject = dict[str, Any]
 
+__all__ = [
+    "DevelopmentExport", "DevelopmentStore", "JsonObject", "RunBusyError", "SelectorUsageStore",
+    "VerifierStore", "read_json", "validate_task_result",
+]
+
 
 # --- Files and process lock ---
 
@@ -45,7 +50,8 @@ def _component(value: str) -> str:
     return value
 
 
-def _read_json(path: Path) -> Any:
+def read_json(path: Path) -> Any:
+    """Read a caller-supplied JSON input path."""
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
@@ -69,7 +75,7 @@ class _JsonDirectory:
         """Read a registered JSON object. A missing entry is distinct from invalid JSON."""
         file = self._file(*parts)
         try:
-            payload = _read_json(file)
+            payload = read_json(file)
         except FileNotFoundError:
             return None
         if not isinstance(payload, dict):
@@ -82,17 +88,20 @@ class _JsonDirectory:
         An identical existing object is a no-op. A different object for an
         already registered key is rejected.
         """
-        assert self._lock_depth > 0 and self._lock_owner == (getpid(), current_thread()), (
-            "store writes require the current thread to own the run lock"
-        )
+        self._assert_lock()
         if not isinstance(payload, dict):
             raise ValueError("expected a JSON object for publication")
         file = self._file(*parts)
         if file.exists():
-            if _read_json(file) != payload:
+            if read_json(file) != payload:
                 raise ValueError(f"existing {file.name} differs from its registered contents")
             return
         atomic_write_json(file, payload)
+
+    def _assert_lock(self) -> None:
+        assert self._lock_depth > 0 and self._lock_owner == (getpid(), current_thread()), (
+            "store writes require the current thread to own the run lock"
+        )
 
     def _forget_lock(self) -> None:
         self._lock_handle = None
@@ -145,6 +154,26 @@ class _JsonDirectory:
                     # Explicit unlock also releases the lock if a forked child
                     # is still holding a duplicate of this file descriptor.
                     fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+class SelectorUsageStore(_JsonDirectory):
+    """The mutable budget ledger for one experiment and group under a caller-selected root."""
+
+    def __init__(self, usage_root: Path, exp_id: str, group_id: str) -> None:
+        """Bind the ledger to literal experiment and group path components without redirects."""
+        root = Path(usage_root).expanduser().resolve()
+        folder = root / _component(exp_id) / _component(group_id)
+        if folder.resolve() != folder:
+            raise ValueError("selector usage ledger cannot redirect the experiment or group directory")
+        super().__init__(folder)
+
+    def usage(self) -> JsonObject | None:
+        return self._read("usage.json")
+
+    def save_usage(self, payload: JsonObject) -> None:
+        """Atomically replace the cumulative budget accounting under the caller's lock."""
+        self._assert_lock()
+        atomic_write_json(self._file("usage.json"), payload)
 
 
 # --- Development hand-off and round files ---
@@ -209,9 +238,10 @@ class DevelopmentStore(_JsonDirectory):
             self._seal(payload, "manifest.json")
 
     def manifest(self) -> ExperimentManifest:
-        return ExperimentManifest.from_dict(_read_json(self._file("manifest.json")))
+        return ExperimentManifest.from_dict(read_json(self._file("manifest.json")))
 
-    def _rounds(self) -> tuple[int, ...]:
+    def rounds(self) -> tuple[int, ...]:
+        """List rounds with a sealed preregistration, including pending rounds."""
         directory = self._file("rounds")
         if not directory.exists():
             return ()
@@ -229,27 +259,35 @@ class DevelopmentStore(_JsonDirectory):
     def feedback(self, round_index: int) -> JsonObject | None:
         return self._read("rounds", str(round_index), "feedback.json")
 
-    def _preregister(self, round_index: int, plan: JsonObject) -> None:
+    def preregister(self, round_index: int, plan: JsonObject) -> None:
+        """Seal the preregistration for a round under the caller's lock."""
         self._seal(plan, "rounds", str(round_index), "preregistered.json")
 
-    def _measurement(self, round_index: int, trial_id: str) -> JsonObject | None:
+    def measurement(self, round_index: int, trial_id: str) -> JsonObject | None:
+        """Read a committed trial, whether or not the full round has been published."""
         return self._read("rounds", str(round_index), "measurements", f"{_component(trial_id)}.json")
 
-    def _commit_measurement(self, round_index: int, trial_id: str, payload: JsonObject) -> None:
+    def commit_measurement(self, round_index: int, trial_id: str, payload: JsonObject) -> None:
+        """Seal one trial's result under the caller's lock."""
         self._seal(payload, "rounds", str(round_index), "measurements", f"{_component(trial_id)}.json")
 
-    def _publish(self, round_index: int, feedback: JsonObject) -> None:
+    def publish_feedback(self, round_index: int, feedback: JsonObject) -> None:
         self._seal(feedback, "rounds", str(round_index), "feedback.json")
 
-    def _fit(self, candidate_id: str, repeat: str) -> FitRecord | None:
+    def fit(self, candidate_id: str, repeat: str) -> FitRecord | None:
         payload = self._read("fits", _component(candidate_id), f"{_component(repeat)}.json")
         return None if payload is None else FitRecord.from_dict(payload)
 
-    def _save_fit(self, fit: FitRecord) -> None:
+    def save_fit(self, fit: FitRecord) -> None:
         self._seal(fit.to_dict(), "fits", _component(fit.candidate_id), f"{_component(fit.train_repeat_id)}.json")
 
-    def _model_directory(self) -> Path:
+    def model_directory(self) -> Path:
+        """Return the model artifact directory below this development run."""
         return self._file("models")
+
+    def discovery_ledger_path(self, group_id: str) -> Path:
+        """Return one group's derived discovery ledger path below this development run."""
+        return self._file("discovery", group_id, "ledger.jsonl")
 
 
 # --- Held-out batch files and result validation ---
@@ -258,8 +296,14 @@ class DevelopmentStore(_JsonDirectory):
 class VerifierStore(_JsonDirectory):
     """A physically separate batch root, established before development or at hand-off."""
 
+    def test_config(self) -> JsonObject | None:
+        return self._read("test.json")
+
+    def register_config(self, config: JsonObject) -> None:
+        self._seal(config, "test.json")
+
     def frozen(self) -> FrozenManifest:
-        return FrozenManifest.from_dict(_read_json(self._file("frozen.json")))
+        return FrozenManifest.from_dict(read_json(self._file("frozen.json")))
 
     def result(self, task_id: str) -> PairedEvalResult | None:
         payload = self._read("results", f"{_component(task_id)}.json")
@@ -268,15 +312,15 @@ class VerifierStore(_JsonDirectory):
     def report(self) -> JsonObject | None:
         return self._read("report.json")
 
-    def _register_frozen(self, frozen: FrozenManifest) -> None:
+    def register_frozen(self, frozen: FrozenManifest) -> None:
         for task in frozen.tasks:
             _component(task.task_id)
         self._seal(frozen.to_dict(), "frozen.json")
 
-    def _commit_result(self, task_id: str, result: PairedEvalResult) -> None:
+    def commit_result(self, task_id: str, result: PairedEvalResult) -> None:
         self._seal(result.to_dict(), "results", f"{_component(task_id)}.json")
 
-    def _publish(self, report: JsonObject) -> None:
+    def publish_report(self, report: JsonObject) -> None:
         self._seal(report, "report.json")
 
 
