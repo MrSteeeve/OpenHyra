@@ -61,9 +61,12 @@ _METRICS = frozenset({
     "peak_response", "free_peak_response", "end_response", "free_end_response", "no_injection_drift",
     "filled_size", "fill_size", "best_ask_depth",
 })
-_EVIDENCE = frozenset({"flow_rmse", "price_rmse", "dominance_margin", "background_bias", "min_effect"})
+_EVIDENCE = frozenset({
+    "flow_rmse", "flow_rmse_low", "flow_rmse_high", "price_rmse", "price_rmse_low", "price_rmse_high",
+    "dominance_margin", "dominance_margin_low", "dominance_margin_high", "background_bias", "min_effect",
+})
 _BUNDLES = frozenset({"day-level-flow", "diagnostics"})
-_UNIT = frozenset({"tick", "ticks", "shares", "nats", "bits", "sign", "fraction", "ratio", "probability", "unitless"})
+_UNIT = frozenset({"tick", "ticks", "shares", "nats", "bits", "sign", "signed_trade", "fraction", "ratio", "probability", "unitless"})
 _WINDOW = frozenset({"execution", "end", "recovery", "full", "peak", "post_execution", "no_injection"})
 _PRED_STATES = frozenset({"increase", "decrease", "unchanged", "abstain"})
 _STATUSES = frozenset(status.value for status in ReportStatus)
@@ -420,7 +423,12 @@ class LLMSelector:
             group, manifest.exp_id, usage_root if mode == "real" else None,
             retry_limit=retry_limit, output_cap=max_output_tokens, system_prompt=system_prompt,
         )
-        self._recipes = {row.candidate_id: row.recipe for row in manifest.candidates}
+        self._descriptions = {}
+        for row in manifest.candidates:
+            description = row.implementation.get("prompt_description")
+            if not isinstance(description, str):
+                description = _OPTIONS.get(row.recipe, "Uses a registered structural change.")
+            self._descriptions[row.candidate_id] = description
         self._scenarios = {row.scenario_id: row for row in manifest.scenarios}
 
     def usage(self) -> dict[str, int]:
@@ -451,7 +459,8 @@ class LLMSelector:
         aliases = {candidate: f"C{index}" for index, candidate in enumerate(candidates, start=1)}
         analyses = [analysis for analysis in self.manifest.analysis if analysis.scenario_id == scene_id]
         analysis_aliases = {analysis.analysis_id: f"T{index}" for index, analysis in enumerate(analyses, start=1)}
-        forecasts = [analysis for analysis in analyses if analysis.acceptance.get("role") == "prediction"]
+        forecasts = [analysis for analysis in analyses if analysis.acceptance.get("role") == "prediction"
+                     or analysis.acceptance.get("forecast") is True]
         if not forecasts:
             forecasts = analyses[:1]
         history = _history(snapshot, self.group.group_id, scene_id, aliases, analysis_aliases)
@@ -466,7 +475,7 @@ class LLMSelector:
         payload = {
             "round": round_index, "baseline": _baseline(snapshot, scene_id),
             "options": [
-                {"option": alias, "description": _OPTIONS.get(self._recipes[candidate], "Uses a registered structural change.")}
+                {"option": alias, "description": self._descriptions[candidate]}
                 for alias, candidate in eligible.items()
             ],
             "targets": [_target(option, alias, analysis) for (option, alias), analysis in targets.items()],

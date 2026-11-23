@@ -1,0 +1,232 @@
+{
+  "connectivity_smoke": {
+    "deepseek": {
+      "api_seconds": 3.237,
+      "calls": 2,
+      "completion_tokens": 14,
+      "prompt_tokens": 121
+    },
+    "openai": {
+      "api_seconds": 3.185,
+      "calls": 1,
+      "completion_tokens": 11,
+      "prompt_tokens": 17
+    }
+  },
+  "groups": {
+    "evidence_deepseek": {
+      "api_attempts": 3,
+      "api_seconds": 10.134515668003587,
+      "calls": 3,
+      "completion_tokens": 1759,
+      "events": [
+        {
+          "group_id": "evidence_deepseek",
+          "model": "deepseek-flash",
+          "provider": "deepseek",
+          "round_index": 1,
+          "scenario_id": "case-a",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 3.482479208993027,
+            "calls": 1,
+            "completion_tokens": 518,
+            "prompt_tokens": 1584
+          }
+        },
+        {
+          "group_id": "evidence_deepseek",
+          "model": "deepseek-flash",
+          "provider": "deepseek",
+          "round_index": 1,
+          "scenario_id": "case-b",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 3.0330187500076136,
+            "calls": 1,
+            "completion_tokens": 610,
+            "prompt_tokens": 1588
+          }
+        },
+        {
+          "group_id": "evidence_deepseek",
+          "model": "deepseek-flash",
+          "provider": "deepseek",
+          "round_index": 2,
+          "scenario_id": "case-a",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 3.6190177090029465,
+            "calls": 1,
+            "completion_tokens": 631,
+            "prompt_tokens": 1584
+          }
+        }
+      ],
+      "ledger": {
+        "calls": 3,
+        "charged_tokens": 6515,
+        "completion_tokens": 1759,
+        "prompt_tokens": 4756,
+        "reserved_tokens": 0
+      },
+      "model": "deepseek-flash",
+      "prompt_tokens": 4756,
+      "provider": "deepseek"
+    },
+    "evidence_gpt": {
+      "api_attempts": 2,
+      "api_seconds": 16.662275291004335,
+      "calls": 2,
+      "completion_tokens": 1168,
+      "events": [
+        {
+          "group_id": "evidence_gpt",
+          "model": "gpt-6.2-sol",
+          "provider": "openai",
+          "round_index": 1,
+          "scenario_id": "case-a",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 8.512648749994696,
+            "calls": 1,
+            "completion_tokens": 600,
+            "prompt_tokens": 1462
+          }
+        },
+        {
+          "group_id": "evidence_gpt",
+          "model": "gpt-6.2-sol",
+          "provider": "openai",
+          "round_index": 1,
+          "scenario_id": "case-b",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 8.149626541009638,
+            "calls": 1,
+            "completion_tokens": 568,
+            "prompt_tokens": 1466
+          }
+        }
+      ],
+      "ledger": {
+        "calls": 2,
+        "charged_tokens": 4096,
+        "completion_tokens": 1168,
+        "prompt_tokens": 2928,
+        "reserved_tokens": 0
+      },
+      "model": "gpt-6.2-sol",
+      "prompt_tokens": 2928,
+      "provider": "openai"
+    },
+    "metrics_deepseek": {
+      "api_attempts": 2,
+      "api_seconds": 7.195633292009006,
+      "calls": 2,
+      "completion_tokens": 1197,
+      "events": [
+        {
+          "group_id": "metrics_deepseek",
+          "model": "deepseek-flash",
+          "provider": "deepseek",
+          "round_index": 1,
+          "scenario_id": "case-a",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 3.6017401249991963,
+            "calls": 1,
+            "completion_tokens": 593,
+            "prompt_tokens": 1454
+          }
+        },
+        {
+          "group_id": "metrics_deepseek",
+          "model": "deepseek-flash",
+          "provider": "deepseek",
+          "round_index": 1,
+          "scenario_id": "case-b",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 3.59389316700981,
+            "calls": 1,
+            "completion_tokens": 604,
+            "prompt_tokens": 1456
+          }
+        }
+      ],
+      "ledger": {
+        "calls": 2,
+        "charged_tokens": 4107,
+        "completion_tokens": 1197,
+        "prompt_tokens": 2910,
+        "reserved_tokens": 0
+      },
+      "model": "deepseek-flash",
+      "prompt_tokens": 2910,
+      "provider": "deepseek"
+    },
+    "metrics_gpt": {
+      "api_attempts": 2,
+      "api_seconds": 17.03834529100277,
+      "calls": 2,
+      "completion_tokens": 1146,
+      "events": [
+        {
+          "group_id": "metrics_gpt",
+          "model": "gpt-6.2-sol",
+          "provider": "openai",
+          "round_index": 1,
+          "scenario_id": "case-a",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 8.59941766600241,
+            "calls": 1,
+            "completion_tokens": 594,
+            "prompt_tokens": 1347
+          }
+        },
+        {
+          "group_id": "metrics_gpt",
+          "model": "gpt-6.2-sol",
+          "provider": "openai",
+          "round_index": 1,
+          "scenario_id": "case-b",
+          "usage": {
+            "api_attempts": 1,
+            "api_seconds": 8.43892762500036,
+            "calls": 1,
+            "completion_tokens": 552,
+            "prompt_tokens": 1349
+          }
+        }
+      ],
+      "ledger": {
+        "calls": 2,
+        "charged_tokens": 3842,
+        "completion_tokens": 1146,
+        "prompt_tokens": 2696,
+        "reserved_tokens": 0
+      },
+      "model": "gpt-6.2-sol",
+      "prompt_tokens": 2696,
+      "provider": "openai"
+    }
+  },
+  "provider_config": {
+    "deepseek": {
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-flash",
+      "thinking": "disabled",
+      "token_cap_field": "max_tokens"
+    },
+    "openai": {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "low",
+      "token_cap_field": "max_completion_tokens"
+    }
+  }
+}

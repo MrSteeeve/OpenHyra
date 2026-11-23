@@ -87,11 +87,12 @@ def build_manifest(
     n_train_days: int = _TRAIN_DAYS, n_dev_days: int = _DEV_DAYS, n_test_days: int = _TEST_DAYS,
     train_seeds: Sequence[int] = _TRAIN_SEEDS, n_resamples: int = _N_RESAMPLES, hidden: int = 32,
     windows_per_day: int = 6, info_drift: float = _INFO_DRIFT, informed_fraction: float = _INFORMED_FRACTION,
+    search_seed: int | None = None, formal_models: Mapping[str, tuple[str, str]] | None = None,
 ) -> ExperimentManifest:
     """Register the two development worlds and their pure-GRU candidate recipes.
 
     The retained test count is a plan only. The manifest contains train/dev day IDs.
-    Fit the alternate background using the declared override in _measure.
+    A search seed registers one formal block with an independently rotated menu.
     """
     price_environment: dict[str, Any] = {
         "n_trades": 2048, "burn_in": 256, "noise_std": 0.50, "info_drift": info_drift,
@@ -151,7 +152,7 @@ def build_manifest(
         common[scene.scenario_id] = tuple(key for key in scene.candidate_ids if key != scene.parent_id)
     dev = _split("dev", n_dev_days, namespace)
     dev = replace(dev, source={**dev.source, "planned_test_days": n_test_days})
-    return ExperimentManifest(
+    manifest = ExperimentManifest(
         exp_id=exp_id or namespace, scenarios=scenes, candidates=candidates, groups=groups, analysis=tuple(analysis),
         splits={"train": _split("train", n_train_days, namespace), "dev": dev},
         train_seeds={f"repeat-{i:02d}": seed for i, seed in enumerate(train_seeds, start=1)},
@@ -163,6 +164,52 @@ def build_manifest(
         budget={"search": {"trials": 4.0}, "final_check": {"trials": 4.0}}, prediction_candidate_set=common,
         unselected_sample_rule="evaluate all common prediction candidates off budget for search",
     )
+    if search_seed is None:
+        return manifest
+    if formal_models is None:
+        raise ValueError("formal blocks require exact model and version pairs for gpt and deepseek")
+    rotation = (17, 29, 41).index(search_seed)
+    ids = {"x02": "bg_gru2"}
+    formal_scenes = []
+    for offset, scene in enumerate(scenes):
+        menu = tuple(f"c_{scene.scenario_id[-1]}{i}" for i in range(4))
+        first = 1 + (rotation + offset) % 3
+        assigned = (menu[0], *menu[first:], *menu[1:first])
+        ids.update(zip(scene.candidate_ids, assigned, strict=True))
+        formal_scenes.append(replace(scene, parent_id=menu[0], candidate_ids=menu))
+
+    own_price = "Adds an own-trade indicator to the price model and a separate own-trade price output."
+    detached = "Draws background signs from a separate replay with no injected trades."
+    swap_background = "Replaces the detached background model with an independently fitted two-layer GRU."
+    descriptions = {
+        "x01": f"{detached} Keeps the baseline price weights.",
+        "a_self": f"Keeps joint generation. {own_price}", "a_joint": f"{detached} {own_price}",
+        "x12": f"Keeps the baseline detached background weights. {own_price}",
+        "x13": f"{swap_background} Keeps the baseline price weights.", "b_joint": f"{swap_background} {own_price}",
+    }
+    formal_candidates = []
+    for candidate in candidates:
+        implementation = dict(candidate.implementation)
+        if candidate.candidate_id in descriptions:
+            implementation["prompt_description"] = descriptions[candidate.candidate_id]
+        if "background_candidate_id" in implementation:
+            implementation["background_candidate_id"] = ids[implementation["background_candidate_id"]]
+        formal_candidates.append(replace(candidate, candidate_id=ids[candidate.candidate_id],
+                                         parent_id=ids[candidate.parent_id] if candidate.parent_id else None,
+                                         implementation=implementation))
+    formal_groups = []
+    for provider in ("gpt", "deepseek"):
+        model, version = formal_models[provider]
+        policy = {**llm_registration, "model": model, "model_version": version}
+        formal_groups.extend((GroupSpec(group_id=f"evidence_{provider}", kind="evidence_llm",
+                                        allowed_evidence=("diagnostics",), **policy),
+                              GroupSpec(group_id=f"metrics_{provider}", kind="metrics_llm", **policy)))
+    formal_groups.append(GroupSpec(group_id="no_llm", kind="no_llm", selection_rule="seeded-random"))
+    forecasts = tuple(replace(spec, acceptance={**spec.acceptance, "forecast": True}) for spec in analysis)
+    return replace(manifest, exp_id=exp_id or f"p0-formal-s{search_seed}", scenarios=tuple(formal_scenes),
+                   candidates=tuple(formal_candidates), groups=tuple(formal_groups), analysis=forecasts,
+                   prediction_candidate_set={scene.scenario_id: scene.candidate_ids[1:] for scene in formal_scenes},
+                   llm_ablation_dimensions=("model", "model_version"))
 
 
 # --- Actual fitting and paired development observations ---
@@ -174,8 +221,6 @@ def _measure(
            dict[str, list[PairedEvalResult]]]:
     """Measure the full dev menu and save actual price/background fits for Entry."""
     runner = Runner(manifest)
-    override = runner.candidates["x02"].implementation["train_plan_overrides"]
-    background_runner = Runner(replace(manifest, train_plan={**manifest.train_plan, **override}))
     store = DevelopmentStore(output, manifest.exp_id)
     store.register(manifest)
     per_seed = {}
@@ -183,30 +228,19 @@ def _measure(
     diagnostic_pairs = {}
     for scene in manifest.scenarios:
         scene_id = scene.scenario_id
-        case = _CASES[scene_id]
         diagnoses = {}
         diagnostic_pairs[scene_id] = []
         results: dict[str, list[PairedEvalResult]] = {key: [] for key in manifest.prediction_candidate_set[scene_id]}
+        probe_candidate = next(iter(results))
         for repeat, seed in manifest.train_seeds.items():
             parent = runner.fit_candidate(scene.parent_id, repeat, output / "weights")
             fits = [parent]
             diagnoses[repeat] = runner.diagnose(scene_id, parent)
             if scene_id == "case-b":
-                background = background_runner.fit_candidate("x02", repeat, output / "background-weights")
-                fits.append(background)
+                ancestor = "bg_gru2" if "bg_gru2" in runner.candidates else "x02"
+                fits.append(runner.fit_candidate(ancestor, repeat, output / "weights"))
             for candidate_id in results:
-                if candidate_id in ("x13", "b_joint"):
-                    # Runner uses one global training plan. Compose the measured
-                    # price fit with the separately fitted two-layer background.
-                    price = parent if candidate_id == "x13" else runner.fit_candidate("x12", repeat, output / "weights")
-                    config = dict(price.config)
-                    config["price_registration"] = config.pop("registered")
-                    config["background_registration"] = background.config["registered"]
-                    candidate = replace(price, fit_id=f"{candidate_id}:{repeat}", candidate_id=candidate_id,
-                                        parent_id=scene.parent_id, background_weights_ref=background.model_ref,
-                                        config=config)
-                else:
-                    candidate = runner.fit_candidate(candidate_id, repeat, output / "weights")
+                candidate = runner.fit_candidate(candidate_id, repeat, output / "weights")
                 fits.append(candidate)
                 task = EvaluationTask(
                     task_id=f"{scene_id}-{repeat}-{candidate_id}", split="dev", scenario_id=scene_id,
@@ -217,7 +251,7 @@ def _measure(
                 result = runner.run_paired_eval(task, parent, candidate)
                 atomic_write_json(output / "measurements" / f"{task.task_id}.json", result.to_dict())
                 results[candidate_id].append(result)
-                if candidate_id == case["effective"]:
+                if candidate_id == probe_candidate:
                     probe = replace(task, task_id=f"diagnosis-{task.task_id}", random_inputs_ref="diagnosis")
                     paired = runner.run_paired_eval(probe, parent, candidate)
                     diagnostic_pairs[scene_id].append(paired)
@@ -367,7 +401,7 @@ def _projection(
     evidence: dict[str, dict[str, float]] = {field: {} for field in _EVIDENCE}
     for scene in manifest.scenarios:
         scene_id = scene.scenario_id
-        rows = measured[scene_id][_CASES[scene_id]["effective"]]
+        rows = next(iter(measured[scene_id].values()))
         repeats = tuple(manifest.train_seeds)
         days = manifest.splits["dev"].unit_ids
         free, _, truth = _paths(rows, scene.parent_id, repeats, days)

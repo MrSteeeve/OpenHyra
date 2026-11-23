@@ -1,0 +1,6 @@
+{
+  "n_resamples": 2000,
+  "report_rebuilt_exactly": true,
+  "tasks": 30,
+  "tested_days": 64
+}

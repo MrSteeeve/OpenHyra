@@ -255,6 +255,47 @@ def test_prompt_uses_only_anonymous_inputs_and_same_template(
     assert set(item["option"] for item in left["options"]) == {"C1", "C2"}
 
 
+def test_registered_options_and_diagnostic_intervals_reach_only_intended_groups(
+    manifest: ExperimentManifest, tmp_path: Path,
+) -> None:
+    parent, single, joint = manifest.candidates
+    single_description = "Uses a binary event input in the price branch."
+    joint_description = "Uses a binary event input in the price branch and replaces the background stream."
+    candidates = (
+        parent,
+        replace(single, recipe=joint.recipe, channels=("price",),
+                implementation={"prompt_description": single_description, "internal_id": "unapproved-metadata"}),
+        replace(joint, implementation={"prompt_description": joint_description}),
+    )
+    evidence, metrics, fixed = manifest.groups
+    primary, = manifest.analysis
+    analyses = (
+        replace(primary, acceptance={"role": "primary", "forecast": True, "min_delta": 0.2}),
+        replace(primary, analysis_id="bias-internal", readout="background_bias", window="execution",
+                unit="signed_trade", acceptance={"role": "prediction"}),
+    )
+    experiment = replace(manifest, candidates=candidates, analysis=analyses,
+                         groups=(replace(evidence, allowed_evidence=("diagnostics",)), metrics, fixed))
+    entry = _entry(tmp_path, experiment)
+    scene = experiment.scenarios[0]
+    diagnostic = {"dominance_margin_low": 0.4, "dominance_margin_high": 0.9}
+    evidence_values = {"diagnostics": {scene.scenario_id: {**diagnostic, "seed": 12345}}}
+    client = FakeClient()
+    selectors = build_selectors(experiment, mode="real", client_factory=lambda model, version: client)
+    for name in ("evidence", "metrics"):
+        snapshot = entry.snapshot(name, 1, baseline_metrics={}, evidence=evidence_values)
+        _, predictions = selectors[name](snapshot, scene)
+        assert {item.analysis_id for item in predictions} == {item.analysis_id for item in analyses}
+    evidence_payload, metrics_payload = [json.loads(messages[-1]["content"]) for messages in client.messages]
+    assert evidence_payload.pop("evidence") == diagnostic
+    assert metrics_payload.pop("evidence") == {}
+    assert evidence_payload == metrics_payload
+    assert evidence_payload["options"] == [{"option": "C1", "description": single_description},
+                                           {"option": "C2", "description": joint_description}]
+    assert {target["unit"] for target in evidence_payload["targets"]} == {"tick", "signed_trade"}
+    assert "unapproved-metadata" not in json.dumps(client.messages)
+
+
 def test_registered_prompt_ablation_changes_the_system_message(
     manifest: ExperimentManifest, tmp_path: Path,
 ) -> None:

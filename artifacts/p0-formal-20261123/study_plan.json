@@ -1,0 +1,107 @@
+{
+  "blocks": {
+    "p0-formal-s17": {
+      "candidate_mapping": {
+        "a_joint": "c_a3",
+        "a_self": "c_a2",
+        "b_joint": "c_b1",
+        "x00": "c_a0",
+        "x01": "c_a1",
+        "x02": "bg_gru2",
+        "x11": "c_b0",
+        "x12": "c_b2",
+        "x13": "c_b3"
+      },
+      "random_orders": {
+        "case-a": [
+          "c_a3",
+          "c_a2",
+          "c_a1"
+        ],
+        "case-b": [
+          "c_b3",
+          "c_b1",
+          "c_b2"
+        ]
+      },
+      "search_seed": 17
+    },
+    "p0-formal-s29": {
+      "candidate_mapping": {
+        "a_joint": "c_a1",
+        "a_self": "c_a3",
+        "b_joint": "c_b2",
+        "x00": "c_a0",
+        "x01": "c_a2",
+        "x02": "bg_gru2",
+        "x11": "c_b0",
+        "x12": "c_b3",
+        "x13": "c_b1"
+      },
+      "random_orders": {
+        "case-a": [
+          "c_a3",
+          "c_a1",
+          "c_a2"
+        ],
+        "case-b": [
+          "c_b1",
+          "c_b3",
+          "c_b2"
+        ]
+      },
+      "search_seed": 29
+    },
+    "p0-formal-s41": {
+      "candidate_mapping": {
+        "a_joint": "c_a2",
+        "a_self": "c_a1",
+        "b_joint": "c_b3",
+        "x00": "c_a0",
+        "x01": "c_a3",
+        "x02": "bg_gru2",
+        "x11": "c_b0",
+        "x12": "c_b1",
+        "x13": "c_b2"
+      },
+      "random_orders": {
+        "case-a": [
+          "c_a2",
+          "c_a1",
+          "c_a3"
+        ],
+        "case-b": [
+          "c_b3",
+          "c_b2",
+          "c_b1"
+        ]
+      },
+      "search_seed": 41
+    }
+  },
+  "fit_reuse": "All blocks reuse identical archived Step 4.2 Stage 1 fitted weights and exact registered development deltas.",
+  "heldout_rule": "All decisions sealed before deriving held-out DataSplit. Independently derive seeds from p0-formal-heldout-v1 and run each verifier once.",
+  "max_output_tokens": 3000,
+  "max_repair_attempts": 1,
+  "providers": {
+    "deepseek": {
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-flash",
+      "thinking": "disabled",
+      "token_cap_field": "max_tokens"
+    },
+    "openai": {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "low",
+      "token_cap_field": "max_completion_tokens"
+    }
+  },
+  "report_analysis_count_per_candidate": 7,
+  "stop_rule": "Stop a group/scenario once its development gate supports a candidate. Otherwise retain the last recorded decision within two rounds.",
+  "system_prefix": "Use the anonymous option IDs in the JSON request. An example prediction is {\"option\":\"C1\",\"target\":\"T1\",\"direction\":\"decrease\",\"effect_interval\":[-1.2,-0.3]}. Produce a prediction for every listed pair. For \"unchanged\" or \"abstain\", use null. Use a brief single-line reason. Do not include Markdown or unlisted fields.",
+  "temperature_omitted": true,
+  "train_dev_namespace": "p0-step41b-calibration-v1"
+}
