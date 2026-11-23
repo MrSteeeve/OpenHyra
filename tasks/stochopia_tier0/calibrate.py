@@ -21,15 +21,20 @@ from stochopia.harness.report import assess_candidate
 from stochopia.harness.runner import Runner, classify_diagnosis
 from stochopia.stats import derive_seed
 
+from .store import DevelopmentStore
+
 
 _EVIDENCE = ("flow_rmse", "price_rmse", "dominance_margin", "background_bias")
 _CASES = {
-    "case-a": {"channel": "flow", "effective": "x01", "control": "x02", "primary": "background_bias"},
-    "case-b": {"channel": "price", "effective": "x12", "control": "x13", "primary": "clamped_rmse"},
+    "case-a": {"channel": "flow", "effective": "x01", "control": "a_self", "joint": "a_joint", "primary": "free_rmse"},
+    "case-b": {"channel": "price", "effective": "x12", "control": "x13", "joint": "b_joint", "primary": "clamped_rmse"},
 }
 _DIAGNOSTIC_EFFECT = 0.20
 _DIAGNOSTIC_MARGIN = 0.15
 _WORLD_NAME = "p0-tier0-common-rng"
+_STEPS, _TRAIN_DAYS, _DEV_DAYS, _TEST_DAYS = 200, 64, 32, 64
+_LR, _N_RESAMPLES, _INFO_DRIFT, _INFORMED_FRACTION = 0.001, 2000, 1.80, 0.25
+_TRAIN_SEEDS = (103, 137, 211, 293, 367)
 
 
 # --- Registered training, scenarios and thresholds ---
@@ -49,40 +54,44 @@ def _split(split: str, count: int, namespace: str) -> DataSplit:
 
 def _analysis(scene: str, min_days: int, min_repeats: int, n_resamples: int) -> tuple[AnalysisSpec, ...]:
     readouts = (
-        ("background_bias", "execution", "signed_trade", "mean", 0.05, 0.025),
-        ("clamped_rmse", "full", "tick", "mean_path_rmse", 0.20, 0.10),
-        ("free_rmse", "full", "tick", "mean_path_rmse", 0.20, 0.10),
-        ("end_response", "end", "tick", "mean", 0.20, 0.10),
-        ("nll", "full", "nats", "mean", 0.10, 0.05),
+        ("background_bias", "execution", "signed_trade", "mean", 0.10, 0.025),
+        ("clamped_rmse", "full", "tick", "mean_path_rmse", 0.50, 0.10),
+        ("free_rmse", "full", "tick", "mean_path_rmse", 2.00 if scene == "case-a" else 0.50, 0.25),
+        ("end_response", "end", "tick", "mean", 0.75, 0.25),
+        ("nll", "full", "nats", "mean", 0.03, 0.02),
+        ("background_bias", "recovery", "signed_trade", "mean", 0.10, 0.025),
+        ("free_end_response", "end", "tick", "mean", 0.75, 0.25),
     )
     configs = []
     for readout, window, unit, estimator, min_effect, equivalence in readouts:
         acceptance: dict[str, str | float] = {"role": "prediction"}
         if readout == _CASES[scene]["primary"]:
             acceptance = {"role": "primary", "max_delta": -min_effect}
-        elif (scene, readout) == ("case-a", "clamped_rmse") or (scene, readout) == ("case-b", "background_bias"):
-            acceptance = {"role": "guardrail", "min_delta": -equivalence, "max_delta": equivalence}
+        elif (scene, readout, window) == ("case-a", "background_bias", "execution"):
+            acceptance = {"role": "guardrail", "max_delta": -min_effect}
+        elif readout == "nll":
+            acceptance = {"role": "guardrail", "max_delta": 0.06}
+        key = (readout, window) if window == "recovery" or readout == "free_end_response" else (readout,)
         configs.append(AnalysisSpec(
-            analysis_id=f"{scene}:{readout}", scenario_id=scene, readout=readout, window=window, unit=unit,
+            analysis_id=":".join((scene, *key)), scenario_id=scene, readout=readout, window=window, unit=unit,
             estimator=estimator, acceptance=acceptance, min_effect=min_effect,
             equivalence_band=(-equivalence, equivalence), min_pairs=min_days, min_train_repeats=min_repeats,
             pairing="day", alpha=0.05, n_resamples=n_resamples,
-            seed=derive_seed("stochopia-tier0-calibration-bootstrap", scene, readout),
+            seed=derive_seed("stochopia-tier0-calibration-bootstrap", scene, *key),
         ))
     return tuple(configs)
 
 
 def build_manifest(
-    exp_id: str, *, steps: int, n_train_days: int, n_dev_days: int, train_seeds: Sequence[int],
-    n_resamples: int, namespace: str, hidden: int = 32, windows_per_day: int = 6,
-    info_drift: float = 0.85, informed_fraction: float = 0.40,
+    exp_id: str | None = None, *, namespace: str, steps: int = _STEPS, lr: float = _LR,
+    n_train_days: int = _TRAIN_DAYS, n_dev_days: int = _DEV_DAYS, n_test_days: int = _TEST_DAYS,
+    train_seeds: Sequence[int] = _TRAIN_SEEDS, n_resamples: int = _N_RESAMPLES, hidden: int = 32,
+    windows_per_day: int = 6, info_drift: float = _INFO_DRIFT, informed_fraction: float = _INFORMED_FRACTION,
 ) -> ExperimentManifest:
-    """Register matching training for all GRU/SSM branches and two dev worlds.
+    """Register the two development worlds and their pure-GRU candidate recipes.
 
-    Both development mechanisms share the registered day seed namespace and
-    trade-flow construction. Only the informed scene adds information drift.
-    The common training mechanism is stated in the training plan and applied
-    to all candidates, including the unseen parent of the separated price baseline.
+    The retained test count is a plan only. The manifest contains train/dev day IDs.
+    Fit the alternate background using the declared override in _measure.
     """
     price_environment: dict[str, Any] = {
         "n_trades": 2048, "burn_in": 256, "noise_std": 0.50, "info_drift": info_drift,
@@ -98,18 +107,22 @@ def build_manifest(
         ScenarioSpec(
             scenario_id="case-a", diagnostic_question="Which registered modification reduces the paired response error?",
             environment_kind="tier0_sim", environment={"world": "plain", "world_overrides": flow_environment, "diagnosis": diagnosis},
-            action_plan=action, window="full", parent_id="x00", candidate_ids=("x00", "x01", "x02"),
+            action_plan=action, window="full", parent_id="x00", candidate_ids=("x00", "x01", "a_self", "a_joint"),
         ),
         ScenarioSpec(
             scenario_id="case-b", diagnostic_question="Which registered modification reduces the paired response error?",
             environment_kind="tier0_sim", environment={"world": "informed", "world_overrides": price_environment, "diagnosis": diagnosis},
-            action_plan=action, window="full", parent_id="x11", candidate_ids=("x11", "x12", "x13"),
+            action_plan=action, window="full", parent_id="x11", candidate_ids=("x11", "x12", "x13", "b_joint"),
         ),
     )
     candidates = (
         CandidateRef(candidate_id="x00", backbone="gru", recipe="anonymous"),
         CandidateRef(candidate_id="x01", backbone="gru", recipe="separate_flow", parent_id="x00", channels=("flow",)),
-        CandidateRef(candidate_id="x02", backbone="ssm", recipe="anonymous", parent_id="x00", channels=("flow", "price")),
+        CandidateRef(candidate_id="a_self", backbone="gru", recipe="self", parent_id="x00", channels=("price",)),
+        CandidateRef(candidate_id="a_joint", backbone="gru", recipe="separate_flow_own_price", parent_id="x00",
+                     channels=("flow", "price")),
+        CandidateRef(candidate_id="x02", backbone="gru", recipe="anonymous", parent_id="x00",
+                     channels=("flow", "price"), implementation={"train_plan_overrides": {"layers": 2}}),
         CandidateRef(candidate_id="x11", backbone="gru", recipe="separate_flow", parent_id="x00", channels=("flow",)),
         CandidateRef(
             candidate_id="x12", backbone="gru", recipe="separate_flow_own_price", parent_id="x11",
@@ -119,6 +132,8 @@ def build_manifest(
             candidate_id="x13", backbone="gru", recipe="separate_flow", parent_id="x11", channels=("flow",),
             implementation={"background_candidate_id": "x02"},
         ),
+        CandidateRef(candidate_id="b_joint", backbone="gru", recipe="separate_flow_own_price", parent_id="x11",
+                     channels=("flow", "price"), implementation={"background_candidate_id": "x02"}),
     )
     llm_registration = {
         "model": "offline-structured-proposal", "model_version": "offline-v1",
@@ -134,13 +149,15 @@ def build_manifest(
     for scene in scenes:
         analysis.extend(_analysis(scene.scenario_id, n_dev_days, len(train_seeds), n_resamples))
         common[scene.scenario_id] = tuple(key for key in scene.candidate_ids if key != scene.parent_id)
+    dev = _split("dev", n_dev_days, namespace)
+    dev = replace(dev, source={**dev.source, "planned_test_days": n_test_days})
     return ExperimentManifest(
-        exp_id=exp_id, scenarios=scenes, candidates=candidates, groups=groups, analysis=tuple(analysis),
-        splits={"train": _split("train", n_train_days, namespace), "dev": _split("dev", n_dev_days, namespace)},
+        exp_id=exp_id or namespace, scenarios=scenes, candidates=candidates, groups=groups, analysis=tuple(analysis),
+        splits={"train": _split("train", n_train_days, namespace), "dev": dev},
         train_seeds={f"repeat-{i:02d}": seed for i, seed in enumerate(train_seeds, start=1)},
         train_plan={
             "world": "informed", "world_overrides": price_environment, "hidden": hidden, "layers": 1,
-            "steps": steps, "batch": 16, "window": 64, "device": "cpu", "lr": 0.003,
+            "steps": steps, "batch": 16, "window": 64, "device": "cpu", "lr": lr,
         },
         seeds={"rollout": 45721, "delta_ci": 34913}, fit_version="tier0-fit-v1", measurement_version="tier0-day-v1",
         budget={"search": {"trials": 4.0}, "final_check": {"trials": 4.0}}, prediction_candidate_set=common,
@@ -153,20 +170,44 @@ def build_manifest(
 
 def _measure(
     manifest: ExperimentManifest, output: Path,
-) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, tuple[PairedEvalResult, ...]]]]:
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, tuple[PairedEvalResult, ...]]],
+           dict[str, list[PairedEvalResult]]]:
+    """Measure the full dev menu and save actual price/background fits for Entry."""
     runner = Runner(manifest)
+    override = runner.candidates["x02"].implementation["train_plan_overrides"]
+    background_runner = Runner(replace(manifest, train_plan={**manifest.train_plan, **override}))
+    store = DevelopmentStore(output, manifest.exp_id)
+    store.register(manifest)
     per_seed = {}
     measurements = {}
+    diagnostic_pairs = {}
     for scene in manifest.scenarios:
         scene_id = scene.scenario_id
         case = _CASES[scene_id]
         diagnoses = {}
-        results: dict[str, list[PairedEvalResult]] = {case["effective"]: [], case["control"]: []}
+        diagnostic_pairs[scene_id] = []
+        results: dict[str, list[PairedEvalResult]] = {key: [] for key in manifest.prediction_candidate_set[scene_id]}
         for repeat, seed in manifest.train_seeds.items():
             parent = runner.fit_candidate(scene.parent_id, repeat, output / "weights")
+            fits = [parent]
             diagnoses[repeat] = runner.diagnose(scene_id, parent)
+            if scene_id == "case-b":
+                background = background_runner.fit_candidate("x02", repeat, output / "background-weights")
+                fits.append(background)
             for candidate_id in results:
-                candidate = runner.fit_candidate(candidate_id, repeat, output / "weights")
+                if candidate_id in ("x13", "b_joint"):
+                    # Runner uses one global training plan. Compose the measured
+                    # price fit with the separately fitted two-layer background.
+                    price = parent if candidate_id == "x13" else runner.fit_candidate("x12", repeat, output / "weights")
+                    config = dict(price.config)
+                    config["price_registration"] = config.pop("registered")
+                    config["background_registration"] = background.config["registered"]
+                    candidate = replace(price, fit_id=f"{candidate_id}:{repeat}", candidate_id=candidate_id,
+                                        parent_id=scene.parent_id, background_weights_ref=background.model_ref,
+                                        config=config)
+                else:
+                    candidate = runner.fit_candidate(candidate_id, repeat, output / "weights")
+                fits.append(candidate)
                 task = EvaluationTask(
                     task_id=f"{scene_id}-{repeat}-{candidate_id}", split="dev", scenario_id=scene_id,
                     parent_fit_id=parent.fit_id, candidate_fit_id=candidate.fit_id,
@@ -176,20 +217,19 @@ def _measure(
                 result = runner.run_paired_eval(task, parent, candidate)
                 atomic_write_json(output / "measurements" / f"{task.task_id}.json", result.to_dict())
                 results[candidate_id].append(result)
-            margin = diagnoses[repeat]["flow_rmse"] - diagnoses[repeat]["price_rmse"]
-            primary = f"{scene_id}:{case['primary']}"
-            paired_estimates = []
-            for rows in results.values():
-                delta = rows[-1].paired_diffs.get(primary)
-                paired_estimates.append(None if delta is None else delta.estimate)
-            print(
-                f"{manifest.train_plan['steps']} {scene_id} seed={seed} flow-minus-price={margin:.3f} "
-                f"primary effective/control={paired_estimates}", flush=True,
-            )
+                if candidate_id == case["effective"]:
+                    probe = replace(task, task_id=f"diagnosis-{task.task_id}", random_inputs_ref="diagnosis")
+                    paired = runner.run_paired_eval(probe, parent, candidate)
+                    diagnostic_pairs[scene_id].append(paired)
+                    atomic_write_json(output / "diagnostic-pairs" / f"{probe.task_id}.json", paired.to_dict())
+            with store.lock():
+                for fit in fits:
+                    store.save_fit(fit)
+            print(f"{manifest.train_plan['steps']} {scene_id} seed={seed} measured dev menu", flush=True)
         per_seed[scene_id] = diagnoses
         measurements[scene_id] = {candidate: tuple(rows) for candidate, rows in results.items()}
     atomic_write_json(output / "diagnosis-by-repeat.json", per_seed)
-    return per_seed, measurements
+    return per_seed, measurements, diagnostic_pairs
 
 
 def _model_rows(
@@ -263,7 +303,7 @@ def _diagnostic_grid(
     interval = np.quantile(margins_by_draw.mean(axis=0), [0.025, 0.975]).tolist()
     row_noise = float(np.std(margins, ddof=1))
     margin = float(np.mean(margins))
-    supported = interval[0] >= _DIAGNOSTIC_MARGIN
+    supported = interval[0] > _DIAGNOSTIC_MARGIN
     for repeat, diagnosis in diagnoses.items():
         if diagnosis["dominant_channel"] != expected or direct[repeat]["dominant_channel"] != expected:
             supported = False
@@ -279,55 +319,40 @@ def _diagnostic_grid(
 def _delta_summary(delta: PairedDelta) -> dict[str, Any]:
     values = tuple(delta.train_repeat_estimates.values())
     spread = max(values) - min(values) if len(values) >= 2 else None
-    return delta.to_dict() | {"training_repeat_range": spread}
+    bounds = [min(values), max(values)] if values else None
+    return delta.to_dict() | {"training_repeat_range": spread, "training_repeat_bounds": bounds,
+                              "negative_training_repeats": sum(value < 0 for value in values)}
 
 
 def _calibrate_case(
     scene: ScenarioSpec, analyses: Sequence[AnalysisSpec], direct: Mapping[str, Any],
-    results: Mapping[str, tuple[PairedEvalResult, ...]], repeats: Sequence[str], days: Sequence[str],
-    n_resamples: int,
+    results: Mapping[str, tuple[PairedEvalResult, ...]], diagnostic_pairs: Sequence[PairedEvalResult],
+    repeats: Sequence[str], days: Sequence[str], n_resamples: int,
 ) -> dict[str, Any]:
     case = _CASES[scene.scenario_id]
-    effective, control = case["effective"], case["control"]
-    diagnosis = _diagnostic_grid(scene, results[effective], direct, repeats, days, n_resamples)
-    effective_obs = _model_rows(results[effective], effective, repeats, days)
-    control_obs = _model_rows(results[control], control, repeats, days)
-    parent_obs = _model_rows(results[effective], scene.parent_id, repeats, days)
-    specs = []
-    effective_deltas, control_deltas = {}, {}
-    for analysis in analyses:
-        if analysis.scenario_id != scene.scenario_id or analysis.acceptance["role"] == "prediction":
-            continue
-        spec = replace(analysis, min_pairs=len(days), min_train_repeats=len(repeats))
-        specs.append(spec)
-        effective_deltas[spec.analysis_id] = estimate_delta(
-            spec, [*parent_obs, *effective_obs], parent_id=scene.parent_id, candidate_id=effective,
-            required_unit_ids=days,
-        )
-        control_deltas[spec.analysis_id] = estimate_delta(
-            spec, [*parent_obs, *control_obs], parent_id=scene.parent_id, candidate_id=control,
-            required_unit_ids=days,
-        )
+    diagnosis = _diagnostic_grid(scene, diagnostic_pairs, direct, repeats, days, n_resamples)
+    specs = tuple(replace(spec, min_pairs=len(days), min_train_repeats=len(repeats))
+                  for spec in analyses if spec.scenario_id == scene.scenario_id)
+    estimates, statuses = {}, {}
+    for candidate_id, paired in results.items():
+        observations = _model_rows(paired, scene.parent_id, repeats, days)
+        observations.extend(_model_rows(paired, candidate_id, repeats, days))
+        deltas = {}
+        for spec in specs:
+            deltas[spec.analysis_id] = estimate_delta(
+                spec, observations, parent_id=scene.parent_id, candidate_id=candidate_id, required_unit_ids=days,
+            )
+        estimates[candidate_id] = {key: _delta_summary(delta) for key, delta in deltas.items()}
+        statuses[candidate_id] = assess_candidate(specs, deltas)
     primary = next(spec for spec in specs if spec.acceptance["role"] == "primary")
-    contrast = estimate_delta(
-        primary, [*control_obs, *effective_obs], parent_id=control, candidate_id=effective, required_unit_ids=days,
-    )
-    positive_status = assess_candidate(specs, effective_deltas)
-    negative_status = assess_candidate(specs, control_deltas)
-    contrast_supported = contrast.interval is not None and contrast.interval[1] <= -primary.min_effect
-    repeats_supported = all(value <= -primary.min_effect for value in contrast.train_repeat_estimates.values())
     supported = (
-        diagnosis["status"] is ReportStatus.SUPPORTED and positive_status is ReportStatus.SUPPORTED
-        and negative_status is ReportStatus.REFUTED and contrast_supported
+        diagnosis["status"] is ReportStatus.SUPPORTED and statuses[case["effective"]] is ReportStatus.SUPPORTED
+        and statuses[case["joint"]] is ReportStatus.SUPPORTED and statuses[case["control"]] is ReportStatus.REFUTED
     )
     return {
         "status": ReportStatus.SUPPORTED if supported else ReportStatus.INCONCLUSIVE,
         "diagnosis": diagnosis, "primary_analysis_id": primary.analysis_id,
-        "candidate_vs_parent": {key: _delta_summary(delta) for key, delta in effective_deltas.items()},
-        "control_vs_parent": {key: _delta_summary(delta) for key, delta in control_deltas.items()},
-        "candidate_vs_control": _delta_summary(contrast),
-        "effective_status": positive_status, "control_status": negative_status,
-        "contrast_supported": contrast_supported, "all_repeat_contrasts_supported": repeats_supported,
+        "candidate_vs_parent": estimates, "candidate_status": statuses,
     }
 
 
@@ -345,28 +370,27 @@ def _projection(
         rows = measured[scene_id][_CASES[scene_id]["effective"]]
         repeats = tuple(manifest.train_seeds)
         days = manifest.splits["dev"].unit_ids
-        free, clamped, truth = _paths(rows, scene.parent_id, repeats, days)
+        free, _, truth = _paths(rows, scene.parent_id, repeats, days)
         parent = _model_rows(rows, scene.parent_id, repeats)
         means = {}
         for readout in ("background_bias", "nll", "end_response"):
-            values = [row.values["value"] for row in parent if row.readout == readout]
+            values = [row.values["value"] for row in parent if row.readout == readout and row.window != "recovery"]
             means[readout] = float(np.mean(values))
         free_error = np.sqrt(((free - truth).mean(axis=1) ** 2).mean(axis=1))
-        price_error = np.sqrt(((clamped - truth).mean(axis=1) ** 2).mean(axis=1))
-        flow_error = np.sqrt(((free - clamped).mean(axis=1) ** 2).mean(axis=1))
         means["free_rmse"] = float(free_error.mean())
         baseline[scene_id] = means
-        evidence["flow_rmse"][scene_id] = float(flow_error.mean())
-        evidence["price_rmse"][scene_id] = float(price_error.mean())
-        evidence["dominance_margin"][scene_id] = float(case_reports[scene_id]["diagnosis"]["margin"])
+        diagnosis = case_reports[scene_id]["diagnosis"]
+        for key in ("flow_rmse", "price_rmse"):
+            evidence[key][scene_id] = float(np.mean([row[key] for row in diagnosis["diagnoses"].values()]))
+        evidence["dominance_margin"][scene_id] = float(diagnosis["margin"])
         evidence["background_bias"][scene_id] = means["background_bias"]
     return {"baseline_metrics": baseline, "evidence": evidence}
 
 
 def calibrate(
-    output: Path, *, exp_id: str, steps: Sequence[int], dev_days: Sequence[int], train_seeds: Sequence[int],
+    output: Path, *, exp_id: str | None, steps: Sequence[int], dev_days: Sequence[int], train_seeds: Sequence[int],
     train_days: int, n_resamples: int, hidden: int, windows_per_day: int, info_drift: float,
-    informed_fraction: float, namespace: str,
+    informed_fraction: float, namespace: str, lr: float = _LR, test_days: int = _TEST_DAYS,
 ) -> dict[str, Any]:
     """Run a grid; write a formal manifest only when both causal contrasts qualify."""
     if len(train_seeds) < 2 or len(set(train_seeds)) != len(train_seeds):
@@ -376,14 +400,14 @@ def calibrate(
     output.mkdir(parents=True, exist_ok=False)
     days_grid = sorted(set(dev_days))
     step_grid = sorted(set(steps))
-    repeat_counts = sorted({2, len(train_seeds)})
+    repeat_counts = (len(train_seeds),)
     maximum_days = max(days_grid)
     manifests = {}
     for step_count in step_grid:
         manifests[step_count] = build_manifest(
             exp_id, steps=step_count, n_train_days=train_days, n_dev_days=maximum_days, train_seeds=train_seeds,
             n_resamples=n_resamples, namespace=namespace, hidden=hidden, windows_per_day=windows_per_day,
-            info_drift=info_drift, informed_fraction=informed_fraction,
+            info_drift=info_drift, informed_fraction=informed_fraction, lr=lr, n_test_days=test_days,
         )
     atomic_write_json(output / "calibration-plan.json", {
         "candidate_roles": _CASES, "dev_day_counts": days_grid, "training_repeat_counts": repeat_counts,
@@ -391,14 +415,13 @@ def calibrate(
         "profile_selection": "smallest passing fit budget at full dev-day and repeat counts",
         "criteria": [
             "Channel diagnosis agrees across training repeats and pooled day margin clears the registered margin.",
-            "Pooled day intervals support the candidate and refute the control under the registered gates.",
-            "Pooled direct candidate-minus-control interval clears the negative primary effect threshold.",
+            "Pooled day intervals support the targeted and joint candidates and refute the control.",
             "Per-repeat effect values and range are descriptive; the day interval is conditional on trained fits.",
         ],
     })
     summary: dict[str, Any] = {"status": ReportStatus.INCONCLUSIVE, "grid": [], "selected": None}
     for step_count, manifest in manifests.items():
-        direct, measured = _measure(manifest, output / f"steps-{step_count}")
+        direct, measured, diagnostic_pairs = _measure(manifest, output / f"steps-{step_count}")
         for n_days in days_grid:
             days = manifest.splits["dev"].unit_ids[:n_days]
             for n_repeats in repeat_counts:
@@ -407,7 +430,8 @@ def calibrate(
                 for scene in manifest.scenarios:
                     key = scene.scenario_id
                     reports[key] = _calibrate_case(
-                        scene, manifest.analysis, direct[key], measured[key], repeats, days, n_resamples,
+                        scene, manifest.analysis, direct[key], measured[key], diagnostic_pairs[key],
+                        repeats, days, n_resamples,
                     )
                 row = {
                     "steps": step_count, "n_dev_days": n_days, "train_seeds": [manifest.train_seeds[key] for key in repeats],
@@ -427,16 +451,18 @@ def calibrate(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--exp-id", default="p0-tier0-offline")
-    parser.add_argument("--steps", type=int, nargs="+", default=(120, 400, 850))
-    parser.add_argument("--dev-days", type=int, nargs="+", default=(8, 16))
-    parser.add_argument("--train-seeds", type=int, nargs="+", default=(11, 41, 79))
-    parser.add_argument("--train-days", type=int, default=16)
-    parser.add_argument("--n-resamples", type=int, default=300)
+    parser.add_argument("--exp-id")
+    parser.add_argument("--steps", type=int, nargs="+", default=(_STEPS,))
+    parser.add_argument("--dev-days", type=int, nargs="+", default=(_DEV_DAYS,))
+    parser.add_argument("--train-seeds", type=int, nargs="+", default=_TRAIN_SEEDS)
+    parser.add_argument("--train-days", type=int, default=_TRAIN_DAYS)
+    parser.add_argument("--test-days", type=int, default=_TEST_DAYS)
+    parser.add_argument("--lr", type=float, default=_LR)
+    parser.add_argument("--n-resamples", type=int, default=_N_RESAMPLES)
     parser.add_argument("--hidden", type=int, default=32)
     parser.add_argument("--windows-per-day", type=int, default=6)
-    parser.add_argument("--info-drift", type=float, default=0.85)
-    parser.add_argument("--informed-fraction", type=float, default=0.40)
+    parser.add_argument("--info-drift", type=float, default=_INFO_DRIFT)
+    parser.add_argument("--informed-fraction", type=float, default=_INFORMED_FRACTION)
     parser.add_argument("--namespace", default="p0-calibration-2026-11-23")
     args = parser.parse_args()
     torch.set_num_threads(1)
