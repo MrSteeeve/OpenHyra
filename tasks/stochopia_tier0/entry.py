@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from algorithm_discovery import DiscoveryLedger
 from stochopia.common import atomic_write_json
 from stochopia.harness.contract import (
     EvaluationTask,
@@ -24,6 +25,7 @@ from stochopia.harness.contract import (
     StructuredPrediction,
 )
 
+from .scoring import TrialProjection, append_discovery_events, project_trial, published_feedback, score_development
 from .store import DevelopmentExport, DevelopmentStore, JsonObject, _read_json, validate_task_result
 
 
@@ -59,6 +61,7 @@ class Entry:
         self.manifest = store.manifest()
         self.groups = {group.group_id: group for group in self.manifest.groups}
         self.scenarios = {row.scenario_id: row for row in self.manifest.scenarios}
+        self.candidates = {row.candidate_id: row for row in self.manifest.candidates}
         self.analyses = {row.analysis_id: row for row in self.manifest.analysis}
 
     # --- Development history and group projection ---
@@ -349,7 +352,7 @@ class Entry:
                     stored = self._measure(trial, outcome)
                     self.store._commit_measurement(round_index, trial.trial_id, stored)
                 if trial.charged_to_search:
-                    feedback[trial.group_id].append(self._feedback(stored))
+                    feedback[trial.group_id].append(published_feedback(stored))
             self.store._publish(round_index, feedback)
             return feedback
 
@@ -388,8 +391,6 @@ class Entry:
         return self._seal_plan(round_index, tuple(selections), tuple(predictions), tuple(checks), snapshots, history)
 
     def _measure(self, trial: SearchTrialRecord, outcome: Outcome) -> JsonObject:
-        from stochopia.harness.report import assess_candidate, summarize_candidate
-
         results = (outcome,) if isinstance(outcome, PairedEvalResult) else tuple(outcome)
         if not results or len({result.task_id for result in results}) != len(results):
             raise ValueError("trial requires distinct registered measurements")
@@ -407,9 +408,7 @@ class Entry:
                 if key != "trials":
                     cost[key] = cost.get(key, 0.0) + value
         analyses = tuple(row for row in self.analyses.values() if row.scenario_id == trial.scenario_id)
-        completed = [result for result in results if result.status == "completed"]
-        paired = summarize_candidate(analyses, completed, required_unit_ids=self.manifest.splits["dev"].unit_ids) if completed else {}
-        status = assess_candidate(analyses, paired) if completed else ReportStatus.UNAVAILABLE
+        paired, status = score_development(analyses, results, self.manifest.splits["dev"].unit_ids)
         terminal = SearchTrialRecord(
             trial_id=trial.trial_id, exp_id=trial.exp_id, group_id=trial.group_id, scenario_id=trial.scenario_id,
             sequence=trial.sequence, candidate_id=trial.candidate_id, purpose=trial.purpose,
@@ -420,11 +419,45 @@ class Entry:
         return {"trial": terminal.to_dict(), "results": [row.to_dict() for row in results],
                 "paired_diffs": {key: delta.to_dict() for key, delta in paired.items()}}
 
-    @staticmethod
-    def _feedback(stored: JsonObject) -> JsonObject:
-        return {"trial": stored["trial"], "paired_diffs": stored["paired_diffs"], "results": [
-            {key: row[key] for key in ("result_id", "status", "failure_reason")} for row in stored["results"]
-        ]}
+    def native_feedback(self, round_index: int, group_id: str) -> tuple[TrialProjection, ...]:
+        """Read one group's typed feedback after the round has been published."""
+        if group_id not in self.groups:
+            raise ValueError("native feedback requires a registered group")
+        feedback = self.store.feedback(round_index)
+        if feedback is None:
+            raise ValueError("native feedback is available only after the round is published")
+        forecasts = []
+        for index in range(1, round_index + 1):
+            plan = self.store.preregistered(index)
+            if plan is None:
+                raise ValueError("published round is missing its preregistered records")
+            forecasts.extend(
+                StructuredPrediction.from_dict(row) for row in plan["predictions"] if row["group_id"] == group_id
+            )
+        projections = []
+        for row in feedback[group_id]:
+            trial = SearchTrialRecord.from_dict(row["trial"])
+            if trial.group_id != group_id:
+                raise ValueError("published feedback contains a trial from another group")
+            analyses = tuple(item for item in self.analyses.values() if item.scenario_id == trial.scenario_id)
+            projections.append(project_trial(
+                trial, self.candidates[trial.candidate_id], row, analyses, forecasts,
+                round_index=round_index, seed=self.manifest.seeds["rollout"],
+            ))
+        return tuple(projections)
+
+    def export_discovery_ledger(self, group_id: str) -> DiscoveryLedger:
+        """Derive the native ledger below this development run for one registered group."""
+        if group_id not in self.groups:
+            raise ValueError("discovery ledger requires a registered group")
+        with self.store.lock():
+            ledger = DiscoveryLedger(self.store._file("discovery", group_id, "ledger.jsonl"))
+            rounds = (
+                (index, self.native_feedback(index, group_id))
+                for index in self.store._rounds() if self.store.feedback(index) is not None
+            )
+            append_discovery_events(ledger, exp_id=self.manifest.exp_id, group_id=group_id, rounds=rounds)
+            return ledger
 
     def _accounted_fits(self, history: History, current: JsonObject) -> set[tuple[str, str, str]]:
         """Recover logically charged fits separately for each group and budget."""
