@@ -88,7 +88,7 @@ class _JsonDirectory:
         An identical existing object is a no-op. A different object for an
         already registered key is rejected.
         """
-        self._assert_lock()
+        self._require_lock()
         if not isinstance(payload, dict):
             raise ValueError("expected a JSON object for publication")
         file = self._file(*parts)
@@ -98,10 +98,9 @@ class _JsonDirectory:
             return
         atomic_write_json(file, payload)
 
-    def _assert_lock(self) -> None:
-        assert self._lock_depth > 0 and self._lock_owner == (getpid(), current_thread()), (
-            "store writes require the current thread to own the run lock"
-        )
+    def _require_lock(self) -> None:
+        if self._lock_depth <= 0 or self._lock_owner != (getpid(), current_thread()):
+            raise RuntimeError("store writes require the current thread to own the run lock")
 
     def _forget_lock(self) -> None:
         self._lock_handle = None
@@ -172,7 +171,7 @@ class SelectorUsageStore(_JsonDirectory):
 
     def save_usage(self, payload: JsonObject) -> None:
         """Atomically replace the cumulative budget accounting under the caller's lock."""
-        self._assert_lock()
+        self._require_lock()
         atomic_write_json(self._file("usage.json"), payload)
 
 

@@ -255,6 +255,50 @@ def test_prompt_uses_only_anonymous_inputs_and_same_template(
     assert set(item["option"] for item in left["options"]) == {"C1", "C2"}
 
 
+def test_registered_prompt_ablation_changes_the_system_message(
+    manifest: ExperimentManifest, tmp_path: Path,
+) -> None:
+    evidence, metrics, fixed = manifest.groups
+    experiment = replace(
+        manifest, groups=(evidence, replace(metrics, prompt_template_id="alternate-prompt"), fixed),
+        llm_ablation_dimensions=("prompt_template_id",),
+    )
+    client = FakeClient()
+
+    def factory(model: str, version: str) -> FakeClient:
+        return client
+
+    with pytest.raises(ValueError, match="prompt template"):
+        build_selectors(experiment, mode="real", client_factory=factory)
+    with pytest.raises(ValueError, match="alternate-prompt"):
+        build_selectors(experiment, mode="real", client_factory=factory, prompt_templates={"tier0-anonymous-v1": "Explain."})
+    templates = {"tier0-anonymous-v1": "Give a short justification.", "alternate-prompt": "Compare each option first."}
+    usage_root = tmp_path / "usage"
+    selectors = build_selectors(
+        experiment, mode="real", client_factory=factory, prompt_templates=templates, usage_root=usage_root,
+    )
+    entry = _entry(tmp_path, experiment)
+    for group in experiment.groups[:2]:
+        snapshot = entry.snapshot(group.group_id, 1, baseline_metrics={})
+        selection, _ = selectors[group.group_id](snapshot, experiment.scenarios[0])
+        assert selection.action == "select"
+    assert len(client.messages) == len(templates)
+    protocol = []
+    for messages, instructions in zip(client.messages, templates.values(), strict=True):
+        assert messages[0]["content"].startswith(f"{instructions}\n\n")
+        protocol.append(messages[0]["content"].removeprefix(f"{instructions}\n\n"))
+    assert protocol[0] == protocol[1]
+    assert "Output one JSON object" in protocol[0]
+    assert client.messages[0][1] == client.messages[1][1]
+    updated_templates = {**templates, "alternate-prompt": "This text was changed mid-study."}
+    restarted = build_selectors(
+        experiment, mode="real", client_factory=factory, prompt_templates=updated_templates, usage_root=usage_root,
+    )
+    with pytest.raises(ValueError, match="settings differ"):
+        restarted["metrics"](entry.snapshot("metrics", 1, baseline_metrics={}), experiment.scenarios[0])
+    assert len(client.messages) == 2
+
+
 @pytest.mark.parametrize("missing_interval", (True, False))
 def test_structured_prediction_retry_returns_specific_error(
     manifest: ExperimentManifest, tmp_path: Path, missing_interval: bool,
@@ -514,3 +558,16 @@ def test_offline_three_arm_rehearsal_scores_all_statuses_and_separates_costs(
     assert report["budgets"]["development_checks"] == {"trials": 1.0, "train_seconds": 3.0, "eval_seconds": 1.0}
     assert report["budgets"]["frozen_measurement"] == {"train_seconds": 0.0, "eval_seconds": 2.0}
     assert report["x_to_delta_y"]["evidence"]["coverage_rate"] == 0.5
+
+
+def test_offline_rehearsal_freezes_three_llm_groups_and_two_baselines(
+    manifest: ExperimentManifest, tmp_path: Path,
+) -> None:
+    extra_llm = replace(manifest.groups[1], group_id="larger", model="larger-model", model_version="pinned-larger")
+    random = GroupSpec(group_id="random", kind="no_llm", selection_rule="seeded-random")
+    experiment = replace(
+        manifest, groups=(*manifest.groups, extra_llm, random), llm_ablation_dimensions=("model", "model_version"),
+    )
+    report = run_offline_rehearsal(tmp_path, experiment)
+    assert set(report["z_to_x"]) == {"evidence", "metrics", "fixed", "larger", "random"}
+    assert set(report["x_to_delta_y"]) == {"evidence", "metrics", "larger"}

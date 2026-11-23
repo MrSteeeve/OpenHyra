@@ -87,7 +87,7 @@ class _UsageLedger:
     """Reserve budget before transport and retain unresolved charges across restarts."""
 
     def __init__(self, group: GroupSpec, exp_id: str, usage_root: Path | None, *,
-                 retry_limit: int, output_cap: int) -> None:
+                 retry_limit: int, output_cap: int, system_prompt: str) -> None:
         """Bind usage to a manifest group below usage_root/exp_id/group_id when provided.
 
         The IDs are literal path components. A redirected child directory or an
@@ -95,11 +95,13 @@ class _UsageLedger:
         """
         self.max_calls = _budget_limit(group, "max_calls")
         self.max_tokens = _budget_limit(group, "max_tokens")
-        self.settings = {
+        self.settings: JsonObject = {
             "model": group.model, "version": group.model_version, "template": group.prompt_template_id,
             "max_calls": self.max_calls, "max_tokens": self.max_tokens,
             "retry_limit": retry_limit, "output_cap": output_cap,
         }
+        if system_prompt != _SYSTEM:
+            self.settings["system_prompt"] = system_prompt
         self._memory: JsonObject = {"settings": self.settings, "attempts": []}
         self._store = SelectorUsageStore(usage_root, exp_id, group.group_id) if usage_root is not None else None
 
@@ -402,7 +404,8 @@ class LLMSelector:
 
     def __init__(self, manifest: ExperimentManifest, group: GroupSpec, *, mode: Literal["offline", "real"],
                  client_factory: ClientFactory | None, usage_root: Path | None, retry_limit: int,
-                 max_output_tokens: int, count_prompt_tokens: PromptCounter, offline_responder: OfflineResponder | None) -> None:
+                 max_output_tokens: int, count_prompt_tokens: PromptCounter, offline_responder: OfflineResponder | None,
+                 system_prompt: str = _SYSTEM) -> None:
         self.manifest = manifest
         self.group = group
         self.mode = mode
@@ -411,10 +414,11 @@ class LLMSelector:
         self.retry_limit = retry_limit
         self.max_output_tokens = max_output_tokens
         self.count_prompt_tokens = count_prompt_tokens
+        self._system_prompt = system_prompt
         self._client: ChatClient | None = None
         self._ledger = _UsageLedger(
             group, manifest.exp_id, usage_root if mode == "real" else None,
-            retry_limit=retry_limit, output_cap=max_output_tokens,
+            retry_limit=retry_limit, output_cap=max_output_tokens, system_prompt=system_prompt,
         )
         self._recipes = {row.candidate_id: row.recipe for row in manifest.candidates}
         self._scenarios = {row.scenario_id: row for row in manifest.scenarios}
@@ -491,7 +495,7 @@ class LLMSelector:
             if correction is not None:
                 payload["validation_feedback"] = correction
             messages = [
-                {"role": "system", "content": _SYSTEM},
+                {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": json.dumps(payload, separators=(",", ":"), allow_nan=False)},
             ]
             try:
@@ -592,26 +596,39 @@ class LLMSelector:
 def build_selectors(manifest: ExperimentManifest, *, mode: Literal["offline", "real"] = "offline",
                     client_factory: ClientFactory | None = None, usage_root: Path | None = None, retry_limit: int = 1,
                     max_output_tokens: int = 512, count_prompt_tokens: PromptCounter = _default_prompt_bound,
-                    offline_responder: OfflineResponder | None = None) -> dict[str, LLMSelector]:
-    """Build matching policies for the LLM groups of a development manifest.
+                    offline_responder: OfflineResponder | None = None,
+                    prompt_templates: Mapping[str, str] | None = None) -> dict[str, LLMSelector]:
+    """Build the registered policies for the LLM groups of a development manifest.
 
     A real client factory must implement one reserved attempt per chat call.
     Supply usage_root to enforce the registered budget across process restarts.
     A provider-specific upper bound can replace the default prompt allowance.
+    Prompt ablations in real mode require preregistered instructions for every template ID.
+    The shared task and JSON response instructions follow each template's text.
     """
     manifest.validate()
     if mode not in ("offline", "real") or mode == "real" and client_factory is None:
         raise ValueError("a client factory is required for explicit real mode")
     if not _integer(retry_limit) or retry_limit < 0 or not _integer(max_output_tokens) or max_output_tokens < 1:
         raise ValueError("retry limit and completion cap must be valid integers")
-    return {
-        group.group_id: LLMSelector(
+    llm_groups = [group for group in manifest.groups if group.kind != "no_llm"]
+    template_ids = {group.prompt_template_id for group in llm_groups}
+    if mode == "real" and len(template_ids) > 1 and prompt_templates is None:
+        raise ValueError("real mode requires system instructions for each registered prompt template")
+    selectors: dict[str, LLMSelector] = {}
+    for group in llm_groups:
+        system_prompt = _SYSTEM
+        if prompt_templates is not None:
+            registered_prompt = prompt_templates.get(group.prompt_template_id or "")
+            if not isinstance(registered_prompt, str) or not registered_prompt.strip():
+                raise ValueError(f"missing system instructions for prompt template {group.prompt_template_id!r}")
+            system_prompt = f"{registered_prompt}\n\n{_SYSTEM}"
+        selectors[group.group_id] = LLMSelector(
             manifest, group, mode=mode, client_factory=client_factory, usage_root=usage_root,
             retry_limit=int(retry_limit), max_output_tokens=int(max_output_tokens), count_prompt_tokens=count_prompt_tokens,
-            offline_responder=offline_responder,
+            offline_responder=offline_responder, system_prompt=system_prompt,
         )
-        for group in manifest.groups if group.kind != "no_llm"
-    }
+    return selectors
 
 
 def registry_client_factory(models_path: Path, *, env_path: Path | None = None) -> ClientFactory:

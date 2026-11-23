@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import multiprocessing
 import os
+import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.connection import Connection
@@ -41,16 +42,55 @@ def test_lock_reenters_same_instance_after_nested_exception(tmp_path: Path) -> N
 def test_store_writes_require_a_lock(tmp_path: Path) -> None:
     store = DevelopmentStore(tmp_path, "experiment")
     verifier = VerifierStore(tmp_path / "verify")
-    with pytest.raises(AssertionError, match="lock"):
+    with pytest.raises(RuntimeError, match="lock"):
         store.preregister(1, {"complete": True})
-    with pytest.raises(AssertionError, match="lock"):
+    with pytest.raises(RuntimeError, match="lock"):
         store.commit_measurement(1, "trial", {"complete": True})
-    with pytest.raises(AssertionError, match="lock"):
+    with pytest.raises(RuntimeError, match="lock"):
         store.publish_feedback(1, {"complete": True})
-    with pytest.raises(AssertionError, match="lock"):
+    with pytest.raises(RuntimeError, match="lock"):
         verifier.publish_report({"complete": True})
     assert not store.path.exists()
     assert not verifier.path.exists()
+
+
+def test_unlocked_writes_are_blocked_under_python_optimization(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    environment = os.environ.copy()
+    pythonpath = (str(STOCHOPIA.resolve()), environment.get("PYTHONPATH"))
+    environment["PYTHONPATH"] = os.pathsep.join(filter(None, pythonpath))
+    script = """
+from pathlib import Path
+from sys import argv
+
+from tasks.stochopia_tier0.store import DevelopmentStore, SelectorUsageStore
+
+root = Path(argv[1])
+development = DevelopmentStore(root / "runs", "experiment")
+usage = SelectorUsageStore(root / "usage", "experiment", "evidence")
+unexpected = []
+for name, write in (
+    ("round", lambda: development.preregister(1, {"plan": []})),
+    ("usage", lambda: usage.save_usage({"attempts": []})),
+):
+    try:
+        write()
+    except RuntimeError as error:
+        if "lock" not in str(error):
+            raise
+    else:
+        unexpected.append(name)
+if unexpected:
+    raise SystemExit(f"Unlocked writes succeeded under -O: {', '.join(unexpected)}")
+"""
+    result = subprocess.run(
+        [sys.executable, "-O", "-c", script, str(tmp_path)], cwd=repo, env=environment,
+        capture_output=True, text=True, timeout=15,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "runs" / "stochopia_tier0" / "experiment" / "rounds" / "1" / "preregistered.json").exists()
+    assert not (tmp_path / "usage" / "experiment" / "evidence" / "usage.json").exists()
 
 
 def test_other_thread_cannot_reenter_or_publish_with_same_instance(tmp_path: Path) -> None:
@@ -59,7 +99,7 @@ def test_other_thread_cannot_reenter_or_publish_with_same_instance(tmp_path: Pat
     def attempt() -> None:
         with pytest.raises(RunBusyError), store.lock():
             pytest.fail("a different thread acquired an active run lock")
-        with pytest.raises(AssertionError, match="lock"):
+        with pytest.raises(RuntimeError, match="lock"):
             store.publish_feedback(1, {"complete": True})
 
     with store.lock(), ThreadPoolExecutor(max_workers=1) as worker:
@@ -72,7 +112,7 @@ def _child_attempt(store: DevelopmentStore, sender: Connection) -> None:
         could_write = True
         try:
             store.publish_feedback(1, {"complete": True})
-        except AssertionError:
+        except RuntimeError:
             could_write = False
         could_lock = True
         try:
@@ -145,7 +185,7 @@ def test_public_fit_api_preserves_layout_and_sealed_payload(tmp_path: Path) -> N
 def test_selector_usage_store_is_group_scoped_and_requires_ownership(tmp_path: Path) -> None:
     evidence = SelectorUsageStore(tmp_path, "experiment", "evidence")
     metrics = SelectorUsageStore(tmp_path, "experiment", "metrics")
-    with pytest.raises(AssertionError, match="lock"):
+    with pytest.raises(RuntimeError, match="lock"):
         evidence.save_usage({"attempts": []})
     with evidence.lock():
         evidence.save_usage({"attempts": []})
