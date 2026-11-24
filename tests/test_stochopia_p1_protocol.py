@@ -28,7 +28,11 @@ PLAN = DynamicHypothesis(
     "depth_memory", None, "depth recovers too slowly", "short memory",
     "use a bank of decay scales", "depth recovery stays unchanged",
 )
-PREDICTIONS = (StructuredPrediction("recovery_ratio", "decrease", (-0.3, -0.1)),)
+GUARDRAIL = StructuredPrediction(
+    "val_nll_total", "equivalent", (-0.05, 0.05), role="guardrail", equivalence_band=(-0.05, 0.05),
+)
+PREDICTIONS = (StructuredPrediction("end_over_peak_ratio", "decrease", (-0.3, -0.1), role="primary"), GUARDRAIL)
+METRICS_PREDICTIONS = (StructuredPrediction("lob_impact_score", "increase", (0.5, 2), role="primary"), GUARDRAIL)
 SEED = """from stochopia.neural.primitives import SeedGRULOBModel
 class CandidateLOBWorldModel(SeedGRULOBModel):
     pass
@@ -101,8 +105,8 @@ def words(messages: Messages) -> int:
     return sum(len(message["content"].split()) for message in messages)
 
 
-def plan_json() -> str:
-    return json.dumps({"hypothesis": asdict(PLAN), "predictions": [asdict(p) for p in PREDICTIONS]})
+def plan_json(predictions: tuple[StructuredPrediction, ...] = PREDICTIONS) -> str:
+    return json.dumps({"hypothesis": asdict(PLAN), "predictions": [asdict(p) for p in predictions]})
 
 
 def fence(source: str) -> str:
@@ -155,7 +159,7 @@ def test_registered_provider_binding_preserves_settings_and_counts_truncation(mo
             self.total_usage["prompt_tokens"] = 200
             if len(configs) == 1:
                 self.total_usage["completion_tokens"] = 300
-                return plan_json()
+                return plan_json(METRICS_PREDICTIONS)
             if len(configs) == 2:
                 self.total_usage["completion_tokens"] = 8192
                 raise LLMTruncationError("fixture reached limit")
@@ -230,14 +234,18 @@ def test_context_projects_only_group_allowed_fields_and_three_attempts(group: st
 
     def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
         seen.append(messages[-1]["content"])
-        return ProviderReply(plan_json() if response_json else fence(SEED), 100, 10)
+        if not response_json:
+            return ProviderReply(fence(SEED), 100, 10)
+        forecasts = PREDICTIONS if group == "evidence" else METRICS_PREDICTIONS
+        return ProviderReply(plan_json(forecasts), 100, 10)
 
     proposer = TwoStepProposer(
-        transport, lambda source: None, lambda usage: None, count_tokens=words, core_metrics=("recovery_ratio",),
+        transport, lambda source: None, lambda usage: None, count_tokens=words, core_metrics=("end_over_peak_ratio",),
     )
     proposer.propose(group, SEED, evidence, recent, lambda hypothesis, predictions: None)
     assert len(seen) == 2
-    assert 'Use one registered metric for the first forecast: ["recovery_ratio"]' in seen[0]
+    primary = "end_over_peak_ratio" if group == "evidence" else "lob_impact_score"
+    assert f'Primary metric in ["{primary}"]' in seen[0]
     for prompt in seen:
         assert SEED in prompt
         assert '"val_nll_total":7.8' in prompt and '"lob_impact_score":20.5' in prompt
@@ -246,7 +254,7 @@ def test_context_projects_only_group_allowed_fields_and_three_attempts(group: st
         if group == "evidence":
             assert '"nll_dt":2.17' in prompt and "older-3" in prompt
         else:
-            assert "nll_dt" not in prompt and "older-3" not in prompt
+            assert "nll_dt" not in prompt and "older-3" not in prompt and "parameters" not in prompt
 
 
 def test_exhausted_repair_resumes_a_sealed_proposal_without_call_one() -> None:
@@ -258,7 +266,7 @@ def test_exhausted_repair_resumes_a_sealed_proposal_without_call_one() -> None:
 
     proposer = TwoStepProposer(transport, lambda source: "matrix incompatible", usage.append,
                                count_tokens=words)
-    result = proposer.synthesize("metrics", SEED, {}, (), PLAN, PREDICTIONS)
+    result = proposer.synthesize("metrics", SEED, {}, (), PLAN, METRICS_PREDICTIONS)
     assert [item.stage for item in usage] == ["code", "repair", "repair"]
     assert result.invalid_program and result.source is None
     assert result.error == "matrix incompatible"
@@ -284,7 +292,7 @@ def test_repair_overflow_keeps_complete_parent_and_exact_terminal_error() -> Non
         return None
 
     proposer = TwoStepProposer(transport, gate, usage.append, count_tokens=words)
-    result = proposer.synthesize("metrics", SEED, {}, (), PLAN, PREDICTIONS)
+    result = proposer.synthesize("metrics", SEED, {}, (), PLAN, METRICS_PREDICTIONS)
     assert result.source == SEED
     assert [item.stage for item in usage] == ["code", "repair"]
 
@@ -313,3 +321,26 @@ def test_invalid_call_one_is_typed_and_never_sealed(reply: ProviderReply) -> Non
     with pytest.raises(ProposalValidationError):
         proposer.propose("metrics", SEED, {}, (), forbidden_seal)
     assert usage == [CallUsage("hypothesis", reply.input_tokens, reply.output_tokens)]
+
+
+@pytest.mark.parametrize(
+    ("group", "predictions", "error"),
+    [
+        ("evidence", (), "exactly two"),
+        ("evidence", PREDICTIONS[:1], "exactly two"),
+        ("evidence", PREDICTIONS + (GUARDRAIL,), "exactly two"),
+        ("evidence", tuple(reversed(PREDICTIONS)), "roles must be"),
+        ("metrics", PREDICTIONS, "registered core metric"),
+        ("metrics", (METRICS_PREDICTIONS[0], PREDICTIONS[0]), "roles must be"),
+    ],
+)
+def test_exact_dual_forecasts_are_checked_before_preregistration(
+    group: str, predictions: tuple[StructuredPrediction, ...], error: str,
+) -> None:
+    def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
+        assert response_json
+        return ProviderReply(plan_json(predictions), 15, 5)
+
+    proposer = TwoStepProposer(transport, lambda source: None, lambda usage: None, count_tokens=words)
+    with pytest.raises(ProposalValidationError, match=error):
+        proposer.propose(group, SEED, {}, (), lambda *args: pytest.fail("sealed invalid forecasts"))

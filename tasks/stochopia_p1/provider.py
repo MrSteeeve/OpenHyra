@@ -9,6 +9,8 @@ from pathlib import Path
 
 from stochopia.llm import (
     BaseLLMClient,
+    LLMError,
+    LLMRequestError,
     LLMTruncationError,
     ModelConfig,
     OpenAICompatClient,
@@ -20,6 +22,19 @@ from .protocol import MAX_OUTPUT_TOKENS, Messages, ProviderReply, Transport
 
 
 ClientFactory = Callable[[str, dict[str, ModelConfig]], BaseLLMClient]
+
+
+class ProviderAttemptError(RuntimeError):
+    """One incomplete provider request, including any reported token usage."""
+
+    def __init__(
+        self, message: str, *, retryable: bool = False,
+        input_tokens: int | None = None, output_tokens: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.retryable = retryable
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
 
 
 def registry_transport(
@@ -48,6 +63,20 @@ def registry_transport(
         except LLMTruncationError:
             text = ""
             error = f"Registered provider stopped at its {request_config.max_tokens}-token output cap"
+        except LLMRequestError as exc:
+            if exc.status_code is not None:
+                message = f"Provider HTTP {exc.status_code}"
+            else:
+                message = "Provider transport failure"
+            retryable = exc.transport or (exc.status_code is not None and 500 <= exc.status_code < 600)
+            raise ProviderAttemptError(message, retryable=retryable) from exc
+        except LLMError as exc:
+            usage = client.total_usage
+            raise ProviderAttemptError(
+                "Provider rejected the request or returned an invalid response",
+                input_tokens=usage["prompt_tokens"] if usage["calls"] else None,
+                output_tokens=usage["completion_tokens"] if usage["calls"] else None,
+            ) from exc
         usage = client.total_usage
         return ProviderReply(text, usage["prompt_tokens"], usage["completion_tokens"], error)
 

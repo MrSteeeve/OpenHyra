@@ -18,7 +18,7 @@ from stochopia.neural.lob_training import P1_TRAIN_SEEDS
 from stochopia.neural.primitives import SeedGRULOBModel, seed_lob_source
 from tasks.stochopia_p1 import market_eval
 from tasks.stochopia_p1.no_llm_mutator import mutate
-from tasks.stochopia_p1.store import CandidateEvaluationFailed, EvaluationRequest, Json, ModelRef
+from tasks.stochopia_p1.store import CandidateEvaluationFailed, EvaluationRequest, Json, ModelRef, NonfiniteCandidateLoss
 
 
 SYMBOL = "000001.SZ"
@@ -74,9 +74,10 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         tmp_dir: Path, runtime_roots: tuple[Path, ...], timeout_s: float, memory_bytes: int,
     ) -> Json:
         mode = command[3]
-        role = source_dir.parent.name
+        source = (source_dir / "candidate.py").read_text()
+        role = "parent" if source == request.parent.source else "candidate"
         model = request.parent if role == "parent" else request.candidate
-        assert gated_sources == [request.parent.source, request.candidate.source]
+        assert gated_sources[-1] == model.source
         assert (source_dir / "candidate.py").read_text() == model.source
         assert (source_dir / "experiments" / "p1_m2_baseline.py").is_file()
         assert len(list(source_dir.rglob("*.npz"))) == 0
@@ -126,6 +127,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         expected.extend((role, "fit", seed) for seed in P1_TRAIN_SEEDS)
         expected.append((role, "evaluate", None))
     assert calls == expected
+    assert gated_sources == [request.parent.source, request.candidate.source]
     assert len(set(eval_inputs)) == 2
     assert result.parent_rows[DEV[0]] == {"val_nll_total": 2.0, "lob_impact_score": None}
     assert result.candidate_rows[DEV[0]] == {"val_nll_total": 1.0, "lob_impact_score": None}
@@ -141,17 +143,18 @@ def test_market_adapter_rejects_unregistered_dates_and_seeds_before_gate(
     monkeypatch.setattr(market_eval, "CandidateGate", unexpected_gate)
     evaluate = market_eval.MarketEvaluator(archive, SYMBOL)
     request = _request()
-    with pytest.raises(ValueError, match="only accepts development"):
+    with pytest.raises(ValueError, match="registered evaluator phase"):
         evaluate(replace(request, split="test", eval_dates=TEST))
-    with pytest.raises(ValueError, match="must agree with the P1 development registration"):
+    with pytest.raises(ValueError, match="must agree with the P1 registration"):
         evaluate(replace(request, eval_dates=TEST))
-    with pytest.raises(ValueError, match="must agree with the P1 development registration"):
+    with pytest.raises(ValueError, match="must agree with the P1 registration"):
         evaluate(replace(request, train_seeds=(137, 211, 103)))
 
 
 @pytest.mark.parametrize(("candidate", "outcome", "error"), [
     (True, {"status": "timeout"}, CandidateEvaluationFailed),
     (True, {"status": "crash", "returncode": 65}, CandidateEvaluationFailed),
+    (True, {"status": "crash", "returncode": 66}, NonfiniteCandidateLoss),
     (True, {"status": "crash", "returncode": None}, market_eval.MarketEvaluationError),
     (False, {"status": "timeout"}, market_eval.MarketEvaluationError),
 ])
@@ -165,6 +168,38 @@ def test_only_known_candidate_failures_are_scored(
     with pytest.raises(error, match="fit worker"):
         market_eval._run_worker(tmp_path / "fit", tmp_path, tmp_path, "fit", 60,
                                 P1_TRAIN_SEEDS[0], candidate=candidate)
+
+
+def test_cached_models_reuse_each_profile_only_within_the_registered_split(
+    archive: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def measure(
+        self: market_eval.MarketEvaluator, model: ModelRef, request: EvaluationRequest, *,
+        key: str, candidate: bool,
+    ) -> Json:
+        calls.append((request.split, model.model_id))
+        return {"evidence": {"val_nll_total": 4.5},
+                "day_metrics": {str(date): {} for date in request.eval_dates},
+                "market_bootstrap": {"split": request.split}}
+
+    monkeypatch.setattr(market_eval.MarketEvaluator, "_measure", measure)
+    cache = archive / "run-cache"
+    request = _request()
+    dev = market_eval.MarketEvaluator(archive, SYMBOL, cache_root=cache)
+    dev.seed_profile(request.parent, rollout_seed=request.rollout_seed)
+    assert dev(request).candidate_market == {"split": "dev"}
+    assert dev(request).parent_market == {"split": "dev"}
+    with pytest.raises(ValueError, match="frozen test dates"):
+        market_eval.MarketEvaluator(archive, SYMBOL, authorized_test_dates=DEV)
+    test = market_eval.MarketEvaluator(archive, SYMBOL, cache_root=cache, authorized_test_dates=TEST)
+    with pytest.raises(ValueError, match="registered evaluator phase"):
+        test(request)
+    holdout = replace(request, split="test", eval_dates=TEST)
+    assert test(holdout).candidate_market == {"split": "test"}
+    assert test(holdout).parent_market == {"split": "test"}
+    assert calls == [("dev", "seed"), ("dev", "trial"), ("test", "seed"), ("test", "trial")]
 
 
 # --- Native worker smoke ---

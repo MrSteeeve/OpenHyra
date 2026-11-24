@@ -15,7 +15,7 @@ from tasks.stochopia_p1.entry import DevelopmentLoop
 from tasks.stochopia_p1.gate import CandidateGate
 from tasks.stochopia_p1.no_llm_mutator import mutate
 from tasks.stochopia_p1.paired_stats import paired_readouts
-from tasks.stochopia_p1.protocol import MAX_INPUT_TOKENS, MAX_REPAIRS, CallUsage, Messages, ProviderReply, TwoStepProposer
+from tasks.stochopia_p1.protocol import MAX_INPUT_TOKENS, CallUsage, Messages, ProviderReply, TwoStepProposer
 from tasks.stochopia_p1.store import (
     CandidateEvaluationFailed, DevelopmentExport, EvaluationRequest, Ledger, MetricRule,
     ModelRef, PairedEvaluation, RunBusyError, StudyPlan,
@@ -65,32 +65,41 @@ class ScriptedEvaluator:
         else:
             assert request.eval_dates == HOLDOUT
 
-        gain = 0.125 if request.trial_id == "metrics-r01" else 0.25
-        nll_gain = 0.02
+        gain = 0.15 if request.trial_id.endswith("evidence-r02") else 0.25
+        benchmark_gain = 1.0
         if request.parent == request.candidate:
             gain = 0.0
-            nll_gain = 0.0
+            benchmark_gain = 0.0
         parent = {}
         candidate = {}
         for index, date in enumerate(request.eval_dates):
             day = _day(date, 10_000 + 100 * index)
             # The level and each day's shift vary, so pairing is observable.
             peak = float(day.mid_ticks_x2[0]) / 2
-            parent[date] = {METRIC: peak, "val_nll_total": 3.0, "lob_impact_score": 20.0}
-            candidate[date] = {METRIC: peak + gain, "val_nll_total": 3.0 - nll_gain, "lob_impact_score": 21.0}
-        before = {"val_nll_total": 3.0, "lob_impact_score": 20.0, "sign_acf_delta": 17.4321}
-        after = {"val_nll_total": 3.0 - nll_gain, "lob_impact_score": 21.0, "sign_acf_delta": 28.6543}
+            nll_shift = (-0.04, -0.01, 0.02)[index] if gain else 0.0
+            parent[date] = {
+                METRIC: peak, "val_nll_total": 3.0, "lob_impact_score": 20.0, "free_abs_drift_ticks": 1.0,
+            }
+            candidate[date] = {
+                METRIC: peak + gain, "val_nll_total": 3.0 + nll_shift,
+                "lob_impact_score": 20.0 + benchmark_gain, "free_abs_drift_ticks": 1.0,
+            }
+        before = {
+            "val_nll_total": 3.0, "lob_impact_score": 20.0, "sign_acf_delta": 17.4321, "exhausted_windows": 0,
+            "train_seed_nll": {str(seed): 3.0 for seed in request.train_seeds},
+        }
+        after = {**before, "lob_impact_score": 21.0, "sign_acf_delta": 28.6543}
         return PairedEvaluation(parent, candidate, before, after if gain else before)
 
 
-def _fixture(root: Path) -> tuple[DevelopmentLoop, ScriptedEvaluator, dict[str, list[str]], dict[str, list[CallUsage]]]:
+def _fixture(root: Path, *, rounds: int = 2) -> tuple[DevelopmentLoop, ScriptedEvaluator, dict[str, list[str]], dict[str, list[CallUsage]]]:
     packets: dict[str, list[str]] = {"evidence": [], "metrics": []}
     usage: dict[str, list[CallUsage]] = {"evidence": [], "metrics": []}
     plan = StudyPlan(
         seed_model=ModelRef("seed", seed_lob_source()),
         seed_evidence={"parameters": 21932, "state_dim": 48, "val_nll_total": 3.0,
                        "lob_impact_score": 20.0, "sign_acf_delta": 17.4321},
-        train_dates=TRAIN, dev_dates=DEV,
+        train_dates=TRAIN, dev_dates=DEV, rounds=rounds,
         metric_rules=(MetricRule(METRIC, "increase", 0.01, (0.2, 0.3)),),
     )
     evaluate = ScriptedEvaluator(root)
@@ -104,12 +113,18 @@ def _fixture(root: Path) -> tuple[DevelopmentLoop, ScriptedEvaluator, dict[str, 
             packets[group].append("\n".join(item["content"] for item in messages))
             if response_json:
                 index += 1
-                parent = f"{group}-1" if group == "evidence" and index == 2 else None
+                parent = f"{group}-1" if group == "evidence" and index >= 2 else None
+                metric = METRIC if group == "evidence" else "lob_impact_score"
+                interval = [0.2, 0.3] if group == "evidence" else ([2.0, 3.0] if index == 1 else [0.8, 1.2])
                 proposal = {
                     "hypothesis": {"hypothesis_id": f"{group}-{index}", "parent_hypothesis_id": parent,
                                    "observed_bottleneck": f"{group} diagnosis", "operator_diagnosis": "time-memory scale",
                                    "structural_prescription": "apply a short scan", "falsifier": "peak gain below interval"},
-                    "predictions": [{"metric": METRIC, "direction": "increase", "interval": [0.2, 0.3]}],
+                    "predictions": [
+                        {"role": "primary", "metric": metric, "direction": "increase", "interval": interval},
+                        {"role": "guardrail", "metric": "val_nll_total", "direction": "equivalent",
+                         "interval": [-0.015, 0.015], "equivalence_band": [-0.05, 0.05]},
+                    ],
                 }
                 return ProviderReply(json.dumps(proposal), 100, 55)
             registered = root / group / f"round-{index:03}" / "preregistration.json"
@@ -129,6 +144,7 @@ def test_two_rounds_separate_evidence_and_verify_once(tmp_path: Path) -> None:
     loop, evaluate, messages, calls = _fixture(dev)
     first = loop.run_round()
     assert first["evidence"]["verdict"] == "VERIFIED_GAIN"
+    assert first["evidence"]["prediction_verdicts"][1]["status"] == "INCONCLUSIVE"
     assert first["metrics"]["verdict"] == "UNVERIFIED_GAIN"
     assert first["metrics"]["prediction_verdicts"][0]["status"] == "REFUTED"
     assert first["no_llm"]["verdict"] == "VERIFIED_GAIN"
@@ -138,7 +154,7 @@ def test_two_rounds_separate_evidence_and_verify_once(tmp_path: Path) -> None:
     assert second["evidence"]["island"] == first["evidence"]["island"]
     assert second["evidence"]["hypothesis"]["parent_hypothesis_id"] == "evidence-1"
     assert second["metrics"]["parent"]["model_id"] == "seed"
-    assert second["metrics"]["island"] != first["metrics"]["island"]
+    assert second["metrics"]["island"] == first["metrics"]["island"]
     assert second["no_llm"]["parent"]["model_id"] == "no_llm-r01"
     assert len(evaluate.requests) == 6
     assert "17.4321" in messages["evidence"][0]
@@ -234,14 +250,13 @@ def test_attempt_budget_and_candidate_failure_do_not_stall_other_groups(tmp_path
 
     evidence.transport = interrupted_transport
     loop.evaluate = candidate_failure
-    for _ in range(MAX_REPAIRS + 1):
-        with pytest.raises(RuntimeError, match="process stopped"):
-            loop.run_round()
+    with pytest.raises(RuntimeError, match="process stopped"):
+        loop.run_round()
 
     result = loop.run_round()
-    assert synthesis_requests == MAX_REPAIRS + 1
+    assert synthesis_requests == 1
     assert [call.stage for call in calls["evidence"]] == ["hypothesis"]
-    assert result["evidence"]["verdict"] == "invalid_program"
+    assert result["evidence"]["verdict"] == "INVALID_PROGRAM"
     assert result["metrics"]["verdict"] == "evaluation_failed"
     assert result["metrics"]["training_budget_consumed"] is True
     assert result["metrics"]["prediction_verdicts"][0]["status"] == "INCONCLUSIVE"
@@ -257,14 +272,14 @@ def test_invalid_plans_spend_only_attempted_calls_and_allow_other_groups(tmp_pat
 
     def malformed(messages: Messages, *, response_json: bool) -> ProviderReply:
         assert response_json
-        assert f'Use one registered metric for the first forecast: ["{METRIC}"]' in messages[-1]["content"]
+        assert f'Primary metric in ["{METRIC}"]' in messages[-1]["content"]
         return ProviderReply("not JSON", 50, 5)
 
     def wrong_metric(messages: Messages, *, response_json: bool) -> ProviderReply:
         assert response_json
-        assert f'Use one registered metric for the first forecast: ["{METRIC}"]' in messages[-1]["content"]
+        assert 'Primary metric in ["lob_impact_score"]' in messages[-1]["content"]
         reply = valid_transport(messages, response_json=response_json)
-        return ProviderReply(reply.text.replace(METRIC, "unregistered"), reply.input_tokens, reply.output_tokens)
+        return ProviderReply(reply.text.replace("lob_impact_score", "unregistered"), reply.input_tokens, reply.output_tokens)
 
     evidence.transport = malformed
     metrics.transport = wrong_metric
@@ -285,3 +300,17 @@ def test_invalid_plans_spend_only_attempted_calls_and_allow_other_groups(tmp_pat
     assert "required context exceed" in second["evidence"]["error"]
     assert not (tmp_path / "evidence" / "round-002" / "requests").exists()
     assert second["no_llm"]["verdict"] == "VERIFIED_GAIN"
+
+
+def test_rejected_second_candidate_cannot_displace_verified_parent(tmp_path: Path) -> None:
+    loop, _evaluate, messages, _calls = _fixture(tmp_path, rounds=3)
+    first = loop.run_round()["evidence"]
+    second = loop.run_round()["evidence"]
+    third = loop.run_round()["evidence"]
+    assert first["verdict"] == "VERIFIED_GAIN"
+    assert second["verdict"] == "UNVERIFIED_GAIN"
+    assert second["candidate"]["model_id"] != first["candidate"]["model_id"]
+    assert third["parent"] == first["candidate"]
+    assert third["promoted_parent_hypothesis_id"] == "evidence-1"
+    assert first["candidate"]["source"] in messages["evidence"][4]
+    assert "UNVERIFIED_GAIN; core=REFUTED" in messages["evidence"][4]

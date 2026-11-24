@@ -9,7 +9,7 @@ from pathlib import Path
 from .paired_stats import EVALUATION_FAILED, VERIFIED_GAIN, assess, failed_evaluation, metric_delta, predictions_from_payload
 from .store import (
     GROUPS, IMPACT, NLL, CandidateEvaluationFailed, DevelopmentExport, EvaluationRequest, Evaluator, Json,
-    Ledger, MetricRule, ModelRef, PairedEvaluation, validate_dates,
+    Ledger, ModelRef, PairedEvaluation, validate_dates,
 )
 
 
@@ -122,7 +122,6 @@ def run_verifier(verifier_root: Path, *, evaluate: Evaluator) -> Json:
         report = ledger.read("report.json")
         if report is not None:
             return report
-        rules = {row["metric"]: MetricRule.from_dict(row) for row in manifest["rules"]}
         evaluated: dict[str, Json] = {}
         for item in manifest["tasks"]:
             request = EvaluationRequest.from_dict(item["request"])
@@ -147,7 +146,7 @@ def run_verifier(verifier_root: Path, *, evaluate: Evaluator) -> Json:
             pair.validate(request)
             assessment = None
             if item["predictions"]:
-                assessment = assess(pair, request, predictions_from_payload(item), rules, manifest["nll_guardrail"])
+                assessment = assess(pair, request, predictions_from_payload(item))
             evaluated[request.trial_id] = {"model_id": request.candidate.model_id,
                                            "candidate": pair.candidate_evidence, "assessment": assessment}
         return ledger.seal(_report(manifest, evaluated), "report.json")

@@ -17,10 +17,22 @@ from stochopia.common import atomic_write_json
 
 
 GROUPS = ("evidence", "metrics", "no_llm")
+FORMAL_ARMS = ("evidence_gpt", "metrics_gpt", "evidence_ds", "metrics_ds", "no_llm")
 NLL = "val_nll_total"
 IMPACT = "lob_impact_score"
 Json = dict[str, Any]
 DailyRows = Mapping[int, Mapping[str, float | None]]
+
+
+def group_mode(group: str) -> Literal["evidence", "metrics", "no_llm"]:
+    """Resolve a registered experiment arm to its permitted information view."""
+    if group in ("evidence", "evidence_gpt", "evidence_ds"):
+        return "evidence"
+    if group in ("metrics", "metrics_gpt", "metrics_ds"):
+        return "metrics"
+    if group == "no_llm":
+        return "no_llm"
+    raise ValueError(f"unknown P1 experiment arm {group!r}")
 
 
 @dataclass(frozen=True)
@@ -68,7 +80,9 @@ class StudyPlan:
     train_seeds: tuple[int, ...] = (103, 137, 211)
     rollout_seed: int = 12_300
     mutation_seed: int = 29
-    nll_guardrail: float = 0.06
+    nll_guardrail: float = 0.05
+    groups: tuple[str, ...] = GROUPS
+    trial_prefix: str = ""
 
     def __post_init__(self) -> None:
         validate_dates(self.train_dates, "train_dates")
@@ -77,8 +91,14 @@ class StudyPlan:
             raise ValueError("development dates must follow training dates and support paired inference")
         if self.rounds < 1 or not self.train_seeds or len(set(self.train_seeds)) != len(self.train_seeds):
             raise ValueError("positive rounds and unique training seeds are required")
-        if not isfinite(self.nll_guardrail) or self.nll_guardrail < 0:
-            raise ValueError("NLL guardrail must be finite and nonnegative")
+        if self.nll_guardrail != 0.05:
+            raise ValueError("P1-M4 fixes the NLL guardrail at +0.05 nats/event")
+        if not self.groups or len(set(self.groups)) != len(self.groups):
+            raise ValueError("register distinct experiment arms")
+        for group in self.groups:
+            group_mode(group)
+        if self.trial_prefix and not all(char.isalnum() or char in ".-_" for char in self.trial_prefix):
+            raise ValueError("trial prefix must be a single path component")
         rules = {rule.metric for rule in self.metric_rules}
         if not rules or len(rules) != len(self.metric_rules):
             raise ValueError("register a unique improvement rule for each permitted core prediction metric")
@@ -90,6 +110,8 @@ class StudyPlan:
         payload["metric_rules"] = tuple(MetricRule.from_dict(rule) for rule in value["metric_rules"])
         for field in ("train_dates", "dev_dates", "train_seeds"):
             payload[field] = tuple(value[field])
+        if "groups" in value:
+            payload["groups"] = tuple(value["groups"])
         return cls(**payload)
 
 
@@ -129,11 +151,15 @@ class PairedEvaluation:
     candidate_rows: DailyRows
     parent_evidence: Mapping[str, object]
     candidate_evidence: Mapping[str, object]
+    parent_market: Mapping[str, object] | None = None
+    candidate_market: Mapping[str, object] | None = None
 
     def validate(self, request: EvaluationRequest) -> None:
         dates = set(request.eval_dates)
         if set(self.parent_rows) != dates or set(self.candidate_rows) != dates:
             raise ValueError("paired evaluation must return exactly the registered evaluation dates")
+        if (self.parent_market is None) != (self.candidate_market is None):
+            raise ValueError("both models must use the same market readout protocol")
 
     def to_dict(self) -> Json:
         return {
@@ -141,6 +167,8 @@ class PairedEvaluation:
             "candidate_rows": {str(day): dict(row) for day, row in self.candidate_rows.items()},
             "parent_evidence": dict(self.parent_evidence),
             "candidate_evidence": dict(self.candidate_evidence),
+            "parent_market": self.parent_market,
+            "candidate_market": self.candidate_market,
         }
 
     @classmethod
@@ -149,11 +177,16 @@ class PairedEvaluation:
             {int(day): row for day, row in value["parent_rows"].items()},
             {int(day): row for day, row in value["candidate_rows"].items()},
             value["parent_evidence"], value["candidate_evidence"],
+            value.get("parent_market"), value.get("candidate_market"),
         )
 
 
 class CandidateEvaluationFailed(RuntimeError):
     """A candidate failed within evaluation after its paired budget was allocated."""
+
+
+class NonfiniteCandidateLoss(CandidateEvaluationFailed):
+    """One registered fit produced a nonfinite training or validation loss."""
 
 
 Evaluator = Callable[[EvaluationRequest], PairedEvaluation]

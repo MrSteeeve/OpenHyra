@@ -1,4 +1,4 @@
-"""Pair trading-day readouts and assess preregistered mechanism predictions."""
+"""Align trading-day draws and apply the lexicographic P1 validator."""
 
 from __future__ import annotations
 
@@ -8,23 +8,28 @@ from numbers import Real
 
 import numpy as np
 
+from experiments.p1_m3_evidence import M4_MARKET_METRICS
+from experiments.p1_m4_market_stats import MarketClusters
+
 from .protocol import StructuredPrediction
-from .store import IMPACT, NLL, EvaluationRequest, Json, MetricRule, PairedEvaluation
+from .store import IMPACT, NLL, EvaluationRequest, Json, PairedEvaluation
 
 
 VERIFIED_GAIN = "VERIFIED_GAIN"
 UNVERIFIED_GAIN = "UNVERIFIED_GAIN"
+GUARDRAIL_VIOLATION = "GUARDRAIL_VIOLATION"
 REFUTED = "REFUTED"
 INCONCLUSIVE = "INCONCLUSIVE"
 EVALUATION_FAILED = "evaluation_failed"
+
 BOOTSTRAP_RESAMPLES = 2000
+NLL_GUARDRAIL = 0.05
+DRIFT_LIMIT = 20.0
+MIN_GAIN = 0.50
 
 
 def predictions_from_payload(payload: Json) -> tuple[StructuredPrediction, ...]:
     return tuple(StructuredPrediction(**row) for row in payload["predictions"])
-
-
-# --- Paired inference and promotion ---
 
 
 def _finite(value: object) -> float | None:
@@ -41,47 +46,196 @@ def metric_delta(parent: object, candidate: object) -> float | None:
     return after - before
 
 
-def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics: Sequence[str]) -> Json:
-    """Bootstrap the mean of the candidate-minus-parent differences by day.
+# --- Aligned cluster bootstrap ---
 
-    Each metric has one paired scalar per registered day. Each of 2,000
-    resamples draws as many days as the full panel with replacement. The 2.5%
-    and 97.5% quantiles of their means define the interval. The same draw
-    matrix serves all metrics. Missing pairs or fewer than two registered
-    days prevent an interval; the estimate uses the available pairs.
+
+def _bootstrap_bounds(
+    values: np.ndarray, *, estimate: float | None, bounds: tuple[float, float] | None = None,
+) -> tuple[list[float] | None, float | None, int]:
+    """Take percentile endpoints on one vector of bootstrap estimates.
+
+    With missing draws and a known scale, bound their contribution to each
+    quantile by substituting the maximum/minimum only for that endpoint.
+    In particular scores in [0,100] yield differences in [-100,100]. This
+    preserves all registered draws and does not impute any point estimate.
+    Without finite bounds, missing draws make a percentile interval unknown.
     """
-    pair.validate(request)
-    days = request.eval_dates
-    rng = np.random.default_rng(request.rollout_seed)
-    draws = rng.integers(0, len(days), size=(BOOTSTRAP_RESAMPLES, len(days)))
-    summaries: Json = {}
-    for metric in dict.fromkeys(metrics):
-        values = [
-            metric_delta(pair.parent_rows[day].get(metric), pair.candidate_rows[day].get(metric))
-            for day in days
-        ]
-        observed = np.array([value for value in values if value is not None])
-        interval = None
-        reason = None
-        if len(observed) == len(days) and len(days) >= 2:
-            interval = np.quantile(observed[draws].mean(axis=1), (0.025, 0.975)).tolist()
-        elif len(observed) != len(days):
-            reason = "missing paired day outcomes"
-        else:
-            reason = "fewer than two trading days"
-        summaries[metric] = {
-            "estimate": float(observed.mean()) if len(observed) else None,
-            "interval": interval, "paired_days": len(observed), "registered_days": len(days), "reason": reason,
-        }
+    finite = np.isfinite(values)
+    count = int(finite.sum())
+    if estimate is None or not len(values):
+        return None, None, count
+    if finite.all():
+        lower, p05, upper = np.quantile(values, (0.025, 0.05, 0.975))
+    elif bounds is None:
+        return None, None, count
+    else:
+        lower, p05 = np.quantile(np.where(finite, values, bounds[0]), (0.025, 0.05))
+        upper = np.quantile(np.where(finite, values, bounds[1]), 0.975)
+    return [float(lower), float(upper)], float(p05), count
+
+
+def _summarize_draws(
+    parent: np.ndarray, candidate: np.ndarray, *, point_parent: float | None,
+    point_candidate: float | None, point_delta: float | None,
+    paired_days: int | None, registered_days: int, bounded_score: bool, identical: bool = False,
+) -> Json:
+    """Summarize candidate minus parent on the same [draw] day selections."""
+    parent_ci, _, parent_valid = _bootstrap_bounds(
+        parent, estimate=point_parent, bounds=(0.0, 100.0) if bounded_score else None,
+    )
+    candidate_ci, _, candidate_valid = _bootstrap_bounds(
+        candidate, estimate=point_candidate, bounds=(0.0, 100.0) if bounded_score else None,
+    )
+    ci, p05, paired_valid = _bootstrap_bounds(
+        candidate - parent, estimate=point_delta, bounds=(-100.0, 100.0) if bounded_score else None,
+    )
+    if identical and point_delta is not None and registered_days >= 2:
+        ci, p05 = [0.0, 0.0], 0.0
+    reason = None
+    if registered_days < 2:
+        reason = "fewer than two trading days"
+    elif paired_days is not None and paired_days != registered_days:
+        reason = "missing paired day outcomes"
+    elif point_delta is None:
+        reason = "model readout undefined on original day panel"
+    elif paired_valid < len(parent):
+        reason = "bounded undefined score draws" if bounded_score else "undefined bootstrap draws"
+    return {
+        "estimate": point_delta,
+        "interval": ci,
+        "p05": p05,
+        "parent_estimate": point_parent,
+        "parent_interval": parent_ci,
+        "candidate_estimate": point_candidate,
+        "candidate_interval": candidate_ci,
+        "paired_days": paired_days,
+        "registered_days": registered_days,
+        "parent_bootstrap_valid": parent_valid,
+        "candidate_bootstrap_valid": candidate_valid,
+        "bootstrap_valid": paired_valid,
+        "reason": reason,
+    }
+
+
+def _mean(values: np.ndarray) -> float | None:
+    finite = values[np.isfinite(values)]
+    return float(finite.mean()) if len(finite) else None
+
+
+def _scalar_readout(
+    pair: PairedEvaluation, days: tuple[int, ...], draws: np.ndarray, metric: str,
+) -> Json:
+    """Bootstrap equal-day means for scalar day readouts such as NLL.
+
+    Missing day outcomes prevent publication of a complete-panel interval.
+    The point difference uses only days with both observations.
+    """
+    parent = np.array([_finite(pair.parent_rows[day].get(metric)) for day in days], dtype=float)
+    candidate = np.array([_finite(pair.candidate_rows[day].get(metric)) for day in days], dtype=float)
+    differences = candidate - parent
+    pairs = int(np.isfinite(differences).sum())
+
+    def samples(values: np.ndarray) -> np.ndarray:
+        if np.isfinite(values).all():
+            return values[draws].mean(axis=1)
+        return np.full(len(draws), np.nan)
+
+    return _summarize_draws(
+        samples(parent),
+        samples(candidate),
+        point_parent=_mean(parent),
+        point_candidate=_mean(candidate),
+        point_delta=_mean(differences),
+        paired_days=pairs,
+        registered_days=len(days),
+        bounded_score=False,
+    )
+
+
+def _market_readouts(
+    pair: PairedEvaluation, dates: tuple[int, ...], draws: np.ndarray, metrics: tuple[str, ...],
+) -> dict[str, Json]:
+    if pair.parent_market is None or pair.candidate_market is None:
+        raise ValueError("repooling requires both models' registered market day clusters")
+    parent = MarketClusters.from_payload(pair.parent_market)
+    candidate = MarketClusters.from_payload(pair.candidate_market)
+    size = len(dates)
+    if parent.days != size or candidate.days != size:
+        raise ValueError("market day clusters must align with the registered evaluation dates")
+
+    parent_point = parent.estimate(np.arange(size))
+    parent_samples = parent.resample(draws, metrics)
+    identical = pair.parent_market is pair.candidate_market
+    if identical:
+        candidate_point = parent_point
+        candidate_samples = parent_samples
+    else:
+        candidate_point = candidate.estimate(np.arange(size))
+        candidate_samples = candidate.resample(draws, metrics)
+
+    summaries = {}
+    for metric in metrics:
+        before = _finite(parent_point[metric])
+        after = _finite(candidate_point[metric])
+        summaries[metric] = _summarize_draws(
+            parent_samples[metric],
+            candidate_samples[metric],
+            point_parent=before,
+            point_candidate=after,
+            point_delta=metric_delta(before, after),
+            paired_days=None,  # pooled impact is not an average of independent daily scores
+            registered_days=size,
+            bounded_score=metric == IMPACT,
+            identical=identical,
+        )
+        if metric == IMPACT:
+            summaries[metric]["bootstrap_support"] = {
+                "estimand": "pooled impact score conditional on original-panel C2 admission",
+                "parent": parent.score_support(dates, parent_samples[metric]),
+                "candidate": candidate.score_support(dates, candidate_samples[metric]),
+            }
     return summaries
 
 
-def _judge(prediction: StructuredPrediction, interval: list[float] | None) -> str:
-    """Compare observed and predicted closed intervals for the paired mean.
+def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics: Sequence[str]) -> Json:
+    """Use one 2,000 by day draw matrix across both models and every readout.
 
-    Containment supports the forecast, disjoint intervals refute it, and
-    overlap or a missing observed interval is inconclusive. Prediction
-    validation enforces the sign and, when applicable, the equivalence band.
+    Each draw samples as many days as the registered panel with replacement.
+    The 2.5% and 97.5% quantiles form a two-sided interval. The 5% quantile is
+    the one-sided lower endpoint. The composite is computed on the full
+    sample for its point estimate, and recomputed from pooled physical
+    inputs on every draw conditional on original-panel C2 admission. No
+    session or training seed is a bootstrap unit.
+    """
+    pair.validate(request)
+    days = request.eval_dates
+    if len(days) >= 2:
+        rng = np.random.default_rng(request.rollout_seed)
+        draws = rng.integers(0, len(days), size=(BOOTSTRAP_RESAMPLES, len(days)))
+    else:
+        draws = np.empty((0, len(days)), dtype=int)
+    requested = tuple(dict.fromkeys(metrics))
+    pooled = ()
+    if pair.parent_market is not None or pair.candidate_market is not None:
+        pooled = tuple(metric for metric in requested if metric in M4_MARKET_METRICS)
+    summaries = _market_readouts(pair, days, draws, pooled) if pooled else {}
+    for metric in requested:
+        if metric not in summaries:
+            summaries[metric] = _scalar_readout(pair, days, draws, metric)
+    return summaries
+
+
+# --- Ordered validation layers ---
+
+
+def _judge(prediction: StructuredPrediction, interval: list[float] | None) -> str:
+    """Test directional, magnitude and equivalent forecasts on candidate minus parent.
+
+    Inputs are two closed intervals in the same metric units. Containment
+    supports the registered forecast, disjoint intervals refute it, and
+    overlap or a missing measured interval is inconclusive. The prediction
+    contract requires directional ranges to have the correct sign, and
+    equivalent ranges to lie within their preregistered equivalence bands.
     """
     if interval is None:
         return INCONCLUSIVE
@@ -94,50 +248,103 @@ def _judge(prediction: StructuredPrediction, interval: list[float] | None) -> st
     return INCONCLUSIVE
 
 
+def _finite_seed_nll(evidence: Mapping[str, object], seeds: tuple[int, ...]) -> bool:
+    losses = evidence.get("train_seed_nll")
+    if not isinstance(losses, Mapping):
+        return False
+    expected = {str(seed) for seed in seeds}
+    return {str(seed) for seed in losses} == expected and all(_finite(value) is not None for value in losses.values())
+
+
+def _guardrails(pair: PairedEvaluation, request: EvaluationRequest, readouts: Json) -> Json:
+    """Check finite per-seed losses, paired NLL and absolute drift/depletion bounds.
+
+    NLL uses the equal-day mean candidate-minus-parent difference. Exhaustion
+    counts windows with any empty side across the registered seed repetitions.
+    Drift uses the mean absolute terminal displacement. A parent at 20 ticks
+    or higher sets its own level as the strict upper bound for the candidate.
+    Missing measurements cannot pass a guard.
+    """
+    nll = readouts[NLL]
+    nll_delta = nll["estimate"]
+    all_seed_nll = _finite_seed_nll(pair.parent_evidence, request.train_seeds) and _finite_seed_nll(
+        pair.candidate_evidence, request.train_seeds,
+    )
+    nll_in_budget = nll_delta is not None and (
+        nll_delta <= NLL_GUARDRAIL or np.isclose(nll_delta, NLL_GUARDRAIL, rtol=0, atol=1e-12)
+    )
+    nll_passed = all_seed_nll and nll["paired_days"] == len(request.eval_dates) and nll_in_budget
+    parent_exhausted = pair.parent_evidence.get("exhausted_windows")
+    candidate_exhausted = pair.candidate_evidence.get("exhausted_windows")
+    exhausted_delta = metric_delta(parent_exhausted, candidate_exhausted)
+    exhausted_passed = exhausted_delta is not None and exhausted_delta <= 0
+    drift = readouts["free_abs_drift_ticks"]
+    parent_drift = drift["parent_estimate"]
+    candidate_drift = drift["candidate_estimate"]
+    drift_passed = parent_drift is not None and candidate_drift is not None and (
+        candidate_drift < (DRIFT_LIMIT if parent_drift < DRIFT_LIMIT else parent_drift)
+    )
+    return {
+        "finite_nll_by_seed": all_seed_nll,
+        "nll_passed": bool(nll_passed),
+        "delta_val_nll_total": nll_delta,
+        "exhaustion_passed": exhausted_passed,
+        "delta_exhausted_windows": exhausted_delta,
+        "drift_passed": drift_passed,
+        "parent_free_abs_drift_ticks": parent_drift,
+        "child_free_abs_drift_ticks": candidate_drift,
+        "delta_free_abs_drift_ticks": metric_delta(parent_drift, candidate_drift),
+    }
+
+
 def assess(
     pair: PairedEvaluation, request: EvaluationRequest, predictions: tuple[StructuredPrediction, ...],
-    rules: Mapping[str, MetricRule], nll_guardrail: float,
 ) -> Json:
-    """Require a guarded, significant improvement and supported mechanism for promotion."""
-    core = predictions[0]
-    rule = rules[core.metric]
-    metrics = [NLL, IMPACT, *(prediction.metric for prediction in predictions)]
+    """Assess candidates that have already passed the zero-data program gate."""
+    if tuple(prediction.role for prediction in predictions) != ("primary", "guardrail"):
+        raise ValueError("assessment requires one primary and one guardrail prediction in order")
+    metrics = [NLL, IMPACT, "free_abs_drift_ticks"]
+    metrics.extend(p.metric for p in predictions)
     readouts = paired_readouts(pair, request, metrics)
-    verdicts = [{"metric": p.metric, "status": _judge(p, readouts[p.metric]["interval"])} for p in predictions]
-    measured = readouts[core.metric]["interval"]
-    improvement = False
-    harm = False
-    if measured is not None:
-        low, high = measured
-        if rule.direction == "increase":
-            improvement = low > rule.min_effect
-            harm = high < -rule.min_effect
-        else:
-            improvement = high < -rule.min_effect
-            harm = low > rule.min_effect
-    nll_interval = readouts[NLL]["interval"]
-    guard = nll_interval is not None and nll_interval[1] <= nll_guardrail
-    aggregate = {
-        metric: metric_delta(pair.parent_evidence.get(metric), pair.candidate_evidence.get(metric))
-        for metric in (NLL, IMPACT)
-    }
-    score_up = (aggregate[NLL] or 0.0) < 0 or (aggregate[IMPACT] or 0.0) > 0
-    if improvement and guard and verdicts[0]["status"] == "SUPPORTED":
-        status = VERIFIED_GAIN
-    elif improvement or score_up:
-        status = UNVERIFIED_GAIN
-    elif harm or verdicts[0]["status"] == REFUTED or (nll_interval is not None and nll_interval[0] > nll_guardrail):
+    verdicts = [
+        {"role": p.role, "metric": p.metric, "status": _judge(p, readouts[p.metric]["interval"])}
+        for p in predictions
+    ]
+    guardrails = _guardrails(pair, request, readouts)
+    guards_passed = all(guardrails[key] for key in ("nll_passed", "exhaustion_passed", "drift_passed"))
+    gain = readouts[IMPACT]
+    score_delta = gain["estimate"]
+    p05 = gain["p05"]
+    has_benchmark_gain = guards_passed and score_delta is not None and score_delta >= MIN_GAIN
+    has_benchmark_gain = has_benchmark_gain and p05 is not None and p05 > 0
+    forecasts_passed = verdicts[0]["status"] == "SUPPORTED" and verdicts[1]["status"] != REFUTED
+    if not guards_passed:
+        status = GUARDRAIL_VIOLATION
+    elif not has_benchmark_gain:
         status = REFUTED
+    elif forecasts_passed or request.group == "no_llm":
+        status = VERIFIED_GAIN
     else:
-        status = INCONCLUSIVE
-    return {"verdict": status, "prediction_verdicts": verdicts, "readouts": readouts,
-            "aggregate_delta": aggregate, "nll_guardrail_passed": guard}
+        status = UNVERIFIED_GAIN
+    return {
+        "verdict": status,
+        "prediction_verdicts": verdicts,
+        "readouts": readouts,
+        "guardrails": guardrails,
+        "has_benchmark_gain": has_benchmark_gain,
+        "mean_delta_score": score_delta,
+        "p05_delta_score": p05,
+        "nll_guardrail_passed": guardrails["nll_passed"],
+        "aggregate_delta": {metric: readouts[metric]["estimate"] for metric in (NLL, IMPACT)},
+    }
 
 
 def failed_evaluation(predictions: tuple[StructuredPrediction, ...], reason: str) -> Json:
     return {
         "verdict": EVALUATION_FAILED,
         "error": reason,
-        "prediction_verdicts": [{"metric": p.metric, "status": INCONCLUSIVE} for p in predictions],
+        "prediction_verdicts": [
+            {"role": p.role, "metric": p.metric, "status": INCONCLUSIVE} for p in predictions
+        ],
         "training_budget_consumed": True,
     }

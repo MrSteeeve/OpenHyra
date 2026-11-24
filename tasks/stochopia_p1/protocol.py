@@ -5,64 +5,25 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Literal, Protocol
+
+from .prompt import (
+    CODE_INSTRUCTION, CONTRACT, EVIDENCE_CONTEXT, HYPOTHESIS_FIELDS, METRIC_CONTEXT,
+    PLAN_INSTRUCTION, forecast_metrics, forecast_targets,
+)
 
 
 MAX_INPUT_TOKENS = 3500
 MAX_OUTPUT_TOKENS = 8192
 MAX_REPAIRS = 2
 
-# These fields are the only experiment readouts allowed into the proposer.
-METRIC_CONTEXT = ("parameters", "state_dim", "val_nll_total", "lob_impact_score")
-EVIDENCE_CONTEXT = (
-    "nll_dt", "nll_action", "nll_rel_ticks", "nll_volume",
-    "event_count_delta", "zero_wait_rate_delta", "sign_acf_delta", "hurst_delta",
-    "top_depth_delta", "idle_abs_drift", "impact_peak", "blind_ratio", "impact_y",
-    "impact_delta", "recovery_ratio",
-)
-HYPOTHESIS_FIELDS = (
-    "hypothesis_id", "parent_hypothesis_id", "observed_bottleneck",
-    "operator_diagnosis", "structural_prescription", "falsifier",
-)
-CONTRACT = """PyTorch LOB contract (stochopia.neural.lob_interface):
-StepObservation(book_ticks: Tensor, book_shares: Tensor, previous_event: Tensor,
-is_own: Tensor, has_deep: Tensor | None = None). Pre-event book shape [...,2,10],
-previous tokens [...,4], own flag has one value per prefix.
-LOBBatch(observation: StepObservation, targets: Tensor); targets [B,T,4], bins (16,6,26,12).
-StepSampler(model: LOBWorldModel, context: Tensor, observation: StepObservation).
-Methods: conditioned(targets: Tensor) -> FiveTupleLogits; sample(generator: Generator | None = None) -> Tensor.
-LOBWorldModel methods to implement:
-sequence_context(observation: StepObservation) -> Tensor,
-step_context(observation: StepObservation, state: State) -> tuple[Tensor, State],
-head_logits(context: Tensor, stage: int, prior: tuple[Tensor,...]) -> Tensor.
-Keep inherited forward_sequence(batch: LOBBatch) -> FiveTupleLogits and
-forward_step(step_obs: StepObservation, hidden_state: State = None) -> tuple[StepSampler, State].
-State is None, a Tensor, or a tuple of Tensors. Use at most 28000 trainable params and
-128 real state scalars (complex counts twice). No cross-time access to the future.
-From stochopia.neural.primitives:
-parallel_affine_scan(gates: Tensor, inputs: Tensor, h0: Tensor | None = None, chunk_size: int = 32) -> Tensor,
-affine_scan_step(gate_t: Tensor, input_t: Tensor, h_prev: Tensor) -> Tensor,
-real_diagonal(decay_logit: Tensor) -> Tensor, complex_diagonal(decay_logit: Tensor, phase: Tensor) -> Tensor."""
-PLAN_INSTRUCTION = """Return one JSON object and no code. Keys: hypothesis and predictions.
-hypothesis fields: hypothesis_id, parent_hypothesis_id (null only for a root),
-observed_bottleneck, operator_diagnosis, structural_prescription, falsifier.
-predictions is a nonempty list. Each item has metric, direction (increase,
-decrease or equivalent), interval [low,high], and optional equivalence_band
-[low,high] (required for equivalent). Predict candidate minus parent.
-Explicitly revise or open a competing hypothesis when feedback refutes it."""
-CODE_INSTRUCTION = """Return exactly one fenced python code block. Define one self-contained
-class CandidateLOBWorldModel(LOBWorldModel), constructible with no arguments.
-Only import standard math libraries, torch, torch.nn, torch.nn.functional,
-and stochopia.neural.lob_interface or stochopia.neural.primitives.
-Implement the sealed prescription. Keep evaluation and data out of the code.
-Keep source compact so the entire file can be included as a later parent."""
-
 Message = dict[str, str]
 Messages = list[Message]
 Group = Literal["evidence", "metrics"]
 Direction = Literal["increase", "decrease", "equivalent"]
 Stage = Literal["hypothesis", "code", "repair"]
+PredictionRole = Literal["primary", "guardrail"]
 
 
 def _text(value: object, field: str) -> None:
@@ -106,10 +67,13 @@ class StructuredPrediction:
     metric: str
     direction: Direction
     interval: tuple[float, float]
+    role: PredictionRole = field(kw_only=True)
     equivalence_band: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
         _text(self.metric, "metric")
+        if self.role not in ("primary", "guardrail"):
+            raise ValueError("prediction role must be primary or guardrail")
         lower, upper = _bounds(self.interval, "interval")
         object.__setattr__(self, "interval", (lower, upper))
         if self.equivalence_band is not None:
@@ -147,6 +111,16 @@ class CallUsage:
 
 
 @dataclass(frozen=True)
+class CompileAttempt:
+    """One tried code response, including sources that fail the zero-data gate."""
+
+    attempt: int
+    stage: Stage
+    source: str | None
+    diagnostic: str | None
+
+
+@dataclass(frozen=True)
 class SynthesisResult:
     hypothesis: DynamicHypothesis
     predictions: tuple[StructuredPrediction, ...]
@@ -172,6 +146,29 @@ class ProposalValidationError(ValueError):
     """Call 1 did not produce a valid hypothesis and prediction package."""
 
 
+def validate_forecasts(
+    group: str, predictions: tuple[StructuredPrediction, ...], registered: tuple[str, ...] = (),
+) -> None:
+    """Require an ordered mechanism forecast and a distinct non-degradation forecast."""
+    if len(predictions) != 2:
+        raise ProposalValidationError("predictions must contain exactly two items")
+    primary, guardrail = predictions
+    if primary.role != "primary" or guardrail.role != "guardrail":
+        raise ProposalValidationError("prediction roles must be primary then guardrail")
+    primary_metrics, guardrail_metrics = forecast_metrics(group, registered)
+    if primary.metric not in primary_metrics:
+        raise ProposalValidationError("primary forecast must use an allowed registered core metric")
+    if guardrail.metric not in guardrail_metrics or primary.metric == guardrail.metric:
+        raise ProposalValidationError("guardrail forecast must use a distinct allowed readout")
+    if guardrail.direction == "increase" and guardrail.metric in (
+        "val_nll_total", "free_abs_drift_ticks", "trade_sign_acf_exp_gap", "hurst_gap",
+        "impact_exponent_gap", "event_count_rel_gap", "l1_depth_mae",
+    ):
+        raise ProposalValidationError("guardrail must forecast non-degradation")
+    if guardrail.direction == "decrease" and guardrail.metric in ("lob_impact_score", "visible_over_blind_ratio"):
+        raise ProposalValidationError("guardrail must forecast non-degradation")
+
+
 def _dump(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
@@ -180,15 +177,13 @@ def _parse_plan(text: str) -> tuple[DynamicHypothesis, tuple[StructuredPredictio
     payload = json.loads(text)
     if not isinstance(payload, dict) or set(payload) != {"hypothesis", "predictions"}:
         raise ValueError("Call 1 requires exactly hypothesis and predictions")
-    if not isinstance(payload["predictions"], list) or not payload["predictions"]:
-        raise ValueError("predictions must be a nonempty list")
+    if not isinstance(payload["predictions"], list) or len(payload["predictions"]) != 2:
+        raise ValueError("predictions must contain exactly two items")
     try:
         hypothesis = DynamicHypothesis(**payload["hypothesis"])
         predictions = tuple(StructuredPrediction(**item) for item in payload["predictions"])
     except TypeError as exc:
         raise ValueError(f"invalid prediction or hypothesis fields: {exc}") from exc
-    if len({item.metric for item in predictions}) != len(predictions):
-        raise ValueError("predict each metric at most once")
     return hypothesis, predictions
 
 
@@ -245,12 +240,19 @@ class TwoStepProposer:
     """Inject provider, tokenizer, usage recorder and the zero-data gate."""
 
     def __init__(self, transport: Transport, gate: Gate, record_usage: Callable[[CallUsage], None],
-                 *, count_tokens: Callable[[Messages], int], core_metrics: tuple[str, ...] = ()) -> None:
+                 *, count_tokens: Callable[[Messages], int], core_metrics: tuple[str, ...] = (),
+                 record_compile: Callable[[CompileAttempt], None] | None = None,
+                 read_compile: Callable[[int], CompileAttempt | None] | None = None,
+                 search_seed: int | None = None, search_round: int | None = None) -> None:
         self.transport = transport
         self.gate = gate
         self.record_usage = record_usage
         self.count_tokens = count_tokens
         self.core_metrics = core_metrics
+        self.record_compile = record_compile
+        self.read_compile = read_compile
+        self.search_seed = search_seed
+        self.search_round = search_round
 
     def _bounded(self, instruction: str, context: str, recent: list[dict[str, object]],
                  suffix: str = "") -> Messages:
@@ -289,15 +291,17 @@ class TwoStepProposer:
         reply = self.transport(messages, response_json=stage == "hypothesis")
         self.record_usage(CallUsage(stage, reply.input_tokens, reply.output_tokens))
         if reply.input_tokens > MAX_INPUT_TOKENS or reply.output_tokens > MAX_OUTPUT_TOKENS:
-            raise ValueError("provider reported token use above the registered call limit")
+            raise ProposalValidationError("provider reported token use above the registered call limit")
         return reply
 
     def propose(self, group: Group, parent_source: str, parent_evidence: Mapping[str, object],
                 recent: History, seal_callback: Seal) -> SynthesisResult:
         context, history = _context(group, parent_source, parent_evidence, recent)
-        targets = ""
-        if self.core_metrics:
-            targets = f"Use one registered metric for the first forecast: {_dump(self.core_metrics)}"
+        targets = forecast_targets(group, self.core_metrics)
+        if self.search_seed is not None:
+            targets += f" Independent search replicate seed: {self.search_seed}."
+        if self.search_round is not None:
+            targets += f" Search round {self.search_round}. Include the round in the new hypothesis_id."
         packet = self._bounded(PLAN_INSTRUCTION, context, history, targets)
         reply = self._call(packet, "hypothesis")
         if reply.error is not None:
@@ -306,6 +310,7 @@ class TwoStepProposer:
             hypothesis, predictions = _parse_plan(reply.text)
         except ValueError as exc:
             raise ProposalValidationError(str(exc)) from exc
+        validate_forecasts(group, predictions, self.core_metrics)
         seal_callback(hypothesis, predictions)
         return self.synthesize(group, parent_source, parent_evidence, recent, hypothesis, predictions)
 
@@ -313,6 +318,7 @@ class TwoStepProposer:
                    recent: History, hypothesis: DynamicHypothesis,
                    predictions: tuple[StructuredPrediction, ...]) -> SynthesisResult:
         """Continue from an existing seal without sending Call 1 twice."""
+        validate_forecasts(group, predictions, self.core_metrics)
         context, history = _context(group, parent_source, parent_evidence, recent)
         sealed = "Sealed proposal:\n" + _dump({
             "hypothesis": asdict(hypothesis), "predictions": [asdict(item) for item in predictions],
@@ -329,18 +335,22 @@ class TwoStepProposer:
             else:
                 packet = self._bounded(CODE_INSTRUCTION, context, history, sealed)
             reply = self._call(packet, stage)
-            if reply.error is not None:
-                error = reply.error
-                failed_draft = ""
-                continue
-            failed_draft = reply.text
-            try:
-                source = extract_source(reply.text)
-            except ValueError as exc:
-                error = str(exc)
-                continue
-            diagnostic = self.gate(source)
-            if diagnostic is None:
-                return SynthesisResult(hypothesis, predictions, source, False)
-            error = diagnostic
+            failed_draft = reply.text if reply.error is None else ""
+            compiled = self.read_compile(attempt + 1) if self.read_compile is not None else None
+            if compiled is None:
+                compiled = self._compile(reply, attempt + 1, stage)
+                if self.record_compile is not None:
+                    self.record_compile(compiled)
+            if compiled.diagnostic is None:
+                return SynthesisResult(hypothesis, predictions, compiled.source, False)
+            error = compiled.diagnostic
         return SynthesisResult(hypothesis, predictions, None, True, error)
+
+    def _compile(self, reply: ProviderReply, attempt: int, stage: Stage) -> CompileAttempt:
+        if reply.error is not None:
+            return CompileAttempt(attempt, stage, None, reply.error)
+        try:
+            source = extract_source(reply.text)
+        except ValueError as exc:
+            return CompileAttempt(attempt, stage, None, str(exc))
+        return CompileAttempt(attempt, stage, source, self.gate(source))

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from random import Random
 from textwrap import dedent, indent
 
+from .protocol import StructuredPrediction
+
 
 @dataclass(frozen=True)
 class Mutation:
@@ -199,6 +201,15 @@ _OPERATORS = {
     "dual_stream": (_DUAL_STREAM, (48, 72, 94)),
 }
 FAMILIES = tuple(_OPERATORS)
+
+
+def placeholder_forecasts() -> tuple[StructuredPrediction, StructuredPrediction]:
+    """Record the common two-slot schema without making it a promotion condition."""
+    primary = StructuredPrediction("lob_impact_score", "increase", (0.50, 100.0), role="primary")
+    guardrail = StructuredPrediction(
+        "val_nll_total", "equivalent", (-0.05, 0.05), role="guardrail", equivalence_band=(-0.05, 0.05),
+    )
+    return primary, guardrail
 
 
 def mutate(seed: int, *, family: str | None = None) -> Mutation:
