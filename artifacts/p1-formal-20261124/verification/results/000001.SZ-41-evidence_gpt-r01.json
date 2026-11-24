@@ -1,0 +1,412 @@
+{
+  "assessment": {
+    "aggregate_delta": {
+      "lob_impact_score": 2.1307928359289434,
+      "val_nll_total": -0.001821851734989573
+    },
+    "guardrails": {
+      "child_free_abs_drift_ticks": 0.027777777777777776,
+      "delta_exhausted_windows": 0.0,
+      "delta_free_abs_drift_ticks": -0.04166666666666667,
+      "delta_val_nll_total": -0.001821851734989573,
+      "drift_passed": true,
+      "exhaustion_passed": true,
+      "finite_nll_by_seed": true,
+      "nll_passed": true,
+      "parent_free_abs_drift_ticks": 0.06944444444444445
+    },
+    "has_benchmark_gain": false,
+    "mean_delta_score": 2.1307928359289434,
+    "nll_guardrail_passed": true,
+    "p05_delta_score": -6.068493524403916,
+    "prediction_verdicts": [
+      {
+        "metric": "trade_sign_acf_exp_gap",
+        "role": "primary",
+        "status": "INCONCLUSIVE"
+      },
+      {
+        "metric": "val_nll_total",
+        "role": "guardrail",
+        "status": "SUPPORTED"
+      }
+    ],
+    "readouts": {
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 0.027777777777777776,
+        "candidate_interval": [
+          0.0,
+          0.08333333333333333
+        ],
+        "estimate": -0.04166666666666667,
+        "interval": [
+          -0.08333333333333333,
+          0.0
+        ],
+        "p05": -0.08333333333333333,
+        "paired_days": 12,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 0.06944444444444445,
+        "parent_interval": [
+          0.013888888888888888,
+          0.1388888888888889
+        ],
+        "reason": null,
+        "registered_days": 12
+      },
+      "lob_impact_score": {
+        "bootstrap_support": {
+          "candidate": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          },
+          "estimand": "pooled impact score conditional on original-panel C2 admission",
+          "parent": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          }
+        },
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 45.14154552410099,
+        "candidate_interval": [
+          28.31460575020049,
+          77.78395995367038
+        ],
+        "estimate": 2.1307928359289434,
+        "interval": [
+          -8.492269494318684,
+          13.503670794104115
+        ],
+        "p05": -6.068493524403916,
+        "paired_days": 9,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 43.01075268817205,
+        "parent_interval": [
+          29.94013530323874,
+          76.92914766748505
+        ],
+        "reason": null,
+        "registered_days": 12
+      },
+      "trade_sign_acf_exp_gap": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 1877,
+        "candidate_bootstrap_valid": 1949,
+        "candidate_estimate": 0.4758332321879085,
+        "candidate_interval": [
+          0.02394537550928709,
+          2.72361311963008
+        ],
+        "estimate": 0.21358104666164257,
+        "interval": [
+          -1.2104027841656078,
+          1.6777161435565637
+        ],
+        "p05": -0.9403578560360283,
+        "paired_days": 9,
+        "parent_bootstrap_valid": 1903,
+        "parent_estimate": 0.26225218552626595,
+        "parent_interval": [
+          0.025825350276261042,
+          2.189611337809708
+        ],
+        "reason": null,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 7.755404633446653,
+        "candidate_interval": [
+          7.6800740665207154,
+          7.8228085827426
+        ],
+        "estimate": -0.001821851734989573,
+        "interval": [
+          -0.003081967399731883,
+          -0.000619297033070554
+        ],
+        "p05": -0.0028853802808277464,
+        "paired_days": 12,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 7.7572264851816435,
+        "parent_interval": [
+          7.6826698105899105,
+          7.823963155164989
+        ],
+        "reason": null,
+        "registered_days": 12
+      }
+    },
+    "verdict": "REFUTED"
+  },
+  "candidate": {
+    "model_id": "000001.SZ-41-evidence_gpt-r01",
+    "source_sha256": "7f007b9b7a4ef45fb8f930816d905a6b7aba814b7bd91f6853a045c9d8a18d24"
+  },
+  "group": "evidence_gpt",
+  "metrics": {
+    "blind_ratio": 1.2040816326530612,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.7288135593220338,
+    "evaluation_seconds": 212.5947831250087,
+    "event_count_delta": -79.59722222222229,
+    "event_count_rel_gap": 0.12625294648954694,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 37.2105319580005,
+      "137": 40.5426227079879,
+      "211": 45.104201209003804
+    },
+    "free_abs_drift_ticks": 0.027777777777777776,
+    "hurst_delta": -0.0769960208727408,
+    "hurst_gap": 0.0769960208727408,
+    "idle_abs_drift": 0.027777777777777776,
+    "impact_delta": 1.06,
+    "impact_exponent_gap": 0.56,
+    "impact_peak": 0.20486111111111113,
+    "impact_y": 0.5870198985673144,
+    "l1_depth_mae": 284103.2608974359,
+    "lob_impact_score": 45.14154552410099,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6389878280568342,
+    "nll_dt": 2.3449193625126274,
+    "nll_rel_ticks": 1.5020968906862564,
+    "nll_volume": 2.2677649174505934,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 22124,
+    "recovery_ratio": 0.7288135593220338,
+    "sign_acf_delta": -0.47583323218790674,
+    "state_dim": 52,
+    "top_depth_delta": -16306.178418803378,
+    "trade_sign_acf_exp_gap": 0.47583323218790674,
+    "train_seed_nll": {
+      "103": 7.752117054782772,
+      "137": 7.758949250232975,
+      "211": 7.750240691103187
+    },
+    "val_nll_total": 7.753768998706311,
+    "visible_over_blind_ratio": 1.2040816326530612,
+    "zero_wait_rate_delta": 0.0027456521258325383
+  },
+  "parent": {
+    "model_id": "seed-gru",
+    "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
+  },
+  "parent_metrics": {
+    "blind_ratio": 1.1636363636363636,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.5468750000000001,
+    "evaluation_seconds": 223.41222175001167,
+    "event_count_delta": -82.27777777777783,
+    "event_count_rel_gap": 0.13050470336836084,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 24.51638341700891,
+      "137": 23.451058000006014,
+      "211": 23.729391792003298
+    },
+    "free_abs_drift_ticks": 0.06944444444444445,
+    "hurst_delta": -0.07790271642464791,
+    "hurst_gap": 0.07790271642464791,
+    "idle_abs_drift": 0.06944444444444445,
+    "impact_delta": 1.13,
+    "impact_exponent_gap": 0.6299999999999999,
+    "impact_peak": 0.2222222222222222,
+    "impact_y": 0.6367673475984427,
+    "l1_depth_mae": 292142.8803418803,
+    "lob_impact_score": 43.01075268817205,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6404615248948466,
+    "nll_dt": 2.3451548886336426,
+    "nll_rel_ticks": 1.5024831124102922,
+    "nll_volume": 2.267660655545282,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 21932,
+    "recovery_ratio": 0.5468750000000001,
+    "sign_acf_delta": -0.26225218552626506,
+    "state_dim": 48,
+    "top_depth_delta": -15830.02799145307,
+    "trade_sign_acf_exp_gap": 0.26225218552626506,
+    "train_seed_nll": {
+      "103": 7.758844363438099,
+      "137": 7.757531133522778,
+      "211": 7.750905047491312
+    },
+    "val_nll_total": 7.755760181484064,
+    "visible_over_blind_ratio": 1.1636363636363636,
+    "zero_wait_rate_delta": 0.002688866026027784
+  },
+  "predictions": [
+    {
+      "direction": "decrease",
+      "equivalence_band": null,
+      "interval": [
+        -1.2,
+        -0.25
+      ],
+      "metric": "trade_sign_acf_exp_gap",
+      "role": "primary"
+    },
+    {
+      "direction": "equivalent",
+      "equivalence_band": [
+        -0.05,
+        0.05
+      ],
+      "interval": [
+        -0.05,
+        0.05
+      ],
+      "metric": "val_nll_total",
+      "role": "guardrail"
+    }
+  ],
+  "readouts": {
+    "free_abs_drift_ticks": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 0.027777777777777776,
+      "candidate_interval": [
+        0.0,
+        0.08333333333333333
+      ],
+      "estimate": -0.04166666666666667,
+      "interval": [
+        -0.08333333333333333,
+        0.0
+      ],
+      "p05": -0.08333333333333333,
+      "paired_days": 12,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 0.06944444444444445,
+      "parent_interval": [
+        0.013888888888888888,
+        0.1388888888888889
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 45.14154552410099,
+      "candidate_interval": [
+        28.31460575020049,
+        77.78395995367038
+      ],
+      "estimate": 2.1307928359289434,
+      "interval": [
+        -8.492269494318684,
+        13.503670794104115
+      ],
+      "p05": -6.068493524403916,
+      "paired_days": 9,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 43.01075268817205,
+      "parent_interval": [
+        29.94013530323874,
+        76.92914766748505
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "trade_sign_acf_exp_gap": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 1877,
+      "candidate_bootstrap_valid": 1949,
+      "candidate_estimate": 0.4758332321879085,
+      "candidate_interval": [
+        0.02394537550928709,
+        2.72361311963008
+      ],
+      "estimate": 0.21358104666164257,
+      "interval": [
+        -1.2104027841656078,
+        1.6777161435565637
+      ],
+      "p05": -0.9403578560360283,
+      "paired_days": 9,
+      "parent_bootstrap_valid": 1903,
+      "parent_estimate": 0.26225218552626595,
+      "parent_interval": [
+        0.025825350276261042,
+        2.189611337809708
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.755404633446653,
+      "candidate_interval": [
+        7.6800740665207154,
+        7.8228085827426
+      ],
+      "estimate": -0.001821851734989573,
+      "interval": [
+        -0.003081967399731883,
+        -0.000619297033070554
+      ],
+      "p05": -0.0028853802808277464,
+      "paired_days": 12,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7572264851816435,
+      "parent_interval": [
+        7.6826698105899105,
+        7.823963155164989
+      ],
+      "reason": null,
+      "registered_days": 12
+    }
+  },
+  "roles": [
+    "first"
+  ],
+  "status": "measured",
+  "stock": "000001.SZ",
+  "task_id": "000001.SZ-41-evidence_gpt-r01"
+}

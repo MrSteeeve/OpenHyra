@@ -1,0 +1,240 @@
+stock,arm,search_seed,round,trial_id,request,stage,http_attempt,completed,input_tokens,output_tokens,seconds,retryable,diagnostic
+000001.SZ,evidence_ds,17,1,000001.SZ-17-evidence_ds-r01,hypothesis-01,hypothesis,1,True,1949,368,5.660461249994114,False,
+000001.SZ,evidence_ds,17,1,000001.SZ-17-evidence_ds-r01,synthesis-01,code,1,True,2213,1440,6.051386292005191,False,
+000001.SZ,evidence_ds,17,2,000001.SZ-17-evidence_ds-r02,hypothesis-01,hypothesis,1,True,2370,365,3.6877351669827476,False,
+000001.SZ,evidence_ds,17,2,000001.SZ-17-evidence_ds-r02,synthesis-01,code,1,True,2631,1357,6.3824853749829344,False,
+000001.SZ,evidence_ds,17,2,000001.SZ-17-evidence_ds-r02,synthesis-02,repair,1,True,3135,1526,5.99285612499807,False,
+000001.SZ,evidence_ds,17,2,000001.SZ-17-evidence_ds-r02,synthesis-03,repair,1,True,2982,1636,6.854457750014262,False,
+000001.SZ,evidence_ds,17,3,000001.SZ-17-evidence_ds-r03,hypothesis-01,hypothesis,1,True,2721,490,3.9891312920080964,False,
+000001.SZ,evidence_ds,17,3,000001.SZ-17-evidence_ds-r03,synthesis-01,code,1,True,3107,1321,6.06019229098456,False,
+000001.SZ,evidence_ds,29,1,000001.SZ-29-evidence_ds-r01,hypothesis-01,hypothesis,1,True,1949,261,4.167102709005121,False,
+000001.SZ,evidence_ds,29,1,000001.SZ-29-evidence_ds-r01,synthesis-01,code,1,True,2106,1605,6.657666458020685,False,
+000001.SZ,evidence_ds,29,2,000001.SZ-29-evidence_ds-r02,hypothesis-01,hypothesis,1,True,2202,336,4.11935558298137,False,
+000001.SZ,evidence_ds,29,2,000001.SZ-29-evidence_ds-r02,synthesis-01,code,1,True,2394,1254,5.4170699160022195,False,
+000001.SZ,evidence_ds,29,2,000001.SZ-29-evidence_ds-r02,synthesis-02,repair,1,True,2741,1487,6.335840707994066,False,
+000001.SZ,evidence_ds,29,2,000001.SZ-29-evidence_ds-r02,synthesis-03,repair,1,True,2921,3394,23.774012917012442,False,
+000001.SZ,evidence_ds,29,3,000001.SZ-29-evidence_ds-r03,hypothesis-01,hypothesis,1,True,2477,345,3.4848253749951255,False,
+000001.SZ,evidence_ds,29,3,000001.SZ-29-evidence_ds-r03,synthesis-01,code,1,True,2718,1496,6.803633083996829,False,
+000001.SZ,evidence_ds,41,1,000001.SZ-41-evidence_ds-r01,hypothesis-01,hypothesis,1,True,1949,299,3.576777249982115,False,
+000001.SZ,evidence_ds,41,1,000001.SZ-41-evidence_ds-r01,synthesis-01,code,1,True,2144,1391,9.549801416986156,False,
+000001.SZ,evidence_ds,41,1,000001.SZ-41-evidence_ds-r01,synthesis-02,repair,1,True,2489,1008,5.098415000014938,False,
+000001.SZ,evidence_ds,41,1,000001.SZ-41-evidence_ds-r01,synthesis-03,repair,1,True,3355,1145,5.457157875003759,False,
+000001.SZ,evidence_ds,41,2,000001.SZ-41-evidence_ds-r02,hypothesis-01,hypothesis,1,True,2241,351,3.559241042006761,False,
+000001.SZ,evidence_ds,41,2,000001.SZ-41-evidence_ds-r02,synthesis-01,code,1,True,2488,1188,5.6397059999872,False,
+000001.SZ,evidence_ds,41,3,000001.SZ-41-evidence_ds-r03,hypothesis-01,hypothesis,1,True,2579,455,4.4344468750059605,False,
+000001.SZ,evidence_ds,41,3,000001.SZ-41-evidence_ds-r03,synthesis-01,code,1,True,2930,1187,7.590000333002536,False,
+000001.SZ,evidence_gpt,17,1,000001.SZ-17-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,1756,480,10.72940816701157,False,
+000001.SZ,evidence_gpt,17,1,000001.SZ-17-evidence_gpt-r01,synthesis-01,code,1,True,2136,1022,13.629609791998519,False,
+000001.SZ,evidence_gpt,17,2,000001.SZ-17-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,2176,547,10.50924808398122,False,
+000001.SZ,evidence_gpt,17,2,000001.SZ-17-evidence_gpt-r02,synthesis-01,code,1,True,2624,1117,15.097371707990533,False,
+000001.SZ,evidence_gpt,17,3,000001.SZ-17-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,2654,517,9.036387749976711,False,
+000001.SZ,evidence_gpt,17,3,000001.SZ-17-evidence_gpt-r03,synthesis-01,code,1,True,3072,1107,15.405112999986159,False,
+000001.SZ,evidence_gpt,29,1,000001.SZ-29-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,1756,521,10.991555207991041,False,
+000001.SZ,evidence_gpt,29,1,000001.SZ-29-evidence_gpt-r01,synthesis-01,code,1,True,2177,1008,13.652819625014672,False,
+000001.SZ,evidence_gpt,29,2,000001.SZ-29-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,2217,424,9.179583207995165,False,
+000001.SZ,evidence_gpt,29,2,000001.SZ-29-evidence_gpt-r02,synthesis-01,code,1,True,2544,1109,17.862770499981707,False,
+000001.SZ,evidence_gpt,29,2,000001.SZ-29-evidence_gpt-r02,synthesis-02,repair,1,True,3282,1047,14.43666758298059,False,
+000001.SZ,evidence_gpt,29,2,000001.SZ-29-evidence_gpt-r02,synthesis-03,repair,1,True,3329,1135,17.14928770798724,False,
+000001.SZ,evidence_gpt,29,3,000001.SZ-29-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,2631,528,12.495152333023725,False,
+000001.SZ,evidence_gpt,29,3,000001.SZ-29-evidence_gpt-r03,synthesis-01,code,1,True,3060,852,11.414968334021978,False,
+000001.SZ,evidence_gpt,41,1,000001.SZ-41-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,1756,478,10.666507000016281,False,
+000001.SZ,evidence_gpt,41,1,000001.SZ-41-evidence_gpt-r01,synthesis-01,code,1,True,2135,1046,13.52573870800552,False,
+000001.SZ,evidence_gpt,41,2,000001.SZ-41-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,2172,561,11.123252458986826,False,
+000001.SZ,evidence_gpt,41,2,000001.SZ-41-evidence_gpt-r02,synthesis-01,code,1,True,2634,922,12.763283583015436,False,
+000001.SZ,evidence_gpt,41,3,000001.SZ-41-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,2664,521,10.195836667000549,False,
+000001.SZ,evidence_gpt,41,3,000001.SZ-41-evidence_gpt-r03,synthesis-01,code,1,True,3090,941,13.036531332996674,False,
+000001.SZ,metrics_ds,17,1,000001.SZ-17-metrics_ds-r01,hypothesis-01,hypothesis,1,True,1279,334,4.187571457994636,False,
+000001.SZ,metrics_ds,17,1,000001.SZ-17-metrics_ds-r01,synthesis-01,code,1,True,1842,1097,5.063345125003252,False,
+000001.SZ,metrics_ds,17,1,000001.SZ-17-metrics_ds-r01,synthesis-02,repair,1,True,3290,1176,5.087020709004719,False,
+000001.SZ,metrics_ds,17,2,000001.SZ-17-metrics_ds-r02,hypothesis-01,hypothesis,1,True,1279,349,3.558211833005771,False,
+000001.SZ,metrics_ds,17,2,000001.SZ-17-metrics_ds-r02,synthesis-01,code,1,True,1857,1268,5.444111958000576,False,
+000001.SZ,metrics_ds,17,2,000001.SZ-17-metrics_ds-r02,synthesis-02,repair,1,True,2206,1262,6.132306541025173,False,
+000001.SZ,metrics_ds,17,3,000001.SZ-17-metrics_ds-r03,hypothesis-01,hypothesis,1,True,1279,266,3.3643717920058407,False,
+000001.SZ,metrics_ds,17,3,000001.SZ-17-metrics_ds-r03,synthesis-01,code,1,True,1774,937,6.027825583994854,False,
+000001.SZ,metrics_ds,17,3,000001.SZ-17-metrics_ds-r03,synthesis-02,repair,1,True,3416,950,5.9763257919985335,False,
+000001.SZ,metrics_ds,17,3,000001.SZ-17-metrics_ds-r03,synthesis-03,repair,1,True,3429,938,4.471057916991413,False,
+000001.SZ,metrics_ds,29,1,000001.SZ-29-metrics_ds-r01,hypothesis-01,hypothesis,1,True,1279,345,3.9868524170015007,False,
+000001.SZ,metrics_ds,29,1,000001.SZ-29-metrics_ds-r01,synthesis-01,code,1,True,1853,1262,6.0018658750050236,False,
+000001.SZ,metrics_ds,29,2,000001.SZ-29-metrics_ds-r02,hypothesis-01,hypothesis,1,True,1279,275,4.305423959012842,False,
+000001.SZ,metrics_ds,29,2,000001.SZ-29-metrics_ds-r02,synthesis-01,code,1,True,1783,1261,7.001134041987825,False,
+000001.SZ,metrics_ds,29,3,000001.SZ-29-metrics_ds-r03,hypothesis-01,hypothesis,1,True,1279,288,4.710564666020218,False,
+000001.SZ,metrics_ds,29,3,000001.SZ-29-metrics_ds-r03,synthesis-01,code,1,True,1796,1560,7.3014893750078045,False,
+000001.SZ,metrics_ds,29,3,000001.SZ-29-metrics_ds-r03,synthesis-02,repair,1,True,2141,1323,6.074193040985847,False,
+000001.SZ,metrics_ds,29,3,000001.SZ-29-metrics_ds-r03,synthesis-03,repair,1,True,2498,1225,7.177747957990505,False,
+000001.SZ,metrics_ds,41,1,000001.SZ-41-metrics_ds-r01,hypothesis-01,hypothesis,1,True,1279,266,4.596190207987092,False,
+000001.SZ,metrics_ds,41,1,000001.SZ-41-metrics_ds-r01,synthesis-01,code,1,True,1774,1195,7.097594666003715,False,
+000001.SZ,metrics_ds,41,2,000001.SZ-41-metrics_ds-r02,hypothesis-01,hypothesis,1,True,1279,273,3.8318165839882568,False,
+000001.SZ,metrics_ds,41,2,000001.SZ-41-metrics_ds-r02,synthesis-01,code,1,True,1781,1216,5.593549499986693,False,
+000001.SZ,metrics_ds,41,2,000001.SZ-41-metrics_ds-r02,synthesis-02,repair,1,True,3348,1133,5.287181249994319,False,
+000001.SZ,metrics_ds,41,2,000001.SZ-41-metrics_ds-r02,synthesis-03,repair,1,True,3266,1071,5.500492999999551,False,
+000001.SZ,metrics_ds,41,3,000001.SZ-41-metrics_ds-r03,hypothesis-01,hypothesis,1,True,1279,280,4.934448458981933,False,
+000001.SZ,metrics_ds,41,3,000001.SZ-41-metrics_ds-r03,synthesis-01,code,1,True,1788,1562,7.192665791983018,False,
+000001.SZ,metrics_ds,41,3,000001.SZ-41-metrics_ds-r03,synthesis-02,repair,1,True,2337,1584,6.554624040989438,False,
+000001.SZ,metrics_ds,41,3,000001.SZ-41-metrics_ds-r03,synthesis-03,repair,1,True,2304,1575,8.989171083987458,False,
+000001.SZ,metrics_gpt,17,1,000001.SZ-17-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,1165,535,12.565410875016823,False,
+000001.SZ,metrics_gpt,17,1,000001.SZ-17-metrics_gpt-r01,synthesis-01,code,1,True,1877,1239,15.66907295899,False,
+000001.SZ,metrics_gpt,17,2,000001.SZ-17-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,1165,546,11.331897458003368,False,
+000001.SZ,metrics_gpt,17,2,000001.SZ-17-metrics_gpt-r02,synthesis-01,code,1,True,1892,988,13.133943249995355,False,
+000001.SZ,metrics_gpt,17,3,000001.SZ-17-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,1165,516,12.492330084001878,False,
+000001.SZ,metrics_gpt,17,3,000001.SZ-17-metrics_gpt-r03,synthesis-01,code,1,True,1858,923,12.823487167013809,False,
+000001.SZ,metrics_gpt,29,1,000001.SZ-29-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,1165,498,11.318397791997995,False,
+000001.SZ,metrics_gpt,29,1,000001.SZ-29-metrics_gpt-r01,synthesis-01,code,1,True,1844,962,13.066492084006313,False,
+000001.SZ,metrics_gpt,29,2,000001.SZ-29-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,1165,587,14.333293957985006,False,
+000001.SZ,metrics_gpt,29,2,000001.SZ-29-metrics_gpt-r02,synthesis-01,code,1,True,1933,1026,14.072177624999313,False,
+000001.SZ,metrics_gpt,29,3,000001.SZ-29-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,1165,530,12.070952625013888,False,
+000001.SZ,metrics_gpt,29,3,000001.SZ-29-metrics_gpt-r03,synthesis-01,code,1,True,1876,1030,13.784206750016892,False,
+000001.SZ,metrics_gpt,41,1,000001.SZ-41-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,1165,405,9.297064165992197,False,
+000001.SZ,metrics_gpt,41,1,000001.SZ-41-metrics_gpt-r01,synthesis-01,code,1,True,1751,783,10.823964000010164,False,
+000001.SZ,metrics_gpt,41,2,000001.SZ-41-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,1165,542,13.787092750018928,False,
+000001.SZ,metrics_gpt,41,2,000001.SZ-41-metrics_gpt-r02,synthesis-01,code,1,True,1751,765,10.57037216599565,False,
+000001.SZ,metrics_gpt,41,3,000001.SZ-41-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,1165,526,11.838782915991032,False,
+000001.SZ,metrics_gpt,41,3,000001.SZ-41-metrics_gpt-r03,synthesis-01,code,1,True,1872,1115,15.253416332998313,False,
+300001.SZ,evidence_ds,17,1,300001.SZ-17-evidence_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.989360791980289,True,Provider transport failure
+300001.SZ,evidence_ds,17,1,300001.SZ-17-evidence_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,8.034087707987055,True,Provider transport failure
+300001.SZ,evidence_ds,17,1,300001.SZ-17-evidence_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,6.004045542009408,True,Provider transport failure
+300001.SZ,evidence_ds,17,1,300001.SZ-17-evidence_ds-r01,hypothesis-01,hypothesis,1,True,,,9.911752833024366,True,Provider transport failure
+300001.SZ,evidence_ds,17,2,300001.SZ-17-evidence_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,9.007580958015751,True,Provider transport failure
+300001.SZ,evidence_ds,17,2,300001.SZ-17-evidence_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.992515041027218,True,Provider transport failure
+300001.SZ,evidence_ds,17,2,300001.SZ-17-evidence_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.991863790986827,True,Provider transport failure
+300001.SZ,evidence_ds,17,2,300001.SZ-17-evidence_ds-r02,hypothesis-01,hypothesis,1,True,,,9.9795439169975,True,Provider transport failure
+300001.SZ,evidence_ds,17,3,300001.SZ-17-evidence_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,9.000235665997025,True,Provider transport failure
+300001.SZ,evidence_ds,17,3,300001.SZ-17-evidence_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,7.992502624983899,True,Provider transport failure
+300001.SZ,evidence_ds,17,3,300001.SZ-17-evidence_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,6.002674749994185,True,Provider transport failure
+300001.SZ,evidence_ds,17,3,300001.SZ-17-evidence_ds-r03,hypothesis-01,hypothesis,1,True,,,10.11564862501109,True,Provider transport failure
+300001.SZ,evidence_ds,29,1,300001.SZ-29-evidence_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.987960166996345,True,Provider transport failure
+300001.SZ,evidence_ds,29,1,300001.SZ-29-evidence_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,8.033483375009382,True,Provider transport failure
+300001.SZ,evidence_ds,29,1,300001.SZ-29-evidence_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.997246624989202,True,Provider transport failure
+300001.SZ,evidence_ds,29,1,300001.SZ-29-evidence_ds-r01,hypothesis-01,hypothesis,1,True,,,9.91310804101522,True,Provider transport failure
+300001.SZ,evidence_ds,29,2,300001.SZ-29-evidence_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.997570917010307,True,Provider transport failure
+300001.SZ,evidence_ds,29,2,300001.SZ-29-evidence_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.991581709007733,True,Provider transport failure
+300001.SZ,evidence_ds,29,2,300001.SZ-29-evidence_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.9927519589837175,True,Provider transport failure
+300001.SZ,evidence_ds,29,2,300001.SZ-29-evidence_ds-r02,hypothesis-01,hypothesis,1,True,,,9.979463541996665,True,Provider transport failure
+300001.SZ,evidence_ds,29,3,300001.SZ-29-evidence_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,9.002025499998126,True,Provider transport failure
+300001.SZ,evidence_ds,29,3,300001.SZ-29-evidence_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,7.992531875002896,True,Provider transport failure
+300001.SZ,evidence_ds,29,3,300001.SZ-29-evidence_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,6.001127416995587,True,Provider transport failure
+300001.SZ,evidence_ds,29,3,300001.SZ-29-evidence_ds-r03,hypothesis-01,hypothesis,1,True,,,10.116924874979304,True,Provider transport failure
+300001.SZ,evidence_ds,41,1,300001.SZ-41-evidence_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.996349042019574,True,Provider transport failure
+300001.SZ,evidence_ds,41,1,300001.SZ-41-evidence_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,11.094018500007223,True,Provider transport failure
+300001.SZ,evidence_ds,41,1,300001.SZ-41-evidence_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.991080958978273,True,Provider transport failure
+300001.SZ,evidence_ds,41,1,300001.SZ-41-evidence_ds-r01,hypothesis-01,hypothesis,1,True,,,9.971280166995712,True,Provider transport failure
+300001.SZ,evidence_ds,41,2,300001.SZ-41-evidence_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.98302645899821,True,Provider transport failure
+300001.SZ,evidence_ds,41,2,300001.SZ-41-evidence_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.998162042000331,True,Provider transport failure
+300001.SZ,evidence_ds,41,2,300001.SZ-41-evidence_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.995049040997401,True,Provider transport failure
+300001.SZ,evidence_ds,41,2,300001.SZ-41-evidence_ds-r02,hypothesis-01,hypothesis,1,True,,,9.99604429199826,True,Provider transport failure
+300001.SZ,evidence_ds,41,3,300001.SZ-41-evidence_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.995317791006528,True,Provider transport failure
+300001.SZ,evidence_ds,41,3,300001.SZ-41-evidence_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,7.994780582987005,True,Provider transport failure
+300001.SZ,evidence_ds,41,3,300001.SZ-41-evidence_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.999310624989448,True,Provider transport failure
+300001.SZ,evidence_ds,41,3,300001.SZ-41-evidence_ds-r03,hypothesis-01,hypothesis,1,True,,,11.05636095799855,True,Provider transport failure
+300001.SZ,evidence_gpt,17,1,300001.SZ-17-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,1744,442,10.965921707975212,False,
+300001.SZ,evidence_gpt,17,1,300001.SZ-17-evidence_gpt-r01,synthesis-01,code,1,True,2087,959,13.209929749980802,False,
+300001.SZ,evidence_gpt,17,2,300001.SZ-17-evidence_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,10.077273417002289,True,Provider transport failure
+300001.SZ,evidence_gpt,17,2,300001.SZ-17-evidence_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,10.096307958010584,True,Provider transport failure
+300001.SZ,evidence_gpt,17,2,300001.SZ-17-evidence_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,10.096206374990288,True,Provider transport failure
+300001.SZ,evidence_gpt,17,2,300001.SZ-17-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,,,10.091207833000226,True,Provider transport failure
+300001.SZ,evidence_gpt,17,3,300001.SZ-17-evidence_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,10.101740292011527,True,Provider transport failure
+300001.SZ,evidence_gpt,17,3,300001.SZ-17-evidence_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,10.079054707981413,True,Provider transport failure
+300001.SZ,evidence_gpt,17,3,300001.SZ-17-evidence_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,10.127399375021923,True,Provider transport failure
+300001.SZ,evidence_gpt,17,3,300001.SZ-17-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,,,10.072924625012092,True,Provider transport failure
+300001.SZ,evidence_gpt,29,1,300001.SZ-29-evidence_gpt-r01,hypothesis-01-http-02,hypothesis,2,True,,,15.68778495900915,True,Provider transport failure
+300001.SZ,evidence_gpt,29,1,300001.SZ-29-evidence_gpt-r01,hypothesis-01-http-03,hypothesis,3,True,,,10.083741124981316,True,Provider transport failure
+300001.SZ,evidence_gpt,29,1,300001.SZ-29-evidence_gpt-r01,hypothesis-01-http-04,hypothesis,4,True,,,10.059291582991136,True,Provider transport failure
+300001.SZ,evidence_gpt,29,1,300001.SZ-29-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,,,10.073116666986607,True,Provider transport failure
+300001.SZ,evidence_gpt,29,2,300001.SZ-29-evidence_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,10.082461624988355,True,Provider transport failure
+300001.SZ,evidence_gpt,29,2,300001.SZ-29-evidence_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,10.090824457991403,True,Provider transport failure
+300001.SZ,evidence_gpt,29,2,300001.SZ-29-evidence_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,10.06862462501158,True,Provider transport failure
+300001.SZ,evidence_gpt,29,2,300001.SZ-29-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,,,10.074082625011215,True,Provider transport failure
+300001.SZ,evidence_gpt,29,3,300001.SZ-29-evidence_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,10.097896124992985,True,Provider transport failure
+300001.SZ,evidence_gpt,29,3,300001.SZ-29-evidence_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,10.095251249993453,True,Provider transport failure
+300001.SZ,evidence_gpt,29,3,300001.SZ-29-evidence_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,8.675292041996727,True,Provider transport failure
+300001.SZ,evidence_gpt,29,3,300001.SZ-29-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,,,10.07741304099909,True,Provider transport failure
+300001.SZ,evidence_gpt,41,1,300001.SZ-41-evidence_gpt-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.992669416998979,True,Provider transport failure
+300001.SZ,evidence_gpt,41,1,300001.SZ-41-evidence_gpt-r01,hypothesis-01-http-03,hypothesis,3,True,,,7.996508292009821,True,Provider transport failure
+300001.SZ,evidence_gpt,41,1,300001.SZ-41-evidence_gpt-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.999980249995133,True,Provider transport failure
+300001.SZ,evidence_gpt,41,1,300001.SZ-41-evidence_gpt-r01,hypothesis-01,hypothesis,1,True,,,2.9347306660201866,True,Provider transport failure
+300001.SZ,evidence_gpt,41,2,300001.SZ-41-evidence_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.999375665996922,True,Provider transport failure
+300001.SZ,evidence_gpt,41,2,300001.SZ-41-evidence_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,8.469840000005206,True,Provider transport failure
+300001.SZ,evidence_gpt,41,2,300001.SZ-41-evidence_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,6.002744708006503,True,Provider transport failure
+300001.SZ,evidence_gpt,41,2,300001.SZ-41-evidence_gpt-r02,hypothesis-01,hypothesis,1,True,,,10.008671166026033,True,Provider transport failure
+300001.SZ,evidence_gpt,41,3,300001.SZ-41-evidence_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.994850209011929,True,Provider transport failure
+300001.SZ,evidence_gpt,41,3,300001.SZ-41-evidence_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,8.011768958007451,True,Provider transport failure
+300001.SZ,evidence_gpt,41,3,300001.SZ-41-evidence_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.99163958299323,True,Provider transport failure
+300001.SZ,evidence_gpt,41,3,300001.SZ-41-evidence_gpt-r03,hypothesis-01,hypothesis,1,True,,,9.987331040989375,True,Provider transport failure
+300001.SZ,metrics_ds,17,1,300001.SZ-17-metrics_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.990160458022729,True,Provider transport failure
+300001.SZ,metrics_ds,17,1,300001.SZ-17-metrics_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,11.097009541990701,True,Provider transport failure
+300001.SZ,metrics_ds,17,1,300001.SZ-17-metrics_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.9924034159921575,True,Provider transport failure
+300001.SZ,metrics_ds,17,1,300001.SZ-17-metrics_ds-r01,hypothesis-01,hypothesis,1,True,,,9.971272750000935,True,Provider transport failure
+300001.SZ,metrics_ds,17,2,300001.SZ-17-metrics_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.982225209008902,True,Provider transport failure
+300001.SZ,metrics_ds,17,2,300001.SZ-17-metrics_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,8.00670016699587,True,Provider transport failure
+300001.SZ,metrics_ds,17,2,300001.SZ-17-metrics_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.997317875007866,True,Provider transport failure
+300001.SZ,metrics_ds,17,2,300001.SZ-17-metrics_ds-r02,hypothesis-01,hypothesis,1,True,,,9.99345804200857,True,Provider transport failure
+300001.SZ,metrics_ds,17,3,300001.SZ-17-metrics_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.999544791993685,True,Provider transport failure
+300001.SZ,metrics_ds,17,3,300001.SZ-17-metrics_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,7.994099499977892,True,Provider transport failure
+300001.SZ,metrics_ds,17,3,300001.SZ-17-metrics_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.998325458000181,True,Provider transport failure
+300001.SZ,metrics_ds,17,3,300001.SZ-17-metrics_ds-r03,hypothesis-01,hypothesis,1,True,,,11.055980375007493,True,Provider transport failure
+300001.SZ,metrics_ds,29,1,300001.SZ-29-metrics_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.996497082989663,True,Provider transport failure
+300001.SZ,metrics_ds,29,1,300001.SZ-29-metrics_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,8.050015583023196,True,Provider transport failure
+300001.SZ,metrics_ds,29,1,300001.SZ-29-metrics_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.98642629099777,True,Provider transport failure
+300001.SZ,metrics_ds,29,1,300001.SZ-29-metrics_ds-r01,hypothesis-01,hypothesis,1,True,,,9.984914749977179,True,Provider transport failure
+300001.SZ,metrics_ds,29,2,300001.SZ-29-metrics_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.983254041988403,True,Provider transport failure
+300001.SZ,metrics_ds,29,2,300001.SZ-29-metrics_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.99541124998359,True,Provider transport failure
+300001.SZ,metrics_ds,29,2,300001.SZ-29-metrics_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.991052083001705,True,Provider transport failure
+300001.SZ,metrics_ds,29,2,300001.SZ-29-metrics_ds-r02,hypothesis-01,hypothesis,1,True,,,9.985587457980728,True,Provider transport failure
+300001.SZ,metrics_ds,29,3,300001.SZ-29-metrics_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.998874207987683,True,Provider transport failure
+300001.SZ,metrics_ds,29,3,300001.SZ-29-metrics_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,8.006302374997176,True,Provider transport failure
+300001.SZ,metrics_ds,29,3,300001.SZ-29-metrics_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.996501125016948,True,Provider transport failure
+300001.SZ,metrics_ds,29,3,300001.SZ-29-metrics_ds-r03,hypothesis-01,hypothesis,1,True,,,10.083745791984256,True,Provider transport failure
+300001.SZ,metrics_ds,41,1,300001.SZ-41-metrics_ds-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.99456808299874,True,Provider transport failure
+300001.SZ,metrics_ds,41,1,300001.SZ-41-metrics_ds-r01,hypothesis-01-http-03,hypothesis,3,True,,,8.047969291015761,True,Provider transport failure
+300001.SZ,metrics_ds,41,1,300001.SZ-41-metrics_ds-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.992961750016548,True,Provider transport failure
+300001.SZ,metrics_ds,41,1,300001.SZ-41-metrics_ds-r01,hypothesis-01,hypothesis,1,True,,,9.98566233398742,True,Provider transport failure
+300001.SZ,metrics_ds,41,2,300001.SZ-41-metrics_ds-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.982029875012813,True,Provider transport failure
+300001.SZ,metrics_ds,41,2,300001.SZ-41-metrics_ds-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.984287333005341,True,Provider transport failure
+300001.SZ,metrics_ds,41,2,300001.SZ-41-metrics_ds-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.995857082976727,True,Provider transport failure
+300001.SZ,metrics_ds,41,2,300001.SZ-41-metrics_ds-r02,hypothesis-01,hypothesis,1,True,,,9.975061249977443,True,Provider transport failure
+300001.SZ,metrics_ds,41,3,300001.SZ-41-metrics_ds-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.99374775000615,True,Provider transport failure
+300001.SZ,metrics_ds,41,3,300001.SZ-41-metrics_ds-r03,hypothesis-01-http-03,hypothesis,3,True,,,8.004192291002255,True,Provider transport failure
+300001.SZ,metrics_ds,41,3,300001.SZ-41-metrics_ds-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.9962062089762185,True,Provider transport failure
+300001.SZ,metrics_ds,41,3,300001.SZ-41-metrics_ds-r03,hypothesis-01,hypothesis,1,True,,,10.084642250003526,True,Provider transport failure
+300001.SZ,metrics_gpt,17,1,300001.SZ-17-metrics_gpt-r01,hypothesis-01-http-02,hypothesis,2,True,,,9.003891875006957,True,Provider transport failure
+300001.SZ,metrics_gpt,17,1,300001.SZ-17-metrics_gpt-r01,hypothesis-01-http-03,hypothesis,3,True,,,8.002011375006987,True,Provider transport failure
+300001.SZ,metrics_gpt,17,1,300001.SZ-17-metrics_gpt-r01,hypothesis-01-http-04,hypothesis,4,True,,,5.995255374989938,True,Provider transport failure
+300001.SZ,metrics_gpt,17,1,300001.SZ-17-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,,,9.994222666980932,True,Provider transport failure
+300001.SZ,metrics_gpt,17,2,300001.SZ-17-metrics_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,9.46979899998405,True,Provider transport failure
+300001.SZ,metrics_gpt,17,2,300001.SZ-17-metrics_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,8.005388166988268,True,Provider transport failure
+300001.SZ,metrics_gpt,17,2,300001.SZ-17-metrics_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.999031332990853,True,Provider transport failure
+300001.SZ,metrics_gpt,17,2,300001.SZ-17-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,,,9.987390416994458,True,Provider transport failure
+300001.SZ,metrics_gpt,17,3,300001.SZ-17-metrics_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,9.016818791016703,True,Provider transport failure
+300001.SZ,metrics_gpt,17,3,300001.SZ-17-metrics_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,7.992319625016535,True,Provider transport failure
+300001.SZ,metrics_gpt,17,3,300001.SZ-17-metrics_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,6.061709917004919,True,Provider transport failure
+300001.SZ,metrics_gpt,17,3,300001.SZ-17-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,,,9.996336125012022,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.995232999994187,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,hypothesis-01-http-03,hypothesis,3,True,,,7.994402499985881,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,hypothesis-01-http-04,hypothesis,4,True,1165,529,12.329309749999084,False,
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,,,10.04771654101205,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,synthesis-01-http-02,code,2,True,,,10.06494675000431,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,synthesis-01-http-03,code,3,True,,,3.6509014580224175,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,synthesis-01-http-04,code,4,True,,,5.995449207985075,True,Provider transport failure
+300001.SZ,metrics_gpt,29,1,300001.SZ-29-metrics_gpt-r01,synthesis-01,code,1,True,,,10.07213149999734,True,Provider transport failure
+300001.SZ,metrics_gpt,29,2,300001.SZ-29-metrics_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.99501945800148,True,Provider transport failure
+300001.SZ,metrics_gpt,29,2,300001.SZ-29-metrics_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.993160959013039,True,Provider transport failure
+300001.SZ,metrics_gpt,29,2,300001.SZ-29-metrics_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.994378457980929,True,Provider transport failure
+300001.SZ,metrics_gpt,29,2,300001.SZ-29-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,,,9.987859334010864,True,Provider transport failure
+300001.SZ,metrics_gpt,29,3,300001.SZ-29-metrics_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,9.000935791991651,True,Provider transport failure
+300001.SZ,metrics_gpt,29,3,300001.SZ-29-metrics_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,8.004263791983249,True,Provider transport failure
+300001.SZ,metrics_gpt,29,3,300001.SZ-29-metrics_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.993796000024304,True,Provider transport failure
+300001.SZ,metrics_gpt,29,3,300001.SZ-29-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,,,10.130066667014034,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,hypothesis-01-http-02,hypothesis,2,True,,,8.99406908301171,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,hypothesis-01-http-03,hypothesis,3,True,1165,569,13.568758167006308,False,
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,hypothesis-01,hypothesis,1,True,,,9.897775041987188,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,synthesis-01-http-02,code,2,True,,,10.064718083012849,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,synthesis-01-http-03,code,3,True,,,4.418002082995372,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,synthesis-01-http-04,code,4,True,,,5.994073083013063,True,Provider transport failure
+300001.SZ,metrics_gpt,41,1,300001.SZ-41-metrics_gpt-r01,synthesis-01,code,1,True,,,10.06686108300346,True,Provider transport failure
+300001.SZ,metrics_gpt,41,2,300001.SZ-41-metrics_gpt-r02,hypothesis-01-http-02,hypothesis,2,True,,,8.999018292000983,True,Provider transport failure
+300001.SZ,metrics_gpt,41,2,300001.SZ-41-metrics_gpt-r02,hypothesis-01-http-03,hypothesis,3,True,,,7.992561042017769,True,Provider transport failure
+300001.SZ,metrics_gpt,41,2,300001.SZ-41-metrics_gpt-r02,hypothesis-01-http-04,hypothesis,4,True,,,5.993274625012418,True,Provider transport failure
+300001.SZ,metrics_gpt,41,2,300001.SZ-41-metrics_gpt-r02,hypothesis-01,hypothesis,1,True,,,9.986799249978503,True,Provider transport failure
+300001.SZ,metrics_gpt,41,3,300001.SZ-41-metrics_gpt-r03,hypothesis-01-http-02,hypothesis,2,True,,,8.998209250014042,True,Provider transport failure
+300001.SZ,metrics_gpt,41,3,300001.SZ-41-metrics_gpt-r03,hypothesis-01-http-03,hypothesis,3,True,,,8.006993000017246,True,Provider transport failure
+300001.SZ,metrics_gpt,41,3,300001.SZ-41-metrics_gpt-r03,hypothesis-01-http-04,hypothesis,4,True,,,5.981743790995097,True,Provider transport failure
+300001.SZ,metrics_gpt,41,3,300001.SZ-41-metrics_gpt-r03,hypothesis-01,hypothesis,1,True,,,10.130606499995338,True,Provider transport failure

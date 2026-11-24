@@ -1,0 +1,362 @@
+{
+  "assessment": {
+    "aggregate_delta": {
+      "lob_impact_score": 7.154263813478117,
+      "val_nll_total": 0.0018890477328072919
+    },
+    "guardrails": {
+      "child_free_abs_drift_ticks": 0.0763888888888889,
+      "delta_exhausted_windows": 0.0,
+      "delta_free_abs_drift_ticks": 0.0069444444444444475,
+      "delta_val_nll_total": 0.0018890477328072919,
+      "drift_passed": true,
+      "exhaustion_passed": true,
+      "finite_nll_by_seed": true,
+      "nll_passed": true,
+      "parent_free_abs_drift_ticks": 0.06944444444444445
+    },
+    "has_benchmark_gain": false,
+    "mean_delta_score": 7.154263813478117,
+    "nll_guardrail_passed": true,
+    "p05_delta_score": -3.6415202753415055,
+    "prediction_verdicts": [
+      {
+        "metric": "lob_impact_score",
+        "role": "primary",
+        "status": "INCONCLUSIVE"
+      },
+      {
+        "metric": "val_nll_total",
+        "role": "guardrail",
+        "status": "SUPPORTED"
+      }
+    ],
+    "readouts": {
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 0.0763888888888889,
+        "candidate_interval": [
+          0.0,
+          0.1597222222222222
+        ],
+        "estimate": 0.0069444444444444475,
+        "interval": [
+          -0.03472222222222222,
+          0.04861111111111112
+        ],
+        "p05": -0.027777777777777776,
+        "paired_days": 12,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 0.06944444444444445,
+        "parent_interval": [
+          0.013888888888888888,
+          0.1388888888888889
+        ],
+        "reason": null,
+        "registered_days": 12
+      },
+      "lob_impact_score": {
+        "bootstrap_support": {
+          "candidate": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          },
+          "estimand": "pooled impact score conditional on original-panel C2 admission",
+          "parent": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          }
+        },
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 50.165016501650165,
+        "candidate_interval": [
+          28.352915367381435,
+          89.7712280372453
+        ],
+        "estimate": 7.154263813478117,
+        "interval": [
+          -5.48037944443845,
+          21.74663215210167
+        ],
+        "p05": -3.6415202753415055,
+        "paired_days": 9,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 43.01075268817205,
+        "parent_interval": [
+          29.94013530323874,
+          76.92914766748505
+        ],
+        "reason": null,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 7.75911553291445,
+        "candidate_interval": [
+          7.6859397006028205,
+          7.825708917967357
+        ],
+        "estimate": 0.0018890477328072919,
+        "interval": [
+          -0.0043082742521037614,
+          0.007845086892167098
+        ],
+        "p05": -0.003311106688691782,
+        "paired_days": 12,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 7.7572264851816435,
+        "parent_interval": [
+          7.6826698105899105,
+          7.823963155164989
+        ],
+        "reason": null,
+        "registered_days": 12
+      }
+    },
+    "verdict": "REFUTED"
+  },
+  "candidate": {
+    "model_id": "000001.SZ-17-metrics_gpt-r01",
+    "source_sha256": "f42c09267fe0702683c94ce357d46b73eed8ae5d04656eb5dc06ea1b2af4eb1c"
+  },
+  "group": "metrics_gpt",
+  "metrics": {
+    "blind_ratio": 1.0754716981132075,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.6842105263157895,
+    "evaluation_seconds": 197.207571832987,
+    "event_count_delta": -113.59722222222229,
+    "event_count_rel_gap": 0.18018196638248196,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 37.84581450000405,
+      "137": 40.18881054100348,
+      "211": 45.32958308298839
+    },
+    "free_abs_drift_ticks": 0.0763888888888889,
+    "hurst_delta": -0.0777883825792601,
+    "hurst_gap": 0.0777883825792601,
+    "idle_abs_drift": 0.0763888888888889,
+    "impact_delta": 0.99,
+    "impact_exponent_gap": 0.49,
+    "impact_peak": 0.19791666666666666,
+    "impact_y": 0.567120918954863,
+    "l1_depth_mae": 283244.40555555554,
+    "lob_impact_score": 50.165016501650165,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6374108652401183,
+    "nll_dt": 2.347263563654384,
+    "nll_rel_ticks": 1.5053457920779199,
+    "nll_volume": 2.269271645934526,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 21932,
+    "recovery_ratio": 0.6842105263157895,
+    "sign_acf_delta": 0.26693337197583034,
+    "state_dim": 56,
+    "top_depth_delta": -13986.306410256424,
+    "trade_sign_acf_exp_gap": 0.26693337197583034,
+    "train_seed_nll": {
+      "103": 7.7516089890923565,
+      "137": 7.760874598649147,
+      "211": 7.765392012979341
+    },
+    "val_nll_total": 7.759291866906948,
+    "visible_over_blind_ratio": 1.0754716981132075,
+    "zero_wait_rate_delta": 0.0022648472950133145
+  },
+  "parent": {
+    "model_id": "seed-gru",
+    "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
+  },
+  "parent_metrics": {
+    "blind_ratio": 1.1636363636363636,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.5468750000000001,
+    "evaluation_seconds": 223.41222175001167,
+    "event_count_delta": -82.27777777777783,
+    "event_count_rel_gap": 0.13050470336836084,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 24.51638341700891,
+      "137": 23.451058000006014,
+      "211": 23.729391792003298
+    },
+    "free_abs_drift_ticks": 0.06944444444444445,
+    "hurst_delta": -0.07790271642464791,
+    "hurst_gap": 0.07790271642464791,
+    "idle_abs_drift": 0.06944444444444445,
+    "impact_delta": 1.13,
+    "impact_exponent_gap": 0.6299999999999999,
+    "impact_peak": 0.2222222222222222,
+    "impact_y": 0.6367673475984427,
+    "l1_depth_mae": 292142.8803418803,
+    "lob_impact_score": 43.01075268817205,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6404615248948466,
+    "nll_dt": 2.3451548886336426,
+    "nll_rel_ticks": 1.5024831124102922,
+    "nll_volume": 2.267660655545282,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 21932,
+    "recovery_ratio": 0.5468750000000001,
+    "sign_acf_delta": -0.26225218552626506,
+    "state_dim": 48,
+    "top_depth_delta": -15830.02799145307,
+    "trade_sign_acf_exp_gap": 0.26225218552626506,
+    "train_seed_nll": {
+      "103": 7.758844363438099,
+      "137": 7.757531133522778,
+      "211": 7.750905047491312
+    },
+    "val_nll_total": 7.755760181484064,
+    "visible_over_blind_ratio": 1.1636363636363636,
+    "zero_wait_rate_delta": 0.002688866026027784
+  },
+  "predictions": [
+    {
+      "direction": "increase",
+      "equivalence_band": null,
+      "interval": [
+        1.0,
+        5.0
+      ],
+      "metric": "lob_impact_score",
+      "role": "primary"
+    },
+    {
+      "direction": "equivalent",
+      "equivalence_band": [
+        -0.02,
+        0.02
+      ],
+      "interval": [
+        -0.02,
+        0.02
+      ],
+      "metric": "val_nll_total",
+      "role": "guardrail"
+    }
+  ],
+  "readouts": {
+    "free_abs_drift_ticks": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 0.0763888888888889,
+      "candidate_interval": [
+        0.0,
+        0.1597222222222222
+      ],
+      "estimate": 0.0069444444444444475,
+      "interval": [
+        -0.03472222222222222,
+        0.04861111111111112
+      ],
+      "p05": -0.027777777777777776,
+      "paired_days": 12,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 0.06944444444444445,
+      "parent_interval": [
+        0.013888888888888888,
+        0.1388888888888889
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 50.165016501650165,
+      "candidate_interval": [
+        28.352915367381435,
+        89.7712280372453
+      ],
+      "estimate": 7.154263813478117,
+      "interval": [
+        -5.48037944443845,
+        21.74663215210167
+      ],
+      "p05": -3.6415202753415055,
+      "paired_days": 9,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 43.01075268817205,
+      "parent_interval": [
+        29.94013530323874,
+        76.92914766748505
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.75911553291445,
+      "candidate_interval": [
+        7.6859397006028205,
+        7.825708917967357
+      ],
+      "estimate": 0.0018890477328072919,
+      "interval": [
+        -0.0043082742521037614,
+        0.007845086892167098
+      ],
+      "p05": -0.003311106688691782,
+      "paired_days": 12,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7572264851816435,
+      "parent_interval": [
+        7.6826698105899105,
+        7.823963155164989
+      ],
+      "reason": null,
+      "registered_days": 12
+    }
+  },
+  "roles": [
+    "first"
+  ],
+  "status": "measured",
+  "stock": "000001.SZ",
+  "task_id": "000001.SZ-17-metrics_gpt-r01"
+}
