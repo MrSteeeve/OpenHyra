@@ -73,3 +73,48 @@ jobs:
           if skipped:
               raise SystemExit("P0 CI skipped tests: " + ", ".join(skipped))
           PY
+
+  stochopia-p1:
+    name: Stochopia P1 Seatbelt integration
+    if: github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+    # P1 executes generated candidate code through the native training sandbox.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check out Stochopia main
+        uses: actions/checkout@v7
+        with:
+          repository: MrSteeeve/Stochopia
+          ref: main
+          path: p1-stochopia
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.31"
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: p1-stochopia/uv.lock
+      - name: Sync locked dependencies
+        working-directory: p1-stochopia
+        run: uv sync --locked --all-extras --dev
+      - name: Verify OpenHyra P1 with native isolation
+        working-directory: p1-stochopia
+        env:
+          OPENHYRA_REPO: ${{ github.workspace }}
+          STOCHOPIA_REPO: ${{ github.workspace }}/p1-stochopia
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          uv run --frozen pytest -q --junitxml "$RUNNER_TEMP/openhyra-p1.xml" \
+            "$OPENHYRA_REPO"/tests/test_stochopia_p1_*.py
+          uv run --frozen python - "$RUNNER_TEMP/openhyra-p1.xml" <<'PY'
+          import sys
+          from xml.etree import ElementTree
+
+          report = ElementTree.parse(sys.argv[1])
+          skipped = [case.attrib["name"] for case in report.iter("testcase") if case.find("skipped") is not None]
+          if skipped:
+              raise SystemExit("P1 CI skipped tests: " + ", ".join(skipped))
+          PY
