@@ -176,6 +176,8 @@ def _readme(manifest: Json, *, has_holdout: bool) -> str:
 
 {status} 每条轨迹的首次、末次和审计任务见 `study_manifest.json`。候选源码的 SHA-256 对应 `sources/<sha256>.py`。只有沙箱通过的候选才可进入复验。同一候选出现在多个登记角色时共用一次配对结果。
 
+`stochopia-p1-m4-v1` 在完成 40/90 次开发试验后因协议字段与指标极性歧义中止。当时留出集保持封存，账本记有 42 次 API 请求、74,560 个输入 token 和 26,650 个输出 token。原登记见 `development_plan_v1_aborted.json`，原账本外置于 `p1-m4-v1-aborted-20261124/`。修复与冒烟核验后独立登记 `stochopia-p1-m4-v2`。
+
 - `development-trials.csv` 汇总 90 次候选的编译、预算、护栏和双预测结果。
 - `api-attempts.csv` 按请求记录 token、时长及 HTTP 重试。服务端未报告用量的单元格为空。
 - `compiler-attempts.csv` 记录匹配源码与修复错误摘要。
@@ -185,7 +187,7 @@ def _readme(manifest: Json, *, has_holdout: bool) -> str:
 
 ## 复现入口
 
-Stochopia 锁码提交为 `{code.get("stochopia_commit", "")}`。OpenHyra 锁码提交为 `{code.get("openhyra_commit", "")}`。完整树标识、数据版本、日期和配对种子随清单登记。原始行情、含 API 原始响应的工作账本、训练权重与逐笔轨迹保存在仓库外。
+Stochopia 锁码提交为 `{code.get("stochopia_commit", "")}`。OpenHyra 锁码提交为 `{code.get("openhyra_commit", "")}`。完整树标识、数据版本、日期和配对种子随清单登记。原始行情、含实际请求消息和原始响应的工作账本、训练权重与逐笔轨迹保存在仓库外。
 
 从锁码版本、两仓的 Python 环境和获准的库外行情目录运行以下命令。开始下载留出交易日前，先完成开发搜索并确认封存清单。复验中断时沿原目录恢复。
 

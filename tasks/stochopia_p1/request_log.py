@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from time import perf_counter, sleep
 
-from .protocol import MAX_REPAIRS, CallUsage, Messages, ProviderReply, TwoStepProposer
+from .protocol import MAX_HYPOTHESIS_REPAIRS, MAX_REPAIRS, CallUsage, Messages, ProviderReply, TwoStepProposer
 from .provider import ProviderAttemptError
 from .store import Ledger
 
@@ -24,10 +24,16 @@ class TrialCalls:
         self.ledger = ledger
         self.path = path
         self.adapter = adapter
+        self.hypotheses = 0
         self.synthesis = 0
 
     def record(self, usage: CallUsage) -> None:
-        index = 1 if usage.stage == "hypothesis" else self.synthesis + 1
+        if usage.stage in ("hypothesis", "hypothesis_repair"):
+            index = self.hypotheses
+        else:
+            # Reserve plan slots independently of retries so synthesis can resume
+            # from the write-once plan without replaying successful JSON turns.
+            index = MAX_HYPOTHESIS_REPAIRS + 1 + self.synthesis
         path = (*self.path, "usage", f"{index:02d}.json")
         previous = self.ledger.read(*path)
         self.ledger.seal(asdict(usage), *path)
@@ -36,9 +42,12 @@ class TrialCalls:
 
     def transport(self, messages: Messages, *, response_json: bool) -> ProviderReply:
         if response_json:
+            self.hypotheses += 1
             phase = "hypothesis"
-            stage = "hypothesis"
-            logical_index = 1
+            stage = "hypothesis" if self.hypotheses == 1 else "hypothesis_repair"
+            logical_index = self.hypotheses
+            if logical_index > MAX_HYPOTHESIS_REPAIRS + 1:
+                raise ProposalBudgetExhausted("hypothesis request budget exhausted")
         else:
             self.synthesis += 1
             phase = "synthesis"
@@ -64,8 +73,10 @@ class TrialCalls:
                 raise ProposalBudgetExhausted(f"provider response unavailable after reserved {stage} request")
             if http_index > 1:
                 sleep(2 ** (http_index - 2))
-            self.ledger.seal({"phase": phase, "stage": stage, "attempt": logical_index, "http_attempt": http_index},
-                             *reservation_path)
+            self.ledger.seal({
+                "phase": phase, "stage": stage, "attempt": logical_index, "http_attempt": http_index,
+                "response_json": response_json, "messages": messages,
+            }, *reservation_path)
             started = perf_counter()
             try:
                 reply = self.adapter.transport(messages, response_json=response_json)

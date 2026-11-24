@@ -113,7 +113,8 @@ class DevelopmentLoop:
         )
 
     def _synthesize(
-        self, group: str, index: int, parent: ModelRef, evidence: Mapping[str, object], history: tuple[Json, ...],
+        self, group: str, index: int, trial_id: str, parent: ModelRef,
+        evidence: Mapping[str, object], history: tuple[Json, ...],
     ) -> Json:
         path = (group, _round_name(index))
         compiled = self.ledger.read(*path, "program.json")
@@ -125,13 +126,6 @@ class DevelopmentLoop:
         continuation = prior["hypothesis"]["hypothesis_id"] if prior is not None else None
 
         def seal(hypothesis: DynamicHypothesis, predictions: tuple[StructuredPrediction, ...]) -> None:
-            local_ids = {row["hypothesis"]["hypothesis_id"] for row in attempted}
-            if hypothesis.hypothesis_id in local_ids:
-                raise ProposalValidationError("hypothesis IDs must be new within a group")
-            if hypothesis.parent_hypothesis_id is not None and hypothesis.parent_hypothesis_id not in local_ids:
-                raise ProposalValidationError("a hypothesis can reference only its own group's earlier hypotheses")
-            if continuation is not None and mode != "metrics" and hypothesis.parent_hypothesis_id != continuation:
-                raise ProposalValidationError("an island's next hypothesis must cite its promoted parent hypothesis")
             validate_forecasts(mode, predictions, tuple(self.rules))
             self.ledger.seal({"hypothesis": asdict(hypothesis), "predictions": [asdict(p) for p in predictions]},
                              *path, "preregistration.json")
@@ -140,7 +134,7 @@ class DevelopmentLoop:
         recent = [_feedback(row) for row in attempted[-3:]]
         if mode == "no_llm":
             edited = mutate(self.plan.mutation_seed + index)
-            hypothesis = DynamicHypothesis(f"baseline-{index}", continuation, "Benchmark score", "Random architecture baseline",
+            hypothesis = DynamicHypothesis(f"{trial_id}-hyp", continuation, "Benchmark score", "Random architecture baseline",
                                            edited.family, "The registered improvement range does not contain the effect")
             predictions = placeholder_forecasts()
             seal(hypothesis, predictions)
@@ -156,7 +150,10 @@ class DevelopmentLoop:
             context_history = recent if mode == "evidence" else []
             try:
                 if previous is None:
-                    proposal = proposer.propose(mode, parent.source, evidence, context_history, seal)
+                    proposal = proposer.propose(
+                        mode, parent.source, evidence, context_history, seal, trial_id=trial_id,
+                        active_parent_hypothesis_id=continuation,
+                    )
                 else:
                     hypothesis = DynamicHypothesis(**previous["hypothesis"])
                     proposal = proposer.synthesize(mode, parent.source, evidence, context_history,
@@ -180,12 +177,12 @@ class DevelopmentLoop:
         history = self._history(group, index)
         scheduler, island, parent, evidence = self._frontier(group, history)
         path = (group, _round_name(index))
-        program = self._synthesize(group, index, parent, evidence, history)
-        registered = self.ledger.read(*path, "preregistration.json")
-        forecasts = registered or {"hypothesis": None, "predictions": []}
         trial_id = f"{group}-r{index:02d}"
         if self.plan.trial_prefix:
             trial_id = f"{self.plan.trial_prefix}-{trial_id}"
+        program = self._synthesize(group, index, trial_id, parent, evidence, history)
+        registered = self.ledger.read(*path, "preregistration.json")
+        forecasts = registered or {"hypothesis": None, "predictions": []}
         common = {**forecasts, "trial_id": trial_id, "round": index, "island": island, "parent": asdict(parent)}
         prior = _latest_verified(history)
         if prior is not None:

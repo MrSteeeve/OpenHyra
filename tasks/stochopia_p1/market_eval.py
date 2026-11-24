@@ -254,10 +254,11 @@ class MarketEvaluator:
             return result
 
     def _profile(self, model: ModelRef, request: EvaluationRequest, *, candidate: bool) -> Json:
-        # Model IDs distinguish independently budgeted search trials. Parent
-        # comparisons reuse the exact prior fit for that scientific model ID.
-        identity = json.dumps([model.model_id, model.source], ensure_ascii=False).encode("utf-8")
-        key = sha256(identity).hexdigest()
+        # Identical executable source on the same stock and seed panel has
+        # the same deterministic fit regardless of its experiment label.
+        source_sha256 = sha256(model.source.encode("utf-8")).hexdigest()
+        train_seeds = "-".join(map(str, request.train_seeds))
+        key = f"{source_sha256}-{train_seeds}"
         if self.cache_root is None:
             return self._measure(model, request, key=key, candidate=candidate)
         cache = self.cache_root / request.split / str(request.rollout_seed) / key
@@ -290,7 +291,7 @@ class MarketEvaluator:
     def __call__(self, request: EvaluationRequest) -> PairedEvaluation:
         self._check_request(request)
         parent = self._profile(request.parent, request, candidate=False)
-        if request.parent == request.candidate:
+        if request.parent.source == request.candidate.source:
             candidate = parent
         else:
             candidate = self._profile(request.candidate, request, candidate=True)

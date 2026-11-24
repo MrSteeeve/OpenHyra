@@ -25,7 +25,7 @@ from tasks.stochopia_p1.provider import registry_transport
 
 
 PLAN = DynamicHypothesis(
-    "depth_memory", None, "depth recovers too slowly", "short memory",
+    "trial-hyp", None, "depth recovers too slowly", "short memory",
     "use a bank of decay scales", "depth recovery stays unchanged",
 )
 GUARDRAIL = StructuredPrediction(
@@ -138,7 +138,7 @@ def test_actual_compiler_repair_records_seal_before_synthesis(tmp_path: Path) ->
         seal.write_text(json.dumps(content), encoding="utf-8")
 
     proposer = TwoStepProposer(transport, gate, usage.append, count_tokens=words)
-    result = proposer.propose("evidence", SEED, {"parameters": 21_932, "state_dim": 48}, (), save)
+    result = proposer.propose("evidence", SEED, {"parameters": 21_932, "state_dim": 48}, (), save, trial_id="trial")
     assert modes == [True, False, False]
     assert result.source == MULTISCALE
     assert result.hypothesis == PLAN and result.predictions == PREDICTIONS
@@ -177,7 +177,7 @@ def test_registered_provider_binding_preserves_settings_and_counts_truncation(mo
     transport = registry_transport(models_path, model_name, client_factory=factory)
     assert not configs
     proposer = TwoStepProposer(transport, lambda source: None, usage.append, count_tokens=words)
-    result = proposer.propose("metrics", SEED, {}, (), lambda hypothesis, predictions: None)
+    result = proposer.propose("metrics", SEED, {}, (), lambda hypothesis, predictions: None, trial_id="trial")
     assert result.source == SEED
     assert [config.response_json for config in configs] == [True, False, False]
     assert all(config.timeout == 180 and config.temperature is None for config in configs)
@@ -242,10 +242,14 @@ def test_context_projects_only_group_allowed_fields_and_three_attempts(group: st
     proposer = TwoStepProposer(
         transport, lambda source: None, lambda usage: None, count_tokens=words, core_metrics=("end_over_peak_ratio",),
     )
-    proposer.propose(group, SEED, evidence, recent, lambda hypothesis, predictions: None)
+    proposer.propose(group, SEED, evidence, recent, lambda hypothesis, predictions: None, trial_id="trial")
     assert len(seen) == 2
     primary = "end_over_peak_ratio" if group == "evidence" else "lob_impact_score"
     assert f'Primary metric in ["{primary}"]' in seen[0]
+    assert "Complete JSON example" in seen[0] and "delta_interval" in seen[0]
+    assert "nats/event, LOWER is better" in seen[0]
+    if group == "metrics":
+        assert "HIGHER is better" in seen[0] and "end_over_peak_ratio" not in seen[0]
     for prompt in seen:
         assert SEED in prompt
         assert '"val_nll_total":7.8' in prompt and '"lob_impact_score":20.5' in prompt
@@ -304,7 +308,7 @@ def test_context_limit_rejects_required_input_without_truncating_parent() -> Non
     proposer = TwoStepProposer(forbidden_transport, lambda source: None, lambda usage: None,
                                count_tokens=words)
     with pytest.raises(ValueError, match="3500"):
-        proposer.propose("metrics", "source " * 3501, {}, (), lambda hypothesis, predictions: None)
+        proposer.propose("metrics", "source " * 3501, {}, (), lambda hypothesis, predictions: None, trial_id="trial")
 
 
 @pytest.mark.parametrize("reply", [ProviderReply("{", 10, 5), ProviderReply("", 10, 8192, "truncated")])
@@ -319,8 +323,11 @@ def test_invalid_call_one_is_typed_and_never_sealed(reply: ProviderReply) -> Non
     usage: list[CallUsage] = []
     proposer = TwoStepProposer(transport, lambda source: None, usage.append, count_tokens=words)
     with pytest.raises(ProposalValidationError):
-        proposer.propose("metrics", SEED, {}, (), forbidden_seal)
-    assert usage == [CallUsage("hypothesis", reply.input_tokens, reply.output_tokens)]
+        proposer.propose("metrics", SEED, {}, (), forbidden_seal, trial_id="trial")
+    assert usage == [
+        CallUsage("hypothesis", reply.input_tokens, reply.output_tokens),
+        CallUsage("hypothesis_repair", reply.input_tokens, reply.output_tokens),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -343,4 +350,44 @@ def test_exact_dual_forecasts_are_checked_before_preregistration(
 
     proposer = TwoStepProposer(transport, lambda source: None, lambda usage: None, count_tokens=words)
     with pytest.raises(ProposalValidationError, match=error):
-        proposer.propose(group, SEED, {}, (), lambda *args: pytest.fail("sealed invalid forecasts"))
+        proposer.propose(group, SEED, {}, (), lambda *args: pytest.fail("sealed invalid forecasts"), trial_id="trial")
+
+
+def test_plan_repair_stamps_known_lineage_and_accepts_wrapped_equivalent_only() -> None:
+    usage: list[CallUsage] = []
+    modes: list[bool] = []
+    sealed: list[tuple[DynamicHypothesis, tuple[StructuredPrediction, ...]]] = []
+    first = json.loads(plan_json())
+    first["hypothesis"].update(hypothesis_id={"invalid": [3]}, parent_hypothesis_id="GRU seed")
+    first.update(type="json_object", **{"$schema": "https://example.com/schema"})
+    first["predictions"] = [
+        {"role": "primary", "metric": "end_over_peak_ratio", "direction": "decrease",
+         "delta_interval": [0.10, 0.50], "equivalence_band": [0.10, 0.50]},
+        {"role": "guardrail", "metric": "val_nll_total", "direction": "equivalent", "equivalence_band": [-0.05, 0.05]},
+    ]
+
+    def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
+        modes.append(response_json)
+        if len(modes) == 1:
+            assert not sealed
+            return ProviderReply(json.dumps(first), 100, 45)
+        if len(modes) == 2:
+            assert not sealed
+            assert "decrease requires low < high <= 0" in messages[-1]["content"]
+            first["predictions"][0]["delta_interval"] = [-0.10, 0]
+            return ProviderReply(json.dumps(first), 120, 55)
+        assert sealed
+        return ProviderReply(fence(SEED), 150, 40)
+
+    def seal(hypothesis: DynamicHypothesis, predictions: tuple[StructuredPrediction, ...]) -> None:
+        sealed.append((hypothesis, predictions))
+
+    proposer = TwoStepProposer(transport, lambda source: None, usage.append, count_tokens=words)
+    result = proposer.propose("evidence", SEED, {}, (), seal, trial_id="v2-trial", active_parent_hypothesis_id="actual-parent")
+    hypothesis, predictions = sealed[0]
+    assert result.hypothesis == hypothesis
+    assert hypothesis.hypothesis_id == "v2-trial-hyp" and hypothesis.parent_hypothesis_id == "actual-parent"
+    assert predictions[0].interval == (-0.10, 0.0) and predictions[0].equivalence_band is None
+    assert predictions[1].interval == (-0.05, 0.05)
+    assert modes == [True, True, False]
+    assert [call.stage for call in usage] == ["hypothesis", "hypothesis_repair", "code"]

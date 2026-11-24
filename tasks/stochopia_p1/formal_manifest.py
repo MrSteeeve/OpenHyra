@@ -34,7 +34,7 @@ TEST_DATES = (
     20170405, 20170406, 20170407, 20170410, 20170411, 20170412,
 )
 EMBARGO_DATES = (20170306, 20170323)
-FORMAL_SCHEMA = "stochopia-p1-m4-v1"
+FORMAL_SCHEMA = "stochopia-p1-m4-v2"
 MANIFEST = "study_manifest.json"
 
 
@@ -165,6 +165,7 @@ def _read_trial(ledger: Ledger, item: Trajectory, index: int, archive: SourceArc
                 raise ValueError(f"missing trial artifact {file.name}")
             source = record.pop("source", None)
             record.pop("reply", None)
+            record.pop("messages", None)  # Verbatim messages stay in the external run ledger.
             if source is not None:
                 record["source_sha256"] = archive.add(source)
             records.append({"record_id": file.stem, **record})

@@ -11,7 +11,7 @@ from threading import Barrier
 
 import pytest
 
-from tasks.stochopia_p1.formal import run_development
+from tasks.stochopia_p1.formal import _require_smoke_gates, run_development
 from tasks.stochopia_p1.formal_archive import write_archive_tables
 from tasks.stochopia_p1.formal_manifest import (
     ARM_MODELS, EMBARGO_DATES, MANIFEST, ROUNDS, SYMBOLS, TEST_DATES, TRAIN_SEEDS, Trajectory,
@@ -265,3 +265,29 @@ def test_fatal_provider_error_stops_scheduling_further_trajectories(tmp_path: Pa
             gate=_gate, jobs=2,
         )
     assert sorted(started) == sorted(item.key for item in list(roster())[:2])
+
+
+@pytest.mark.parametrize(("supplement_arms", "tokens", "passed"), [
+    (("metrics_ds", "evidence_gpt"), 10_000, True),
+    (("metrics_ds", "evidence_gpt"), 10_001, False),
+    (("metrics_ds", "metrics_gpt"), 6_000, False),
+])
+def test_supplement_covers_only_failed_arms_within_approved_budget(
+    tmp_path: Path, supplement_arms: tuple[str, str], tokens: int, passed: bool,
+) -> None:
+    ledger = Ledger(tmp_path)
+    with ledger.lock():
+        ledger.seal({"passed": True, "paired_windows": 24}, "no_llm_report.json")
+        original = {
+            "arms": {arm: {"passed": arm in ("metrics_gpt", "evidence_ds")}
+                     for arm, alias in ARM_MODELS.items() if alias is not None},
+            "tokens": 14_145, "unknown_token_reservation": 0,
+        }
+        ledger.seal(original, "api_report.json")
+        ledger.seal({"arms": {arm: {"passed": True} for arm in supplement_arms},
+                     "tokens": tokens, "unknown_token_reservation": 0}, "supplement", "api_report.json")
+    if passed:
+        assert _require_smoke_gates(tmp_path)["original_api"] == original
+    else:
+        with pytest.raises(ValueError, match="supplemental API"):
+            _require_smoke_gates(tmp_path)

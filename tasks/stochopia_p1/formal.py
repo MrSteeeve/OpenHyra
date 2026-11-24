@@ -44,17 +44,22 @@ SEED_MODEL_ID = "seed-gru"
 
 def _metric_rules() -> tuple[MetricRule, ...]:
     """Register all eligible primary and supplemental readout names."""
-    improve_up = {"lob_impact_score"}
+    improve_up = {"lob_impact_score", "visible_over_blind_ratio"}
     metrics = (
         "lob_impact_score", "end_over_peak_ratio", "free_abs_drift_ticks",
         "trade_sign_acf_exp_gap", "hurst_gap", "visible_over_blind_ratio",
         "impact_exponent_gap", "event_count_rel_gap", "l1_depth_mae",
     )
-    return tuple(
-        MetricRule(name, "increase", 0.50, (0.50, 100.0))
-        if name in improve_up else MetricRule(name, "decrease", 0.0, (-100.0, -1e-9))
-        for name in metrics
-    )
+    rules = []
+    for name in metrics:
+        if name == "lob_impact_score":
+            rule = MetricRule(name, "increase", 0.50, (0.50, 100.0))
+        elif name in improve_up:
+            rule = MetricRule(name, "increase", 0.0, (1e-9, 100.0))
+        else:
+            rule = MetricRule(name, "decrease", 0.0, (-100.0, -1e-9))
+        rules.append(rule)
+    return tuple(rules)
 
 
 def _git_value(root: Path, argument: str) -> str:
@@ -193,14 +198,41 @@ def _factory(spec: str) -> TokenCounterFactory:
     return factory
 
 
+def _require_smoke_gates(smoke_root: Path) -> Json:
+    """Verify original and specifically authorized supplemental smoke records."""
+    api_smoke = json.loads((smoke_root / "api_report.json").read_text(encoding="utf-8"))
+    market_smoke = json.loads((smoke_root / "no_llm_report.json").read_text(encoding="utf-8"))
+    arms = {arm for arm, alias in ARM_MODELS.items() if alias is not None}
+    if set(api_smoke["arms"]) != arms or api_smoke["tokens"] + api_smoke["unknown_token_reservation"] >= 15_000:
+        raise ValueError("the original API smoke must record four arms within its budget")
+    if not market_smoke["passed"] or market_smoke["paired_windows"] != 24:
+        raise ValueError("the registered market smoke must pass all 24 windows")
+    failed = {arm for arm, row in api_smoke["arms"].items() if not row["passed"]}
+    report = {"original_api": api_smoke, "market": market_smoke}
+    if failed:
+        if failed != {"metrics_ds", "evidence_gpt"}:
+            raise ValueError("the supplemental approval covers exactly evidence_gpt and metrics_ds")
+        supplement = json.loads((smoke_root / "supplement" / "api_report.json").read_text(encoding="utf-8"))
+        if (set(supplement["arms"]) != failed or not all(row["passed"] for row in supplement["arms"].values())
+                or supplement["tokens"] + supplement["unknown_token_reservation"] > 10_000):
+            raise ValueError("both supplemental API smoke arms must pass within the additional budget")
+        report["supplement_api"] = supplement
+    return report
+
+
 def _production_development(args: argparse.Namespace, code: Json) -> Json:
     from .market_eval import MarketEvaluator
     from .provider import registry_transport
+
+    smoke = _require_smoke_gates(Path("/tmp/p1-m4-v2-smoke"))
 
     registry = args.models or args.stochopia_root / MODEL_REGISTRY
     canonical = (args.stochopia_root / MODEL_REGISTRY).read_text(encoding="utf-8")
     if registry.read_text(encoding="utf-8") != canonical:
         raise ValueError("the study must use the locked Stochopia model registry")
+    ledger = Ledger(args.artifact_root)
+    with ledger.lock():
+        ledger.seal(smoke, "smoke_gate.json")
     aliases = tuple(model for model in dict.fromkeys(ARM_MODELS.values()) if model is not None)
     if args.tokenizer is not None:
         factory = _factory(args.tokenizer)

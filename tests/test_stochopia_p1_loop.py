@@ -24,8 +24,8 @@ from tasks.stochopia_p1.verifier import SEED_TASK, freeze, run_verifier
 
 
 TRAIN = (20240102, 20240103)
-DEV = (20240105, 20240108, 20240109)
-HOLDOUT = (20240111, 20240112, 20240115)
+DEV = (20240105, 20240108, 20240109, 20240110, 20240111, 20240112)
+HOLDOUT = (20240115, 20240116, 20240117, 20240118, 20240119, 20240122)
 METRIC = "impact_peak"
 
 
@@ -76,7 +76,7 @@ class ScriptedEvaluator:
             day = _day(date, 10_000 + 100 * index)
             # The level and each day's shift vary, so pairing is observable.
             peak = float(day.mid_ticks_x2[0]) / 2
-            nll_shift = (-0.04, -0.01, 0.02)[index] if gain else 0.0
+            nll_shift = (-0.04, -0.01, 0.02)[index % 3] if gain else 0.0
             parent[date] = {
                 METRIC: peak, "val_nll_total": 3.0, "lob_impact_score": 20.0, "free_abs_drift_ticks": 1.0,
             }
@@ -144,6 +144,8 @@ def test_two_rounds_separate_evidence_and_verify_once(tmp_path: Path) -> None:
     loop, evaluate, messages, calls = _fixture(dev)
     first = loop.run_round()
     assert first["evidence"]["verdict"] == "VERIFIED_GAIN"
+    assert first["evidence"]["hypothesis"]["hypothesis_id"] == "evidence-r01-hyp"
+    assert first["evidence"]["hypothesis"]["parent_hypothesis_id"] is None
     assert first["evidence"]["prediction_verdicts"][1]["status"] == "INCONCLUSIVE"
     assert first["metrics"]["verdict"] == "UNVERIFIED_GAIN"
     assert first["metrics"]["prediction_verdicts"][0]["status"] == "REFUTED"
@@ -152,7 +154,7 @@ def test_two_rounds_separate_evidence_and_verify_once(tmp_path: Path) -> None:
     second = loop.run_round()
     assert second["evidence"]["parent"]["model_id"] == "evidence-r01"
     assert second["evidence"]["island"] == first["evidence"]["island"]
-    assert second["evidence"]["hypothesis"]["parent_hypothesis_id"] == "evidence-1"
+    assert second["evidence"]["hypothesis"]["parent_hypothesis_id"] == "evidence-r01-hyp"
     assert second["metrics"]["parent"]["model_id"] == "seed"
     assert second["metrics"]["island"] == first["metrics"]["island"]
     assert second["no_llm"]["parent"]["model_id"] == "no_llm-r01"
@@ -165,7 +167,7 @@ def test_two_rounds_separate_evidence_and_verify_once(tmp_path: Path) -> None:
     assert "sign_acf_delta" not in "\n".join(messages["metrics"])
     assert "Recent group history" not in "\n".join(messages["metrics"])
     assert all(len(group_calls) == 4 for group_calls in calls.values())
-    assert (dev / "evidence" / "round-001" / "usage" / "02.json").is_file()
+    assert (dev / "evidence" / "round-001" / "usage" / "03.json").is_file()
     assert not (dev / "no_llm" / "round-001" / "usage").exists()
     with pytest.raises(RuntimeError, match="complete"):
         loop.run_round()
@@ -225,8 +227,8 @@ def test_incomplete_readout_cannot_claim_an_interval() -> None:
     evaluated = PairedEvaluation(baseline, candidate, {}, {})
     measured = paired_readouts(evaluated, request, [METRIC, "complete"])
     assert measured[METRIC]["interval"] is None
-    assert measured[METRIC]["reason"] == "missing paired day outcomes"
-    assert measured[METRIC]["paired_days"] == 2
+    assert measured[METRIC]["reason"] == "fewer than 6 paired trading days"
+    assert measured[METRIC]["paired_days"] == 5
     assert measured["complete"]["interval"] == [0.25, 0.25]
 
 
@@ -289,8 +291,11 @@ def test_invalid_plans_spend_only_attempted_calls_and_allow_other_groups(tmp_pat
         assert result[group]["predictions"] == []
         assert result[group]["candidate"] is None
         assert result[group]["training_budget_consumed"] is False
-        assert [call.stage for call in calls[group]] == ["hypothesis"]
+        assert [call.stage for call in calls[group]] == ["hypothesis", "hypothesis_repair"]
         assert (tmp_path / group / "round-001" / "requests" / "hypothesis-01.json").exists()
+        repair = json.loads((tmp_path / group / "round-001" / "requests" / "hypothesis-02.json").read_text())
+        assert repair["stage"] == "hypothesis_repair"
+        assert "Previous JSON rejected" in repair["messages"][-1]["content"]
     assert "registered core metric" in result["metrics"]["error"]
     assert [request.trial_id for request in evaluate.requests] == ["no_llm-r01"]
 
@@ -311,6 +316,6 @@ def test_rejected_second_candidate_cannot_displace_verified_parent(tmp_path: Pat
     assert second["verdict"] == "UNVERIFIED_GAIN"
     assert second["candidate"]["model_id"] != first["candidate"]["model_id"]
     assert third["parent"] == first["candidate"]
-    assert third["promoted_parent_hypothesis_id"] == "evidence-1"
+    assert third["promoted_parent_hypothesis_id"] == "evidence-r01-hyp"
     assert first["candidate"]["source"] in messages["evidence"][4]
     assert "UNVERIFIED_GAIN; core=REFUTED" in messages["evidence"][4]

@@ -39,6 +39,7 @@ class ProviderAttemptError(RuntimeError):
 
 def registry_transport(
     models_path: Path, model_name: str, *, client_factory: ClientFactory = create_client,
+    completion_limit: int | None = None,
 ) -> Transport:
     """Bind one registered model for a synchronous study, without calling it at setup."""
     registry = load_model_registry(models_path)
@@ -49,6 +50,10 @@ def registry_transport(
         raise ValueError("P1 requires the registered OpenAI-compatible JSON/text protocol")
     if not 1 <= config.max_tokens <= MAX_OUTPUT_TOKENS:
         raise ValueError(f"P1 completion cap must be between 1 and {MAX_OUTPUT_TOKENS}")
+    if completion_limit is not None:
+        if not 1 <= completion_limit <= config.max_tokens:
+            raise ValueError("completion_limit must fit the registered output cap")
+        config = replace(config, max_tokens=completion_limit)
 
     def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
         request_config = replace(config, response_json=response_json)

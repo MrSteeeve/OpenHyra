@@ -191,6 +191,14 @@ def test_cached_models_reuse_each_profile_only_within_the_registered_split(
     dev.seed_profile(request.parent, rollout_seed=request.rollout_seed)
     assert dev(request).candidate_market == {"split": "dev"}
     assert dev(request).parent_market == {"split": "dev"}
+    duplicate = ModelRef("new-trial-label", request.candidate.source)
+    duplicate_request = replace(request, candidate=duplicate)
+    cached_pair = dev(duplicate_request)
+    assert calls == [("dev", "seed"), ("dev", "trial")]
+    uncached = market_eval.MarketEvaluator(archive, SYMBOL)
+    assert uncached(duplicate_request) == cached_pair
+    assert calls[-2:] == [("dev", "seed"), ("dev", "new-trial-label")]
+    del calls[-2:]
     with pytest.raises(ValueError, match="frozen test dates"):
         market_eval.MarketEvaluator(archive, SYMBOL, authorized_test_dates=DEV)
     test = market_eval.MarketEvaluator(archive, SYMBOL, cache_root=cache, authorized_test_dates=TEST)

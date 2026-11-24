@@ -23,6 +23,8 @@ INCONCLUSIVE = "INCONCLUSIVE"
 EVALUATION_FAILED = "evaluation_failed"
 
 BOOTSTRAP_RESAMPLES = 2000
+MIN_PAIRED_DAYS = 6
+MIN_VALID_DRAWS = 1800
 NLL_GUARDRAIL = 0.05
 DRIFT_LIMIT = 20.0
 MIN_GAIN = 0.50
@@ -49,57 +51,38 @@ def metric_delta(parent: object, candidate: object) -> float | None:
 # --- Aligned cluster bootstrap ---
 
 
-def _bootstrap_bounds(
-    values: np.ndarray, *, estimate: float | None, bounds: tuple[float, float] | None = None,
-) -> tuple[list[float] | None, float | None, int]:
-    """Take percentile endpoints on one vector of bootstrap estimates.
-
-    With missing draws and a known scale, bound their contribution to each
-    quantile by substituting the maximum/minimum only for that endpoint.
-    In particular scores in [0,100] yield differences in [-100,100]. This
-    preserves all registered draws and does not impute any point estimate.
-    Without finite bounds, missing draws make a percentile interval unknown.
-    """
-    finite = np.isfinite(values)
-    count = int(finite.sum())
-    if estimate is None or not len(values):
-        return None, None, count
-    if finite.all():
-        lower, p05, upper = np.quantile(values, (0.025, 0.05, 0.975))
-    elif bounds is None:
-        return None, None, count
-    else:
-        lower, p05 = np.quantile(np.where(finite, values, bounds[0]), (0.025, 0.05))
-        upper = np.quantile(np.where(finite, values, bounds[1]), 0.975)
-    return [float(lower), float(upper)], float(p05), count
-
-
 def _summarize_draws(
     parent: np.ndarray, candidate: np.ndarray, *, point_parent: float | None,
     point_candidate: float | None, point_delta: float | None,
-    paired_days: int | None, registered_days: int, bounded_score: bool, identical: bool = False,
+    paired_days: int, registered_days: int, sampled_deltas: np.ndarray | None = None,
 ) -> Json:
-    """Summarize candidate minus parent on the same [draw] day selections."""
-    parent_ci, _, parent_valid = _bootstrap_bounds(
-        parent, estimate=point_parent, bounds=(0.0, 100.0) if bounded_score else None,
-    )
-    candidate_ci, _, candidate_valid = _bootstrap_bounds(
-        candidate, estimate=point_candidate, bounds=(0.0, 100.0) if bounded_score else None,
-    )
-    ci, p05, paired_valid = _bootstrap_bounds(
-        candidate - parent, estimate=point_delta, bounds=(-100.0, 100.0) if bounded_score else None,
-    )
-    if identical and point_delta is not None and registered_days >= 2:
-        ci, p05 = [0.0, 0.0], 0.0
+    """Take 2.5%, 5% and 97.5% quantiles of finite paired [draw] differences.
+
+    A difference is candidate minus parent on the same draw of trading days.
+    Marginal intervals use the same retained draws as the difference interval.
+    No interval is available below six jointly supported original dates, below
+    1,800 finite draw differences, or when the original point is undefined.
+    """
+    differences = candidate - parent if sampled_deltas is None else sampled_deltas
+    valid = np.isfinite(differences) & np.isfinite(parent) & np.isfinite(candidate)
+    paired_valid = int(valid.sum())
+    ci = None
+    p05 = None
+    parent_ci = None
+    candidate_ci = None
     reason = None
-    if registered_days < 2:
-        reason = "fewer than two trading days"
-    elif paired_days is not None and paired_days != registered_days:
-        reason = "missing paired day outcomes"
+    if paired_days < MIN_PAIRED_DAYS:
+        reason = f"fewer than {MIN_PAIRED_DAYS} paired trading days"
+    elif paired_valid < MIN_VALID_DRAWS:
+        reason = f"fewer than {MIN_VALID_DRAWS} finite paired bootstrap draws"
     elif point_delta is None:
         reason = "model readout undefined on original day panel"
-    elif paired_valid < len(parent):
-        reason = "bounded undefined score draws" if bounded_score else "undefined bootstrap draws"
+    else:
+        lower, lower_one_sided, upper = np.quantile(differences[valid], (0.025, 0.05, 0.975))
+        ci = [float(lower), float(upper)]
+        p05 = float(lower_one_sided)
+        parent_ci = np.quantile(parent[valid], (0.025, 0.975)).tolist()
+        candidate_ci = np.quantile(candidate[valid], (0.025, 0.975)).tolist()
     return {
         "estimate": point_delta,
         "interval": ci,
@@ -110,9 +93,10 @@ def _summarize_draws(
         "candidate_interval": candidate_ci,
         "paired_days": paired_days,
         "registered_days": registered_days,
-        "parent_bootstrap_valid": parent_valid,
-        "candidate_bootstrap_valid": candidate_valid,
+        "parent_bootstrap_valid": int(np.isfinite(parent).sum()),
+        "candidate_bootstrap_valid": int(np.isfinite(candidate).sum()),
         "bootstrap_valid": paired_valid,
+        "bootstrap_total": len(differences),
         "reason": reason,
     }
 
@@ -127,28 +111,30 @@ def _scalar_readout(
 ) -> Json:
     """Bootstrap equal-day means for scalar day readouts such as NLL.
 
-    Missing day outcomes prevent publication of a complete-panel interval.
-    The point difference uses only days with both observations.
+    Point estimates average only jointly observed original days. For each
+    [draw, day] resample, both arms retain the same jointly observed dates.
+    A draw containing no observed pair has no estimate.
     """
     parent = np.array([_finite(pair.parent_rows[day].get(metric)) for day in days], dtype=float)
     candidate = np.array([_finite(pair.candidate_rows[day].get(metric)) for day in days], dtype=float)
     differences = candidate - parent
-    pairs = int(np.isfinite(differences).sum())
+    valid = np.isfinite(differences)
+    sampled = valid[draws]
+    counts = sampled.sum(axis=1)
 
     def samples(values: np.ndarray) -> np.ndarray:
-        if np.isfinite(values).all():
-            return values[draws].mean(axis=1)
-        return np.full(len(draws), np.nan)
+        total = np.where(sampled, values[draws], 0.0).sum(axis=1)
+        return np.divide(total, counts, out=np.full(len(draws), np.nan), where=counts > 0)
 
     return _summarize_draws(
         samples(parent),
         samples(candidate),
-        point_parent=_mean(parent),
-        point_candidate=_mean(candidate),
+        point_parent=_mean(parent[valid]),
+        point_candidate=_mean(candidate[valid]),
         point_delta=_mean(differences),
-        paired_days=pairs,
+        paired_days=int(valid.sum()),
         registered_days=len(days),
-        bounded_score=False,
+        sampled_deltas=samples(differences),
     )
 
 
@@ -177,16 +163,15 @@ def _market_readouts(
     for metric in metrics:
         before = _finite(parent_point[metric])
         after = _finite(candidate_point[metric])
+        supported = parent.day_support(metric) & candidate.day_support(metric)
         summaries[metric] = _summarize_draws(
             parent_samples[metric],
             candidate_samples[metric],
             point_parent=before,
             point_candidate=after,
             point_delta=metric_delta(before, after),
-            paired_days=None,  # pooled impact is not an average of independent daily scores
+            paired_days=int(supported.sum()),
             registered_days=size,
-            bounded_score=metric == IMPACT,
-            identical=identical,
         )
         if metric == IMPACT:
             summaries[metric]["bootstrap_support"] = {
@@ -205,7 +190,8 @@ def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics:
     the one-sided lower endpoint. The composite is computed on the full
     sample for its point estimate, and recomputed from pooled physical
     inputs on every draw conditional on original-panel C2 admission. No
-    session or training seed is a bootstrap unit.
+    session or training seed is a bootstrap unit. The six-day support gate
+    counts dates where both arms can contribute to the requested readout.
     """
     pair.validate(request)
     days = request.eval_dates

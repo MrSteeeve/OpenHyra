@@ -1,5 +1,6 @@
 """Offline verification of metering, retry classification, and request replay."""
 
+import json
 from pathlib import Path
 
 import httpx
@@ -67,6 +68,9 @@ def test_transit_retries_repeat_the_same_request_and_replay_durable_reply(
     assert failed["input_tokens"] is None and failed["seconds"] >= 0
     success = ledger.read(*path, "requests", "hypothesis-01-http-04-result.json")
     assert success["input_tokens"] == 45 and success["output_tokens"] == 21
+    for suffix in ("", "-http-02", "-http-03", "-http-04"):
+        submission = ledger.read(*path, "requests", f"hypothesis-01{suffix}.json")
+        assert submission["messages"] == request and submission["response_json"] is True
     with ledger.lock():
         resumed = TrialCalls(ledger, path, adapter)
         assert resumed.transport(request, response_json=True).text == "{}"
@@ -90,3 +94,55 @@ def test_interrupted_request_is_spent_and_has_no_search_resample(tmp_path: Path)
         with pytest.raises(ProposalBudgetExhausted, match="response unavailable"):
             TrialCalls(ledger, ("trial",), adapter).transport([], response_json=False)
     assert calls == 1
+
+
+def test_repaired_plan_and_resumed_synthesis_have_stable_usage_slots(tmp_path: Path) -> None:
+    attempt_modes: list[bool] = []
+    billed: list[CallUsage] = []
+    source = "class CandidateLOBWorldModel(LOBWorldModel):\n    pass\n"
+    plan = {
+        "hypothesis": {
+            "observed_bottleneck": "weak impact realism", "operator_diagnosis": "fast forgetting",
+            "structural_prescription": "retain context", "falsifier": "gain outside forecast interval",
+        },
+        "predictions": [
+            {"role": "primary", "metric": "lob_impact_score", "direction": "increase", "delta_interval": [1, 3]},
+            {"role": "guardrail", "metric": "val_nll_total", "direction": "equivalent", "equivalence_band": [-0.05, 0.05]},
+        ],
+    }
+
+    def fake_provider(messages: Messages, *, response_json: bool) -> ProviderReply:
+        attempt_modes.append(response_json)
+        if not response_json:
+            return ProviderReply(f"```python\n{source}```", 35, 22)
+        if len(attempt_modes) == 1:
+            return ProviderReply("{}", 32, 2)
+        assert "Previous JSON rejected" in messages[-1]["content"]
+        return ProviderReply(json.dumps(plan), 45, 23)
+
+    def accepted(_source: str) -> None:
+        return None
+
+    def count(_messages: Messages) -> int:
+        return 50
+
+    ledger = Ledger(tmp_path)
+    path = ("metrics_ds", "round-001")
+    adapter = TwoStepProposer(fake_provider, accepted, billed.append, count_tokens=count)
+
+    with ledger.lock():
+        calls = TrialCalls(ledger, path, adapter)
+        proposer = TwoStepProposer(calls.transport, accepted, calls.record, count_tokens=count)
+        result = proposer.propose("metrics", "seed source", {}, (), lambda *_: None, trial_id="trial")
+    assert result.source == source
+    assert attempt_modes == [True, True, False]
+
+    with ledger.lock():
+        calls = TrialCalls(ledger, path, adapter)
+        proposer = TwoStepProposer(calls.transport, accepted, calls.record, count_tokens=count)
+        replayed = proposer.synthesize("metrics", "seed source", {}, (), result.hypothesis, result.predictions)
+    assert replayed == result
+    assert attempt_modes == [True, True, False]
+    assert [item.stage for item in billed] == ["hypothesis", "hypothesis_repair", "code"]
+    assert ledger.read(*path, "usage", "02.json")["stage"] == "hypothesis_repair"
+    assert ledger.read(*path, "usage", "03.json")["stage"] == "code"

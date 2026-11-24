@@ -9,20 +9,21 @@ from dataclasses import asdict, dataclass, field
 from typing import Literal, Protocol
 
 from .prompt import (
-    CODE_INSTRUCTION, CONTRACT, EVIDENCE_CONTEXT, HYPOTHESIS_FIELDS, METRIC_CONTEXT,
-    PLAN_INSTRUCTION, forecast_metrics, forecast_targets,
+    CODE_INSTRUCTION, HYPOTHESIS_FIELDS, HYPOTHESIS_TEXT_FIELDS, PLAN_INSTRUCTION,
+    context_packet, dump_prompt, forecast_example, forecast_metrics, forecast_targets, message_packet,
 )
 
 
 MAX_INPUT_TOKENS = 3500
 MAX_OUTPUT_TOKENS = 8192
 MAX_REPAIRS = 2
+MAX_HYPOTHESIS_REPAIRS = 1
 
 Message = dict[str, str]
 Messages = list[Message]
 Group = Literal["evidence", "metrics"]
 Direction = Literal["increase", "decrease", "equivalent"]
-Stage = Literal["hypothesis", "code", "repair"]
+Stage = Literal["hypothesis", "hypothesis_repair", "code", "repair"]
 PredictionRole = Literal["primary", "guardrail"]
 
 
@@ -86,11 +87,11 @@ class StructuredPrediction:
             if band is None or not band[0] <= lower <= upper <= band[1]:
                 raise ValueError("equivalent predictions require an interval inside equivalence_band")
         elif self.direction == "increase":
-            if lower <= 0:
-                raise ValueError("increase requires a strictly positive interval")
+            if not 0 <= lower < upper:
+                raise ValueError("increase requires 0 <= low < high for signed delta_interval")
         elif self.direction == "decrease":
-            if upper >= 0:
-                raise ValueError("decrease requires a strictly negative interval")
+            if not lower < upper <= 0:
+                raise ValueError("decrease requires low < high <= 0 for signed delta_interval")
         else:
             raise ValueError("unknown prediction direction")
 
@@ -160,28 +161,34 @@ def validate_forecasts(
         raise ProposalValidationError("primary forecast must use an allowed registered core metric")
     if guardrail.metric not in guardrail_metrics or primary.metric == guardrail.metric:
         raise ProposalValidationError("guardrail forecast must use a distinct allowed readout")
-    if guardrail.direction == "increase" and guardrail.metric in (
-        "val_nll_total", "free_abs_drift_ticks", "trade_sign_acf_exp_gap", "hurst_gap",
-        "impact_exponent_gap", "event_count_rel_gap", "l1_depth_mae",
-    ):
-        raise ProposalValidationError("guardrail must forecast non-degradation")
-    if guardrail.direction == "decrease" and guardrail.metric in ("lob_impact_score", "visible_over_blind_ratio"):
-        raise ProposalValidationError("guardrail must forecast non-degradation")
 
 
-def _dump(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+def _parse_prediction(item: object) -> StructuredPrediction:
+    if not isinstance(item, dict):
+        raise ValueError("each prediction must be a JSON object")
+    delta = item.get("delta_interval", item.get("interval"))
+    direction = item.get("direction")
+    band = item.get("equivalence_band") if direction == "equivalent" else None
+    if delta is None and direction == "equivalent":
+        delta = band
+    if delta is None:
+        raise ValueError("provide delta_interval, or equivalence_band for an equivalent forecast")
+    return StructuredPrediction(item.get("metric"), direction, delta, role=item.get("role"), equivalence_band=band)
 
 
-def _parse_plan(text: str) -> tuple[DynamicHypothesis, tuple[StructuredPrediction, ...]]:
+def _parse_plan(
+    text: str, trial_id: str, active_parent_hypothesis_id: str | None,
+) -> tuple[DynamicHypothesis, tuple[StructuredPrediction, ...]]:
     payload = json.loads(text)
-    if not isinstance(payload, dict) or set(payload) != {"hypothesis", "predictions"}:
-        raise ValueError("Call 1 requires exactly hypothesis and predictions")
-    if not isinstance(payload["predictions"], list) or len(payload["predictions"]) != 2:
+    if not isinstance(payload, dict) or not isinstance(payload.get("hypothesis"), dict):
+        raise ValueError("Call 1 requires a hypothesis object and a predictions list")
+    entries = payload.get("predictions")
+    if not isinstance(entries, list) or len(entries) != 2:
         raise ValueError("predictions must contain exactly two items")
     try:
-        hypothesis = DynamicHypothesis(**payload["hypothesis"])
-        predictions = tuple(StructuredPrediction(**item) for item in payload["predictions"])
+        content = {name: payload["hypothesis"].get(name) for name in HYPOTHESIS_TEXT_FIELDS}
+        hypothesis = DynamicHypothesis(f"{trial_id}-hyp", active_parent_hypothesis_id, **content)
+        predictions = tuple(_parse_prediction(item) for item in entries)
     except TypeError as exc:
         raise ValueError(f"invalid prediction or hypothesis fields: {exc}") from exc
     return hypothesis, predictions
@@ -196,44 +203,6 @@ def extract_source(text: str) -> str:
     if any(line.strip().startswith("```") for line in body) or not any(line.strip() for line in body):
         raise ValueError("Call 2 requires one nonempty Python code block")
     return "\n".join(body) + "\n"
-
-
-def _context(group: Group, source: str, evidence: Mapping[str, object],
-             recent: History) -> tuple[str, list[dict[str, object]]]:
-    if group not in ("evidence", "metrics"):
-        raise ValueError(f"unsupported proposal group {group!r}")
-    keys = METRIC_CONTEXT
-    if group == "evidence":
-        keys += EVIDENCE_CONTEXT
-    row = {}
-    for key in keys:
-        value = evidence.get(key)
-        if type(value) in (int, float) and math.isfinite(value):
-            row[key] = value
-        else:
-            row[key] = None
-    feedback = []
-    if group == "evidence":
-        for item in recent[-3:]:
-            hypothesis = item["hypothesis"]
-            if not isinstance(hypothesis, Mapping):
-                raise ValueError("recent hypotheses must be mappings")
-            feedback.append({
-                "hypothesis": {key: hypothesis.get(key) for key in HYPOTHESIS_FIELDS},
-                "verdict": item["verdict"],
-            })
-    return f"Parent Python source:\n{source}\nDevelopment summary:\n{_dump(row)}", feedback
-
-
-def _messages(instruction: str, context: str, recent: list[dict[str, object]],
-              suffix: str = "") -> Messages:
-    content = context
-    if recent:
-        content += f"\nRecent group history:\n{_dump(recent)}"
-    if suffix:
-        content += f"\n{suffix}"
-    return [{"role": "system", "content": f"{CONTRACT}\n\n{instruction}"},
-            {"role": "user", "content": content}]
 
 
 class TwoStepProposer:
@@ -255,9 +224,9 @@ class TwoStepProposer:
         self.search_round = search_round
 
     def _bounded(self, instruction: str, context: str, recent: list[dict[str, object]],
-                 suffix: str = "") -> Messages:
+                 suffix: str = "", *, include_contract: bool = True) -> Messages:
         for removed in range(len(recent) + 1):
-            packet = _messages(instruction, context, recent[removed:], suffix)
+            packet = message_packet(instruction, context, recent[removed:], suffix, include_contract=include_contract)
             if self.count_tokens(packet) <= MAX_INPUT_TOKENS:
                 return packet
         raise ContextLimitExceeded(
@@ -276,7 +245,7 @@ class TwoStepProposer:
             except ContextLimitExceeded:
                 continue
             if failed_draft:
-                with_draft = _messages(
+                with_draft = message_packet(
                     CODE_INSTRUCTION, context, [], f"{suffix}\nFailed draft:\n{failed_draft}"
                 )
                 if self.count_tokens(with_draft) <= MAX_INPUT_TOKENS:
@@ -288,39 +257,49 @@ class TwoStepProposer:
         )
 
     def _call(self, messages: Messages, stage: Stage) -> ProviderReply:
-        reply = self.transport(messages, response_json=stage == "hypothesis")
+        reply = self.transport(messages, response_json=stage in ("hypothesis", "hypothesis_repair"))
         self.record_usage(CallUsage(stage, reply.input_tokens, reply.output_tokens))
         if reply.input_tokens > MAX_INPUT_TOKENS or reply.output_tokens > MAX_OUTPUT_TOKENS:
             raise ProposalValidationError("provider reported token use above the registered call limit")
         return reply
 
     def propose(self, group: Group, parent_source: str, parent_evidence: Mapping[str, object],
-                recent: History, seal_callback: Seal) -> SynthesisResult:
-        context, history = _context(group, parent_source, parent_evidence, recent)
+                recent: History, seal_callback: Seal, *, trial_id: str,
+                active_parent_hypothesis_id: str | None = None) -> SynthesisResult:
+        """Repair one invalid JSON plan before sealing and synthesizing its candidate."""
+        _text(trial_id, "trial_id")
+        context, history = context_packet(group, parent_source, parent_evidence, recent)
         targets = forecast_targets(group, self.core_metrics)
         if self.search_seed is not None:
             targets += f" Independent search replicate seed: {self.search_seed}."
         if self.search_round is not None:
-            targets += f" Search round {self.search_round}. Include the round in the new hypothesis_id."
-        packet = self._bounded(PLAN_INSTRUCTION, context, history, targets)
-        reply = self._call(packet, "hypothesis")
-        if reply.error is not None:
-            raise ProposalValidationError(f"Call 1 failed before preregistration: {reply.error}")
-        try:
-            hypothesis, predictions = _parse_plan(reply.text)
-        except ValueError as exc:
-            raise ProposalValidationError(str(exc)) from exc
-        validate_forecasts(group, predictions, self.core_metrics)
-        seal_callback(hypothesis, predictions)
-        return self.synthesize(group, parent_source, parent_evidence, recent, hypothesis, predictions)
+            targets += f" Search round {self.search_round}."
+        example = forecast_example(group, self.core_metrics)
+        diagnostic = ""
+        for attempt in range(MAX_HYPOTHESIS_REPAIRS + 1):
+            suffix = f"{targets}\n{diagnostic}{example}"
+            packet = self._bounded(PLAN_INSTRUCTION, context, history, suffix, include_contract=False)
+            stage = "hypothesis_repair" if attempt else "hypothesis"
+            reply = self._call(packet, stage)
+            try:
+                if reply.error is not None:
+                    raise ValueError(reply.error)
+                hypothesis, predictions = _parse_plan(reply.text, trial_id, active_parent_hypothesis_id)
+                validate_forecasts(group, predictions, self.core_metrics)
+            except ValueError as exc:
+                diagnostic = f"Previous JSON rejected: {exc}. Return a corrected JSON object.\n"
+                continue
+            seal_callback(hypothesis, predictions)
+            return self.synthesize(group, parent_source, parent_evidence, recent, hypothesis, predictions)
+        raise ProposalValidationError(diagnostic.strip())
 
     def synthesize(self, group: Group, parent_source: str, parent_evidence: Mapping[str, object],
                    recent: History, hypothesis: DynamicHypothesis,
                    predictions: tuple[StructuredPrediction, ...]) -> SynthesisResult:
         """Continue from an existing seal without sending Call 1 twice."""
         validate_forecasts(group, predictions, self.core_metrics)
-        context, history = _context(group, parent_source, parent_evidence, recent)
-        sealed = "Sealed proposal:\n" + _dump({
+        context, history = context_packet(group, parent_source, parent_evidence, recent)
+        sealed = "Sealed proposal:\n" + dump_prompt({
             "hypothesis": asdict(hypothesis), "predictions": [asdict(item) for item in predictions],
         })
         error = ""
