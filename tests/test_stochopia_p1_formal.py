@@ -55,7 +55,7 @@ def _metrics(score: float) -> dict[str, object]:
         "parameters": 21932, "state_dim": 48,
         IMPACT: score, NLL: 3.0, DRIFT: 2.0, "exhausted_windows": 0,
         "train_seed_nll": {seed: 3.0 for seed in TRAIN_SEEDS},
-        "claims": {"C1": {"status": "fail"}, "C2": {"status": "pass"}},
+        "claims": {"C1": "fail", "C2": "pass"},
     }
 
 

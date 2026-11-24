@@ -130,7 +130,7 @@ def _endpoint_rows(report: Json) -> Iterable[Json]:
                 **metadata, **endpoint, **_roles(assessment), "phase": label,
                 NLL: metrics.get(NLL), IMPACT: metrics.get(IMPACT), "decision": assessment.get("verdict"),
                 "impact_ci95_low": ci[0], "impact_ci95_high": ci[1],
-                **{key: value["status"] for key, value in metrics.get("claims", {}).items()},
+                **metrics.get("claims", {}),
             }
 
 
