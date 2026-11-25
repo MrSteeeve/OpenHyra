@@ -1,4 +1,4 @@
-"""Preregister the fixed M4 roster and freeze model sources and verifier tasks."""
+"""Preregister the M4/M5 calendars, roster and frozen verifier tasks."""
 
 from __future__ import annotations
 
@@ -35,6 +35,29 @@ TEST_DATES = (
 )
 EMBARGO_DATES = (20170306, 20170323)
 FORMAL_SCHEMA = "stochopia-p1-m4-v2"
+M5_SCHEMA = "stochopia-p1-m5-v1"
+M5_TRAIN_DATES = (
+    20170103, 20170104, 20170105, 20170106, 20170109, 20170110, 20170111, 20170112,
+    20170113, 20170116, 20170117, 20170118, 20170119, 20170120, 20170123, 20170124,
+    20170206, 20170207, 20170208, 20170209, 20170210, 20170213, 20170214, 20170215,
+    20170216, 20170217, 20170220, 20170221, 20170222, 20170223, 20170224, 20170227,
+    20170228, 20170301, 20170302, 20170303,
+)
+M5_DEV_DATES = (
+    20170307, 20170308, 20170309, 20170310, 20170313, 20170314, 20170315, 20170316,
+    20170317, 20170320, 20170321, 20170322, *TEST_DATES,
+)
+M5_TEST_DATES = (
+    20170414, 20170417, 20170418, 20170419, 20170420, 20170421, 20170424, 20170425,
+    20170426, 20170427, 20170428, 20170502, 20170503, 20170504, 20170505, 20170508,
+    20170509, 20170510, 20170511, 20170512,
+)
+M5_REPLACEMENT_TEST_DATES = (
+    20170515, 20170516, 20170517, 20170518, 20170519, 20170522, 20170523, 20170524,
+    20170525, 20170526,
+)
+M5_EMBARGO_DATES = (20170306, 20170413)
+M5_EXCLUDED_DATES = (20170323,)
 MANIFEST = "study_manifest.json"
 
 
@@ -62,9 +85,37 @@ def roster() -> Iterator[Trajectory]:
                 yield Trajectory(stock, arm, search_seed)
 
 
+def _m5_data_registration(record: Json) -> Json:
+    """Validate exact M5 date metadata without reading any market files."""
+    expected = {
+        "train_dates": M5_TRAIN_DATES,
+        "dev_dates": M5_DEV_DATES,
+        "test_dates": M5_TEST_DATES,
+        "replacement_test_dates": M5_REPLACEMENT_TEST_DATES,
+        "embargo_dates": M5_EMBARGO_DATES,
+    }
+    for field, calendar in expected.items():
+        value = record.get(field)
+        if not isinstance(value, (list, tuple)) or any(type(day) is not int for day in value):
+            raise ValueError(f"M5 requires integer dates for {field}")
+        if tuple(value) != calendar:
+            raise ValueError(f"M5 requires the exact preregistered {field}")
+    if tuple(record["symbols"]) != SYMBOLS:
+        raise ValueError("M5 requires both registered stocks")
+    if tuple(record.get("excluded_dates", M5_EXCLUDED_DATES)) != M5_EXCLUDED_DATES:
+        raise ValueError("M5 excludes the former embargo day 20170323")
+    return {
+        "source_repo": record["source_repo"], "source_revision": record["source_revision"],
+        "symbols": list(SYMBOLS), **{field: list(calendar) for field, calendar in expected.items()},
+        "excluded_dates": list(M5_EXCLUDED_DATES),
+    }
+
+
 def data_registration(market_root: Path) -> Json:
     """Read the registered calendar and dataset revision, with no data file IO."""
     record = json.loads((market_root / "manifest.json").read_text(encoding="utf-8"))
+    if "replacement_test_dates" in record:
+        return _m5_data_registration(record)
     required_counts = {"train_dates": 36, "dev_dates": 12, "test_dates": 12}
     for field, size in required_counts.items():
         dates = tuple(record[field])
@@ -87,8 +138,11 @@ def data_registration(market_root: Path) -> Json:
 
 
 def study_registration(data: Json, code: Mapping[str, str], model_registry: str) -> Json:
-    return {
-        "schema": FORMAL_SCHEMA,
+    is_m5 = "replacement_test_dates" in data
+    if is_m5:
+        data = _m5_data_registration(data)
+    registration = {
+        "schema": M5_SCHEMA if is_m5 else FORMAL_SCHEMA,
         "code": dict(code),
         "model_registry_sha256": sha256(model_registry.encode("utf-8")).hexdigest(),
         "data": data,
@@ -100,6 +154,34 @@ def study_registration(data: Json, code: Mapping[str, str], model_registry: str)
         "fit_protocol": asdict(P1_FIT_PROTOCOL),
         "limits": {"parameters": MAX_WORLD_MODEL_PARAMS, "real_state_scalars": MAX_WORLD_MODEL_STATE},
     }
+    if is_m5:
+        from .paired_stats import (
+            BOOTSTRAP_RESAMPLES, DRIFT_LIMIT, MIN_GAIN, MIN_PAIRED_DAYS, MIN_VALID_DRAWS, NLL_GUARDRAIL,
+        )
+        from .prompt import M5_MIN_EFFECTS
+        from .request_log import HTTP_RETRY_DELAYS
+
+        registration["analysis_version"] = "m5"
+        registration["analysis"] = {
+            "bootstrap_resamples": BOOTSTRAP_RESAMPLES,
+            "min_valid_draws": MIN_VALID_DRAWS,
+            "min_paired_days_floor": MIN_PAIRED_DAYS,
+            "min_paired_days_fraction": 0.5,
+            "min_gain": MIN_GAIN,
+            "nll_guardrail": NLL_GUARDRAIL,
+            "free_drift_limit_ticks": DRIFT_LIMIT,
+            "benchmark_lower_quantile": 0.10,
+            "directional_quantiles": [0.10, 0.90],
+            "equivalence_quantiles": [0.05, 0.95],
+            "directional_min_effect": M5_MIN_EFFECTS,
+        }
+        registration["worker_resources"] = {
+            "train_wall_seconds": P1_FIT_PROTOCOL.max_train_seconds,
+            "evaluation_wall_seconds": 1800.0,
+            "cpu_seconds_multiplier": 4,
+        }
+        registration["transport_retry_delays"] = list(HTTP_RETRY_DELAYS)
+    return registration
 
 
 class SourceArchive:
@@ -285,12 +367,16 @@ def _schedule(study: Json, baselines: Json, trajectories: Json) -> Json:
                 ),
             }
         cross_regime[arm] = designs
-    return {
-        **study, "test_dates": list(TEST_DATES), "test_rollout_seed": TEST_ROLLOUT_SEED,
+    primary = M5_TEST_DATES if study["schema"] == M5_SCHEMA else TEST_DATES
+    scheduled = {
+        **study, "test_dates": list(primary), "test_rollout_seed": TEST_ROLLOUT_SEED,
         "baselines": baselines, "trajectories": trajectories, "selections": selections,
         "tasks": [*initial_tasks.values(), *pair_tasks.values()],
         "cross_regime": cross_regime,
     }
+    if study["schema"] == M5_SCHEMA:
+        scheduled["replacement_test_dates"] = list(M5_REPLACEMENT_TEST_DATES)
+    return scheduled
 
 
 def freeze_study(root: Path, market_root: Path, *, development_root: Path | None = None) -> Json:
@@ -330,11 +416,21 @@ def freeze_study(root: Path, market_root: Path, *, development_root: Path | None
 
 def validate_frozen(manifest: Json, archive: SourceArchive) -> None:
     """Check the complete roster and every executable source before data access."""
-    if manifest.get("schema") != FORMAL_SCHEMA or tuple(manifest.get("test_dates", ())) != TEST_DATES:
+    schema = manifest.get("schema")
+    if schema == M5_SCHEMA:
+        if _m5_data_registration(manifest["data"]) != manifest["data"]:
+            raise ValueError("frozen M5 data metadata differs from its preregistration")
+        if manifest.get("analysis_version") != "m5":
+            raise ValueError("M5 requires the registered paired analysis version")
+        if tuple(manifest.get("test_dates", ())) != M5_TEST_DATES:
+            raise ValueError("unexpected frozen M5 primary test calendar")
+        if tuple(manifest.get("replacement_test_dates", ())) != M5_REPLACEMENT_TEST_DATES:
+            raise ValueError("unexpected frozen M5 replacement test calendar")
+    elif schema != FORMAL_SCHEMA or tuple(manifest.get("test_dates", ())) != TEST_DATES:
         raise ValueError("unexpected formal manifest schema or test calendar")
     if set(manifest["trajectories"]) != {item.key for item in roster()}:
         raise ValueError("formal roster is incomplete")
-    expected = _schedule({}, manifest["baselines"], manifest["trajectories"])
+    expected = _schedule(manifest, manifest["baselines"], manifest["trajectories"])
     for key in ("tasks", "selections", "cross_regime"):
         if manifest[key] != expected[key]:
             raise ValueError("holdout schedule differs from the sealed development decisions")

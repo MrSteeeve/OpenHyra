@@ -63,7 +63,7 @@ class DevelopmentLoop:
 
     def __init__(
         self, root: Path, plan: StudyPlan, *, proposers: Mapping[str, TwoStepProposer],
-        gate: CandidateGate, evaluate: Evaluator,
+        gate: CandidateGate, evaluate: Evaluator, stop_requested: Callable[[], bool] | None = None,
     ) -> None:
         expected_proposers = {group for group in plan.groups if group_mode(group) != "no_llm"}
         if set(proposers) != expected_proposers:
@@ -73,6 +73,7 @@ class DevelopmentLoop:
         self.proposers = proposers
         self.gate = gate
         self.evaluate = evaluate
+        self.stop_requested = stop_requested
         self.rules = {rule.metric: rule for rule in plan.metric_rules}
 
     def _history(self, group: str, before: int) -> tuple[Json, ...]:
@@ -97,7 +98,10 @@ class DevelopmentLoop:
 
     def _proposer(self, group: str, path: tuple[str, ...], index: int) -> TwoStepProposer:
         adapter = self.proposers[group]
-        ledger = TrialCalls(self.ledger, path, adapter)
+        ledger = TrialCalls(
+            self.ledger, path, adapter, stop_requested=self.stop_requested,
+            analysis_version=self.plan.analysis_version,
+        )
 
         def record_compile(attempt: CompileAttempt) -> None:
             self.ledger.seal(asdict(attempt), *path, "compiler", f"{attempt.attempt:02d}.json")
@@ -109,7 +113,7 @@ class DevelopmentLoop:
         return TwoStepProposer(
             ledger.transport, self.gate, ledger.record, count_tokens=adapter.count_tokens,
             core_metrics=tuple(self.rules), record_compile=record_compile, read_compile=read_compile,
-            search_seed=self.plan.mutation_seed, search_round=index,
+            search_seed=self.plan.mutation_seed, search_round=index, analysis_version=self.plan.analysis_version,
         )
 
     def _synthesize(
@@ -126,7 +130,7 @@ class DevelopmentLoop:
         continuation = prior["hypothesis"]["hypothesis_id"] if prior is not None else None
 
         def seal(hypothesis: DynamicHypothesis, predictions: tuple[StructuredPrediction, ...]) -> None:
-            validate_forecasts(mode, predictions, tuple(self.rules))
+            validate_forecasts(mode, predictions, tuple(self.rules), analysis_version=self.plan.analysis_version)
             self.ledger.seal({"hypothesis": asdict(hypothesis), "predictions": [asdict(p) for p in predictions]},
                              *path, "preregistration.json")
 
@@ -192,7 +196,7 @@ class DevelopmentLoop:
                                      "error": program["error"], "training_budget_consumed": False}, *path, "result.json")
         candidate = ModelRef(trial_id, program["source"])
         request = EvaluationRequest(trial_id, group, parent, candidate, self.plan.train_dates, self.plan.dev_dates,
-                                    self.plan.train_seeds, self.plan.rollout_seed, "dev")
+                                    self.plan.train_seeds, self.plan.rollout_seed, "dev", self.plan.analysis_version)
         self.ledger.seal(asdict(request), *path, "evaluation-request.json")
         recorded = self.ledger.read(*path, "evaluation.json")
         predictions = predictions_from_payload(forecasts)

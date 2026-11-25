@@ -56,37 +56,50 @@ def _summarize_draws(
     point_candidate: float | None, point_delta: float | None,
     paired_days: int, registered_days: int, sampled_deltas: np.ndarray | None = None,
 ) -> Json:
-    """Take 2.5%, 5% and 97.5% quantiles of finite paired [draw] differences.
+    """Take 2.5/5/10/90/95/97.5% quantiles of finite paired [draw] differences.
 
     A difference is candidate minus parent on the same draw of trading days.
     Marginal intervals use the same retained draws as the difference interval.
-    No interval is available below six jointly supported original dates, below
-    1,800 finite draw differences, or when the original point is undefined.
+    At least max(6, floor(registered_days/2)) jointly supported original
+    dates and 1,800 finite paired draws are required. Undefined points
+    or insufficient support leave every quantile unavailable.
     """
     differences = candidate - parent if sampled_deltas is None else sampled_deltas
     valid = np.isfinite(differences) & np.isfinite(parent) & np.isfinite(candidate)
     paired_valid = int(valid.sum())
     ci = None
     p05 = None
+    p10 = None
+    p90 = None
+    p95 = None
     parent_ci = None
     candidate_ci = None
     reason = None
-    if paired_days < MIN_PAIRED_DAYS:
-        reason = f"fewer than {MIN_PAIRED_DAYS} paired trading days"
+    min_days = max(MIN_PAIRED_DAYS, registered_days // 2)
+    if paired_days < min_days:
+        reason = f"fewer than {min_days} paired trading days"
     elif paired_valid < MIN_VALID_DRAWS:
         reason = f"fewer than {MIN_VALID_DRAWS} finite paired bootstrap draws"
     elif point_delta is None:
         reason = "model readout undefined on original day panel"
     else:
-        lower, lower_one_sided, upper = np.quantile(differences[valid], (0.025, 0.05, 0.975))
-        ci = [float(lower), float(upper)]
-        p05 = float(lower_one_sided)
+        quantiles = np.quantile(differences[valid], (0.025, 0.05, 0.10, 0.90, 0.95, 0.975))
+        ci = [float(quantiles[0]), float(quantiles[5])]
+        p05 = float(quantiles[1])
+        p10 = float(quantiles[2])
+        p90 = float(quantiles[3])
+        p95 = float(quantiles[4])
         parent_ci = np.quantile(parent[valid], (0.025, 0.975)).tolist()
         candidate_ci = np.quantile(candidate[valid], (0.025, 0.975)).tolist()
     return {
         "estimate": point_delta,
         "interval": ci,
+        "p025": None if ci is None else ci[0],
         "p05": p05,
+        "p10": p10,
+        "p90": p90,
+        "p95": p95,
+        "p975": None if ci is None else ci[1],
         "parent_estimate": point_parent,
         "parent_interval": parent_ci,
         "candidate_estimate": point_candidate,
@@ -190,7 +203,7 @@ def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics:
     the one-sided lower endpoint. The composite is computed on the full
     sample for its point estimate, and recomputed from pooled physical
     inputs on every draw conditional on original-panel C2 admission. No
-    session or training seed is a bootstrap unit. The six-day support gate
+    session or training seed is a bootstrap unit. The original support gate
     counts dates where both arms can contribute to the requested readout.
     """
     pair.validate(request)
@@ -214,7 +227,7 @@ def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics:
 # --- Ordered validation layers ---
 
 
-def _judge(prediction: StructuredPrediction, interval: list[float] | None) -> str:
+def _judge_v2(prediction: StructuredPrediction, interval: list[float] | None) -> str:
     """Test directional, magnitude and equivalent forecasts on candidate minus parent.
 
     Inputs are two closed intervals in the same metric units. Containment
@@ -232,6 +245,66 @@ def _judge(prediction: StructuredPrediction, interval: list[float] | None) -> st
     if high < target_low or target_high < low:
         return REFUTED
     return INCONCLUSIVE
+
+
+def _judge(prediction: StructuredPrediction, summary: Mapping[str, object]) -> str:
+    """Judge a frozen M5 forecast against a scalar paired bootstrap summary.
+
+    For equivalence, p05 and p95 must fit inside the prespecified band
+    (TOST at alpha=.05). Opposite 95% intervals refute equivalence.
+    For an increase, delta must reach the positive target's lower bound
+    and p10 must exceed zero; decrease mirrors that rule using p90.
+    A point on or across zero, or a 95% interval missing the near-zero
+    target bound, refutes the corresponding directional forecast.
+    Undefined intervals or required quantiles are inconclusive.
+    """
+    if summary.get("interval") is None:
+        return INCONCLUSIVE
+    estimate = _finite(summary.get("estimate"))
+    p025 = _finite(summary.get("p025"))
+    p05 = _finite(summary.get("p05"))
+    p10 = _finite(summary.get("p10"))
+    p90 = _finite(summary.get("p90"))
+    p95 = _finite(summary.get("p95"))
+    p975 = _finite(summary.get("p975"))
+    if any(value is None for value in (estimate, p025, p05, p10, p90, p95, p975)):
+        return INCONCLUSIVE
+
+    target_low, target_high = prediction.interval
+    if prediction.direction == "equivalent":
+        band_low, band_high = prediction.equivalence_band
+        if band_low <= p05 <= p95 <= band_high:
+            return "SUPPORTED"
+        if p975 < band_low or p025 > band_high:
+            return REFUTED
+    elif prediction.direction == "increase":
+        if estimate <= 0 or p975 < target_low:
+            return REFUTED
+        if estimate >= target_low and p10 > 0:
+            return "SUPPORTED"
+    else:
+        if estimate >= 0 or p025 > target_high:
+            return REFUTED
+        if estimate <= target_high and p90 < 0:
+            return "SUPPORTED"
+    return INCONCLUSIVE
+
+
+def _prediction_verdict(prediction: StructuredPrediction, summary: Json, *, analysis_version: str) -> Json:
+    """Keep directional support and quantitative interval containment separate."""
+    estimate = _finite(summary.get("estimate"))
+    low, high = prediction.interval
+    if analysis_version == "m5":
+        status = _judge(prediction, summary)
+    else:
+        status = _judge_v2(prediction, summary["interval"])
+    return {
+        "role": prediction.role,
+        "metric": prediction.metric,
+        "status": status,
+        "point_available": estimate is not None,
+        "point_in_interval": estimate is not None and low <= estimate <= high,
+    }
 
 
 def _finite_seed_nll(evidence: Mapping[str, object], seeds: tuple[int, ...]) -> bool:
@@ -292,17 +365,20 @@ def assess(
     metrics = [NLL, IMPACT, "free_abs_drift_ticks"]
     metrics.extend(p.metric for p in predictions)
     readouts = paired_readouts(pair, request, metrics)
-    verdicts = [
-        {"role": p.role, "metric": p.metric, "status": _judge(p, readouts[p.metric]["interval"])}
-        for p in predictions
-    ]
+    verdicts = []
+    for prediction in predictions:
+        verdicts.append(_prediction_verdict(
+            prediction, readouts[prediction.metric], analysis_version=request.analysis_version,
+        ))
     guardrails = _guardrails(pair, request, readouts)
     guards_passed = all(guardrails[key] for key in ("nll_passed", "exhaustion_passed", "drift_passed"))
     gain = readouts[IMPACT]
     score_delta = gain["estimate"]
     p05 = gain["p05"]
+    p10 = gain["p10"]
+    lower = p10 if request.analysis_version == "m5" else p05
     has_benchmark_gain = guards_passed and score_delta is not None and score_delta >= MIN_GAIN
-    has_benchmark_gain = has_benchmark_gain and p05 is not None and p05 > 0
+    has_benchmark_gain = has_benchmark_gain and lower is not None and lower > 0
     forecasts_passed = verdicts[0]["status"] == "SUPPORTED" and verdicts[1]["status"] != REFUTED
     if not guards_passed:
         status = GUARDRAIL_VIOLATION
@@ -320,6 +396,7 @@ def assess(
         "has_benchmark_gain": has_benchmark_gain,
         "mean_delta_score": score_delta,
         "p05_delta_score": p05,
+        "p10_delta_score": p10,
         "nll_guardrail_passed": guardrails["nll_passed"],
         "aggregate_delta": {metric: readouts[metric]["estimate"] for metric in (NLL, IMPACT)},
     }
@@ -330,7 +407,8 @@ def failed_evaluation(predictions: tuple[StructuredPrediction, ...], reason: str
         "verdict": EVALUATION_FAILED,
         "error": reason,
         "prediction_verdicts": [
-            {"role": p.role, "metric": p.metric, "status": INCONCLUSIVE} for p in predictions
+            {"role": p.role, "metric": p.metric, "status": INCONCLUSIVE,
+             "point_available": False, "point_in_interval": False} for p in predictions
         ],
         "training_budget_consumed": True,
     }

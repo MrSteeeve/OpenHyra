@@ -83,6 +83,7 @@ class StudyPlan:
     nll_guardrail: float = 0.05
     groups: tuple[str, ...] = GROUPS
     trial_prefix: str = ""
+    analysis_version: Literal["m4", "m5"] = "m4"
 
     def __post_init__(self) -> None:
         validate_dates(self.train_dates, "train_dates")
@@ -93,6 +94,8 @@ class StudyPlan:
             raise ValueError("positive rounds and unique training seeds are required")
         if self.nll_guardrail != 0.05:
             raise ValueError("P1-M4 fixes the NLL guardrail at +0.05 nats/event")
+        if self.analysis_version not in ("m4", "m5"):
+            raise ValueError("unknown paired analysis protocol")
         if not self.groups or len(set(self.groups)) != len(self.groups):
             raise ValueError("register distinct experiment arms")
         for group in self.groups:
@@ -133,13 +136,14 @@ class EvaluationRequest:
     train_seeds: tuple[int, ...]
     rollout_seed: int
     split: Literal["dev", "test"]
+    analysis_version: Literal["m4", "m5"] = "m4"
 
     @classmethod
     def from_dict(cls, value: Json) -> EvaluationRequest:
         return cls(
             value["trial_id"], value["group"], ModelRef(**value["parent"]), ModelRef(**value["candidate"]),
             tuple(value["train_dates"]), tuple(value["eval_dates"]), tuple(value["train_seeds"]),
-            value["rollout_seed"], value["split"],
+            value["rollout_seed"], value["split"], value.get("analysis_version", "m4"),
         )
 
 

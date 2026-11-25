@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -35,6 +36,13 @@ class ProviderAttemptError(RuntimeError):
         self.retryable = retryable
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+
+
+class ProviderOutageError(ProviderAttemptError):
+    """Pause development after transient provider failures exhaust their retries."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, retryable=True)
 
 
 def registry_transport(
@@ -73,8 +81,15 @@ def registry_transport(
                 message = f"Provider HTTP {exc.status_code}"
             else:
                 message = "Provider transport failure"
-            retryable = exc.transport or (exc.status_code is not None and 500 <= exc.status_code < 600)
-            raise ProviderAttemptError(message, retryable=retryable) from exc
+            status = exc.status_code
+            retryable = exc.transport or status == 429 or (status is not None and 500 <= status < 600)
+            usage = client.total_usage
+            raise ProviderAttemptError(
+                message,
+                retryable=retryable,
+                input_tokens=usage["prompt_tokens"] if usage["calls"] else None,
+                output_tokens=usage["completion_tokens"] if usage["calls"] else None,
+            ) from exc
         except LLMError as exc:
             usage = client.total_usage
             raise ProviderAttemptError(
@@ -86,3 +101,27 @@ def registry_transport(
         return ProviderReply(text, usage["prompt_tokens"], usage["completion_tokens"], error)
 
     return transport
+
+
+def provider_handshake(
+    models_path: Path, model_name: str, *, client_factory: ClientFactory = create_client,
+) -> ProviderReply:
+    """Send one data-free JSON probe on the registered transport and return its metered reply."""
+    messages: Messages = [
+        {"role": "system", "content": 'Return only the JSON object {"ok": true}.'},
+        {"role": "user", "content": "Connectivity check."},
+    ]
+    reply = registry_transport(models_path, model_name, client_factory=client_factory)(
+        messages, response_json=True,
+    )
+    try:
+        payload = json.loads(reply.text)
+        if reply.error is not None or payload != {"ok": True} or payload["ok"] is not True:
+            raise ValueError("unexpected handshake output")
+    except ValueError as exc:
+        raise ProviderAttemptError(
+            "Provider handshake did not return the expected JSON object",
+            input_tokens=reply.input_tokens,
+            output_tokens=reply.output_tokens,
+        ) from exc
+    return reply

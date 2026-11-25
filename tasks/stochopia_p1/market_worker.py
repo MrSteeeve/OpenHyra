@@ -45,7 +45,7 @@ def main(mode: str, input_dir: Path, output_dir: Path, seed: int | None = None) 
             fitted = fit_lob_world_model(factory, days, seed)
         except NonfiniteModelLoss as exc:
             raise ModelLossFailure(str(exc)) from exc
-        except (TimeoutError, TypeError, ValueError, RuntimeError) as exc:
+        except (TimeoutError, TypeError, ValueError, RuntimeError, AssertionError) as exc:
             raise ModelFailure("Model failed on the registered training windows") from exc
         torch.save(fitted.model.state_dict(), output_dir / "weights.pt")
         atomic_write_json(output_dir / "fit.json", {"seed": seed, "seconds": fitted.seconds,

@@ -16,7 +16,7 @@ from tasks.stochopia_p1.paired_stats import (
     REFUTED,
     UNVERIFIED_GAIN,
     VERIFIED_GAIN,
-    _judge,
+    _judge_v2 as _judge,
     _summarize_draws,
     assess,
     paired_readouts,

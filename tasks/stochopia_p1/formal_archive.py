@@ -9,15 +9,20 @@ from pathlib import Path
 
 from stochopia.common import atomic_write_text
 
+from .formal_manifest import M5_SCHEMA
 from .formal_verify import RESOURCE_RETRY, load_frozen_study
 from .store import IMPACT, NLL, Json, Ledger
 
 
+CALIBRATION_FIELDS = (
+    "primary_point_available", "primary_point_in_interval",
+    "guardrail_point_available", "guardrail_point_in_interval",
+)
 TRIAL_FIELDS = (
     "stock", "arm", "search_seed", "round", "trial_id", "verdict", "parent_id", "candidate_id",
     "source_sha256", "compiled", "compiler_repairs", "http_attempts", "input_tokens", "output_tokens",
     "api_seconds", "training_budget_consumed", "val_nll_total", "lob_impact_score", "mean_delta_score",
-    "p05_delta_score", "primary", "guardrail",
+    "p05_delta_score", "p10_delta_score", "primary", "guardrail", *CALIBRATION_FIELDS,
 )
 CALL_FIELDS = (
     "stock", "arm", "search_seed", "round", "trial_id", "request", "stage", "http_attempt", "completed",
@@ -30,15 +35,16 @@ COMPILE_FIELDS = (
 RESULT_FIELDS = (
     "stock", "arm", "search_seed", "phase", "task_id", "model_id", "status", "val_nll_total",
     "lob_impact_score", "impact_ci95_low", "impact_ci95_high", "impact_delta_from_initial",
-    "nll_delta_from_initial", "decision", "primary", "guardrail", "C1", "C2", "C3", "C4", "C5",
+    "nll_delta_from_initial", "decision", "primary", "guardrail", "p05_delta_score", "p10_delta_score",
+    *CALIBRATION_FIELDS, "C1", "C2", "C3", "C4", "C5",
 )
 CROSS_FIELDS = (
     "arm", "source_stock", "target_stock", "task_id", "model_id", "source_sha256", "role",
     "status", "val_nll_total", "lob_impact_score", "impact_ci95_low", "impact_ci95_high",
 )
 AUDIT_FIELDS = (
-    "stock", "arm", "task_id", "status", "test_decision", "mean_delta_score", "p05_delta_score",
-    "has_benchmark_gain", "primary", "guardrail",
+    "stock", "arm", "task_id", "status", "test_decision", "mean_delta_score", "p05_delta_score", "p10_delta_score",
+    "has_benchmark_gain", "primary", "guardrail", *CALIBRATION_FIELDS,
 )
 
 
@@ -51,7 +57,13 @@ def _write_csv(path: Path, columns: tuple[str, ...], rows: Iterable[Json]) -> No
 
 
 def _roles(assessment: Json) -> Json:
-    return {item["role"]: item["status"] for item in assessment.get("prediction_verdicts", [])}
+    roles = {}
+    for item in assessment.get("prediction_verdicts", []):
+        role = item["role"]
+        roles[role] = item["status"]
+        roles[f"{role}_point_available"] = item.get("point_available")
+        roles[f"{role}_point_in_interval"] = item.get("point_in_interval")
+    return roles
 
 
 def _diagnostic(value: str | None) -> str | None:
@@ -111,6 +123,7 @@ def _development_rows(manifest: Json) -> tuple[list[Json], list[Json], list[Json
                 "api_seconds": sum(row.get("seconds") or 0 for row in attempts),
                 "training_budget_consumed": trial["training_budget_consumed"],
                 "mean_delta_score": trial.get("mean_delta_score"), "p05_delta_score": trial.get("p05_delta_score"),
+                "p10_delta_score": trial.get("p10_delta_score"),
             })
     return trials, calls, compilation
 
@@ -129,6 +142,8 @@ def _endpoint_rows(report: Json) -> Iterable[Json]:
             yield {
                 **metadata, **endpoint, **_roles(assessment), "phase": label,
                 NLL: metrics.get(NLL), IMPACT: metrics.get(IMPACT), "decision": assessment.get("verdict"),
+                "p05_delta_score": assessment.get("p05_delta_score"),
+                "p10_delta_score": assessment.get("p10_delta_score"),
                 "impact_ci95_low": ci[0], "impact_ci95_high": ci[1],
                 **metrics.get("claims", {}),
             }
@@ -172,6 +187,22 @@ def _audit_rows(report: Json) -> Iterable[Json]:
 def _readme(manifest: Json, *, has_holdout: bool) -> str:
     code = manifest["code"]
     status = "留出复验已落盘。" if has_holdout else "开发记录与留出任务清单已封存。"
+    if manifest["schema"] == M5_SCHEMA:
+        return f"""# Stochopia × OpenHyra P1-M5 实验证据
+
+{status} 本轮单独登记 36 日训练集、24 日开发集、20 日新留出集及顺延日期。实际留出日由冻结后的对账回执确定。候选源码以 `sources/<sha256>.py` 保存。
+
+- `development_plan.json` 记录锁码、数据与试验参数。
+- `handshakes/` 记录两家服务的连接验证和用量。
+- `development-trials.csv` 保存编译、预算、配对得分、单侧 p05/p10 下界与方向及幅度判定。
+- `study_manifest.json` 保存全部开发记录、冻结选择、候选源码与复验清单。
+- `verification/report.json` 与 `verification/results/` 保存独立复验及跨股重训。 `verification/test-data-reconciliation.json` 保存实测日期与顺延理由。
+- `holdout-endpoints.csv`、`rejected-audit.csv`、`cross-regime.csv` 汇总复验端点、未证实涨分候选和迁移表现。
+
+锁码 Stochopia `{code.get("stochopia_commit", "")}`、OpenHyra `{code.get("openhyra_commit", "")}`。
+
+原始市场切片、训练权重、调用的原始响应和提示均留在库外。
+"""
     return f"""# Stochopia × OpenHyra P1-M4 实验证据
 
 {status} 每条轨迹的首次、末次和审计任务见 `study_manifest.json`。候选源码的 SHA-256 对应 `sources/<sha256>.py`。只有沙箱通过的候选才可进入复验。同一候选出现在多个登记角色时共用一次配对结果。

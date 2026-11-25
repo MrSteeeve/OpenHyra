@@ -37,6 +37,18 @@ METRIC_DEFINITIONS = {
     "l1_depth_mae": "mean absolute best-level depth error (shares, LOWER)",
     "impact_peak": "signed peak impact (ticks, direction depends on the diagnosis)",
 }
+M5_MIN_EFFECTS = {
+    "lob_impact_score": 0.50,
+    "val_nll_total": 0.005,
+    "free_abs_drift_ticks": 0.10,
+    "l1_depth_mae": 50.0,
+    "end_over_peak_ratio": 0.02,
+    "visible_over_blind_ratio": 0.02,
+    "trade_sign_acf_exp_gap": 0.02,
+    "hurst_gap": 0.02,
+    "impact_exponent_gap": 0.02,
+    "event_count_rel_gap": 0.02,
+}
 CONTRACT = """PyTorch LOB contract (stochopia.neural.lob_interface):
 StepObservation(book_ticks: Tensor, book_shares: Tensor, previous_event: Tensor,
 is_own: Tensor, has_deep: Tensor | None = None). Pre-event book shape [...,2,10],
@@ -85,9 +97,14 @@ def forecast_metrics(group: str, registered: tuple[str, ...] = ()) -> tuple[tupl
     return primary, ("val_nll_total", *primary)
 
 
-def forecast_targets(group: str, registered: tuple[str, ...]) -> str:
+def forecast_targets(group: str, registered: tuple[str, ...], *, analysis_version: str = "m4") -> str:
     primary, guardrail = forecast_metrics(group, registered)
-    definitions = [f"{name}: {METRIC_DEFINITIONS[name]}." for name in dict.fromkeys((*primary, *guardrail))]
+    definitions = []
+    for name in dict.fromkeys((*primary, *guardrail)):
+        text = f"{name}: {METRIC_DEFINITIONS[name]}."
+        if analysis_version == "m5" and name in M5_MIN_EFFECTS:
+            text += f" Directional forecasts require a near-zero bound magnitude >= {M5_MIN_EFFECTS[name]:g}."
+        definitions.append(text)
     return "\n".join([
         f"Primary metric in {json.dumps(primary)}. Guardrail metric in {json.dumps(guardrail)}.",
         *definitions,

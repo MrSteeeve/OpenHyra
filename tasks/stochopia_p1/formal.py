@@ -17,11 +17,12 @@ from stochopia.neural.primitives import seed_lob_source
 
 from .entry import CandidateGate as Gate, DevelopmentLoop
 from .formal_manifest import (
-    ARM_MODELS, DEVELOPMENT_ROLLOUT_SEED, MANIFEST, ROUNDS, SYMBOLS, TRAIN_SEEDS,
+    ARM_MODELS, DEVELOPMENT_ROLLOUT_SEED, M5_SCHEMA, MANIFEST, ROUNDS, SYMBOLS, TRAIN_SEEDS,
     Trajectory, data_registration, freeze_study, roster, study_registration,
 )
 from .gate import CandidateGate
 from .protocol import Messages, TwoStepProposer
+from .prompt import M5_MIN_EFFECTS
 from .store import Evaluator, Json, Ledger, MetricRule, ModelRef, StudyPlan
 
 
@@ -57,7 +58,7 @@ V2_RESOURCE_RETRY_PATHS = {
 }
 
 
-def _metric_rules() -> tuple[MetricRule, ...]:
+def _metric_rules(analysis_version: str = "m4") -> tuple[MetricRule, ...]:
     """Register all eligible primary and supplemental readout names."""
     improve_up = {"lob_impact_score", "visible_over_blind_ratio"}
     metrics = (
@@ -67,12 +68,13 @@ def _metric_rules() -> tuple[MetricRule, ...]:
     )
     rules = []
     for name in metrics:
+        minimum = M5_MIN_EFFECTS[name] if analysis_version == "m5" else 0.0
         if name == "lob_impact_score":
             rule = MetricRule(name, "increase", 0.50, (0.50, 100.0))
         elif name in improve_up:
-            rule = MetricRule(name, "increase", 0.0, (1e-9, 100.0))
+            rule = MetricRule(name, "increase", minimum, (max(minimum, 1e-9), 100.0))
         else:
-            rule = MetricRule(name, "decrease", 0.0, (-100.0, -1e-9))
+            rule = MetricRule(name, "decrease", minimum, (-100.0, -max(minimum, 1e-9)))
         rules.append(rule)
     return tuple(rules)
 
@@ -122,12 +124,14 @@ def _require_v2_resource_retry_code(manifest: Json, code: Json, stochopia_root: 
 
 def _development_plan(registration: Json, baseline: Json, item: Trajectory) -> StudyPlan:
     model = ModelRef(**baseline["model"])
+    analysis_version = registration.get("analysis_version", "m4")
     return StudyPlan(
         seed_model=model, seed_evidence=baseline["metrics"],
         train_dates=tuple(registration["data"]["train_dates"]), dev_dates=tuple(registration["data"]["dev_dates"]),
-        metric_rules=_metric_rules(), rounds=ROUNDS, train_seeds=TRAIN_SEEDS,
+        metric_rules=_metric_rules(analysis_version), rounds=ROUNDS, train_seeds=TRAIN_SEEDS,
         rollout_seed=DEVELOPMENT_ROLLOUT_SEED, mutation_seed=item.search_seed, nll_guardrail=0.05,
         groups=(item.arm,), trial_prefix=f"{item.stock}-{item.search_seed}",
+        analysis_version=analysis_version,
     )
 
 
@@ -140,7 +144,9 @@ def _advance_trajectory(
     trial_root = item.path(root)
     ledger = Ledger(trial_root)
     proposers = {} if ARM_MODELS[item.arm] is None else {item.arm: make_proposer(item)}
-    loop = DevelopmentLoop(trial_root, plan, proposers=proposers, gate=gate, evaluate=evaluator)
+    loop = DevelopmentLoop(
+        trial_root, plan, proposers=proposers, gate=gate, evaluate=evaluator, stop_requested=stop.is_set,
+    )
     if all(ledger.read(*item.round_path(index), "result.json") is not None for index in range(1, ROUNDS + 1)):
         return
     remaining = sum(
@@ -256,19 +262,75 @@ def _require_smoke_gates(smoke_root: Path) -> Json:
     return report
 
 
+def _provider_handshakes(ledger: Ledger, registry: Path) -> None:
+    """Record one metered connectivity probe per provider before development.
+
+    Runs under the development archive's lock, after the exact study plan is
+    sealed. Successful probes are replayed from their durable records on resume.
+    Transport failures pause this invocation without consuming a trial.
+    """
+    from .provider import ProviderAttemptError, ProviderOutageError, provider_handshake
+
+    for alias in ("gpt-6.2-sol", "deepseek-flash"):
+        prefix = ("handshakes", alias)
+        if ledger.read(*prefix, "passed.json") is not None:
+            continue
+        work = ledger.file(*prefix)
+        reservations = sorted(work.glob("attempt-*.json")) if work.exists() else []
+        reservations = [path for path in reservations if not path.stem.endswith("-result")]
+        for reservation in reservations:
+            result = (*prefix, f"{reservation.stem}-result.json")
+            prior = ledger.read(*result)
+            if prior is None:
+                ledger.seal({
+                    "status": "interrupted", "input_tokens": None, "output_tokens": None,
+                    "retryable": True,
+                }, *result)
+            elif prior["status"] == "passed":
+                ledger.seal(prior, *prefix, "passed.json")
+                break
+        if ledger.read(*prefix, "passed.json") is not None:
+            continue
+        attempt = len(reservations) + 1
+        stem = f"attempt-{attempt:03}"
+        ledger.seal({"model": alias, "attempt": attempt}, *prefix, f"{stem}.json")
+        try:
+            reply = provider_handshake(registry, alias)
+        except ProviderAttemptError as exc:
+            ledger.seal({
+                "status": "error", "error": str(exc), "retryable": exc.retryable,
+                "input_tokens": exc.input_tokens, "output_tokens": exc.output_tokens,
+            }, *prefix, f"{stem}-result.json")
+            if exc.retryable:
+                raise ProviderOutageError(f"{alias} connectivity check failed") from exc
+            raise
+        result = {
+            "status": "passed", "model": alias, "attempt": attempt,
+            "input_tokens": reply.input_tokens, "output_tokens": reply.output_tokens,
+        }
+        ledger.seal(result, *prefix, f"{stem}-result.json")
+        ledger.seal(result, *prefix, "passed.json")
+
+
 def _production_development(args: argparse.Namespace, code: Json) -> Json:
     from .market_eval import MarketEvaluator
     from .provider import registry_transport
-
-    smoke = _require_smoke_gates(Path("/tmp/p1-m4-v2-smoke"))
 
     registry = args.models or args.stochopia_root / MODEL_REGISTRY
     canonical = (args.stochopia_root / MODEL_REGISTRY).read_text(encoding="utf-8")
     if registry.read_text(encoding="utf-8") != canonical:
         raise ValueError("the study must use the locked Stochopia model registry")
+    registration = study_registration(data_registration(args.market_root), code, canonical)
+    is_m5 = registration["schema"] == M5_SCHEMA
     ledger = Ledger(args.artifact_root)
     with ledger.lock():
-        ledger.seal(smoke, "smoke_gate.json")
+        if ledger.read(MANIFEST) is not None:
+            raise ValueError("development is already frozen")
+        ledger.seal(registration, "development_plan.json")
+        if is_m5:
+            _provider_handshakes(ledger, registry)
+        else:
+            ledger.seal(_require_smoke_gates(Path("/tmp/p1-m4-v2-smoke")), "smoke_gate.json")
     aliases = tuple(model for model in dict.fromkeys(ARM_MODELS.values()) if model is not None)
     if args.tokenizer is not None:
         factory = _factory(args.tokenizer)
@@ -279,7 +341,10 @@ def _production_development(args: argparse.Namespace, code: Json) -> Json:
         counters = load_token_counters(args.tokenizers_dir)
     gate = CandidateGate()
     evaluators = {
-        stock: MarketEvaluator(args.market_root, stock, cache_root=args.cache_root / "markets")
+        stock: MarketEvaluator(
+            args.market_root, stock, cache_root=args.cache_root / "markets",
+            expected_dev_days=24 if is_m5 else 12, expected_test_days=20 if is_m5 else 12,
+        )
         for stock in SYMBOLS
     }
 
@@ -290,7 +355,10 @@ def _production_development(args: argparse.Namespace, code: Json) -> Json:
         alias = ARM_MODELS[item.arm]
         if alias is None:
             raise ValueError("no_llm has no provider transport")
-        return TwoStepProposer(registry_transport(registry, alias), gate, lambda _usage: None, count_tokens=counters[alias])
+        return TwoStepProposer(
+            registry_transport(registry, alias), gate, lambda _usage: None,
+            count_tokens=counters[alias], analysis_version="m5" if is_m5 else "m4",
+        )
 
     def progress(item: Trajectory, index: int, verdict: str) -> None:
         print(f"{item.stock} {item.arm} seed={item.search_seed} round={index} {verdict}", flush=True)
@@ -319,23 +387,31 @@ def _production_verify(args: argparse.Namespace, code: Json) -> Json:
     if manifest["data"] != data_registration(args.market_root):
         raise ValueError("market metadata differs from the frozen experiment")
     receipt = Ledger(args.artifact_root).read("verification", "test-data-reconciliation.json")
-    if (
-        receipt is None or receipt["test_dates"] != manifest["test_dates"]
-        or receipt["source_revision"] != manifest["data"]["source_revision"]
-        or len(receipt["reconciliation"]) != 24 or len(receipt["anchors"]) != 48
-    ):
+    if receipt is None:
         raise ValueError("finish the registered holdout reconstruction and reconciliation first")
-    expected_days = {(stock, day) for stock in SYMBOLS for day in manifest["test_dates"]}
-    rows = {(row["symbol"], row["date"]) for row in receipt["reconciliation"]}
-    anchors = {(row["symbol"], row["date"], row["session"]) for row in receipt["anchors"]
-               if row["spread_ticks"] > 0}
-    if rows != expected_days or anchors != {(stock, day, session)
-                                             for stock, day in expected_days for session in (0, 1)}:
-        raise ValueError("reconciliation must cover both positive-spread anchors on each registered stock-day")
+    is_m5 = manifest["schema"] == M5_SCHEMA
+    if is_m5:
+        from .holdout_data import validate_m5_receipt
+
+        dates = validate_m5_receipt(manifest, receipt)
+    else:
+        dates = tuple(manifest["test_dates"])
+        if (receipt["test_dates"] != list(dates)
+                or receipt["source_revision"] != manifest["data"]["source_revision"]
+                or len(receipt["reconciliation"]) != 24 or len(receipt["anchors"]) != 48):
+            raise ValueError("finish the registered holdout reconstruction and reconciliation first")
+        expected_days = {(stock, day) for stock in SYMBOLS for day in dates}
+        rows = {(row["symbol"], row["date"]) for row in receipt["reconciliation"]}
+        anchors = {(row["symbol"], row["date"], row["session"]) for row in receipt["anchors"]
+                   if row["spread_ticks"] > 0}
+        expected_anchors = {(stock, day, session) for stock, day in expected_days for session in (0, 1)}
+        if rows != expected_days or anchors != expected_anchors:
+            raise ValueError("reconciliation must cover both positive-spread anchors on each registered stock-day")
     evaluators = {
         stock: MarketEvaluator(
             args.market_root, stock, cache_root=args.cache_root / "markets",
-            authorized_test_dates=tuple(manifest["test_dates"]),
+            authorized_test_dates=dates,
+            expected_dev_days=24 if is_m5 else 12, expected_test_days=20 if is_m5 else 12,
         )
         for stock in SYMBOLS
     }

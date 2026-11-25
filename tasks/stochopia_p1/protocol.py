@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Literal, Protocol
 
 from .prompt import (
-    CODE_INSTRUCTION, HYPOTHESIS_FIELDS, HYPOTHESIS_TEXT_FIELDS, PLAN_INSTRUCTION,
+    CODE_INSTRUCTION, HYPOTHESIS_FIELDS, HYPOTHESIS_TEXT_FIELDS, M5_MIN_EFFECTS, PLAN_INSTRUCTION,
     context_packet, dump_prompt, forecast_example, forecast_metrics, forecast_targets, message_packet,
 )
 
@@ -149,6 +149,7 @@ class ProposalValidationError(ValueError):
 
 def validate_forecasts(
     group: str, predictions: tuple[StructuredPrediction, ...], registered: tuple[str, ...] = (),
+    *, analysis_version: str = "m4",
 ) -> None:
     """Require an ordered mechanism forecast and a distinct non-degradation forecast."""
     if len(predictions) != 2:
@@ -161,6 +162,18 @@ def validate_forecasts(
         raise ProposalValidationError("primary forecast must use an allowed registered core metric")
     if guardrail.metric not in guardrail_metrics or primary.metric == guardrail.metric:
         raise ProposalValidationError("guardrail forecast must use a distinct allowed readout")
+    if analysis_version == "m5":
+        for prediction in predictions:
+            if prediction.direction == "equivalent":
+                continue
+            minimum = M5_MIN_EFFECTS.get(prediction.metric)
+            if minimum is None:
+                raise ProposalValidationError(f"no M5 directional effect threshold for {prediction.metric}")
+            bound = prediction.interval[0] if prediction.direction == "increase" else prediction.interval[1]
+            if abs(bound) < minimum:
+                raise ProposalValidationError(
+                    f"{prediction.metric} requires a near-zero directional bound magnitude >= {minimum:g}"
+                )
 
 
 def _parse_prediction(item: object) -> StructuredPrediction:
@@ -212,7 +225,8 @@ class TwoStepProposer:
                  *, count_tokens: Callable[[Messages], int], core_metrics: tuple[str, ...] = (),
                  record_compile: Callable[[CompileAttempt], None] | None = None,
                  read_compile: Callable[[int], CompileAttempt | None] | None = None,
-                 search_seed: int | None = None, search_round: int | None = None) -> None:
+                 search_seed: int | None = None, search_round: int | None = None,
+                 analysis_version: str = "m4") -> None:
         self.transport = transport
         self.gate = gate
         self.record_usage = record_usage
@@ -222,6 +236,7 @@ class TwoStepProposer:
         self.read_compile = read_compile
         self.search_seed = search_seed
         self.search_round = search_round
+        self.analysis_version = analysis_version
 
     def _bounded(self, instruction: str, context: str, recent: list[dict[str, object]],
                  suffix: str = "", *, include_contract: bool = True) -> Messages:
@@ -269,7 +284,7 @@ class TwoStepProposer:
         """Repair one invalid JSON plan before sealing and synthesizing its candidate."""
         _text(trial_id, "trial_id")
         context, history = context_packet(group, parent_source, parent_evidence, recent)
-        targets = forecast_targets(group, self.core_metrics)
+        targets = forecast_targets(group, self.core_metrics, analysis_version=self.analysis_version)
         if self.search_seed is not None:
             targets += f" Independent search replicate seed: {self.search_seed}."
         if self.search_round is not None:
@@ -285,7 +300,7 @@ class TwoStepProposer:
                 if reply.error is not None:
                     raise ValueError(reply.error)
                 hypothesis, predictions = _parse_plan(reply.text, trial_id, active_parent_hypothesis_id)
-                validate_forecasts(group, predictions, self.core_metrics)
+                validate_forecasts(group, predictions, self.core_metrics, analysis_version=self.analysis_version)
             except ValueError as exc:
                 diagnostic = f"Previous JSON rejected: {exc}. Return a corrected JSON object.\n"
                 continue
@@ -297,7 +312,7 @@ class TwoStepProposer:
                    recent: History, hypothesis: DynamicHypothesis,
                    predictions: tuple[StructuredPrediction, ...]) -> SynthesisResult:
         """Continue from an existing seal without sending Call 1 twice."""
-        validate_forecasts(group, predictions, self.core_metrics)
+        validate_forecasts(group, predictions, self.core_metrics, analysis_version=self.analysis_version)
         context, history = context_packet(group, parent_source, parent_evidence, recent)
         sealed = "Sealed proposal:\n" + dump_prompt({
             "hypothesis": asdict(hypothesis), "predictions": [asdict(item) for item in predictions],

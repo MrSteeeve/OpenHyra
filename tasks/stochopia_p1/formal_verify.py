@@ -8,7 +8,7 @@ from pathlib import Path
 
 from stochopia.common import atomic_write_bytes, atomic_write_json
 
-from .formal_manifest import ARM_MODELS, MANIFEST, SYMBOLS, SourceArchive, validate_frozen
+from .formal_manifest import ARM_MODELS, M5_SCHEMA, MANIFEST, SYMBOLS, SourceArchive, validate_frozen
 from .paired_stats import (
     EVALUATION_FAILED, GUARDRAIL_VIOLATION, VERIFIED_GAIN, assess, failed_evaluation, metric_delta,
     paired_readouts, predictions_from_payload,
@@ -38,6 +38,7 @@ def _request(manifest: Json, task: Json, archive: SourceArchive) -> EvaluationRe
         task["task_id"], task["group"], archive.load(task["parent"]), archive.load(task["candidate"]),
         tuple(manifest["data"]["train_dates"]), tuple(manifest["test_dates"]), tuple(manifest["train_seeds"]),
         manifest["test_rollout_seed"], "test",
+        manifest.get("analysis_version", "m4"),
     )
 
 
@@ -96,11 +97,12 @@ def _run_task(
 def _prediction_rates(rows: list[Json]) -> Json:
     counts: Json = {}
     for position, role in enumerate(("primary", "guardrail")):
-        statuses = []
+        forecasts_for_role = []
         for row in rows:
             forecasts = (row["assessment"] or {}).get("prediction_verdicts", [])
             if len(forecasts) > position:
-                statuses.append(forecasts[position]["status"])
+                forecasts_for_role.append(forecasts[position])
+        statuses = [forecast["status"] for forecast in forecasts_for_role]
         supported = statuses.count("SUPPORTED")
         refuted = statuses.count("REFUTED")
         inconclusive = statuses.count("INCONCLUSIVE")
@@ -109,6 +111,12 @@ def _prediction_rates(rows: list[Json]) -> Json:
             "registered": len(statuses), "decidable": supported + refuted,
             "hit_rate": supported / len(statuses) if statuses else None,
         }
+        points = [forecast for forecast in forecasts_for_role if forecast.get("point_available")]
+        hits = sum(bool(forecast.get("point_in_interval")) for forecast in points)
+        counts[role].update(
+            point_evaluable=len(points), point_in_interval=hits,
+            point_hit_rate=hits / len(points) if points else None,
+        )
     return counts
 
 
@@ -204,7 +212,7 @@ def _summarize(manifest: Json, evaluated: Mapping[str, Json]) -> Json:
                     [row for row in audit if row["stock"] == stock and row["group"] == arm]
                 ),
             }
-    return {
+    summary = {
         "schema": manifest["schema"], "code": manifest["code"], "test_dates": manifest["test_dates"],
         "train_dates": manifest["data"]["train_dates"], "train_seeds": manifest["train_seeds"],
         "measured_tasks": sum(row["status"] == "measured" for row in evaluated.values()),
@@ -213,6 +221,14 @@ def _summarize(manifest: Json, evaluated: Mapping[str, Json]) -> Json:
         "audit_only_rejected_unverified": audit,
         "cross_regime": _cross_matrix(manifest["cross_regime"], evaluated),
     }
+    if manifest["schema"] == M5_SCHEMA:
+        summary.update(
+            planned_test_dates=manifest["planned_test_dates"],
+            replacement_test_dates=manifest["replacement_test_dates"],
+            excluded_test_dates=manifest["excluded_test_dates"],
+            analysis_version="m5",
+        )
+    return summary
 
 
 def _retryable_result(row: Json) -> bool:
@@ -264,13 +280,14 @@ def _retry_registration(manifest: Json, ledger: Ledger, retry_code: Mapping[str,
     return ledger.seal(registration, *path)
 
 
-def _retry_measurements(
+def _measure_pending(
     manifest: Json, tasks: list[Json], archive: SourceArchive, ledger: Ledger,
-    evaluators: Mapping[str, Evaluator], jobs: int,
+    evaluators: Mapping[str, Evaluator], jobs: int, results_path: tuple[str, ...],
 ) -> None:
+    """Run each pending pair once, sealing only from the lock-owning thread."""
     pending = []
     for task in tasks:
-        path = (RESOURCE_RETRY, "results", f"{task['task_id']}.json")
+        path = (*results_path, f"{task['task_id']}.json")
         if ledger.read(*path) is None:
             pending.append(task)
 
@@ -281,7 +298,7 @@ def _retry_measurements(
     if jobs == 1:
         for task in pending:
             row = evaluate(task)
-            ledger.seal(row, RESOURCE_RETRY, "results", f"{task['task_id']}.json")
+            ledger.seal(row, *results_path, f"{task['task_id']}.json")
         return
 
     first_error: Exception | None = None
@@ -295,7 +312,7 @@ def _retry_measurements(
                     first_error = exc
             else:
                 task_id = futures[future]["task_id"]
-                ledger.seal(row, RESOURCE_RETRY, "results", f"{task_id}.json")
+                ledger.seal(row, *results_path, f"{task_id}.json")
     if first_error is not None:
         raise first_error
 
@@ -351,7 +368,7 @@ def _retry_failed_tasks(
     tasks = [task for task in manifest["tasks"] if task["task_id"] in selected]
     if len(tasks) != len(selected):
         raise ValueError("the resource retry contains an unregistered task")
-    _retry_measurements(manifest, tasks, archive, ledger, evaluators, jobs)
+    _measure_pending(manifest, tasks, archive, ledger, evaluators, jobs, (RESOURCE_RETRY, "results"))
     return _publish_retry(manifest, ledger, registration)
 
 
@@ -373,9 +390,32 @@ def verify_frozen_study(
     with ledger.lock():
         if retry_failed:
             return _retry_failed_tasks(manifest, archive, ledger, evaluators, retry_code, jobs)
+        if manifest["schema"] == M5_SCHEMA:
+            from .holdout_data import validate_m5_receipt
+
+            receipt = ledger.read("test-data-reconciliation.json")
+            if receipt is None:
+                raise ValueError("the M5 holdout requires its registered acquisition receipt")
+            effective_dates = validate_m5_receipt(manifest, receipt)
+            manifest = {
+                **manifest,
+                "planned_test_dates": manifest["test_dates"],
+                "test_dates": list(effective_dates),
+                "excluded_test_dates": receipt["excluded_test_dates"],
+            }
         report = ledger.read("report.json")
         if report is not None:
             return report
+        if manifest["schema"] == M5_SCHEMA:
+            _measure_pending(manifest, manifest["tasks"], archive, ledger, evaluators, jobs, ("results",))
+            records = {}
+            for task in manifest["tasks"]:
+                task_id = task["task_id"]
+                row = ledger.read("results", f"{task_id}.json")
+                if row is None:
+                    raise ValueError(f"missing terminal result for frozen task {task_id}")
+                records[task_id] = row
+            return ledger.seal(_summarize(manifest, records), "report.json")
         records = {}
         for task in manifest["tasks"]:
             records[task["task_id"]] = _run_task(
