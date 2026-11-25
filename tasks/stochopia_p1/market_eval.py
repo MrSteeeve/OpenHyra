@@ -91,6 +91,7 @@ def _run_worker(
     result = run_training_sandbox(
         command, source_dir=source_dir, input_dir=input_dir, output_dir=output_dir,
         tmp_dir=scratch, runtime_roots=_runtime_roots(), timeout_s=timeout,
+        cpu_seconds=max(1, int(4 * timeout)),
         memory_bytes=_MEMORY_LIMIT,
     )
     if result["status"] != "ok":
@@ -133,9 +134,12 @@ class MarketEvaluator:
     """
 
     def __init__(
-        self, market_root: Path, symbol: str, *, evaluation_timeout_s: float = 600.0,
+        self, market_root: Path, symbol: str, *, evaluation_timeout_s: float = 1_800.0,
         cache_root: Path | None = None, authorized_test_dates: tuple[int, ...] | None = None,
+        expected_dev_days: int = 12, expected_test_days: int = 12,
     ) -> None:
+        if (expected_dev_days, expected_test_days) not in ((12, 12), (24, 20)):
+            raise ValueError("expected a registered P1 12/12 or 24/20 development/test split")
         self.root = market_root.expanduser().resolve()
         manifest = json.loads((self.root / "manifest.json").read_text(encoding="utf-8"))
         self.train_dates = tuple(manifest["train_dates"])
@@ -146,16 +150,31 @@ class MarketEvaluator:
         validate_dates(self.train_dates, "train_dates")
         validate_dates(self.dev_dates, "dev_dates")
         validate_dates(test_dates, "test_dates")
-        if (len(self.train_dates) != 36 or len(self.dev_dates) != 12
+        if (len(self.train_dates) != 36 or len(self.dev_dates) != expected_dev_days
                 or self.train_dates[-1] >= self.dev_dates[0]
-                or len(test_dates) != 12 or self.dev_dates[-1] >= test_dates[0]):
-            raise ValueError("market development requires a disjoint registered 36/12 date split")
+                or len(test_dates) != expected_test_days or self.dev_dates[-1] >= test_dates[0]):
+            raise ValueError(
+                f"market development requires a disjoint registered 36/{expected_dev_days}/{expected_test_days} date split"
+            )
+        replacement_dates: tuple[int, ...] = ()
+        if expected_test_days == 20:
+            replacement_dates = tuple(manifest.get("replacement_test_dates", ()))
+            if any(type(date) is not int for date in replacement_dates):
+                raise ValueError("registered replacement test dates must be integers")
+            validate_dates(replacement_dates, "replacement_test_dates")
+            if len(replacement_dates) != 10 or test_dates[-1] >= replacement_dates[0]:
+                raise ValueError("replacement test dates must be ten subsequent registered dates")
         if symbol not in manifest["symbols"] or symbol not in ("000001.SZ", "300001.SZ"):
             raise ValueError("symbol must be one of the registered P1 instruments")
         if not isfinite(evaluation_timeout_s) or evaluation_timeout_s <= 0:
             raise ValueError("evaluation timeout must be finite and positive")
-        if authorized_test_dates is not None and tuple(authorized_test_dates) != test_dates:
-            raise ValueError("frozen test dates must equal the registered test split")
+        if authorized_test_dates is not None:
+            authorized_test_dates = tuple(authorized_test_dates)
+            if (len(authorized_test_dates) != expected_test_days
+                    or any(type(date) is not int for date in authorized_test_dates)
+                    or not set(authorized_test_dates).issubset((*test_dates, *replacement_dates))):
+                raise ValueError("frozen test dates must equal the registered test split or its authorized replacements")
+            validate_dates(authorized_test_dates, "authorized_test_dates")
         self.symbol = symbol
         self.authorized_test_dates = authorized_test_dates
         self.evaluation_timeout_s = evaluation_timeout_s
@@ -262,6 +281,10 @@ class MarketEvaluator:
         if self.cache_root is None:
             return self._measure(model, request, key=key, candidate=candidate)
         cache = self.cache_root / request.split / str(request.rollout_seed) / key
+        if len(self.dev_dates) == 24:
+            # A registered holdout replacement can change this panel without
+            # changing the fitted weights, candidate source or rollout seed.
+            cache /= "-".join(map(str, request.eval_dates))
         with _exclusive(cache):
             ready = cache / "profile.json"
             if ready.exists():

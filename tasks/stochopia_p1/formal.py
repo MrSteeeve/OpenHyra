@@ -40,6 +40,21 @@ STOCHOPIA_CODE = (
     "experiments/p1_*", "config/p1-lob-models.yaml", "pyproject.toml", "uv.lock",
 )
 SEED_MODEL_ID = "seed-gru"
+V2_RESOURCE_RETRY_LOCK = {
+    "stochopia_commit": "400443b5039ea1b073bbc9a1156cac079ad15e3f",
+    "stochopia_tree": "047fbe62feeb895503c95316c290b6d6e0945d3e",
+    "openhyra_commit": "66533dae928e0a64eda8232147c92fda4326e32e",
+    "openhyra_tree": "36b043f47904b868aa9aaefd44d589e92b10ae8a",
+}
+V2_RESOURCE_RETRY_PATHS = {
+    "stochopia": {"stochopia/neural/lob_training.py"},
+    "openhyra": {
+        "sandbox.py", "tasks/stochopia_p1/gate_worker.py", "tasks/stochopia_p1/market_worker.py",
+        "tasks/stochopia_p1/market_eval.py", "tasks/stochopia_p1/formal.py",
+        "tasks/stochopia_p1/formal_verify.py", "tasks/stochopia_p1/formal_archive.py",
+        "tasks/stochopia_p1/verifier.py",
+    },
+}
 
 
 def _metric_rules() -> tuple[MetricRule, ...]:
@@ -82,6 +97,27 @@ def git_code_lock(stochopia_root: Path) -> Json:
         result[f"{repository}_commit"] = _git_value(root, "HEAD")
         result[f"{repository}_tree"] = _git_value(root, "HEAD^{tree}")
     return result
+
+
+def _require_v2_resource_retry_code(manifest: Json, code: Json, stochopia_root: Path) -> None:
+    """Check the one approved v2 migration and exclude changes to score or data logic."""
+    if manifest["schema"] != "stochopia-p1-m4-v2" or manifest["code"] != V2_RESOURCE_RETRY_LOCK:
+        raise ValueError("the retry is specific to the registered P1-M4 v2 code")
+    for repository, root, paths in (
+        ("stochopia", stochopia_root, STOCHOPIA_CODE),
+        ("openhyra", OPENHYRA_ROOT, OPENHYRA_CODE),
+    ):
+        original = manifest["code"][f"{repository}_commit"]
+        current = code[f"{repository}_commit"]
+        if _git_value(root, f"{original}^{{tree}}") != manifest["code"][f"{repository}_tree"]:
+            raise ValueError("the registered v2 source commit no longer matches its tree")
+        if subprocess.run(["git", "merge-base", "--is-ancestor", original, current], cwd=root).returncode != 0:
+            raise ValueError("the resource retry code must descend from the frozen v2 commits")
+        changed = subprocess.check_output(
+            ["git", "diff", "--name-only", original, current, "--", *paths], cwd=root, text=True,
+        ).splitlines()
+        if set(changed) - V2_RESOURCE_RETRY_PATHS[repository]:
+            raise ValueError("the resource retry contains changes outside the registered repair files")
 
 
 def _development_plan(registration: Json, baseline: Json, item: Trajectory) -> StudyPlan:
@@ -272,7 +308,13 @@ def _production_verify(args: argparse.Namespace, code: Json) -> Json:
     from .market_eval import MarketEvaluator
 
     manifest = load_frozen_study(args.artifact_root)
-    if manifest["code"] != code:
+    if args.retry_failed:
+        _require_v2_resource_retry_code(manifest, code, args.stochopia_root)
+        from stochopia.neural.lob_training import P1_FIT_PROTOCOL
+
+        if P1_FIT_PROTOCOL.max_train_seconds != 180.0:
+            raise ValueError("resource retry requires the registered 180 second training budget")
+    elif manifest["code"] != code:
         raise ValueError("the current code differs from the frozen experiment")
     if manifest["data"] != data_registration(args.market_root):
         raise ValueError("market metadata differs from the frozen experiment")
@@ -297,7 +339,10 @@ def _production_verify(args: argparse.Namespace, code: Json) -> Json:
         )
         for stock in SYMBOLS
     }
-    return verify_frozen_study(args.artifact_root, evaluators=evaluators)
+    return verify_frozen_study(
+        args.artifact_root, evaluators=evaluators, retry_failed=args.retry_failed,
+        retry_code=code if args.retry_failed else None, jobs=args.jobs,
+    )
 
 
 def _arguments() -> argparse.Namespace:
@@ -312,6 +357,7 @@ def _arguments() -> argparse.Namespace:
     parsers.add_argument("--tokenizer", help="trusted module:factory supplying each provider token counter")
     parsers.add_argument("--tokenizers-dir", type=Path, help="directory for locally installed provider tokenizers")
     parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--retry-failed", action="store_true", help="repair only the registered v2 failed tasks")
     args = parser.parse_args()
     if args.cache_root is None:
         args.cache_root = args.market_root / "m4-model-cache" / args.artifact_root.name
@@ -319,6 +365,8 @@ def _arguments() -> argparse.Namespace:
         parser.error("working files and model caches must stay outside the evidence archive")
     if args.phase == "dev" and args.tokenizer is None and args.tokenizers_dir is None:
         parser.error("dev requires --tokenizers-dir or --tokenizer")
+    if args.retry_failed and args.phase != "verify":
+        parser.error("--retry-failed is available only in the verifier phase")
     return args
 
 

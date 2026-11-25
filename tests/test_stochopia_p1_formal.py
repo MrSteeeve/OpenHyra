@@ -17,10 +17,12 @@ from tasks.stochopia_p1.formal_manifest import (
     ARM_MODELS, EMBARGO_DATES, MANIFEST, ROUNDS, SYMBOLS, TEST_DATES, TRAIN_SEEDS, Trajectory,
     data_registration, freeze_study, roster, study_registration,
 )
-from tasks.stochopia_p1.formal_verify import load_frozen_study, verify_frozen_study
+from tasks.stochopia_p1.formal_verify import RESOURCE_RETRY, load_frozen_study, verify_frozen_study
 from tasks.stochopia_p1.protocol import Messages, ProviderReply, TwoStepProposer
 from tasks.stochopia_p1.provider import ProviderAttemptError
-from tasks.stochopia_p1.store import EvaluationRequest, Ledger, ModelRef, PairedEvaluation
+from tasks.stochopia_p1.store import (
+    CandidateEvaluationFailed, EvaluationRequest, Ledger, ModelRef, NonfiniteCandidateLoss, PairedEvaluation,
+)
 
 
 NLL = "val_nll_total"
@@ -241,6 +243,84 @@ def test_freeze_rejects_incomplete_roster_without_sealing(tmp_path: Path) -> Non
         freeze_study(artifacts, market)
     assert not (artifacts / MANIFEST).exists()
     assert not (artifacts / "sources").exists()
+
+
+def test_resource_retry_only_remeasures_original_failed_tasks(tmp_path: Path) -> None:
+    market = _market_metadata(tmp_path / "market")
+    artifacts = tmp_path / "formal"
+    harness = OfflineHarness()
+    evaluators = {stock: (lambda request, stock=stock: harness.evaluator(stock, request)) for stock in SYMBOLS}
+    run_development(
+        artifacts, market, code_lock=CODE_LOCK, registry_text="synthetic", make_proposer=harness.proposer,
+        seed_metrics=_seed_metrics, evaluators=evaluators, gate=_gate,
+    )
+    frozen = freeze_study(artifacts, market)
+    pairs = [item for item in frozen["tasks"] if item["stock"] == SYMBOLS[1] and "initial" not in item["roles"]]
+    failed = [pairs[0]["task_id"], pairs[1]["task_id"], next(
+        item["task_id"] for item in pairs if item["task_id"].startswith("cross-")
+    )]
+    guarded = pairs[2]["task_id"]
+    assert guarded not in failed
+
+    def first_evaluate(request: EvaluationRequest) -> PairedEvaluation:
+        if request.trial_id in failed:
+            raise CandidateEvaluationFailed("original worker limit")
+        if request.trial_id == guarded:
+            raise NonfiniteCandidateLoss("nonfinite")
+        return harness.evaluator(SYMBOLS[0], request)
+
+    original = verify_frozen_study(artifacts, evaluators={stock: first_evaluate for stock in SYMBOLS})
+    write_archive_tables(artifacts)
+    verifier = artifacts / "verification"
+    original_report = (verifier / "report.json").read_bytes()
+    original_manifest = (artifacts / MANIFEST).read_bytes()
+    original_dev_csv = (artifacts / "development-trials.csv").read_bytes()
+    original_sources = {path.name: path.read_bytes() for path in (artifacts / "sources").glob("*.py")}
+    original_results = {path.stem: path.read_bytes() for path in (verifier / "results").glob("*.json")}
+
+    retry_code = {"openhyra_tree": "resource-repair", "stochopia_tree": "resource-repair"}
+    retry_calls = []
+
+    def retry_evaluate(request: EvaluationRequest) -> PairedEvaluation:
+        retry_calls.append(request.trial_id)
+        if len(retry_calls) == 2:
+            raise RuntimeError("temporary shared error")
+        return harness.evaluator(SYMBOLS[1], request)
+
+    with pytest.raises(RuntimeError, match="temporary shared error"):
+        verify_frozen_study(artifacts, evaluators={stock: retry_evaluate for stock in SYMBOLS},
+                            retry_failed=True, retry_code=retry_code)
+    assert retry_calls == failed[:2]
+    assert (verifier / "report.json").read_bytes() == original_report
+    assert all((verifier / "results" / f"{task}.json").read_bytes() == content
+               for task, content in original_results.items())
+    with pytest.raises(ValueError, match="registered code"):
+        verify_frozen_study(artifacts, evaluators={stock: retry_evaluate for stock in SYMBOLS},
+                            retry_failed=True, retry_code=CODE_LOCK)
+
+    repaired = verify_frozen_study(artifacts, evaluators={stock: retry_evaluate for stock in SYMBOLS},
+                                    retry_failed=True, retry_code=retry_code, jobs=3)
+    assert Counter(retry_calls) == Counter([failed[0], failed[1], failed[1], failed[2]])
+    assert repaired["measured_tasks"] == original["measured_tasks"] + len(failed)
+    assert set(repaired["resource_retry"]["recovered_task_ids"]) == set(failed)
+    assert repaired["resource_retry"]["remaining_failed_task_ids"] == []
+    assert (verifier / RESOURCE_RETRY / "before" / "report.json").read_bytes() == original_report
+    for task, content in original_results.items():
+        if task in failed:
+            assert (verifier / RESOURCE_RETRY / "before" / "results" / f"{task}.json").read_bytes() == content
+        else:
+            assert (verifier / "results" / f"{task}.json").read_bytes() == content
+    assert (artifacts / MANIFEST).read_bytes() == original_manifest
+    assert {path.name: path.read_bytes() for path in (artifacts / "sources").glob("*.py")} == original_sources
+    assert verify_frozen_study(artifacts, evaluators={stock: retry_evaluate for stock in SYMBOLS},
+                               retry_failed=True, retry_code=retry_code, jobs=3) == repaired
+    assert len(retry_calls) == 4
+    write_archive_tables(artifacts)
+    assert (artifacts / "development-trials.csv").read_bytes() == original_dev_csv
+    readme = (artifacts / "README.md").read_bytes()
+    write_archive_tables(artifacts)
+    assert (artifacts / "README.md").read_bytes() == readme
+    assert readme.count(b"registration.json") == 1
 
 
 def test_fatal_provider_error_stops_scheduling_further_trajectories(tmp_path: Path) -> None:

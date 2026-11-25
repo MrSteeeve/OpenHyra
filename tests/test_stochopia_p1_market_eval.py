@@ -71,7 +71,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
 
     def worker(
         command: list[str], *, source_dir: Path, input_dir: Path, output_dir: Path,
-        tmp_dir: Path, runtime_roots: tuple[Path, ...], timeout_s: float, memory_bytes: int,
+        tmp_dir: Path, runtime_roots: tuple[Path, ...], timeout_s: float, cpu_seconds: int, memory_bytes: int,
     ) -> Json:
         mode = command[3]
         source = (source_dir / "candidate.py").read_text()
@@ -92,7 +92,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         if mode == "fit":
             seed = int(command[-1])
             calls.append((role, mode, seed))
-            assert timeout_s == 60
+            assert timeout_s == 180 and cpu_seconds == 720
             assert not (input_dir / "raw").exists()
             assert not (input_dir / "weights").exists()
             assert set(plan) == {"symbol", "train_dates"}
@@ -100,7 +100,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         else:
             calls.append((role, mode, None))
             eval_inputs.append(input_dir)
-            assert mode == "evaluate" and timeout_s == 700
+            assert mode == "evaluate" and timeout_s == 700 and cpu_seconds == 2_800
             assert input_dir.parent == source_dir.parent
             assert plan["rollout_seed"] == request.rollout_seed
             assert plan["eval_dates"] == list(DEV)
@@ -142,6 +142,7 @@ def test_market_adapter_rejects_unregistered_dates_and_seeds_before_gate(
 
     monkeypatch.setattr(market_eval, "CandidateGate", unexpected_gate)
     evaluate = market_eval.MarketEvaluator(archive, SYMBOL)
+    assert evaluate.evaluation_timeout_s == 1_800
     request = _request()
     with pytest.raises(ValueError, match="registered evaluator phase"):
         evaluate(replace(request, split="test", eval_dates=TEST))
@@ -210,7 +211,79 @@ def test_cached_models_reuse_each_profile_only_within_the_registered_split(
     assert calls == [("dev", "seed"), ("dev", "trial"), ("test", "seed"), ("test", "trial")]
 
 
+def test_m5_market_requires_explicit_split_and_frozen_replacements(
+    archive: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dev_dates = tuple(range(38, 62))
+    primary = tuple(range(63, 83))
+    replacements = tuple(range(83, 93))
+    final_dates = (*primary[:-1], replacements[0])
+    (archive / "manifest.json").write_text(json.dumps({
+        "train_dates": TRAIN, "dev_dates": dev_dates, "test_dates": primary,
+        "replacement_test_dates": replacements, "symbols": [SYMBOL, "300001.SZ"],
+    }))
+    cache = archive / "m5-cache"
+    request = replace(_request(), eval_dates=dev_dates)
+    calls: list[tuple[str, tuple[int, ...]]] = []
+
+    def measure(
+        self: market_eval.MarketEvaluator, model: ModelRef, request: EvaluationRequest, *,
+        key: str, candidate: bool,
+    ) -> Json:
+        calls.append((model.model_id, request.eval_dates))
+        return {"evidence": {"val_nll_total": 4.5},
+                "day_metrics": {str(date): {} for date in request.eval_dates}}
+
+    monkeypatch.setattr(market_eval.MarketEvaluator, "_measure", measure)
+    with pytest.raises(ValueError, match="36/12/12"):
+        market_eval.MarketEvaluator(archive, SYMBOL)
+    dev = market_eval.MarketEvaluator(
+        archive, SYMBOL, cache_root=cache, expected_dev_days=24, expected_test_days=20,
+    )
+    assert set(dev(request).parent_rows) == set(dev_dates)
+    holdout = replace(request, split="test", eval_dates=primary)
+    with pytest.raises(ValueError, match="registered evaluator phase"):
+        dev(holdout)
+    primary_test = market_eval.MarketEvaluator(
+        archive, SYMBOL, cache_root=cache, authorized_test_dates=primary,
+        expected_dev_days=24, expected_test_days=20,
+    )
+    assert set(primary_test(holdout).parent_rows) == set(primary)
+    final_test = market_eval.MarketEvaluator(
+        archive, SYMBOL, cache_root=cache, authorized_test_dates=final_dates,
+        expected_dev_days=24, expected_test_days=20,
+    )
+    with pytest.raises(ValueError, match="must agree with the P1 registration"):
+        final_test(holdout)
+    assert set(final_test(replace(holdout, eval_dates=final_dates)).parent_rows) == set(final_dates)
+    assert calls == [
+        ("seed", dev_dates), ("trial", dev_dates),
+        ("seed", primary), ("trial", primary),
+        ("seed", final_dates), ("trial", final_dates),
+    ]
+    with pytest.raises(ValueError, match="frozen test dates"):
+        market_eval.MarketEvaluator(
+            archive, SYMBOL, authorized_test_dates=(*primary[:-1], 93),
+            expected_dev_days=24, expected_test_days=20,
+        )
+
+
 # --- Native worker smoke ---
+
+def test_native_gate_configures_both_torch_thread_pools() -> None:
+    source = seed_lob_source() + """
+
+class ThreadProbe(CandidateLOBWorldModel):
+    def __init__(self):
+        super().__init__()
+        assert torch.get_num_threads() == 1
+        assert torch.get_num_interop_threads() == 1
+
+
+CandidateLOBWorldModel = ThreadProbe
+"""
+    assert market_eval.CandidateGate()(source) is None
+
 
 def test_native_worker_fits_one_minibatch_from_a_synthetic_npz(tmp_path: Path) -> None:
     # Only the test's staged copy uses a reduced fit budget. The native entry,
@@ -227,6 +300,8 @@ full_fit = fit_lob_world_model
 
 
 def fit_lob_world_model(factory, days, seed):
+    assert torch.get_num_threads() == 1
+    assert torch.get_num_interop_threads() == 1
     return full_fit(factory, days, seed, protocol=replace(
         P1_FIT_PROTOCOL, subseq_len=4, burn_in=1, batch_size=1, steps=1,
     ))

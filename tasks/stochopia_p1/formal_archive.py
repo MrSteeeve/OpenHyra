@@ -9,7 +9,7 @@ from pathlib import Path
 
 from stochopia.common import atomic_write_text
 
-from .formal_verify import load_frozen_study
+from .formal_verify import RESOURCE_RETRY, load_frozen_study
 from .store import IMPACT, NLL, Json, Ledger
 
 
@@ -210,13 +210,34 @@ def write_archive_tables(root: Path) -> None:
     manifest = load_frozen_study(root)
     ledger = Ledger(root)
     with ledger.lock():
-        trials, calls, compilation = _development_rows(manifest)
-        _write_csv(ledger.file("development-trials.csv"), TRIAL_FIELDS, trials)
-        _write_csv(ledger.file("api-attempts.csv"), CALL_FIELDS, calls)
-        _write_csv(ledger.file("compiler-attempts.csv"), COMPILE_FIELDS, compilation)
         report = ledger.read("verification", "report.json")
+        retry = None if report is None else report.get("resource_retry")
+        trials, calls, compilation = _development_rows(manifest)
+        for name, fields, rows in (
+            ("development-trials.csv", TRIAL_FIELDS, trials),
+            ("api-attempts.csv", CALL_FIELDS, calls),
+            ("compiler-attempts.csv", COMPILE_FIELDS, compilation),
+        ):
+            if retry is None or not ledger.file(name).exists():
+                _write_csv(ledger.file(name), fields, rows)
         if report is not None:
             _write_csv(ledger.file("holdout-endpoints.csv"), RESULT_FIELDS, _endpoint_rows(report))
             _write_csv(ledger.file("rejected-audit.csv"), AUDIT_FIELDS, _audit_rows(report))
             _write_csv(ledger.file("cross-regime.csv"), CROSS_FIELDS, _cross_rows(report))
-        atomic_write_text(ledger.file("README.md"), _readme(manifest, has_holdout=report is not None))
+        readme = ledger.file("README.md")
+        if retry is None or not readme.exists():
+            atomic_write_text(readme, _readme(manifest, has_holdout=report is not None))
+        if retry is not None:
+            previous = readme.read_text(encoding="utf-8")
+            heading = "## V2 资源失败补测审计"
+            if heading not in previous:
+                note = f"""
+{heading}
+
+原始入选清单与已完成测量保留。补测登记在 `verification/{RESOURCE_RETRY}/registration.json`，重跑前原始报告及失败结果保存在该目录的 `before/`，独立补测结果保存在 `results/`，完成回执为 `completed.json`。
+
+原始测量任务 {retry['original_measured_tasks']} 项，仅重跑 {len(retry['task_ids'])} 项已封存失败任务。恢复 {len(retry['recovered_task_ids'])} 项，仍失败 {len(retry['remaining_failed_task_ids'])} 项。补测后测量任务 {retry['measured_tasks_after']} 项。训练单种子墙钟上限 180 秒，评估墙钟上限 1,800 秒，累计 CPU 秒上限为墙钟上限的四倍。本次仅修复资源预算，沿用原 V2 的统计判据。
+
+补测代码提交为 Stochopia `{retry['retry_code'].get('stochopia_commit', '')}` 和 OpenHyra `{retry['retry_code'].get('openhyra_commit', '')}`，冻结码和初选决策见原清单。
+"""
+                atomic_write_text(readme, previous.rstrip() + "\n" + note)

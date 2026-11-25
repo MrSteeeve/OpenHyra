@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+
+from stochopia.common import atomic_write_bytes, atomic_write_json
 
 from .formal_manifest import ARM_MODELS, MANIFEST, SYMBOLS, SourceArchive, validate_frozen
 from .paired_stats import (
@@ -17,6 +20,8 @@ from .store import (
 
 
 AUDIT_ROLE = "audit_only_rejected_unverified"
+RESOURCE_RETRY = "retry-v2-resource"
+V2_SCHEMA = "stochopia-p1-m4-v2"
 
 
 def load_frozen_study(root: Path) -> Json:
@@ -54,13 +59,8 @@ def _assess_task(pair: PairedEvaluation, request: EvaluationRequest, task: Json)
     }
 
 
-def _run_task(
-    manifest: Json, task: Json, archive: SourceArchive, ledger: Ledger, evaluate: Evaluator,
-) -> Json:
-    path = ("results", f"{task['task_id']}.json")
-    saved = ledger.read(*path)
-    if saved is not None:
-        return saved
+def _evaluate_task(manifest: Json, task: Json, archive: SourceArchive, evaluate: Evaluator) -> Json:
+    """Measure a registered pair without changing any ledger files."""
     request = _request(manifest, task, archive)
     try:
         pair = evaluate(request)
@@ -78,7 +78,17 @@ def _run_task(
     else:
         pair.validate(request)
         record = _assess_task(pair, request, task)
-    return ledger.seal({**record, **task}, *path)
+    return {**record, **task}
+
+
+def _run_task(
+    manifest: Json, task: Json, archive: SourceArchive, ledger: Ledger, evaluate: Evaluator,
+) -> Json:
+    path = ("results", f"{task['task_id']}.json")
+    saved = ledger.read(*path)
+    if saved is not None:
+        return saved
+    return ledger.seal(_evaluate_task(manifest, task, archive, evaluate), *path)
 
 
 # --- Selection reporting ---
@@ -205,15 +215,164 @@ def _summarize(manifest: Json, evaluated: Mapping[str, Json]) -> Json:
     }
 
 
-def verify_frozen_study(root: Path, *, evaluators: Mapping[str, Evaluator]) -> Json:
+def _retryable_result(row: Json) -> bool:
+    return row["status"] == EVALUATION_FAILED and (row["assessment"] or {}).get("verdict") == EVALUATION_FAILED
+
+
+def _snapshot(ledger: Ledger, source: tuple[str, ...], destination: tuple[str, ...]) -> None:
+    """Copy an original published record once, preserving its file bytes."""
+    content = ledger.file(*source).read_bytes()
+    path = ledger.file(*destination)
+    if path.exists():
+        if path.read_bytes() != content:
+            raise ValueError("the original resource-failure snapshot differs from its result")
+        return
+    atomic_write_bytes(path, content)
+
+
+def _retry_registration(manifest: Json, ledger: Ledger, retry_code: Mapping[str, str]) -> Json:
+    """Seal the failed task roster and its unchanged before evidence first."""
+    path = (RESOURCE_RETRY, "registration.json")
+    previous = ledger.read(*path)
+    if previous is not None:
+        if previous["frozen_code"] != manifest["code"] or previous["retry_code"] != retry_code:
+            raise ValueError("resume the resource retry using its registered code")
+        return previous
+
+    report = ledger.read("report.json")
+    if report is None:
+        raise ValueError("finish the original frozen verification before retrying failed tasks")
+    failed_ids = []
+    for task in manifest["tasks"]:
+        task_id = task["task_id"]
+        row = ledger.read("results", f"{task_id}.json")
+        if row is None:
+            raise ValueError("resource retry requires every original task to have a terminal record")
+        if _retryable_result(row):
+            if "initial" in task["roles"]:
+                raise ValueError("the original registered baseline must already have a measured result")
+            failed_ids.append(task_id)
+            _snapshot(ledger, ("results", f"{task_id}.json"),
+                      (RESOURCE_RETRY, "before", "results", f"{task_id}.json"))
+    _snapshot(ledger, ("report.json",), (RESOURCE_RETRY, "before", "report.json"))
+    registration = {
+        "frozen_code": manifest["code"], "retry_code": dict(retry_code), "task_ids": failed_ids,
+        "original_measured_tasks": report["measured_tasks"],
+        "resource_limits": {"train_wall_seconds": 180.0, "evaluate_wall_seconds": 1800.0,
+                            "cpu_seconds_multiplier": 4},
+    }
+    return ledger.seal(registration, *path)
+
+
+def _retry_measurements(
+    manifest: Json, tasks: list[Json], archive: SourceArchive, ledger: Ledger,
+    evaluators: Mapping[str, Evaluator], jobs: int,
+) -> None:
+    pending = []
+    for task in tasks:
+        path = (RESOURCE_RETRY, "results", f"{task['task_id']}.json")
+        if ledger.read(*path) is None:
+            pending.append(task)
+
+    def evaluate(task: Json) -> Json:
+        return _evaluate_task(manifest, task, archive, evaluators[task["stock"]])
+
+    # The caller owns the ledger lock. Only its thread seals finished results.
+    if jobs == 1:
+        for task in pending:
+            row = evaluate(task)
+            ledger.seal(row, RESOURCE_RETRY, "results", f"{task['task_id']}.json")
+        return
+
+    first_error: Exception | None = None
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        futures = {pool.submit(evaluate, task): task for task in pending}
+        for future in as_completed(futures):
+            try:
+                row = future.result()
+            except Exception as exc:
+                if first_error is None:
+                    first_error = exc
+            else:
+                task_id = futures[future]["task_id"]
+                ledger.seal(row, RESOURCE_RETRY, "results", f"{task_id}.json")
+    if first_error is not None:
+        raise first_error
+
+
+def _publish_retry(manifest: Json, ledger: Ledger, registration: Json) -> Json:
+    """Republish the completed repair batch, touching only original failures."""
+    repaired: set[str] = set(registration["task_ids"])
+    records = {}
+    recovered = []
+    for task in manifest["tasks"]:
+        task_id = task["task_id"]
+        name = f"{task_id}.json"
+        original_path = ledger.file("results", name)
+        if task_id in repaired:
+            retry_path = ledger.file(RESOURCE_RETRY, "results", name)
+            before_path = ledger.file(RESOURCE_RETRY, "before", "results", name)
+            retry = retry_path.read_bytes()
+            if original_path.read_bytes() not in (before_path.read_bytes(), retry):
+                raise ValueError("the result does not match its original or sealed retry record")
+            if original_path.read_bytes() != retry:
+                atomic_write_bytes(original_path, retry)
+        row = ledger.read("results", name)
+        if row is None:
+            raise ValueError("a registered task has no result record")
+        records[task_id] = row
+        if task_id in repaired and row["status"] == "measured":
+            recovered.append(task_id)
+    report = _summarize(manifest, records)
+    report["resource_retry"] = {
+        **registration, "recovered_task_ids": recovered,
+        "remaining_failed_task_ids": sorted(repaired - set(recovered)),
+        "measured_tasks_after": report["measured_tasks"],
+    }
+    atomic_write_json(ledger.file("report.json"), report)
+    ledger.seal(report["resource_retry"], RESOURCE_RETRY, "completed.json")
+    return report
+
+
+def _retry_failed_tasks(
+    manifest: Json, archive: SourceArchive, ledger: Ledger, evaluators: Mapping[str, Evaluator],
+    retry_code: Mapping[str, str], jobs: int,
+) -> Json:
+    if manifest["schema"] != V2_SCHEMA:
+        raise ValueError("the resource repair is registered for M4 v2 only")
+    registration = _retry_registration(manifest, ledger, retry_code)
+    completed = ledger.read(RESOURCE_RETRY, "completed.json")
+    if completed is not None:
+        report = ledger.read("report.json")
+        if report is None or report.get("resource_retry") != completed:
+            raise ValueError("the completed resource retry is missing its published report")
+        return report
+    selected = set(registration["task_ids"])
+    tasks = [task for task in manifest["tasks"] if task["task_id"] in selected]
+    if len(tasks) != len(selected):
+        raise ValueError("the resource retry contains an unregistered task")
+    _retry_measurements(manifest, tasks, archive, ledger, evaluators, jobs)
+    return _publish_retry(manifest, ledger, registration)
+
+
+def verify_frozen_study(
+    root: Path, *, evaluators: Mapping[str, Evaluator], retry_failed: bool = False,
+    retry_code: Mapping[str, str] | None = None, jobs: int = 1,
+) -> Json:
     """Evaluate each sealed task under a verifier-only lock and resume saved results."""
     if set(evaluators) != set(SYMBOLS):
         raise ValueError("the verifier requires both stock evaluators")
+    if jobs < 1 or jobs > 3:
+        raise ValueError("the resource retry supports one to three workers")
+    if retry_failed and retry_code is None:
+        raise ValueError("register the current code for the resource retry")
     manifest = load_frozen_study(root)
     archive_ledger = Ledger(root)
     archive = SourceArchive(archive_ledger)
     ledger = Ledger(archive_ledger.file("verification"))
     with ledger.lock():
+        if retry_failed:
+            return _retry_failed_tasks(manifest, archive, ledger, evaluators, retry_code, jobs)
         report = ledger.read("report.json")
         if report is not None:
             return report

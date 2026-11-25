@@ -53,6 +53,12 @@ def main(candidate: Path, completion: Path) -> None:
     sys.path.insert(0, str(candidate.parent))
 
     import torch
+
+    # Configure both thread pools before loading candidate or probe code.
+    torch.set_num_threads(1)
+    if torch.get_num_interop_threads() != 1:
+        torch.set_num_interop_threads(1)
+
     from stochopia.neural.lob_interface import _probe, verify_world_model_contract, world_model_loss
 
     torch.manual_seed(291)

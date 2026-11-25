@@ -21,12 +21,17 @@ def main(mode: str, input_dir: Path, output_dir: Path, seed: int | None = None) 
     sys.path.insert(0, str(source_dir))
 
     import torch
+
+    # Configure both thread pools before constructing any model or tensor.
+    torch.set_num_threads(1)
+    if torch.get_num_interop_threads() != 1:
+        torch.set_num_interop_threads(1)
+
     from experiments.p1_m2_baseline import _load_days, evaluate_symbol
     from gate_worker import load_candidate
     from stochopia.common import atomic_write_json
     from stochopia.neural.lob_training import P1_TRAIN_SEEDS, NonfiniteModelLoss, fit_lob_world_model
 
-    torch.set_num_threads(1)
     plan = json.loads((input_dir / "plan.json").read_text(encoding="utf-8"))
     try:
         factory = load_candidate(source_dir / "candidate.py")
