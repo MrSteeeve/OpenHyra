@@ -54,7 +54,7 @@ stock,arm,search_seed,phase,task_id,model_id,status,val_nll_total,lob_impact_sco
 300001.SZ,evidence_ds,41,first,,,unavailable,,,,,,,,,,,,,,
 300001.SZ,evidence_ds,41,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,evidence_gpt,17,initial,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
-300001.SZ,evidence_gpt,17,first,300001.SZ-17-evidence_gpt-r01,300001.SZ-17-evidence_gpt-r01,evaluation_failed,,,,,,,evaluation_failed,INCONCLUSIVE,INCONCLUSIVE,,,,,
+300001.SZ,evidence_gpt,17,first,300001.SZ-17-evidence_gpt-r01,300001.SZ-17-evidence_gpt-r01,measured,8.330513967924645,27.17149220489978,21.02393449111957,44.924734076962885,-10.485411560790592,-0.006805944706700373,GUARDRAIL_VIOLATION,INCONCLUSIVE,SUPPORTED,fail,pass,pass,fail,fail
 300001.SZ,evidence_gpt,17,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,evidence_gpt,29,initial,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,evidence_gpt,29,first,,,unavailable,,,,,,,,,,,,,,
@@ -81,11 +81,11 @@ stock,arm,search_seed,phase,task_id,model_id,status,val_nll_total,lob_impact_sco
 300001.SZ,metrics_gpt,41,first,,,unavailable,,,,,,,,,,,,,,
 300001.SZ,metrics_gpt,41,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,no_llm,17,initial,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
-300001.SZ,no_llm,17,first,300001.SZ-17-no_llm-r01,300001.SZ-17-no_llm-r01,evaluation_failed,,,,,,,evaluation_failed,INCONCLUSIVE,INCONCLUSIVE,,,,,
+300001.SZ,no_llm,17,first,300001.SZ-17-no_llm-r01,300001.SZ-17-no_llm-r01,measured,8.417952716289934,35.12281871735023,25.409278720302336,47.65184587960102,-2.5340850483401454,0.08063280365858816,GUARDRAIL_VIOLATION,INCONCLUSIVE,SUPPORTED,fail,pass,pass,fail,fail
 300001.SZ,no_llm,17,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,no_llm,29,initial,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
-300001.SZ,no_llm,29,first,300001.SZ-29-no_llm-r01,300001.SZ-29-no_llm-r01,evaluation_failed,,,,,,,evaluation_failed,INCONCLUSIVE,INCONCLUSIVE,,,,,
+300001.SZ,no_llm,29,first,300001.SZ-29-no_llm-r01,300001.SZ-29-no_llm-r01,measured,8.473804112388743,,,,,0.13648419975739756,REFUTED,INCONCLUSIVE,INCONCLUSIVE,fail,inconclusive,pass,inconclusive,inconclusive
 300001.SZ,no_llm,29,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
 300001.SZ,no_llm,41,initial,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail
-300001.SZ,no_llm,41,first,300001.SZ-41-no_llm-r01,300001.SZ-41-no_llm-r01,evaluation_failed,,,,,,,evaluation_failed,INCONCLUSIVE,INCONCLUSIVE,,,,,
+300001.SZ,no_llm,41,first,300001.SZ-41-no_llm-r01,300001.SZ-41-no_llm-r01,measured,8.293720779649284,,,,,-0.043599132982061306,GUARDRAIL_VIOLATION,INCONCLUSIVE,INCONCLUSIVE,fail,inconclusive,pass,inconclusive,inconclusive
 300001.SZ,no_llm,41,final,300001.SZ-seed,seed-gru,measured,8.337319912631346,37.65690376569037,23.13161044939754,61.717149682078,0.0,0.0,,,,fail,pass,pass,fail,fail

@@ -34,3 +34,15 @@ export PYTHONPATH="$OPENHYRA:$STOCHOPIA"
 ```
 
 [正式实验报告](https://github.com/MrSteeeve/Stochopia/blob/main/docs/research/P1-M4-Formal-Study-Report.md)
+
+## V2 资源失败补测审计
+
+原始入选清单与已完成测量保留。补测登记在 `verification/retry-v2-resource/registration.json`，重跑前原始报告及失败结果保存在该目录的 `before/`，独立补测结果保存在 `results/`，完成回执为 `completed.json`。
+
+原始测量任务 20 项，仅重跑 10 项已封存失败任务。恢复 9 项，仍失败 1 项。补测后测量任务 29 项。训练单种子墙钟上限 180 秒，评估墙钟上限 1,800 秒，累计 CPU 秒上限为墙钟上限的四倍。本次仅修复资源预算，沿用原 V2 的统计判据。
+
+补测代码提交为 Stochopia `58336c39a8cb6c8aca8e442f6bfee00a9f78cbdc` 和 OpenHyra `c71cacfb7d4ff74995cea0dcaa89638a05959e36`，冻结码和初选决策见原清单。
+
+### 同资源串行续测
+
+首批并发补测中墙钟超时的 1 项随后在同一代码、同一 180/1800 秒资源配置下以单 worker 补测。两次尝试均保存在 `verification/retry-v2-resource/serial/` 与原补测目录。最终完成测量 30 项。

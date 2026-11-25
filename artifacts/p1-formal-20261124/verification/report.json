@@ -301,12 +301,12 @@
         "forecast_type": "preregistered_llm",
         "prediction_rates": {
           "guardrail": {
-            "decidable": 0,
-            "hit_rate": 0.0,
-            "inconclusive": 1,
+            "decidable": 1,
+            "hit_rate": 1.0,
+            "inconclusive": 0,
             "refuted": 0,
             "registered": 1,
-            "supported": 0
+            "supported": 1
           },
           "primary": {
             "decidable": 0,
@@ -448,12 +448,12 @@
         "forecast_type": "fixed_placeholder",
         "prediction_rates": {
           "guardrail": {
-            "decidable": 0,
-            "hit_rate": 0.0,
-            "inconclusive": 3,
+            "decidable": 1,
+            "hit_rate": 0.3333333333333333,
+            "inconclusive": 2,
             "refuted": 0,
             "registered": 3,
-            "supported": 0
+            "supported": 1
           },
           "primary": {
             "decidable": 0,
@@ -945,29 +945,204 @@
             "task_id": "000001.SZ-17-evidence_ds-r03"
           },
           "off_diagonal": {
-            "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 570.98s under a 600.00s worker limit.",
-              "prediction_verdicts": [],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
-            },
+            "assessment": null,
             "candidate": {
               "model_id": "000001.SZ-17-evidence_ds-r03",
               "source_sha256": "ab89b356826e58ab76b81643d7f8810514986d532b13ea85777afce8f673a9e4"
             },
             "group": "evidence_ds",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 1344.5600591250113,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 47.39437299998826,
+                "137": 46.75233733301866,
+                "211": 50.513965749996714
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 22488,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [],
-            "readouts": {},
+            "readouts": {
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 1997,
+                "candidate_bootstrap_valid": 1997,
+                "candidate_estimate": 37.65690376569037,
+                "candidate_interval": [
+                  23.13161044939754,
+                  61.717149682078
+                ],
+                "estimate": 0.0,
+                "interval": [
+                  0.0,
+                  0.0
+                ],
+                "p05": 0.0,
+                "paired_days": 10,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": [
+                  23.13161044939754,
+                  61.717149682078
+                ],
+                "reason": null,
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.13358334506085,
+                "candidate_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "estimate": 0.0,
+                "interval": [
+                  0.0,
+                  0.0
+                ],
+                "p05": 0.0,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "cross-evidence_ds-000001.SZ-to-300001.SZ"
           }
@@ -1656,29 +1831,197 @@
             "task_id": "000001.SZ-41-evidence_gpt-r01"
           },
           "off_diagonal": {
-            "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n\nSandbox return code -24 after 576.76s under a 600.00s worker limit.",
-              "prediction_verdicts": [],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
-            },
+            "assessment": null,
             "candidate": {
               "model_id": "000001.SZ-41-evidence_gpt-r01",
               "source_sha256": "7f007b9b7a4ef45fb8f930816d905a6b7aba814b7bd91f6853a045c9d8a18d24"
             },
             "group": "evidence_gpt",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 6.4186046511627906,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.3152173913043481,
+              "evaluation_seconds": 1221.4133794589725,
+              "event_count_delta": -563.2916666666667,
+              "event_count_rel_gap": 0.4741346052677726,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 44.98696408298565,
+                "137": 52.426429041981464,
+                "211": 48.96771262501716
+              },
+              "free_abs_drift_ticks": 7.041666666666667,
+              "hurst_delta": -0.18956855554459273,
+              "hurst_gap": 0.18956855554459273,
+              "idle_abs_drift": 7.041666666666667,
+              "impact_delta": 1.2,
+              "impact_exponent_gap": 0.7,
+              "impact_peak": 0.9583333333333334,
+              "impact_y": 1.0586668224974636,
+              "l1_depth_mae": 12950.289957264957,
+              "lob_impact_score": 31.115060685966416,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6281707689578409,
+              "nll_dt": 2.4061800654011214,
+              "nll_rel_ticks": 1.9911805316055895,
+              "nll_volume": 2.3125566606147334,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 22124,
+              "recovery_ratio": 1.3152173913043481,
+              "sign_acf_delta": 0.3859368284287252,
+              "state_dim": 52,
+              "top_depth_delta": -574.3393162393149,
+              "trade_sign_acf_exp_gap": 0.3859368284287252,
+              "train_seed_nll": {
+                "103": 8.334215979898373,
+                "137": 8.347234325482855,
+                "211": 8.332813774356628
+              },
+              "val_nll_total": 8.338088026579285,
+              "visible_over_blind_ratio": 6.4186046511627906,
+              "zero_wait_rate_delta": -0.010444411195880493
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [],
-            "readouts": {},
+            "readouts": {
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [],
+                    "undefined_draw_count": 0,
+                    "undefined_draw_indices": []
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 1997,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 31.115060685966416,
+                "candidate_interval": [
+                  22.452073312446217,
+                  55.05671506352085
+                ],
+                "estimate": -6.541843079723957,
+                "interval": [
+                  -24.854050874552975,
+                  11.112731863181569
+                ],
+                "p05": -20.523520352266146,
+                "paired_days": 9,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": [
+                  23.13161044939754,
+                  61.717149682078
+                ],
+                "reason": null,
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.133504428386894,
+                "candidate_interval": [
+                  8.023343612270338,
+                  8.242393038160788
+                ],
+                "estimate": -7.891667395824402e-05,
+                "interval": [
+                  -0.0006608366376947006,
+                  0.0004898300844734943
+                ],
+                "p05": -0.0005543412650134175,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "cross-evidence_gpt-000001.SZ-to-300001.SZ"
           }
@@ -2317,29 +2660,201 @@
             "task_id": "000001.SZ-29-metrics_ds-r01"
           },
           "off_diagonal": {
-            "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 566.15s under a 600.00s worker limit.",
-              "prediction_verdicts": [],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
-            },
+            "assessment": null,
             "candidate": {
               "model_id": "000001.SZ-29-metrics_ds-r01",
               "source_sha256": "8ee0aeaeb05cbf231bca4ace250b4c5ce8fc6bad9e4cf1ea10a903533885d6f1"
             },
             "group": "metrics_ds",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 6.478260869565218,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.549645390070922,
+              "evaluation_seconds": 1336.7358813330065,
+              "event_count_delta": -587.3888888888889,
+              "event_count_rel_gap": 0.494417750967395,
+              "exhausted_windows": 3,
+              "fit_seconds_by_seed": {
+                "103": 51.72541604100843,
+                "137": 51.23310783400666,
+                "211": 58.37696695898194
+              },
+              "free_abs_drift_ticks": 8.180555555555555,
+              "hurst_delta": -0.14663578666653043,
+              "hurst_gap": 0.14663578666653043,
+              "idle_abs_drift": 8.180555555555555,
+              "impact_delta": 1.26,
+              "impact_exponent_gap": 0.76,
+              "impact_peak": 1.0347222222222223,
+              "impact_y": 1.1430533083487109,
+              "l1_depth_mae": 13181.075106837607,
+              "lob_impact_score": 27.365136342705544,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.630430730371501,
+              "nll_dt": 2.3957180792379598,
+              "nll_rel_ticks": 1.9886039577901058,
+              "nll_volume": 2.3127585065436054,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 24524,
+              "recovery_ratio": 1.549645390070922,
+              "sign_acf_delta": 0.043173989046038114,
+              "state_dim": 48,
+              "top_depth_delta": -1211.4928352029929,
+              "trade_sign_acf_exp_gap": 0.043173989046038114,
+              "train_seed_nll": {
+                "103": 8.322379997924399,
+                "137": 8.340529473557975,
+                "211": 8.319624350347143
+              },
+              "val_nll_total": 8.327511273943173,
+              "visible_over_blind_ratio": 6.478260869565218,
+              "zero_wait_rate_delta": -0.010489832040791715
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [],
-            "readouts": {},
+            "readouts": {
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [
+                      20170411
+                    ],
+                    "incomplete_recovery_dates": [
+                      20170411
+                    ],
+                    "undefined_draw_count": 0,
+                    "undefined_draw_indices": []
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 1997,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 27.365136342705544,
+                "candidate_interval": [
+                  22.014642373733228,
+                  39.329658119961515
+                ],
+                "estimate": -10.29176742298483,
+                "interval": [
+                  -34.00941634460744,
+                  5.82474301814379
+                ],
+                "p05": -26.6310220175807,
+                "paired_days": 9,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": [
+                  23.13161044939754,
+                  61.717149682078
+                ],
+                "reason": null,
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.129178810740179,
+                "candidate_interval": [
+                  8.02006571000642,
+                  8.236274083510983
+                ],
+                "estimate": -0.004404534320674891,
+                "interval": [
+                  -0.008177902399342088,
+                  -0.0007085243427900001
+                ],
+                "p05": -0.007593146599778826,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "cross-metrics_ds-000001.SZ-to-300001.SZ"
           }
@@ -2978,29 +3493,190 @@
             "task_id": "000001.SZ-29-metrics_gpt-r03"
           },
           "off_diagonal": {
-            "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 571.82s under a 600.00s worker limit.",
-              "prediction_verdicts": [],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
-            },
+            "assessment": null,
             "candidate": {
               "model_id": "000001.SZ-29-metrics_gpt-r03",
               "source_sha256": "67f8aba82ed6d60615a332fc85e337e40e441cd52e73b8a7713fcb7d14cf3fd4"
             },
             "group": "metrics_gpt",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 13.407407407407407,
+              "claims": {
+                "C1": "fail",
+                "C2": "inconclusive",
+                "C3": "pass",
+                "C4": "inconclusive",
+                "C5": "inconclusive"
+              },
+              "end_over_peak_ratio": 0.5016835016835017,
+              "evaluation_seconds": 1261.0433032089786,
+              "event_count_delta": -539.7083333333334,
+              "event_count_rel_gap": 0.4542840108020903,
+              "exhausted_windows": 2,
+              "fit_seconds_by_seed": {
+                "103": 49.423636332998285,
+                "137": 48.853364000009606,
+                "211": 46.230076666979585
+              },
+              "free_abs_drift_ticks": 8.930555555555555,
+              "hurst_delta": -0.1401402161365436,
+              "hurst_gap": 0.1401402161365436,
+              "idle_abs_drift": 8.930555555555555,
+              "impact_delta": null,
+              "impact_exponent_gap": null,
+              "impact_peak": 1.2569444444444449,
+              "impact_y": 1.3885412671887027,
+              "l1_depth_mae": 13133.664316239317,
+              "lob_impact_score": null,
+              "lob_impact_score_reason": "impact law not identified",
+              "nll_action": 1.6253014639558079,
+              "nll_dt": 2.3886007601122294,
+              "nll_rel_ticks": 1.9911640433939921,
+              "nll_volume": 2.3114353974782875,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 22124,
+              "recovery_ratio": 0.5016835016835017,
+              "sign_acf_delta": 0.13584576513670693,
+              "state_dim": 48,
+              "top_depth_delta": -962.5555555555529,
+              "trade_sign_acf_exp_gap": 0.13584576513670693,
+              "train_seed_nll": {
+                "103": 8.309098827146126,
+                "137": 8.327576233148868,
+                "211": 8.312829934525958
+              },
+              "val_nll_total": 8.316501664940317,
+              "visible_over_blind_ratio": 13.407407407407407,
+              "zero_wait_rate_delta": -0.010212635465079114
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [],
-            "readouts": {},
+            "readouts": {
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406
+                    ],
+                    "undefined_draw_count": 2000,
+                    "undefined_draw_indices": null
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 0,
+                "candidate_bootstrap_valid": 0,
+                "candidate_estimate": null,
+                "candidate_interval": null,
+                "estimate": null,
+                "interval": null,
+                "p05": null,
+                "paired_days": 10,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": null,
+                "reason": "fewer than 1800 finite paired bootstrap draws",
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.12065734263655,
+                "candidate_interval": [
+                  8.012537729469019,
+                  8.22515453156222
+                ],
+                "estimate": -0.012926002424303196,
+                "interval": [
+                  -0.021861758501700163,
+                  -0.004908416693782751
+                ],
+                "p05": -0.02012222512670713,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "cross-metrics_gpt-000001.SZ-to-300001.SZ"
           }
@@ -3639,29 +4315,190 @@
             "task_id": "000001.SZ-29-no_llm-r01"
           },
           "off_diagonal": {
-            "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 566.82s under a 600.00s worker limit.",
-              "prediction_verdicts": [],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
-            },
+            "assessment": null,
             "candidate": {
               "model_id": "000001.SZ-29-no_llm-r01",
               "source_sha256": "dbd8d4853ea40aba2ba7c31aaf769c7538cfc0c6259eb11ffbdb2df379a65aef"
             },
             "group": "no_llm",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 5.479166666666667,
+              "claims": {
+                "C1": "fail",
+                "C2": "inconclusive",
+                "C3": "pass",
+                "C4": "inconclusive",
+                "C5": "inconclusive"
+              },
+              "end_over_peak_ratio": 1.2345132743362834,
+              "evaluation_seconds": 1228.0010540829971,
+              "event_count_delta": -522.7361111111112,
+              "event_count_rel_gap": 0.4399981295081776,
+              "exhausted_windows": 0,
+              "fit_seconds_by_seed": {
+                "103": 35.665120916994056,
+                "137": 54.38384916700306,
+                "211": 57.604235792008694
+              },
+              "free_abs_drift_ticks": 6.972222222222222,
+              "hurst_delta": -0.235730004310987,
+              "hurst_gap": 0.235730004310987,
+              "idle_abs_drift": 6.972222222222222,
+              "impact_delta": null,
+              "impact_exponent_gap": null,
+              "impact_peak": 0.9131944444444443,
+              "impact_y": 1.0088020808580902,
+              "l1_depth_mae": 14663.25192307692,
+              "lob_impact_score": null,
+              "lob_impact_score_reason": "impact law not identified",
+              "nll_action": 1.640068360445527,
+              "nll_dt": 2.5107769908122815,
+              "nll_rel_ticks": 2.012326305185634,
+              "nll_volume": 2.3106324559453006,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 19148,
+              "recovery_ratio": 1.2345132743362834,
+              "sign_acf_delta": 0.7146886804183361,
+              "state_dim": 72,
+              "top_depth_delta": 359.6134615384635,
+              "trade_sign_acf_exp_gap": 0.7146886804183361,
+              "train_seed_nll": {
+                "103": 8.475195998039748,
+                "137": 8.4486145681924,
+                "211": 8.497601770934079
+              },
+              "val_nll_total": 8.473804112388743,
+              "visible_over_blind_ratio": 5.479166666666667,
+              "zero_wait_rate_delta": -0.008055690122088439
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [],
-            "readouts": {},
+            "readouts": {
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170411
+                    ],
+                    "undefined_draw_count": 2000,
+                    "undefined_draw_indices": null
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 0,
+                "candidate_bootstrap_valid": 0,
+                "candidate_estimate": null,
+                "candidate_interval": null,
+                "estimate": null,
+                "interval": null,
+                "p05": null,
+                "paired_days": 8,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": null,
+                "reason": "fewer than 1800 finite paired bootstrap draws",
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.160335094814762,
+                "candidate_interval": [
+                  8.024769768063033,
+                  8.3094633996976
+                ],
+                "estimate": 0.026751749753909888,
+                "interval": [
+                  -0.020897269438194237,
+                  0.07973089461720875
+                ],
+                "p05": -0.014261552517184186,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "cross-no_llm-000001.SZ-to-300001.SZ"
           }
@@ -3803,7 +4640,25 @@
           "dev_score": 31.853785900783286,
           "diagonal": {
             "assessment": {
-              "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n\nSandbox return code -24 after 565.97s under a 600.00s worker limit.",
+              "aggregate_delta": {
+                "lob_impact_score": null,
+                "val_nll_total": -0.028429833141308352
+              },
+              "guardrails": {
+                "child_free_abs_drift_ticks": 8.4375,
+                "delta_exhausted_windows": 2.0,
+                "delta_free_abs_drift_ticks": 0.10416666666666607,
+                "delta_val_nll_total": -0.028429833141308352,
+                "drift_passed": true,
+                "exhaustion_passed": false,
+                "finite_nll_by_seed": true,
+                "nll_passed": true,
+                "parent_free_abs_drift_ticks": 8.333333333333334
+              },
+              "has_benchmark_gain": false,
+              "mean_delta_score": null,
+              "nll_guardrail_passed": true,
+              "p05_delta_score": null,
               "prediction_verdicts": [
                 {
                   "metric": "lob_impact_score",
@@ -3816,20 +4671,211 @@
                   "status": "INCONCLUSIVE"
                 }
               ],
-              "training_budget_consumed": true,
-              "verdict": "evaluation_failed"
+              "readouts": {
+                "free_abs_drift_ticks": {
+                  "bootstrap_total": 2000,
+                  "bootstrap_valid": 2000,
+                  "candidate_bootstrap_valid": 2000,
+                  "candidate_estimate": 8.4375,
+                  "candidate_interval": [
+                    4.847048611111111,
+                    12.5140625
+                  ],
+                  "estimate": 0.10416666666666607,
+                  "interval": [
+                    -2.229166666666666,
+                    1.9029513888888878
+                  ],
+                  "p05": -1.7864583333333341,
+                  "paired_days": 12,
+                  "parent_bootstrap_valid": 2000,
+                  "parent_estimate": 8.333333333333334,
+                  "parent_interval": [
+                    4.284548611111111,
+                    12.743055555555555
+                  ],
+                  "reason": null,
+                  "registered_days": 12
+                },
+                "lob_impact_score": {
+                  "bootstrap_support": {
+                    "candidate": {
+                      "incomplete_execution_dates": [],
+                      "incomplete_recovery_dates": [
+                        20170405
+                      ],
+                      "undefined_draw_count": 2000,
+                      "undefined_draw_indices": null
+                    },
+                    "estimand": "pooled impact score conditional on original-panel C2 admission",
+                    "parent": {
+                      "incomplete_execution_dates": [],
+                      "incomplete_recovery_dates": [
+                        20170406,
+                        20170411
+                      ],
+                      "undefined_draw_count": 3,
+                      "undefined_draw_indices": [
+                        20,
+                        155,
+                        1574
+                      ]
+                    }
+                  },
+                  "bootstrap_total": 2000,
+                  "bootstrap_valid": 0,
+                  "candidate_bootstrap_valid": 0,
+                  "candidate_estimate": null,
+                  "candidate_interval": null,
+                  "estimate": null,
+                  "interval": null,
+                  "p05": null,
+                  "paired_days": 9,
+                  "parent_bootstrap_valid": 1997,
+                  "parent_estimate": 37.65690376569037,
+                  "parent_interval": null,
+                  "reason": "fewer than 1800 finite paired bootstrap draws",
+                  "registered_days": 12
+                },
+                "val_nll_total": {
+                  "bootstrap_total": 2000,
+                  "bootstrap_valid": 2000,
+                  "candidate_bootstrap_valid": 2000,
+                  "candidate_estimate": 8.105153511919545,
+                  "candidate_interval": [
+                    7.992084554879326,
+                    8.222561982431051
+                  ],
+                  "estimate": -0.028429833141308352,
+                  "interval": [
+                    -0.06693273862945764,
+                    -0.0036769331772779136
+                  ],
+                  "p05": -0.059243958138857945,
+                  "paired_days": 12,
+                  "parent_bootstrap_valid": 2000,
+                  "parent_estimate": 8.13358334506085,
+                  "parent_interval": [
+                    8.023301276424368,
+                    8.242594775854645
+                  ],
+                  "reason": null,
+                  "registered_days": 12
+                }
+              },
+              "verdict": "GUARDRAIL_VIOLATION"
             },
             "candidate": {
               "model_id": "300001.SZ-29-no_llm-r03",
               "source_sha256": "1ad5c9f10e1847b312c05e82953765be316cfddd14090bc465c76957fef81c48"
             },
             "group": "no_llm",
-            "metrics": {},
+            "metrics": {
+              "blind_ratio": 7.666666666666667,
+              "claims": {
+                "C1": "fail",
+                "C2": "inconclusive",
+                "C3": "pass",
+                "C4": "inconclusive",
+                "C5": "inconclusive"
+              },
+              "end_over_peak_ratio": 0.9302884615384616,
+              "evaluation_seconds": 1308.3683905000216,
+              "event_count_delta": -527.2222222222223,
+              "event_count_rel_gap": 0.4437741848747355,
+              "exhausted_windows": 3,
+              "fit_seconds_by_seed": {
+                "103": 30.50013941701036,
+                "137": 29.298643124988303,
+                "211": 29.1151679159957
+              },
+              "free_abs_drift_ticks": 8.4375,
+              "hurst_delta": -0.16571638987252513,
+              "hurst_gap": 0.16571638987252513,
+              "idle_abs_drift": 8.4375,
+              "impact_delta": null,
+              "impact_exponent_gap": null,
+              "impact_peak": 1.5173611111111114,
+              "impact_y": 1.6762224689543177,
+              "l1_depth_mae": 13850.9389957265,
+              "lob_impact_score": null,
+              "lob_impact_score_reason": "impact law not identified",
+              "nll_action": 1.621321214030142,
+              "nll_dt": 2.402798970632344,
+              "nll_rel_ticks": 1.9887737397982355,
+              "nll_volume": 2.309615965863057,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 10220,
+              "recovery_ratio": 0.9302884615384616,
+              "sign_acf_delta": 0.15013971314431374,
+              "state_dim": 48,
+              "top_depth_delta": -1575.4856413648085,
+              "trade_sign_acf_exp_gap": 0.15013971314431374,
+              "train_seed_nll": {
+                "103": 8.313944259943472,
+                "137": 8.306748095592395,
+                "211": 8.346837315435465
+              },
+              "val_nll_total": 8.32250989032378,
+              "visible_over_blind_ratio": 7.666666666666667,
+              "zero_wait_rate_delta": -0.009323131258460671
+            },
             "parent": {
               "model_id": "seed-gru",
               "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
             },
-            "parent_metrics": {},
+            "parent_metrics": {
+              "blind_ratio": 3.4047619047619047,
+              "claims": {
+                "C1": "fail",
+                "C2": "pass",
+                "C3": "pass",
+                "C4": "fail",
+                "C5": "fail"
+              },
+              "end_over_peak_ratio": 1.8148148148148149,
+              "evaluation_seconds": 685.3075456670194,
+              "event_count_delta": -558.7500000000001,
+              "event_count_rel_gap": 0.4703117876056536,
+              "exhausted_windows": 1,
+              "fit_seconds_by_seed": {
+                "103": 25.33213229200919,
+                "137": 24.3414948330028,
+                "211": 23.91189904199564
+              },
+              "free_abs_drift_ticks": 8.333333333333334,
+              "hurst_delta": -0.16081462193096363,
+              "hurst_gap": 0.16081462193096363,
+              "idle_abs_drift": 8.333333333333334,
+              "impact_delta": 0.78,
+              "impact_exponent_gap": 0.28,
+              "impact_peak": 0.49652777777777773,
+              "impact_y": 0.5485121580331062,
+              "l1_depth_mae": 12972.13237179487,
+              "lob_impact_score": 37.65690376569037,
+              "lob_impact_score_reason": null,
+              "nll_action": 1.6288664576509464,
+              "nll_dt": 2.4049301531181646,
+              "nll_rel_ticks": 1.9908258624752975,
+              "nll_volume": 2.312697439386938,
+              "paired_seed_windows": 72,
+              "paired_windows": 24,
+              "parameters": 21932,
+              "recovery_ratio": 1.8148148148148149,
+              "sign_acf_delta": 0.3421250070721504,
+              "state_dim": 48,
+              "top_depth_delta": -678.3625000000011,
+              "trade_sign_acf_exp_gap": 0.3421250070721504,
+              "train_seed_nll": {
+                "103": 8.335584901297551,
+                "137": 8.344422001370091,
+                "211": 8.331952835226394
+              },
+              "val_nll_total": 8.337319912631346,
+              "visible_over_blind_ratio": 3.4047619047619047,
+              "zero_wait_rate_delta": -0.010135704819882924
+            },
             "predictions": [
               {
                 "direction": "increase",
@@ -3855,11 +4901,102 @@
                 "role": "guardrail"
               }
             ],
-            "readouts": {},
+            "readouts": {
+              "free_abs_drift_ticks": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.4375,
+                "candidate_interval": [
+                  4.847048611111111,
+                  12.5140625
+                ],
+                "estimate": 0.10416666666666607,
+                "interval": [
+                  -2.229166666666666,
+                  1.9029513888888878
+                ],
+                "p05": -1.7864583333333341,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.333333333333334,
+                "parent_interval": [
+                  4.284548611111111,
+                  12.743055555555555
+                ],
+                "reason": null,
+                "registered_days": 12
+              },
+              "lob_impact_score": {
+                "bootstrap_support": {
+                  "candidate": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170405
+                    ],
+                    "undefined_draw_count": 2000,
+                    "undefined_draw_indices": null
+                  },
+                  "estimand": "pooled impact score conditional on original-panel C2 admission",
+                  "parent": {
+                    "incomplete_execution_dates": [],
+                    "incomplete_recovery_dates": [
+                      20170406,
+                      20170411
+                    ],
+                    "undefined_draw_count": 3,
+                    "undefined_draw_indices": [
+                      20,
+                      155,
+                      1574
+                    ]
+                  }
+                },
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 0,
+                "candidate_bootstrap_valid": 0,
+                "candidate_estimate": null,
+                "candidate_interval": null,
+                "estimate": null,
+                "interval": null,
+                "p05": null,
+                "paired_days": 9,
+                "parent_bootstrap_valid": 1997,
+                "parent_estimate": 37.65690376569037,
+                "parent_interval": null,
+                "reason": "fewer than 1800 finite paired bootstrap draws",
+                "registered_days": 12
+              },
+              "val_nll_total": {
+                "bootstrap_total": 2000,
+                "bootstrap_valid": 2000,
+                "candidate_bootstrap_valid": 2000,
+                "candidate_estimate": 8.105153511919545,
+                "candidate_interval": [
+                  7.992084554879326,
+                  8.222561982431051
+                ],
+                "estimate": -0.028429833141308352,
+                "interval": [
+                  -0.06693273862945764,
+                  -0.0036769331772779136
+                ],
+                "p05": -0.059243958138857945,
+                "paired_days": 12,
+                "parent_bootstrap_valid": 2000,
+                "parent_estimate": 8.13358334506085,
+                "parent_interval": [
+                  8.023301276424368,
+                  8.242594775854645
+                ],
+                "reason": null,
+                "registered_days": 12
+              }
+            },
             "roles": [
               "cross_regime_auxiliary_diagonal"
             ],
-            "status": "evaluation_failed",
+            "status": "measured",
             "stock": "300001.SZ",
             "task_id": "300001.SZ-29-no_llm-r03"
           },
@@ -4186,7 +5323,71 @@
       }
     }
   },
-  "measured_tasks": 20,
+  "measured_tasks": 30,
+  "resource_retry": {
+    "frozen_code": {
+      "openhyra_commit": "66533dae928e0a64eda8232147c92fda4326e32e",
+      "openhyra_tree": "36b043f47904b868aa9aaefd44d589e92b10ae8a",
+      "stochopia_commit": "400443b5039ea1b073bbc9a1156cac079ad15e3f",
+      "stochopia_tree": "047fbe62feeb895503c95316c290b6d6e0945d3e"
+    },
+    "measured_tasks_after": 30,
+    "original_measured_tasks": 20,
+    "recovered_task_ids": [
+      "300001.SZ-17-evidence_gpt-r01",
+      "300001.SZ-17-no_llm-r01",
+      "300001.SZ-29-no_llm-r01",
+      "300001.SZ-41-no_llm-r01",
+      "cross-evidence_gpt-000001.SZ-to-300001.SZ",
+      "cross-metrics_gpt-000001.SZ-to-300001.SZ",
+      "cross-evidence_ds-000001.SZ-to-300001.SZ",
+      "cross-metrics_ds-000001.SZ-to-300001.SZ",
+      "cross-no_llm-000001.SZ-to-300001.SZ",
+      "300001.SZ-29-no_llm-r03"
+    ],
+    "remaining_failed_task_ids": [],
+    "resource_limits": {
+      "cpu_seconds_multiplier": 4,
+      "evaluate_wall_seconds": 1800.0,
+      "train_wall_seconds": 180.0
+    },
+    "retry_code": {
+      "openhyra_commit": "c71cacfb7d4ff74995cea0dcaa89638a05959e36",
+      "openhyra_tree": "c650f0d3a9972c1a8861150ea05e6161e70787a8",
+      "stochopia_commit": "58336c39a8cb6c8aca8e442f6bfee00a9f78cbdc",
+      "stochopia_tree": "5c9c4eaf4df6c88cd0ce9fc5dd6070c9d8a91549"
+    },
+    "serial_retry": {
+      "jobs": 1,
+      "reason": "Previously attempted with three workers; no metric output at the same wall-clock deadline.",
+      "resource_limits": {
+        "cpu_seconds_multiplier": 4,
+        "evaluate_wall_seconds": 1800.0,
+        "train_wall_seconds": 180.0
+      },
+      "retry_code": {
+        "openhyra_commit": "c71cacfb7d4ff74995cea0dcaa89638a05959e36",
+        "openhyra_tree": "c650f0d3a9972c1a8861150ea05e6161e70787a8",
+        "stochopia_commit": "58336c39a8cb6c8aca8e442f6bfee00a9f78cbdc",
+        "stochopia_tree": "5c9c4eaf4df6c88cd0ce9fc5dd6070c9d8a91549"
+      },
+      "task_ids": [
+        "300001.SZ-41-no_llm-r01"
+      ]
+    },
+    "task_ids": [
+      "300001.SZ-17-evidence_gpt-r01",
+      "300001.SZ-17-no_llm-r01",
+      "300001.SZ-29-no_llm-r01",
+      "300001.SZ-41-no_llm-r01",
+      "cross-evidence_gpt-000001.SZ-to-300001.SZ",
+      "cross-metrics_gpt-000001.SZ-to-300001.SZ",
+      "cross-evidence_ds-000001.SZ-to-300001.SZ",
+      "cross-metrics_ds-000001.SZ-to-300001.SZ",
+      "cross-no_llm-000001.SZ-to-300001.SZ",
+      "300001.SZ-29-no_llm-r03"
+    ]
+  },
   "scheduled_tasks": 30,
   "schema": "stochopia-p1-m4-v2",
   "test_dates": [
@@ -9664,7 +10865,25 @@
       },
       "first": {
         "direct_parent_assessment": {
-          "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows",
+          "aggregate_delta": {
+            "lob_impact_score": -10.485411560790592,
+            "val_nll_total": -0.00766081516569576
+          },
+          "guardrails": {
+            "child_free_abs_drift_ticks": 8.17361111111111,
+            "delta_exhausted_windows": 1.0,
+            "delta_free_abs_drift_ticks": -0.1597222222222232,
+            "delta_val_nll_total": -0.00766081516569576,
+            "drift_passed": true,
+            "exhaustion_passed": false,
+            "finite_nll_by_seed": true,
+            "nll_passed": true,
+            "parent_free_abs_drift_ticks": 8.333333333333334
+          },
+          "has_benchmark_gain": false,
+          "mean_delta_score": -10.485411560790592,
+          "nll_guardrail_passed": true,
+          "p05_delta_score": -28.02816706397168,
           "prediction_verdicts": [
             {
               "metric": "end_over_peak_ratio",
@@ -9674,18 +10893,196 @@
             {
               "metric": "val_nll_total",
               "role": "guardrail",
-              "status": "INCONCLUSIVE"
+              "status": "SUPPORTED"
             }
           ],
-          "training_budget_consumed": true,
-          "verdict": "evaluation_failed"
+          "readouts": {
+            "end_over_peak_ratio": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 1.7431693989071035,
+              "candidate_interval": [
+                0.8044642857142857,
+                2.766805555555554
+              ],
+              "estimate": -0.07164541590771134,
+              "interval": [
+                -1.3388927456745665,
+                0.7974885338725999
+              ],
+              "p05": -1.0653378057529816,
+              "paired_days": 10,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 1.8148148148148149,
+              "parent_interval": [
+                0.9041856964038024,
+                2.92256675279931
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "free_abs_drift_ticks": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.17361111111111,
+              "candidate_interval": [
+                4.1038194444444445,
+                12.84166666666666
+              ],
+              "estimate": -0.1597222222222232,
+              "interval": [
+                -1.986458333333333,
+                1.521006944444444
+              ],
+              "p05": -1.7152777777777768,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.333333333333334,
+              "parent_interval": [
+                4.284548611111111,
+                12.743055555555555
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "lob_impact_score": {
+              "bootstrap_support": {
+                "candidate": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170406
+                  ],
+                  "undefined_draw_count": 0,
+                  "undefined_draw_indices": []
+                },
+                "estimand": "pooled impact score conditional on original-panel C2 admission",
+                "parent": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170406,
+                    20170411
+                  ],
+                  "undefined_draw_count": 3,
+                  "undefined_draw_indices": [
+                    20,
+                    155,
+                    1574
+                  ]
+                }
+              },
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 1997,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 27.17149220489978,
+              "candidate_interval": [
+                21.02393449111957,
+                44.924734076962885
+              ],
+              "estimate": -10.485411560790592,
+              "interval": [
+                -34.92655850815689,
+                12.13598611583923
+              ],
+              "p05": -28.02816706397168,
+              "paired_days": 10,
+              "parent_bootstrap_valid": 1997,
+              "parent_estimate": 37.65690376569037,
+              "parent_interval": [
+                23.13161044939754,
+                61.717149682078
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "val_nll_total": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.125922529895158,
+              "candidate_interval": [
+                8.015271587048474,
+                8.235138178716369
+              ],
+              "estimate": -0.00766081516569576,
+              "interval": [
+                -0.010575921123093402,
+                -0.004569574500652949
+              ],
+              "p05": -0.010188170220885747,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.13358334506085,
+              "parent_interval": [
+                8.023301276424368,
+                8.242594775854645
+              ],
+              "reason": null,
+              "registered_days": 12
+            }
+          },
+          "verdict": "GUARDRAIL_VIOLATION"
         },
-        "impact_ci95": null,
-        "impact_delta_from_initial": null,
-        "metrics": {},
+        "impact_ci95": [
+          21.02393449111957,
+          44.924734076962885
+        ],
+        "impact_delta_from_initial": -10.485411560790592,
+        "metrics": {
+          "blind_ratio": 4.382978723404255,
+          "claims": {
+            "C1": "fail",
+            "C2": "pass",
+            "C3": "pass",
+            "C4": "fail",
+            "C5": "fail"
+          },
+          "end_over_peak_ratio": 1.7431693989071035,
+          "evaluation_seconds": 1166.6036454999994,
+          "event_count_delta": -562.1944444444446,
+          "event_count_rel_gap": 0.47321104993044116,
+          "exhausted_windows": 2,
+          "fit_seconds_by_seed": {
+            "103": 45.88752054198994,
+            "137": 68.59795087500243,
+            "211": 62.62888433301123
+          },
+          "free_abs_drift_ticks": 8.17361111111111,
+          "hurst_delta": -0.2141415045661016,
+          "hurst_gap": 0.2141415045661016,
+          "idle_abs_drift": 8.17361111111111,
+          "impact_delta": 1.22,
+          "impact_exponent_gap": 0.72,
+          "impact_peak": 0.7152777777777778,
+          "impact_y": 0.7901643675162229,
+          "l1_depth_mae": 13244.78514957265,
+          "lob_impact_score": 27.17149220489978,
+          "lob_impact_score_reason": null,
+          "nll_action": 1.6249577893617577,
+          "nll_dt": 2.4030291880780736,
+          "nll_rel_ticks": 1.989644379691541,
+          "nll_volume": 2.312882610793272,
+          "paired_seed_windows": 72,
+          "paired_windows": 24,
+          "parameters": 22124,
+          "recovery_ratio": 1.7431693989071035,
+          "sign_acf_delta": 0.2866191779113436,
+          "state_dim": 52,
+          "top_depth_delta": -826.9142877784798,
+          "trade_sign_acf_exp_gap": 0.2866191779113436,
+          "train_seed_nll": {
+            "103": 8.328230541072582,
+            "137": 8.334402411211395,
+            "211": 8.328908951489955
+          },
+          "val_nll_total": 8.330513967924645,
+          "visible_over_blind_ratio": 4.382978723404255,
+          "zero_wait_rate_delta": -0.010378368594128128
+        },
         "model_id": "300001.SZ-17-evidence_gpt-r01",
-        "nll_delta_from_initial": null,
-        "status": "evaluation_failed",
+        "nll_delta_from_initial": -0.006805944706700373,
+        "status": "measured",
         "task_id": "300001.SZ-17-evidence_gpt-r01"
       },
       "initial": {
@@ -10886,7 +12283,25 @@
       },
       "first": {
         "direct_parent_assessment": {
-          "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 572.08s under a 600.00s worker limit.",
+          "aggregate_delta": {
+            "lob_impact_score": -2.5340850483401454,
+            "val_nll_total": 0.008203410757051444
+          },
+          "guardrails": {
+            "child_free_abs_drift_ticks": 8.631944444444445,
+            "delta_exhausted_windows": 1.0,
+            "delta_free_abs_drift_ticks": 0.2986111111111107,
+            "delta_val_nll_total": 0.008203410757051444,
+            "drift_passed": true,
+            "exhaustion_passed": false,
+            "finite_nll_by_seed": true,
+            "nll_passed": true,
+            "parent_free_abs_drift_ticks": 8.333333333333334
+          },
+          "has_benchmark_gain": false,
+          "mean_delta_score": -2.5340850483401454,
+          "nll_guardrail_passed": true,
+          "p05_delta_score": -22.1295066588304,
           "prediction_verdicts": [
             {
               "metric": "lob_impact_score",
@@ -10896,18 +12311,169 @@
             {
               "metric": "val_nll_total",
               "role": "guardrail",
-              "status": "INCONCLUSIVE"
+              "status": "SUPPORTED"
             }
           ],
-          "training_budget_consumed": true,
-          "verdict": "evaluation_failed"
+          "readouts": {
+            "free_abs_drift_ticks": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.631944444444445,
+              "candidate_interval": [
+                4.798263888888888,
+                12.909722222222221
+              ],
+              "estimate": 0.2986111111111107,
+              "interval": [
+                -2.0001736111111112,
+                2.660243055555554
+              ],
+              "p05": -1.708333333333333,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.333333333333334,
+              "parent_interval": [
+                4.284548611111111,
+                12.743055555555555
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "lob_impact_score": {
+              "bootstrap_support": {
+                "candidate": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [],
+                  "undefined_draw_count": 0,
+                  "undefined_draw_indices": []
+                },
+                "estimand": "pooled impact score conditional on original-panel C2 admission",
+                "parent": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170406,
+                    20170411
+                  ],
+                  "undefined_draw_count": 3,
+                  "undefined_draw_indices": [
+                    20,
+                    155,
+                    1574
+                  ]
+                }
+              },
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 1997,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 35.12281871735023,
+              "candidate_interval": [
+                25.409278720302336,
+                47.65184587960102
+              ],
+              "estimate": -2.5340850483401454,
+              "interval": [
+                -27.443644993947043,
+                17.907800518171744
+              ],
+              "p05": -22.1295066588304,
+              "paired_days": 9,
+              "parent_bootstrap_valid": 1997,
+              "parent_estimate": 37.65690376569037,
+              "parent_interval": [
+                23.13161044939754,
+                61.717149682078
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "val_nll_total": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.141786755817904,
+              "candidate_interval": [
+                8.014976856356661,
+                8.276869646624743
+              ],
+              "estimate": 0.008203410757051444,
+              "interval": [
+                -0.029400619598680858,
+                0.0447390889383009
+              ],
+              "p05": -0.022858006804366348,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.13358334506085,
+              "parent_interval": [
+                8.023301276424368,
+                8.242594775854645
+              ],
+              "reason": null,
+              "registered_days": 12
+            }
+          },
+          "verdict": "GUARDRAIL_VIOLATION"
         },
-        "impact_ci95": null,
-        "impact_delta_from_initial": null,
-        "metrics": {},
+        "impact_ci95": [
+          25.409278720302336,
+          47.65184587960102
+        ],
+        "impact_delta_from_initial": -2.5340850483401454,
+        "metrics": {
+          "blind_ratio": 4.016949152542373,
+          "claims": {
+            "C1": "fail",
+            "C2": "pass",
+            "C3": "pass",
+            "C4": "fail",
+            "C5": "fail"
+          },
+          "end_over_peak_ratio": 1.3544303797468358,
+          "evaluation_seconds": 1175.7238548750174,
+          "event_count_delta": -503.2361111111112,
+          "event_count_rel_gap": 0.4235845637662353,
+          "exhausted_windows": 2,
+          "fit_seconds_by_seed": {
+            "103": 38.21004466700833,
+            "137": 60.09087250000448,
+            "211": 63.21044950000942
+          },
+          "free_abs_drift_ticks": 8.631944444444445,
+          "hurst_delta": -0.1656858239466391,
+          "hurst_gap": 0.1656858239466391,
+          "idle_abs_drift": 8.631944444444445,
+          "impact_delta": 1.05,
+          "impact_exponent_gap": 0.55,
+          "impact_peak": 0.8229166666666665,
+          "impact_y": 0.9090725975793436,
+          "l1_depth_mae": 13081.261217948719,
+          "lob_impact_score": 35.12281871735023,
+          "lob_impact_score_reason": null,
+          "nll_action": 1.6318472187299913,
+          "nll_dt": 2.468842917218684,
+          "nll_rel_ticks": 2.006155666665709,
+          "nll_volume": 2.3111069136755487,
+          "paired_seed_windows": 72,
+          "paired_windows": 24,
+          "parameters": 17276,
+          "recovery_ratio": 1.3544303797468358,
+          "sign_acf_delta": 0.4012176877533628,
+          "state_dim": 96,
+          "top_depth_delta": -1619.2092497996782,
+          "trade_sign_acf_exp_gap": 0.4012176877533628,
+          "train_seed_nll": {
+            "103": 8.424585870334678,
+            "137": 8.388185659027005,
+            "211": 8.441086619508114
+          },
+          "val_nll_total": 8.417952716289934,
+          "visible_over_blind_ratio": 4.016949152542373,
+          "zero_wait_rate_delta": -0.008805892284196776
+        },
         "model_id": "300001.SZ-17-no_llm-r01",
-        "nll_delta_from_initial": null,
-        "status": "evaluation_failed",
+        "nll_delta_from_initial": 0.08063280365858816,
+        "status": "measured",
         "task_id": "300001.SZ-17-no_llm-r01"
       },
       "initial": {
@@ -11044,7 +12610,25 @@
       },
       "first": {
         "direct_parent_assessment": {
-          "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 571.27s under a 600.00s worker limit.",
+          "aggregate_delta": {
+            "lob_impact_score": null,
+            "val_nll_total": 0.026751749753909888
+          },
+          "guardrails": {
+            "child_free_abs_drift_ticks": 6.972222222222222,
+            "delta_exhausted_windows": -1.0,
+            "delta_free_abs_drift_ticks": -1.3611111111111116,
+            "delta_val_nll_total": 0.026751749753909888,
+            "drift_passed": true,
+            "exhaustion_passed": true,
+            "finite_nll_by_seed": true,
+            "nll_passed": true,
+            "parent_free_abs_drift_ticks": 8.333333333333334
+          },
+          "has_benchmark_gain": false,
+          "mean_delta_score": null,
+          "nll_guardrail_passed": true,
+          "p05_delta_score": null,
           "prediction_verdicts": [
             {
               "metric": "lob_impact_score",
@@ -11057,15 +12641,156 @@
               "status": "INCONCLUSIVE"
             }
           ],
-          "training_budget_consumed": true,
-          "verdict": "evaluation_failed"
+          "readouts": {
+            "free_abs_drift_ticks": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 6.972222222222222,
+              "candidate_interval": [
+                4.402604166666666,
+                9.694444444444445
+              ],
+              "estimate": -1.3611111111111116,
+              "interval": [
+                -4.277777777777777,
+                1.5277777777777777
+              ],
+              "p05": -3.8194444444444446,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.333333333333334,
+              "parent_interval": [
+                4.284548611111111,
+                12.743055555555555
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "lob_impact_score": {
+              "bootstrap_support": {
+                "candidate": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170411
+                  ],
+                  "undefined_draw_count": 2000,
+                  "undefined_draw_indices": null
+                },
+                "estimand": "pooled impact score conditional on original-panel C2 admission",
+                "parent": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170406,
+                    20170411
+                  ],
+                  "undefined_draw_count": 3,
+                  "undefined_draw_indices": [
+                    20,
+                    155,
+                    1574
+                  ]
+                }
+              },
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 0,
+              "candidate_bootstrap_valid": 0,
+              "candidate_estimate": null,
+              "candidate_interval": null,
+              "estimate": null,
+              "interval": null,
+              "p05": null,
+              "paired_days": 8,
+              "parent_bootstrap_valid": 1997,
+              "parent_estimate": 37.65690376569037,
+              "parent_interval": null,
+              "reason": "fewer than 1800 finite paired bootstrap draws",
+              "registered_days": 12
+            },
+            "val_nll_total": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.160335094814762,
+              "candidate_interval": [
+                8.024769768063033,
+                8.3094633996976
+              ],
+              "estimate": 0.026751749753909888,
+              "interval": [
+                -0.020897269438194237,
+                0.07973089461720875
+              ],
+              "p05": -0.014261552517184186,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.13358334506085,
+              "parent_interval": [
+                8.023301276424368,
+                8.242594775854645
+              ],
+              "reason": null,
+              "registered_days": 12
+            }
+          },
+          "verdict": "REFUTED"
         },
         "impact_ci95": null,
         "impact_delta_from_initial": null,
-        "metrics": {},
+        "metrics": {
+          "blind_ratio": 5.479166666666667,
+          "claims": {
+            "C1": "fail",
+            "C2": "inconclusive",
+            "C3": "pass",
+            "C4": "inconclusive",
+            "C5": "inconclusive"
+          },
+          "end_over_peak_ratio": 1.2345132743362834,
+          "evaluation_seconds": 1228.0010540829971,
+          "event_count_delta": -522.7361111111112,
+          "event_count_rel_gap": 0.4399981295081776,
+          "exhausted_windows": 0,
+          "fit_seconds_by_seed": {
+            "103": 35.665120916994056,
+            "137": 54.38384916700306,
+            "211": 57.604235792008694
+          },
+          "free_abs_drift_ticks": 6.972222222222222,
+          "hurst_delta": -0.235730004310987,
+          "hurst_gap": 0.235730004310987,
+          "idle_abs_drift": 6.972222222222222,
+          "impact_delta": null,
+          "impact_exponent_gap": null,
+          "impact_peak": 0.9131944444444443,
+          "impact_y": 1.0088020808580902,
+          "l1_depth_mae": 14663.25192307692,
+          "lob_impact_score": null,
+          "lob_impact_score_reason": "impact law not identified",
+          "nll_action": 1.640068360445527,
+          "nll_dt": 2.5107769908122815,
+          "nll_rel_ticks": 2.012326305185634,
+          "nll_volume": 2.3106324559453006,
+          "paired_seed_windows": 72,
+          "paired_windows": 24,
+          "parameters": 19148,
+          "recovery_ratio": 1.2345132743362834,
+          "sign_acf_delta": 0.7146886804183361,
+          "state_dim": 72,
+          "top_depth_delta": 359.6134615384635,
+          "trade_sign_acf_exp_gap": 0.7146886804183361,
+          "train_seed_nll": {
+            "103": 8.475195998039748,
+            "137": 8.4486145681924,
+            "211": 8.497601770934079
+          },
+          "val_nll_total": 8.473804112388743,
+          "visible_over_blind_ratio": 5.479166666666667,
+          "zero_wait_rate_delta": -0.008055690122088439
+        },
         "model_id": "300001.SZ-29-no_llm-r01",
-        "nll_delta_from_initial": null,
-        "status": "evaluation_failed",
+        "nll_delta_from_initial": 0.13648419975739756,
+        "status": "measured",
         "task_id": "300001.SZ-29-no_llm-r01"
       },
       "initial": {
@@ -11202,7 +12927,25 @@
       },
       "first": {
         "direct_parent_assessment": {
-          "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n\nSandbox return code -24 after 566.54s under a 600.00s worker limit.",
+          "aggregate_delta": {
+            "lob_impact_score": null,
+            "val_nll_total": -0.03410067045819942
+          },
+          "guardrails": {
+            "child_free_abs_drift_ticks": 10.098591549295774,
+            "delta_exhausted_windows": 2.0,
+            "delta_free_abs_drift_ticks": 1.7652582159624401,
+            "delta_val_nll_total": -0.03410067045819942,
+            "drift_passed": true,
+            "exhaustion_passed": false,
+            "finite_nll_by_seed": true,
+            "nll_passed": true,
+            "parent_free_abs_drift_ticks": 8.333333333333334
+          },
+          "has_benchmark_gain": false,
+          "mean_delta_score": null,
+          "nll_guardrail_passed": true,
+          "p05_delta_score": null,
           "prediction_verdicts": [
             {
               "metric": "lob_impact_score",
@@ -11215,15 +12958,156 @@
               "status": "INCONCLUSIVE"
             }
           ],
-          "training_budget_consumed": true,
-          "verdict": "evaluation_failed"
+          "readouts": {
+            "free_abs_drift_ticks": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 10.098591549295774,
+              "candidate_interval": [
+                5.563380281690141,
+                15.042412460876369
+              ],
+              "estimate": 1.7652582159624401,
+              "interval": [
+                0.416493055555555,
+                3.2836218701095445
+              ],
+              "p05": 0.58204365079365,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.333333333333334,
+              "parent_interval": [
+                4.284548611111111,
+                12.743055555555555
+              ],
+              "reason": null,
+              "registered_days": 12
+            },
+            "lob_impact_score": {
+              "bootstrap_support": {
+                "candidate": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170328
+                  ],
+                  "undefined_draw_count": 2000,
+                  "undefined_draw_indices": null
+                },
+                "estimand": "pooled impact score conditional on original-panel C2 admission",
+                "parent": {
+                  "incomplete_execution_dates": [],
+                  "incomplete_recovery_dates": [
+                    20170406,
+                    20170411
+                  ],
+                  "undefined_draw_count": 3,
+                  "undefined_draw_indices": [
+                    20,
+                    155,
+                    1574
+                  ]
+                }
+              },
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 0,
+              "candidate_bootstrap_valid": 0,
+              "candidate_estimate": null,
+              "candidate_interval": null,
+              "estimate": null,
+              "interval": null,
+              "p05": null,
+              "paired_days": 9,
+              "parent_bootstrap_valid": 1997,
+              "parent_estimate": 37.65690376569037,
+              "parent_interval": null,
+              "reason": "fewer than 1800 finite paired bootstrap draws",
+              "registered_days": 12
+            },
+            "val_nll_total": {
+              "bootstrap_total": 2000,
+              "bootstrap_valid": 2000,
+              "candidate_bootstrap_valid": 2000,
+              "candidate_estimate": 8.099482674602651,
+              "candidate_interval": [
+                7.990576042162726,
+                8.208632387804844
+              ],
+              "estimate": -0.03410067045819942,
+              "interval": [
+                -0.07118447529039841,
+                -0.007689867045227217
+              ],
+              "p05": -0.06329207396484422,
+              "paired_days": 12,
+              "parent_bootstrap_valid": 2000,
+              "parent_estimate": 8.13358334506085,
+              "parent_interval": [
+                8.023301276424368,
+                8.242594775854645
+              ],
+              "reason": null,
+              "registered_days": 12
+            }
+          },
+          "verdict": "GUARDRAIL_VIOLATION"
         },
         "impact_ci95": null,
         "impact_delta_from_initial": null,
-        "metrics": {},
+        "metrics": {
+          "blind_ratio": 5.54054054054054,
+          "claims": {
+            "C1": "fail",
+            "C2": "inconclusive",
+            "C3": "pass",
+            "C4": "inconclusive",
+            "C5": "inconclusive"
+          },
+          "end_over_peak_ratio": 1.1951219512195121,
+          "evaluation_seconds": 1024.130740416993,
+          "event_count_delta": -381.94444444444457,
+          "event_count_rel_gap": 0.3214907819824876,
+          "exhausted_windows": 3,
+          "fit_seconds_by_seed": {
+            "103": 22.97461904201191,
+            "137": 23.257346625003265,
+            "211": 28.72276224999223
+          },
+          "free_abs_drift_ticks": 10.098591549295774,
+          "hurst_delta": -0.1597245482654992,
+          "hurst_gap": 0.1597245482654992,
+          "idle_abs_drift": 10.098591549295774,
+          "impact_delta": null,
+          "impact_exponent_gap": null,
+          "impact_peak": 1.638888888888889,
+          "impact_y": 1.810473696444938,
+          "l1_depth_mae": 13346.181944444443,
+          "lob_impact_score": null,
+          "lob_impact_score_reason": "impact law not identified",
+          "nll_action": 1.6214926779262506,
+          "nll_dt": 2.3787190581969595,
+          "nll_rel_ticks": 1.9839864359584407,
+          "nll_volume": 2.3095226075676325,
+          "paired_seed_windows": 72,
+          "paired_windows": 24,
+          "parameters": 10220,
+          "recovery_ratio": 1.1951219512195121,
+          "sign_acf_delta": 0.04236354735048248,
+          "state_dim": 48,
+          "top_depth_delta": -577.2860149338358,
+          "trade_sign_acf_exp_gap": 0.04236354735048248,
+          "train_seed_nll": {
+            "103": 8.278435159552348,
+            "137": 8.289664164055395,
+            "211": 8.313063015340107
+          },
+          "val_nll_total": 8.293720779649284,
+          "visible_over_blind_ratio": 5.54054054054054,
+          "zero_wait_rate_delta": -0.008395961700652911
+        },
         "model_id": "300001.SZ-41-no_llm-r01",
-        "nll_delta_from_initial": null,
-        "status": "evaluation_failed",
+        "nll_delta_from_initial": -0.043599132982061306,
+        "status": "measured",
         "task_id": "300001.SZ-41-no_llm-r01"
       },
       "initial": {

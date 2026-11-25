@@ -1,0 +1,64 @@
+{
+  "frozen_code": {
+    "openhyra_commit": "66533dae928e0a64eda8232147c92fda4326e32e",
+    "openhyra_tree": "36b043f47904b868aa9aaefd44d589e92b10ae8a",
+    "stochopia_commit": "400443b5039ea1b073bbc9a1156cac079ad15e3f",
+    "stochopia_tree": "047fbe62feeb895503c95316c290b6d6e0945d3e"
+  },
+  "measured_tasks_after": 30,
+  "original_measured_tasks": 20,
+  "recovered_task_ids": [
+    "300001.SZ-17-evidence_gpt-r01",
+    "300001.SZ-17-no_llm-r01",
+    "300001.SZ-29-no_llm-r01",
+    "300001.SZ-41-no_llm-r01",
+    "cross-evidence_gpt-000001.SZ-to-300001.SZ",
+    "cross-metrics_gpt-000001.SZ-to-300001.SZ",
+    "cross-evidence_ds-000001.SZ-to-300001.SZ",
+    "cross-metrics_ds-000001.SZ-to-300001.SZ",
+    "cross-no_llm-000001.SZ-to-300001.SZ",
+    "300001.SZ-29-no_llm-r03"
+  ],
+  "remaining_failed_task_ids": [],
+  "resource_limits": {
+    "cpu_seconds_multiplier": 4,
+    "evaluate_wall_seconds": 1800.0,
+    "train_wall_seconds": 180.0
+  },
+  "retry_code": {
+    "openhyra_commit": "c71cacfb7d4ff74995cea0dcaa89638a05959e36",
+    "openhyra_tree": "c650f0d3a9972c1a8861150ea05e6161e70787a8",
+    "stochopia_commit": "58336c39a8cb6c8aca8e442f6bfee00a9f78cbdc",
+    "stochopia_tree": "5c9c4eaf4df6c88cd0ce9fc5dd6070c9d8a91549"
+  },
+  "serial_retry": {
+    "jobs": 1,
+    "reason": "Previously attempted with three workers; no metric output at the same wall-clock deadline.",
+    "resource_limits": {
+      "cpu_seconds_multiplier": 4,
+      "evaluate_wall_seconds": 1800.0,
+      "train_wall_seconds": 180.0
+    },
+    "retry_code": {
+      "openhyra_commit": "c71cacfb7d4ff74995cea0dcaa89638a05959e36",
+      "openhyra_tree": "c650f0d3a9972c1a8861150ea05e6161e70787a8",
+      "stochopia_commit": "58336c39a8cb6c8aca8e442f6bfee00a9f78cbdc",
+      "stochopia_tree": "5c9c4eaf4df6c88cd0ce9fc5dd6070c9d8a91549"
+    },
+    "task_ids": [
+      "300001.SZ-41-no_llm-r01"
+    ]
+  },
+  "task_ids": [
+    "300001.SZ-17-evidence_gpt-r01",
+    "300001.SZ-17-no_llm-r01",
+    "300001.SZ-29-no_llm-r01",
+    "300001.SZ-41-no_llm-r01",
+    "cross-evidence_gpt-000001.SZ-to-300001.SZ",
+    "cross-metrics_gpt-000001.SZ-to-300001.SZ",
+    "cross-evidence_ds-000001.SZ-to-300001.SZ",
+    "cross-metrics_ds-000001.SZ-to-300001.SZ",
+    "cross-no_llm-000001.SZ-to-300001.SZ",
+    "300001.SZ-29-no_llm-r03"
+  ]
+}

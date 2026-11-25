@@ -1,27 +1,202 @@
 {
-  "assessment": {
-    "error": "evaluate worker crash\n300001.SZ seed 103: 6/24 paired windows\n300001.SZ seed 103: 12/24 paired windows\n300001.SZ seed 103: 18/24 paired windows\n300001.SZ seed 103: 24/24 paired windows\n300001.SZ seed 137: 6/24 paired windows\n300001.SZ seed 137: 12/24 paired windows\n300001.SZ seed 137: 18/24 paired windows\n300001.SZ seed 137: 24/24 paired windows\n300001.SZ seed 211: 6/24 paired windows\n300001.SZ seed 211: 12/24 paired windows\n300001.SZ seed 211: 18/24 paired windows\n\nSandbox return code -24 after 570.98s under a 600.00s worker limit.",
-    "prediction_verdicts": [],
-    "training_budget_consumed": true,
-    "verdict": "evaluation_failed"
-  },
+  "assessment": null,
   "candidate": {
     "model_id": "000001.SZ-17-evidence_ds-r03",
     "source_sha256": "ab89b356826e58ab76b81643d7f8810514986d532b13ea85777afce8f673a9e4"
   },
   "group": "evidence_ds",
-  "metrics": {},
+  "metrics": {
+    "blind_ratio": 3.4047619047619047,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "pass",
+      "C4": "fail",
+      "C5": "fail"
+    },
+    "end_over_peak_ratio": 1.8148148148148149,
+    "evaluation_seconds": 1344.5600591250113,
+    "event_count_delta": -558.7500000000001,
+    "event_count_rel_gap": 0.4703117876056536,
+    "exhausted_windows": 1,
+    "fit_seconds_by_seed": {
+      "103": 47.39437299998826,
+      "137": 46.75233733301866,
+      "211": 50.513965749996714
+    },
+    "free_abs_drift_ticks": 8.333333333333334,
+    "hurst_delta": -0.16081462193096363,
+    "hurst_gap": 0.16081462193096363,
+    "idle_abs_drift": 8.333333333333334,
+    "impact_delta": 0.78,
+    "impact_exponent_gap": 0.28,
+    "impact_peak": 0.49652777777777773,
+    "impact_y": 0.5485121580331062,
+    "l1_depth_mae": 12972.13237179487,
+    "lob_impact_score": 37.65690376569037,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6288664576509464,
+    "nll_dt": 2.4049301531181646,
+    "nll_rel_ticks": 1.9908258624752975,
+    "nll_volume": 2.312697439386938,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 22488,
+    "recovery_ratio": 1.8148148148148149,
+    "sign_acf_delta": 0.3421250070721504,
+    "state_dim": 48,
+    "top_depth_delta": -678.3625000000011,
+    "trade_sign_acf_exp_gap": 0.3421250070721504,
+    "train_seed_nll": {
+      "103": 8.335584901297551,
+      "137": 8.344422001370091,
+      "211": 8.331952835226394
+    },
+    "val_nll_total": 8.337319912631346,
+    "visible_over_blind_ratio": 3.4047619047619047,
+    "zero_wait_rate_delta": -0.010135704819882924
+  },
   "parent": {
     "model_id": "seed-gru",
     "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
   },
-  "parent_metrics": {},
+  "parent_metrics": {
+    "blind_ratio": 3.4047619047619047,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "pass",
+      "C4": "fail",
+      "C5": "fail"
+    },
+    "end_over_peak_ratio": 1.8148148148148149,
+    "evaluation_seconds": 685.3075456670194,
+    "event_count_delta": -558.7500000000001,
+    "event_count_rel_gap": 0.4703117876056536,
+    "exhausted_windows": 1,
+    "fit_seconds_by_seed": {
+      "103": 25.33213229200919,
+      "137": 24.3414948330028,
+      "211": 23.91189904199564
+    },
+    "free_abs_drift_ticks": 8.333333333333334,
+    "hurst_delta": -0.16081462193096363,
+    "hurst_gap": 0.16081462193096363,
+    "idle_abs_drift": 8.333333333333334,
+    "impact_delta": 0.78,
+    "impact_exponent_gap": 0.28,
+    "impact_peak": 0.49652777777777773,
+    "impact_y": 0.5485121580331062,
+    "l1_depth_mae": 12972.13237179487,
+    "lob_impact_score": 37.65690376569037,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.6288664576509464,
+    "nll_dt": 2.4049301531181646,
+    "nll_rel_ticks": 1.9908258624752975,
+    "nll_volume": 2.312697439386938,
+    "paired_seed_windows": 72,
+    "paired_windows": 24,
+    "parameters": 21932,
+    "recovery_ratio": 1.8148148148148149,
+    "sign_acf_delta": 0.3421250070721504,
+    "state_dim": 48,
+    "top_depth_delta": -678.3625000000011,
+    "trade_sign_acf_exp_gap": 0.3421250070721504,
+    "train_seed_nll": {
+      "103": 8.335584901297551,
+      "137": 8.344422001370091,
+      "211": 8.331952835226394
+    },
+    "val_nll_total": 8.337319912631346,
+    "visible_over_blind_ratio": 3.4047619047619047,
+    "zero_wait_rate_delta": -0.010135704819882924
+  },
   "predictions": [],
-  "readouts": {},
+  "readouts": {
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [
+            20170406,
+            20170411
+          ],
+          "undefined_draw_count": 3,
+          "undefined_draw_indices": [
+            20,
+            155,
+            1574
+          ]
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [
+            20170406,
+            20170411
+          ],
+          "undefined_draw_count": 3,
+          "undefined_draw_indices": [
+            20,
+            155,
+            1574
+          ]
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 1997,
+      "candidate_bootstrap_valid": 1997,
+      "candidate_estimate": 37.65690376569037,
+      "candidate_interval": [
+        23.13161044939754,
+        61.717149682078
+      ],
+      "estimate": 0.0,
+      "interval": [
+        0.0,
+        0.0
+      ],
+      "p05": 0.0,
+      "paired_days": 10,
+      "parent_bootstrap_valid": 1997,
+      "parent_estimate": 37.65690376569037,
+      "parent_interval": [
+        23.13161044939754,
+        61.717149682078
+      ],
+      "reason": null,
+      "registered_days": 12
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 8.13358334506085,
+      "candidate_interval": [
+        8.023301276424368,
+        8.242594775854645
+      ],
+      "estimate": 0.0,
+      "interval": [
+        0.0,
+        0.0
+      ],
+      "p05": 0.0,
+      "paired_days": 12,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 8.13358334506085,
+      "parent_interval": [
+        8.023301276424368,
+        8.242594775854645
+      ],
+      "reason": null,
+      "registered_days": 12
+    }
+  },
   "roles": [
     "cross_regime_auxiliary"
   ],
-  "status": "evaluation_failed",
+  "status": "measured",
   "stock": "300001.SZ",
   "task_id": "cross-evidence_ds-000001.SZ-to-300001.SZ"
 }
