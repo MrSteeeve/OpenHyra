@@ -1,0 +1,7 @@
+{
+  "attempt": 1,
+  "input_tokens": 41,
+  "model": "deepseek-flash",
+  "output_tokens": 5,
+  "status": "passed"
+}

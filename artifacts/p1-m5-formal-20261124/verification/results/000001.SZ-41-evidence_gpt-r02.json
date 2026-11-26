@@ -1,0 +1,537 @@
+{
+  "assessment": {
+    "aggregate_delta": {
+      "lob_impact_score": 1.9317650724411877,
+      "val_nll_total": -0.009392040569147442
+    },
+    "guardrails": {
+      "child_free_abs_drift_ticks": 0.09583333333333334,
+      "delta_exhausted_windows": 0.0,
+      "delta_free_abs_drift_ticks": -0.02083333333333333,
+      "delta_val_nll_total": -0.009392040569147442,
+      "drift_passed": true,
+      "exhaustion_passed": true,
+      "finite_nll_by_seed": true,
+      "nll_passed": true,
+      "parent_free_abs_drift_ticks": 0.11666666666666667
+    },
+    "has_benchmark_gain": false,
+    "mean_delta_score": 1.9317650724411877,
+    "nll_guardrail_passed": true,
+    "p05_delta_score": -2.4026288389452963,
+    "p10_delta_score": -1.4116246721840895,
+    "prediction_verdicts": [
+      {
+        "metric": "event_count_rel_gap",
+        "point_available": true,
+        "point_in_interval": false,
+        "role": "primary",
+        "status": "INCONCLUSIVE"
+      },
+      {
+        "metric": "val_nll_total",
+        "point_available": true,
+        "point_in_interval": true,
+        "role": "guardrail",
+        "status": "SUPPORTED"
+      }
+    ],
+    "readouts": {
+      "event_count_rel_gap": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 0.11185728411338168,
+        "candidate_interval": [
+          0.0067973173511330824,
+          0.2327943570941713
+        ],
+        "estimate": -0.013115249395737077,
+        "interval": [
+          -0.0359120986100372,
+          0.01935889743561863
+        ],
+        "p025": -0.0359120986100372,
+        "p05": -0.03206428360614527,
+        "p10": -0.02694646709789814,
+        "p90": 0.005007715943055298,
+        "p95": 0.011829185500752282,
+        "p975": 0.01935889743561863,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 0.12497253350911876,
+        "parent_interval": [
+          0.01013573260909852,
+          0.23335686375583145
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 0.09583333333333334,
+        "candidate_interval": [
+          0.03333333333333333,
+          0.1751041666666661
+        ],
+        "estimate": -0.02083333333333333,
+        "interval": [
+          -0.07083333333333333,
+          0.024999999999999994
+        ],
+        "p025": -0.07083333333333333,
+        "p05": -0.0625,
+        "p10": -0.05416666666666666,
+        "p90": 0.008333333333333331,
+        "p95": 0.016666666666666663,
+        "p975": 0.024999999999999994,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 0.11666666666666667,
+        "parent_interval": [
+          0.05416666666666667,
+          0.19583333333333333
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "lob_impact_score": {
+        "bootstrap_support": {
+          "candidate": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          },
+          "estimand": "pooled impact score conditional on original-panel C2 admission",
+          "parent": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          }
+        },
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 42.74809160305344,
+        "candidate_interval": [
+          30.857287178628656,
+          59.806939745096834
+        ],
+        "estimate": 1.9317650724411877,
+        "interval": [
+          -3.4986451477571485,
+          7.1028618921701
+        ],
+        "p025": -3.4986451477571485,
+        "p05": -2.4026288389452963,
+        "p10": -1.4116246721840895,
+        "p90": 4.891736779697128,
+        "p95": 5.974250030127829,
+        "p975": 7.1028618921701,
+        "paired_days": 18,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 40.81632653061225,
+        "parent_interval": [
+          30.76923076923077,
+          57.142857142857146
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 7.7453632743274525,
+        "candidate_interval": [
+          7.66342988693626,
+          7.825920427582687
+        ],
+        "estimate": -0.009392040569147442,
+        "interval": [
+          -0.0131279439880433,
+          -0.0059741807017536334
+        ],
+        "p025": -0.0131279439880433,
+        "p05": -0.012335583707267233,
+        "p10": -0.011691715595766,
+        "p90": -0.007142151859230926,
+        "p95": -0.006530972067014711,
+        "p975": -0.0059741807017536334,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 7.7547553148966015,
+        "parent_interval": [
+          7.673113424979047,
+          7.835412140049725
+        ],
+        "reason": null,
+        "registered_days": 20
+      }
+    },
+    "verdict": "REFUTED"
+  },
+  "candidate": {
+    "model_id": "000001.SZ-41-evidence_gpt-r02",
+    "source_sha256": "1f65782e78a3f0822f8d71328aaabe5ee0315d57cb02e34eac26efe47fb39554"
+  },
+  "candidate_profile_id": "000001.SZ-1f65782e78a3f0822f8d71328aaabe5ee0315d57cb02e34eac26efe47fb39554",
+  "group": "evidence_gpt",
+  "metrics": {
+    "blind_ratio": 1.1951219512195121,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.6802721088435374,
+    "evaluation_seconds": 492.36080883300747,
+    "event_count_delta": -67.875,
+    "event_count_rel_gap": 0.11185728411338168,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 44.20671354199294,
+      "137": 53.82177333399886,
+      "211": 43.588363540999126
+    },
+    "free_abs_drift_ticks": 0.09583333333333334,
+    "hurst_delta": -0.12350445700594564,
+    "hurst_gap": 0.12350445700594564,
+    "idle_abs_drift": 0.09583333333333334,
+    "impact_delta": 1.13,
+    "impact_exponent_gap": 0.6299999999999999,
+    "impact_peak": 0.30625,
+    "impact_y": 0.8775450009091039,
+    "l1_depth_mae": 256276.04826923079,
+    "lob_impact_score": 42.74809160305344,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.5853768194184752,
+    "nll_dt": 2.3378703983189952,
+    "nll_rel_ticks": 1.5596293727858097,
+    "nll_volume": 2.2417971059971395,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 23052,
+    "recovery_ratio": 0.6802721088435374,
+    "sign_acf_delta": 0.07254611687451237,
+    "state_dim": 48,
+    "top_depth_delta": -4076.198653846106,
+    "trade_sign_acf_exp_gap": 0.07254611687451237,
+    "train_seed_nll": {
+      "103": 7.736600546285402,
+      "137": 7.724972224605853,
+      "211": 7.712448318670004
+    },
+    "val_nll_total": 7.724673696520419,
+    "visible_over_blind_ratio": 1.1951219512195121,
+    "zero_wait_rate_delta": 0.003994657680680285
+  },
+  "parent": {
+    "model_id": "seed-gru",
+    "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
+  },
+  "parent_metrics": {
+    "blind_ratio": 1.16793893129771,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.6535947712418302,
+    "evaluation_seconds": 482.3167651659751,
+    "event_count_delta": -75.83333333333326,
+    "event_count_rel_gap": 0.12497253350911876,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 25.526720291993115,
+      "137": 26.100681250012713,
+      "211": 24.09328529200866
+    },
+    "free_abs_drift_ticks": 0.11666666666666667,
+    "hurst_delta": -0.11779324224154378,
+    "hurst_gap": 0.11779324224154378,
+    "idle_abs_drift": 0.11666666666666667,
+    "impact_delta": 1.18,
+    "impact_exponent_gap": 0.6799999999999999,
+    "impact_peak": 0.31875,
+    "impact_y": 0.9133631642115162,
+    "l1_depth_mae": 261870.45589743587,
+    "lob_impact_score": 40.81632653061225,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.5895754195466536,
+    "nll_dt": 2.3429801300924393,
+    "nll_rel_ticks": 1.5605763150385201,
+    "nll_volume": 2.242820215441976,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 21932,
+    "recovery_ratio": 0.6535947712418302,
+    "sign_acf_delta": 0.9292744019200673,
+    "state_dim": 48,
+    "top_depth_delta": -228.68871794873849,
+    "trade_sign_acf_exp_gap": 0.9292744019200673,
+    "train_seed_nll": {
+      "103": 7.748978044206599,
+      "137": 7.733032324677364,
+      "211": 7.725845871474803
+    },
+    "val_nll_total": 7.7359520801195885,
+    "visible_over_blind_ratio": 1.16793893129771,
+    "zero_wait_rate_delta": 0.00473890476455097
+  },
+  "parent_profile_id": "000001.SZ-fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771",
+  "predictions": [
+    {
+      "direction": "decrease",
+      "equivalence_band": null,
+      "interval": [
+        -0.07,
+        -0.02
+      ],
+      "metric": "event_count_rel_gap",
+      "role": "primary"
+    },
+    {
+      "direction": "equivalent",
+      "equivalence_band": [
+        -0.04,
+        0.02
+      ],
+      "interval": [
+        -0.04,
+        0.02
+      ],
+      "metric": "val_nll_total",
+      "role": "guardrail"
+    }
+  ],
+  "readouts": {
+    "event_count_rel_gap": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 0.11185728411338168,
+      "candidate_interval": [
+        0.0067973173511330824,
+        0.2327943570941713
+      ],
+      "estimate": -0.013115249395737077,
+      "interval": [
+        -0.0359120986100372,
+        0.01935889743561863
+      ],
+      "p025": -0.0359120986100372,
+      "p05": -0.03206428360614527,
+      "p10": -0.02694646709789814,
+      "p90": 0.005007715943055298,
+      "p95": 0.011829185500752282,
+      "p975": 0.01935889743561863,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 0.12497253350911876,
+      "parent_interval": [
+        0.01013573260909852,
+        0.23335686375583145
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "free_abs_drift_ticks": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 0.09583333333333334,
+      "candidate_interval": [
+        0.03333333333333333,
+        0.1751041666666661
+      ],
+      "estimate": -0.02083333333333333,
+      "interval": [
+        -0.07083333333333333,
+        0.024999999999999994
+      ],
+      "p025": -0.07083333333333333,
+      "p05": -0.0625,
+      "p10": -0.05416666666666666,
+      "p90": 0.008333333333333331,
+      "p95": 0.016666666666666663,
+      "p975": 0.024999999999999994,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 0.11666666666666667,
+      "parent_interval": [
+        0.05416666666666667,
+        0.19583333333333333
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 42.74809160305344,
+      "candidate_interval": [
+        30.857287178628656,
+        59.806939745096834
+      ],
+      "estimate": 1.9317650724411877,
+      "interval": [
+        -3.4986451477571485,
+        7.1028618921701
+      ],
+      "p025": -3.4986451477571485,
+      "p05": -2.4026288389452963,
+      "p10": -1.4116246721840895,
+      "p90": 4.891736779697128,
+      "p95": 5.974250030127829,
+      "p975": 7.1028618921701,
+      "paired_days": 18,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 40.81632653061225,
+      "parent_interval": [
+        30.76923076923077,
+        57.142857142857146
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.7453632743274525,
+      "candidate_interval": [
+        7.66342988693626,
+        7.825920427582687
+      ],
+      "estimate": -0.009392040569147442,
+      "interval": [
+        -0.0131279439880433,
+        -0.0059741807017536334
+      ],
+      "p025": -0.0131279439880433,
+      "p05": -0.012335583707267233,
+      "p10": -0.011691715595766,
+      "p90": -0.007142151859230926,
+      "p95": -0.006530972067014711,
+      "p975": -0.0059741807017536334,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7547553148966015,
+      "parent_interval": [
+        7.673113424979047,
+        7.835412140049725
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "roles": [
+    "best_dev_guarded",
+    "cross_regime_diagonal"
+  ],
+  "seed_readouts": {
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 42.74809160305344,
+      "candidate_interval": [
+        30.857287178628656,
+        59.806939745096834
+      ],
+      "estimate": 1.9317650724411877,
+      "interval": [
+        -3.4986451477571485,
+        7.1028618921701
+      ],
+      "p025": -3.4986451477571485,
+      "p05": -2.4026288389452963,
+      "p10": -1.4116246721840895,
+      "p90": 4.891736779697128,
+      "p95": 5.974250030127829,
+      "p975": 7.1028618921701,
+      "paired_days": 18,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 40.81632653061225,
+      "parent_interval": [
+        30.76923076923077,
+        57.142857142857146
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.7453632743274525,
+      "candidate_interval": [
+        7.66342988693626,
+        7.825920427582687
+      ],
+      "estimate": -0.009392040569147442,
+      "interval": [
+        -0.0131279439880433,
+        -0.0059741807017536334
+      ],
+      "p025": -0.0131279439880433,
+      "p05": -0.012335583707267233,
+      "p10": -0.011691715595766,
+      "p90": -0.007142151859230926,
+      "p95": -0.006530972067014711,
+      "p975": -0.0059741807017536334,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7547553148966015,
+      "parent_interval": [
+        7.673113424979047,
+        7.835412140049725
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "status": "measured",
+  "stock": "000001.SZ",
+  "task_id": "000001.SZ-41-evidence_gpt-r02"
+}

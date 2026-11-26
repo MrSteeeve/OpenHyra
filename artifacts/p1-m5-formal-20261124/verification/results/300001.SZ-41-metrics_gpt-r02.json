@@ -1,0 +1,464 @@
+{
+  "assessment": {
+    "aggregate_delta": {
+      "lob_impact_score": null,
+      "val_nll_total": -0.00725064391025656
+    },
+    "guardrails": {
+      "child_free_abs_drift_ticks": 8.433333333333334,
+      "delta_exhausted_windows": 3.0,
+      "delta_free_abs_drift_ticks": 0.6000000000000005,
+      "delta_val_nll_total": -0.00725064391025656,
+      "drift_passed": true,
+      "exhaustion_passed": false,
+      "finite_nll_by_seed": true,
+      "nll_passed": true,
+      "parent_free_abs_drift_ticks": 7.833333333333333
+    },
+    "has_benchmark_gain": false,
+    "mean_delta_score": null,
+    "nll_guardrail_passed": true,
+    "p05_delta_score": null,
+    "p10_delta_score": null,
+    "prediction_verdicts": [
+      {
+        "metric": "lob_impact_score",
+        "point_available": false,
+        "point_in_interval": false,
+        "role": "primary",
+        "status": "INCONCLUSIVE"
+      },
+      {
+        "metric": "val_nll_total",
+        "point_available": true,
+        "point_in_interval": true,
+        "role": "guardrail",
+        "status": "SUPPORTED"
+      }
+    ],
+    "readouts": {
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 8.433333333333334,
+        "candidate_interval": [
+          4.815833333333333,
+          12.855208333333305
+        ],
+        "estimate": 0.6000000000000005,
+        "interval": [
+          -0.5709375000000012,
+          1.5499999999999998
+        ],
+        "p025": -0.5709375000000012,
+        "p05": -0.375,
+        "p10": -0.1337500000000011,
+        "p90": 1.2416666666666671,
+        "p95": 1.416875,
+        "p975": 1.5499999999999998,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 7.833333333333333,
+        "parent_interval": [
+          4.1915625,
+          12.529374999999998
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "lob_impact_score": {
+        "bootstrap_support": {
+          "candidate": {
+            "incomplete_execution_dates": [
+              20170425,
+              20170508
+            ],
+            "incomplete_recovery_dates": [
+              20170425
+            ],
+            "undefined_draw_count": 2000,
+            "undefined_draw_indices": null
+          },
+          "estimand": "pooled impact score conditional on original-panel C2 admission",
+          "parent": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 2000,
+            "undefined_draw_indices": null
+          }
+        },
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 0,
+        "candidate_bootstrap_valid": 0,
+        "candidate_estimate": null,
+        "candidate_interval": null,
+        "estimate": null,
+        "interval": null,
+        "p025": null,
+        "p05": null,
+        "p10": null,
+        "p90": null,
+        "p95": null,
+        "p975": null,
+        "paired_days": 17,
+        "parent_bootstrap_valid": 0,
+        "parent_estimate": null,
+        "parent_interval": null,
+        "reason": "fewer than 1800 finite paired bootstrap draws",
+        "registered_days": 20
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 8.137487852822641,
+        "candidate_interval": [
+          8.051161865109481,
+          8.218763244168551
+        ],
+        "estimate": -0.00725064391025656,
+        "interval": [
+          -0.008387431212188262,
+          -0.006073050248127734
+        ],
+        "p025": -0.008387431212188262,
+        "p05": -0.008202796160412978,
+        "p10": -0.007975190395095151,
+        "p90": -0.006472737241243819,
+        "p95": -0.00624295823065808,
+        "p975": -0.006073050248127734,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 8.144738496732895,
+        "parent_interval": [
+          8.058911504928064,
+          8.226414374955628
+        ],
+        "reason": null,
+        "registered_days": 20
+      }
+    },
+    "verdict": "GUARDRAIL_VIOLATION"
+  },
+  "candidate": {
+    "model_id": "300001.SZ-41-metrics_gpt-r02",
+    "source_sha256": "bdf1de95565555a06c73205453e2da8cd5a7f363816fa550c3b11b7b01643866"
+  },
+  "candidate_profile_id": "300001.SZ-bdf1de95565555a06c73205453e2da8cd5a7f363816fa550c3b11b7b01643866",
+  "group": "metrics_gpt",
+  "metrics": {
+    "blind_ratio": 4.74015748031496,
+    "claims": {
+      "C1": "fail",
+      "C2": "inconclusive",
+      "C3": "pass",
+      "C4": "inconclusive",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 1.3953488372093021,
+    "evaluation_seconds": 521.0024663329823,
+    "event_count_delta": -102.87500000000006,
+    "event_count_rel_gap": 0.1699500268450833,
+    "exhausted_windows": 6,
+    "fit_seconds_by_seed": {
+      "103": 40.26729941699887,
+      "137": 40.84574845901807,
+      "211": 37.54284112501773
+    },
+    "free_abs_drift_ticks": 8.433333333333334,
+    "hurst_delta": 0.048218577785008654,
+    "hurst_gap": 0.048218577785008654,
+    "idle_abs_drift": 8.433333333333334,
+    "impact_delta": null,
+    "impact_exponent_gap": null,
+    "impact_peak": 1.3201754385964912,
+    "impact_y": 1.4586779218217885,
+    "l1_depth_mae": 8928.011858974362,
+    "lob_impact_score": null,
+    "lob_impact_score_reason": "impact law not identified",
+    "nll_action": 1.6452614259502565,
+    "nll_dt": 2.3031602922529193,
+    "nll_rel_ticks": 1.9283937391946424,
+    "nll_volume": 2.297841701924544,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 23084,
+    "recovery_ratio": 1.3953488372093021,
+    "sign_acf_delta": 0.2279378589197345,
+    "state_dim": 88,
+    "top_depth_delta": 228.0464830508481,
+    "trade_sign_acf_exp_gap": 0.2279378589197345,
+    "train_seed_nll": {
+      "103": 8.175105055916665,
+      "137": 8.17750070428669,
+      "211": 8.17136571776373
+    },
+    "val_nll_total": 8.174657159322361,
+    "visible_over_blind_ratio": 4.74015748031496,
+    "zero_wait_rate_delta": -0.00028857142883061994
+  },
+  "parent": {
+    "model_id": "seed-gru",
+    "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
+  },
+  "parent_metrics": {
+    "blind_ratio": 7.9021739130434785,
+    "claims": {
+      "C1": "fail",
+      "C2": "inconclusive",
+      "C3": "pass",
+      "C4": "inconclusive",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 1.1595598349381022,
+    "evaluation_seconds": 463.8976513329835,
+    "event_count_delta": -91.81666666666672,
+    "event_count_rel_gap": 0.15168160354630442,
+    "exhausted_windows": 3,
+    "fit_seconds_by_seed": {
+      "103": 24.203149957989808,
+      "137": 25.30707833301858,
+      "211": 25.150072832999285
+    },
+    "free_abs_drift_ticks": 7.833333333333333,
+    "hurst_delta": 0.08356049447143671,
+    "hurst_gap": 0.08356049447143671,
+    "idle_abs_drift": 7.833333333333333,
+    "impact_delta": null,
+    "impact_exponent_gap": null,
+    "impact_peak": 1.514583333333333,
+    "impact_y": 1.673153869468817,
+    "l1_depth_mae": 8754.000064102565,
+    "lob_impact_score": null,
+    "lob_impact_score_reason": "impact law not identified",
+    "nll_action": 1.6507301040285165,
+    "nll_dt": 2.303256562123121,
+    "nll_rel_ticks": 1.9302179678074696,
+    "nll_volume": 2.2979976605600316,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 21932,
+    "recovery_ratio": 1.1595598349381022,
+    "sign_acf_delta": 0.40014056749780624,
+    "state_dim": 48,
+    "top_depth_delta": -42.12080528846036,
+    "trade_sign_acf_exp_gap": 0.40014056749780624,
+    "train_seed_nll": {
+      "103": 8.18378560569548,
+      "137": 8.18406157860283,
+      "211": 8.178759699259107
+    },
+    "val_nll_total": 8.182202294519138,
+    "visible_over_blind_ratio": 7.9021739130434785,
+    "zero_wait_rate_delta": -0.0002803446448628299
+  },
+  "parent_profile_id": "300001.SZ-fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771",
+  "predictions": [
+    {
+      "direction": "increase",
+      "equivalence_band": null,
+      "interval": [
+        0.5,
+        4.0
+      ],
+      "metric": "lob_impact_score",
+      "role": "primary"
+    },
+    {
+      "direction": "equivalent",
+      "equivalence_band": [
+        -0.025,
+        0.025
+      ],
+      "interval": [
+        -0.025,
+        0.025
+      ],
+      "metric": "val_nll_total",
+      "role": "guardrail"
+    }
+  ],
+  "readouts": {
+    "free_abs_drift_ticks": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 8.433333333333334,
+      "candidate_interval": [
+        4.815833333333333,
+        12.855208333333305
+      ],
+      "estimate": 0.6000000000000005,
+      "interval": [
+        -0.5709375000000012,
+        1.5499999999999998
+      ],
+      "p025": -0.5709375000000012,
+      "p05": -0.375,
+      "p10": -0.1337500000000011,
+      "p90": 1.2416666666666671,
+      "p95": 1.416875,
+      "p975": 1.5499999999999998,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.833333333333333,
+      "parent_interval": [
+        4.1915625,
+        12.529374999999998
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [
+            20170425,
+            20170508
+          ],
+          "incomplete_recovery_dates": [
+            20170425
+          ],
+          "undefined_draw_count": 2000,
+          "undefined_draw_indices": null
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 2000,
+          "undefined_draw_indices": null
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 0,
+      "candidate_bootstrap_valid": 0,
+      "candidate_estimate": null,
+      "candidate_interval": null,
+      "estimate": null,
+      "interval": null,
+      "p025": null,
+      "p05": null,
+      "p10": null,
+      "p90": null,
+      "p95": null,
+      "p975": null,
+      "paired_days": 17,
+      "parent_bootstrap_valid": 0,
+      "parent_estimate": null,
+      "parent_interval": null,
+      "reason": "fewer than 1800 finite paired bootstrap draws",
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 8.137487852822641,
+      "candidate_interval": [
+        8.051161865109481,
+        8.218763244168551
+      ],
+      "estimate": -0.00725064391025656,
+      "interval": [
+        -0.008387431212188262,
+        -0.006073050248127734
+      ],
+      "p025": -0.008387431212188262,
+      "p05": -0.008202796160412978,
+      "p10": -0.007975190395095151,
+      "p90": -0.006472737241243819,
+      "p95": -0.00624295823065808,
+      "p975": -0.006073050248127734,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 8.144738496732895,
+      "parent_interval": [
+        8.058911504928064,
+        8.226414374955628
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "roles": [
+    "best_dev_guarded"
+  ],
+  "seed_readouts": {
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [
+            20170425,
+            20170508
+          ],
+          "incomplete_recovery_dates": [
+            20170425
+          ],
+          "undefined_draw_count": 2000,
+          "undefined_draw_indices": null
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 2000,
+          "undefined_draw_indices": null
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 0,
+      "candidate_bootstrap_valid": 0,
+      "candidate_estimate": null,
+      "candidate_interval": null,
+      "estimate": null,
+      "interval": null,
+      "p025": null,
+      "p05": null,
+      "p10": null,
+      "p90": null,
+      "p95": null,
+      "p975": null,
+      "paired_days": 17,
+      "parent_bootstrap_valid": 0,
+      "parent_estimate": null,
+      "parent_interval": null,
+      "reason": "fewer than 1800 finite paired bootstrap draws",
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 8.137487852822641,
+      "candidate_interval": [
+        8.051161865109481,
+        8.218763244168551
+      ],
+      "estimate": -0.00725064391025656,
+      "interval": [
+        -0.008387431212188262,
+        -0.006073050248127734
+      ],
+      "p025": -0.008387431212188262,
+      "p05": -0.008202796160412978,
+      "p10": -0.007975190395095151,
+      "p90": -0.006472737241243819,
+      "p95": -0.00624295823065808,
+      "p975": -0.006073050248127734,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 8.144738496732895,
+      "parent_interval": [
+        8.058911504928064,
+        8.226414374955628
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "status": "measured",
+  "stock": "300001.SZ",
+  "task_id": "300001.SZ-41-metrics_gpt-r02"
+}

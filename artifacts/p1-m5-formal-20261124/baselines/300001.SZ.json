@@ -1,0 +1,57 @@
+{
+  "metrics": {
+    "blind_ratio": 7.875,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "pass",
+      "C4": "fail",
+      "C5": "fail"
+    },
+    "end_over_peak_ratio": 1.5970464135021094,
+    "evaluation_seconds": 802.3155378749943,
+    "event_count_delta": -269.3402777777778,
+    "event_count_rel_gap": 0.3178447039541078,
+    "exhausted_windows": 3,
+    "fit_seconds_by_seed": {
+      "103": 24.203149957989808,
+      "137": 25.30707833301858,
+      "211": 25.150072832999285
+    },
+    "free_abs_drift_ticks": 6.052083333333333,
+    "hurst_delta": -0.08036576249623895,
+    "hurst_gap": 0.08036576249623895,
+    "idle_abs_drift": 6.052083333333333,
+    "impact_delta": 1.34,
+    "impact_exponent_gap": 0.8400000000000001,
+    "impact_peak": 0.984375,
+    "impact_y": 1.087434942674025,
+    "l1_depth_mae": 13028.63060897436,
+    "lob_impact_score": 25.804651140218432,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.640694127066217,
+    "nll_dt": 2.3618573012817983,
+    "nll_rel_ticks": 1.936764730539656,
+    "nll_volume": 2.320128606916622,
+    "paired_seed_windows": 144,
+    "paired_windows": 48,
+    "parameters": 21932,
+    "recovery_ratio": 1.5970464135021094,
+    "sign_acf_delta": -0.022527949172303274,
+    "state_dim": 48,
+    "top_depth_delta": 292.4626994858445,
+    "trade_sign_acf_exp_gap": 0.022527949172303274,
+    "train_seed_nll": {
+      "103": 8.258477565839236,
+      "137": 8.264474265239835,
+      "211": 8.255382466333808
+    },
+    "val_nll_total": 8.259444765804293,
+    "visible_over_blind_ratio": 7.875,
+    "zero_wait_rate_delta": -0.005439334490184116
+  },
+  "model": {
+    "model_id": "seed-gru",
+    "source": "from __future__ import annotations\nimport torch\nfrom torch import Tensor, nn\nfrom stochopia.neural.lob_interface import (\n    BUCKET_COUNTS, IS_OWN_FEATURE_INDEX, LOBWorldModel, State, StepObservation,\n)\n\n\nclass CandidateLOBWorldModel(LOBWorldModel):\n    \"\"\"A ten-level book encoder and GRU with discrete conditional order heads.\"\"\"\n\n    def __init__(self, state_dim: int = 48, embedding_dim: int = 8) -> None:\n        super().__init__()\n        self.state_dim = state_dim\n        token_offsets = [0]\n        for count in BUCKET_COUNTS[:-1]:\n            token_offsets.append(token_offsets[-1] + count)\n        self.register_buffer(\"token_offsets\", torch.tensor(token_offsets), persistent=False)\n        self.token_embed = nn.Embedding(sum(BUCKET_COUNTS), embedding_dim)\n        self.input_projection = nn.Linear(43 + 4 * embedding_dim, state_dim)\n        # Historical orders have no own labels. Start with no untrained flag response.\n        nn.init.zeros_(self.input_projection.weight[:, IS_OWN_FEATURE_INDEX])\n        self.gru = nn.GRU(state_dim, state_dim, batch_first=True)\n        self.heads = nn.ModuleList(\n            nn.Linear(state_dim + stage * embedding_dim, count)\n            for stage, count in enumerate(BUCKET_COUNTS)\n        )\n\n    def _features(self, observation: StepObservation) -> Tensor:\n        ticks = observation.book_ticks\n        book_shares = observation.book_shares.to(self.input_projection.weight.dtype)\n        touch = ticks[..., 0]\n        present = touch > 0\n        mid = touch.sum(dim=-1) / present.sum(dim=-1).clamp_min(1)\n        relative = (ticks - mid[..., None, None]) / 20\n        price_feature = relative.clamp(-10, 10).masked_fill(ticks <= 0, 0)\n        depth_feature = (book_shares / 100).log1p()\n\n        bid, ask = touch.unbind(dim=-1)\n        spread = (ask - bid).clamp_min(0).masked_fill(~present.all(dim=-1), 0).log1p()\n        bid_depth, ask_depth = book_shares.sum(dim=-1).unbind(dim=-1)\n        imbalance = (bid_depth - ask_depth) / (bid_depth + ask_depth).clamp_min(1)\n        previous = self.token_embed(observation.previous_event + self.token_offsets)\n        features = torch.cat((price_feature.flatten(-2), depth_feature.flatten(-2),\n                              torch.stack((spread, imbalance, observation.is_own), dim=-1),\n                              previous.flatten(-2)), dim=-1)\n        return self.input_projection(features.to(self.input_projection.weight.dtype)).tanh()\n\n    def sequence_context(self, observation: StepObservation) -> Tensor:\n        out, _ = self.gru(self._features(observation))\n        return out\n\n    def step_context(self, observation: StepObservation, state: State) -> tuple[Tensor, Tensor]:\n        prior = None if state is None else state.unsqueeze(0)\n        out, hidden = self.gru(self._features(observation).unsqueeze(1), prior)\n        return out[:, 0], hidden[0]\n\n    def head_logits(self, context: Tensor, stage: int, prior: tuple[Tensor, ...]) -> Tensor:\n        if prior:\n            tokens = torch.stack(prior, dim=-1) + self.token_offsets[:stage]\n            prefix = self.token_embed(tokens).flatten(-2)\n            context = torch.cat((context, prefix), dim=-1)\n        return self.heads[stage](context)\n"
+  }
+}

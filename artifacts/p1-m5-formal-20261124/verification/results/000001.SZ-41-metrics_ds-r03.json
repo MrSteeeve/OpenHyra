@@ -1,0 +1,476 @@
+{
+  "assessment": {
+    "aggregate_delta": {
+      "lob_impact_score": 6.242496998799517,
+      "val_nll_total": -0.03036507625959155
+    },
+    "guardrails": {
+      "child_free_abs_drift_ticks": 0.1625,
+      "delta_exhausted_windows": 0.0,
+      "delta_free_abs_drift_ticks": 0.04583333333333334,
+      "delta_val_nll_total": -0.03036507625959155,
+      "drift_passed": true,
+      "exhaustion_passed": true,
+      "finite_nll_by_seed": true,
+      "nll_passed": true,
+      "parent_free_abs_drift_ticks": 0.11666666666666667
+    },
+    "has_benchmark_gain": true,
+    "mean_delta_score": 6.242496998799517,
+    "nll_guardrail_passed": true,
+    "p05_delta_score": 0.9557587794741054,
+    "p10_delta_score": 1.8570093238989163,
+    "prediction_verdicts": [
+      {
+        "metric": "lob_impact_score",
+        "point_available": true,
+        "point_in_interval": true,
+        "role": "primary",
+        "status": "SUPPORTED"
+      },
+      {
+        "metric": "val_nll_total",
+        "point_available": true,
+        "point_in_interval": true,
+        "role": "guardrail",
+        "status": "SUPPORTED"
+      }
+    ],
+    "readouts": {
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 0.1625,
+        "candidate_interval": [
+          0.09166666666666666,
+          0.24166666666666667
+        ],
+        "estimate": 0.04583333333333334,
+        "interval": [
+          -0.037500000000000006,
+          0.14166666666666666
+        ],
+        "p025": -0.037500000000000006,
+        "p05": -0.024999999999999994,
+        "p10": -0.012499999999999997,
+        "p90": 0.10416666666666666,
+        "p95": 0.12083333333333333,
+        "p975": 0.14166666666666666,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 0.11666666666666667,
+        "parent_interval": [
+          0.05416666666666667,
+          0.19583333333333333
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "lob_impact_score": {
+        "bootstrap_support": {
+          "candidate": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          },
+          "estimand": "pooled impact score conditional on original-panel C2 admission",
+          "parent": {
+            "incomplete_execution_dates": [],
+            "incomplete_recovery_dates": [],
+            "undefined_draw_count": 0,
+            "undefined_draw_indices": []
+          }
+        },
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 47.05882352941177,
+        "candidate_interval": [
+          32.664346490378996,
+          74.0969802252027
+        ],
+        "estimate": 6.242496998799517,
+        "interval": [
+          0.4116362862957802,
+          18.81984456010844
+        ],
+        "p025": 0.4116362862957802,
+        "p05": 0.9557587794741054,
+        "p10": 1.8570093238989163,
+        "p90": 12.837328845030322,
+        "p95": 15.587835389804962,
+        "p975": 18.81984456010844,
+        "paired_days": 18,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 40.81632653061225,
+        "parent_interval": [
+          30.76923076923077,
+          57.142857142857146
+        ],
+        "reason": null,
+        "registered_days": 20
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "candidate_bootstrap_valid": 2000,
+        "candidate_estimate": 7.724390238637011,
+        "candidate_interval": [
+          7.64081585142355,
+          7.805898566488594
+        ],
+        "estimate": -0.03036507625959155,
+        "interval": [
+          -0.04111216768389676,
+          -0.020711465989452386
+        ],
+        "p025": -0.04111216768389676,
+        "p05": -0.038865685332083254,
+        "p10": -0.03699156856675254,
+        "p90": -0.024132138864649513,
+        "p95": -0.022450275969693918,
+        "p975": -0.020711465989452386,
+        "paired_days": 20,
+        "parent_bootstrap_valid": 2000,
+        "parent_estimate": 7.7547553148966015,
+        "parent_interval": [
+          7.673113424979047,
+          7.835412140049725
+        ],
+        "reason": null,
+        "registered_days": 20
+      }
+    },
+    "verdict": "VERIFIED_GAIN"
+  },
+  "candidate": {
+    "model_id": "000001.SZ-41-metrics_ds-r03",
+    "source_sha256": "b6774a0d3229a5af50c86ae76a070ec4b4489e0506610f86b25b4eb1fa72a1f6"
+  },
+  "candidate_profile_id": "000001.SZ-b6774a0d3229a5af50c86ae76a070ec4b4489e0506610f86b25b4eb1fa72a1f6",
+  "group": "metrics_ds",
+  "metrics": {
+    "blind_ratio": 1.3333333333333333,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.575,
+    "evaluation_seconds": 583.9654519579781,
+    "event_count_delta": -8.991666666666674,
+    "event_count_rel_gap": 0.014818171830366966,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 65.53050666701165,
+      "137": 62.37747691699769,
+      "211": 66.2282664590166
+    },
+    "free_abs_drift_ticks": 0.1625,
+    "hurst_delta": -0.06725576807342937,
+    "hurst_gap": 0.06725576807342937,
+    "idle_abs_drift": 0.1625,
+    "impact_delta": 1.05,
+    "impact_exponent_gap": 0.55,
+    "impact_peak": 0.33333333333333337,
+    "impact_y": 0.9551510213976642,
+    "l1_depth_mae": 271292.0910897436,
+    "lob_impact_score": 47.05882352941177,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.5707717746630445,
+    "nll_dt": 2.333984303709518,
+    "nll_rel_ticks": 1.5557690557625314,
+    "nll_volume": 2.2404413363666906,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 24285,
+    "recovery_ratio": 0.575,
+    "sign_acf_delta": 0.6280647190967136,
+    "state_dim": 96,
+    "top_depth_delta": 5456.201858974295,
+    "trade_sign_acf_exp_gap": 0.6280647190967136,
+    "train_seed_nll": {
+      "103": 7.707915641858575,
+      "137": 7.696253085871158,
+      "211": 7.698730683775622
+    },
+    "val_nll_total": 7.700966470501784,
+    "visible_over_blind_ratio": 1.3333333333333333,
+    "zero_wait_rate_delta": 0.010255601901092651
+  },
+  "parent": {
+    "model_id": "seed-gru",
+    "source_sha256": "fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771"
+  },
+  "parent_metrics": {
+    "blind_ratio": 1.16793893129771,
+    "claims": {
+      "C1": "fail",
+      "C2": "pass",
+      "C3": "fail",
+      "C4": "fail",
+      "C5": "inconclusive"
+    },
+    "end_over_peak_ratio": 0.6535947712418302,
+    "evaluation_seconds": 482.3167651659751,
+    "event_count_delta": -75.83333333333326,
+    "event_count_rel_gap": 0.12497253350911876,
+    "exhausted_windows": 0,
+    "fit_seconds_by_seed": {
+      "103": 25.526720291993115,
+      "137": 26.100681250012713,
+      "211": 24.09328529200866
+    },
+    "free_abs_drift_ticks": 0.11666666666666667,
+    "hurst_delta": -0.11779324224154378,
+    "hurst_gap": 0.11779324224154378,
+    "idle_abs_drift": 0.11666666666666667,
+    "impact_delta": 1.18,
+    "impact_exponent_gap": 0.6799999999999999,
+    "impact_peak": 0.31875,
+    "impact_y": 0.9133631642115162,
+    "l1_depth_mae": 261870.45589743587,
+    "lob_impact_score": 40.81632653061225,
+    "lob_impact_score_reason": null,
+    "nll_action": 1.5895754195466536,
+    "nll_dt": 2.3429801300924393,
+    "nll_rel_ticks": 1.5605763150385201,
+    "nll_volume": 2.242820215441976,
+    "paired_seed_windows": 120,
+    "paired_windows": 40,
+    "parameters": 21932,
+    "recovery_ratio": 0.6535947712418302,
+    "sign_acf_delta": 0.9292744019200673,
+    "state_dim": 48,
+    "top_depth_delta": -228.68871794873849,
+    "trade_sign_acf_exp_gap": 0.9292744019200673,
+    "train_seed_nll": {
+      "103": 7.748978044206599,
+      "137": 7.733032324677364,
+      "211": 7.725845871474803
+    },
+    "val_nll_total": 7.7359520801195885,
+    "visible_over_blind_ratio": 1.16793893129771,
+    "zero_wait_rate_delta": 0.00473890476455097
+  },
+  "parent_profile_id": "000001.SZ-fad85b95ceff23f1cab4957248a0d41ec700b866c1fd195bf0a280708f657771",
+  "predictions": [
+    {
+      "direction": "increase",
+      "equivalence_band": null,
+      "interval": [
+        1.0,
+        8.0
+      ],
+      "metric": "lob_impact_score",
+      "role": "primary"
+    },
+    {
+      "direction": "equivalent",
+      "equivalence_band": [
+        -0.05,
+        0.05
+      ],
+      "interval": [
+        -0.05,
+        0.05
+      ],
+      "metric": "val_nll_total",
+      "role": "guardrail"
+    }
+  ],
+  "readouts": {
+    "free_abs_drift_ticks": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 0.1625,
+      "candidate_interval": [
+        0.09166666666666666,
+        0.24166666666666667
+      ],
+      "estimate": 0.04583333333333334,
+      "interval": [
+        -0.037500000000000006,
+        0.14166666666666666
+      ],
+      "p025": -0.037500000000000006,
+      "p05": -0.024999999999999994,
+      "p10": -0.012499999999999997,
+      "p90": 0.10416666666666666,
+      "p95": 0.12083333333333333,
+      "p975": 0.14166666666666666,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 0.11666666666666667,
+      "parent_interval": [
+        0.05416666666666667,
+        0.19583333333333333
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 47.05882352941177,
+      "candidate_interval": [
+        32.664346490378996,
+        74.0969802252027
+      ],
+      "estimate": 6.242496998799517,
+      "interval": [
+        0.4116362862957802,
+        18.81984456010844
+      ],
+      "p025": 0.4116362862957802,
+      "p05": 0.9557587794741054,
+      "p10": 1.8570093238989163,
+      "p90": 12.837328845030322,
+      "p95": 15.587835389804962,
+      "p975": 18.81984456010844,
+      "paired_days": 18,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 40.81632653061225,
+      "parent_interval": [
+        30.76923076923077,
+        57.142857142857146
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.724390238637011,
+      "candidate_interval": [
+        7.64081585142355,
+        7.805898566488594
+      ],
+      "estimate": -0.03036507625959155,
+      "interval": [
+        -0.04111216768389676,
+        -0.020711465989452386
+      ],
+      "p025": -0.04111216768389676,
+      "p05": -0.038865685332083254,
+      "p10": -0.03699156856675254,
+      "p90": -0.024132138864649513,
+      "p95": -0.022450275969693918,
+      "p975": -0.020711465989452386,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7547553148966015,
+      "parent_interval": [
+        7.673113424979047,
+        7.835412140049725
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "roles": [
+    "best_dev_guarded"
+  ],
+  "seed_readouts": {
+    "lob_impact_score": {
+      "bootstrap_support": {
+        "candidate": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        },
+        "estimand": "pooled impact score conditional on original-panel C2 admission",
+        "parent": {
+          "incomplete_execution_dates": [],
+          "incomplete_recovery_dates": [],
+          "undefined_draw_count": 0,
+          "undefined_draw_indices": []
+        }
+      },
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 47.05882352941177,
+      "candidate_interval": [
+        32.664346490378996,
+        74.0969802252027
+      ],
+      "estimate": 6.242496998799517,
+      "interval": [
+        0.4116362862957802,
+        18.81984456010844
+      ],
+      "p025": 0.4116362862957802,
+      "p05": 0.9557587794741054,
+      "p10": 1.8570093238989163,
+      "p90": 12.837328845030322,
+      "p95": 15.587835389804962,
+      "p975": 18.81984456010844,
+      "paired_days": 18,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 40.81632653061225,
+      "parent_interval": [
+        30.76923076923077,
+        57.142857142857146
+      ],
+      "reason": null,
+      "registered_days": 20
+    },
+    "val_nll_total": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate_bootstrap_valid": 2000,
+      "candidate_estimate": 7.724390238637011,
+      "candidate_interval": [
+        7.64081585142355,
+        7.805898566488594
+      ],
+      "estimate": -0.03036507625959155,
+      "interval": [
+        -0.04111216768389676,
+        -0.020711465989452386
+      ],
+      "p025": -0.04111216768389676,
+      "p05": -0.038865685332083254,
+      "p10": -0.03699156856675254,
+      "p90": -0.024132138864649513,
+      "p95": -0.022450275969693918,
+      "p975": -0.020711465989452386,
+      "paired_days": 20,
+      "parent_bootstrap_valid": 2000,
+      "parent_estimate": 7.7547553148966015,
+      "parent_interval": [
+        7.673113424979047,
+        7.835412140049725
+      ],
+      "reason": null,
+      "registered_days": 20
+    }
+  },
+  "status": "measured",
+  "stock": "000001.SZ",
+  "task_id": "000001.SZ-41-metrics_ds-r03"
+}
