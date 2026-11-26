@@ -311,6 +311,17 @@ class MarketEvaluator:
         self._check_request(request)
         return self._profile(model, request, candidate=False)
 
+    def verification_profile(
+        self, model: ModelRef, request: EvaluationRequest, *, candidate: bool,
+    ) -> Json:
+        """Measure one frozen test source, reusing only this stock's model cache."""
+        self._check_request(request)
+        if request.split != "test" or self.cache_root is None:
+            raise ValueError("closing verification requires a registered holdout and durable profile cache")
+        if model.source not in (request.parent.source, request.candidate.source):
+            raise ValueError("verification profile must belong to the frozen pair")
+        return self._profile(model, request, candidate=candidate)
+
     def __call__(self, request: EvaluationRequest) -> PairedEvaluation:
         self._check_request(request)
         parent = self._profile(request.parent, request, candidate=False)

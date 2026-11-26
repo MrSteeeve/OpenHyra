@@ -56,6 +56,16 @@ V2_RESOURCE_RETRY_PATHS = {
         "tasks/stochopia_p1/verifier.py",
     },
 }
+M5_CLOSING_PATHS = {
+    "stochopia": {"experiments/p1_m5_report.py", "experiments/p1_m5_closing_report.py"},
+    "openhyra": {
+        "tasks/stochopia_p1/formal.py",
+        "tasks/stochopia_p1/formal_verify.py",
+        "tasks/stochopia_p1/formal_archive.py",
+        "tasks/stochopia_p1/closing_verify.py",
+        "tasks/stochopia_p1/market_eval.py",
+    },
+}
 
 
 def _metric_rules(analysis_version: str = "m4") -> tuple[MetricRule, ...]:
@@ -120,6 +130,28 @@ def _require_v2_resource_retry_code(manifest: Json, code: Json, stochopia_root: 
         ).splitlines()
         if set(changed) - V2_RESOURCE_RETRY_PATHS[repository]:
             raise ValueError("the resource retry contains changes outside the registered repair files")
+
+
+def _require_m5_closing_code(manifest: Json, code: Json, stochopia_root: Path) -> None:
+    """Permit only the closing verifier and report additions after the original M5 seal."""
+    if manifest["schema"] != M5_SCHEMA:
+        raise ValueError("closing verification requires the frozen M5 study")
+    for repository, root, paths in (
+        ("stochopia", stochopia_root, STOCHOPIA_CODE),
+        ("openhyra", OPENHYRA_ROOT, OPENHYRA_CODE),
+    ):
+        original = manifest["code"][f"{repository}_commit"]
+        current = code[f"{repository}_commit"]
+        if _git_value(root, f"{original}^{{tree}}") != manifest["code"][f"{repository}_tree"]:
+            raise ValueError("the original development commit no longer matches its tree")
+        result = subprocess.run(["git", "merge-base", "--is-ancestor", original, current], cwd=root)
+        if result.returncode != 0:
+            raise ValueError("closing code must descend from the frozen development commit")
+        changed = subprocess.check_output(
+            ["git", "diff", "--name-only", original, current, "--", *paths], cwd=root, text=True,
+        ).splitlines()
+        if set(changed) - M5_CLOSING_PATHS[repository]:
+            raise ValueError("closing code includes changes outside the verification and report files")
 
 
 def _development_plan(registration: Json, baseline: Json, item: Trajectory) -> StudyPlan:
@@ -382,6 +414,11 @@ def _production_verify(args: argparse.Namespace, code: Json) -> Json:
 
         if P1_FIT_PROTOCOL.max_train_seconds != 180.0:
             raise ValueError("resource retry requires the registered 180 second training budget")
+    elif args.closing:
+        _require_m5_closing_code(manifest, code, args.stochopia_root)
+        registration = Ledger(args.artifact_root).read("verification", "closing-registration.json")
+        if registration is None or registration["closing_code"] != code:
+            raise ValueError("register the exact closing code before acquiring holdout data")
     elif manifest["code"] != code:
         raise ValueError("the current code differs from the frozen experiment")
     if manifest["data"] != data_registration(args.market_root):
@@ -417,13 +454,13 @@ def _production_verify(args: argparse.Namespace, code: Json) -> Json:
     }
     return verify_frozen_study(
         args.artifact_root, evaluators=evaluators, retry_failed=args.retry_failed,
-        retry_code=code if args.retry_failed else None, jobs=args.jobs,
+        retry_code=code if args.retry_failed else None, jobs=args.jobs, closing=args.closing,
     )
 
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("dev", "freeze", "verify"))
+    parser.add_argument("phase", choices=("dev", "freeze", "register-closing", "verify"))
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--market-root", type=Path, required=True)
     parser.add_argument("--stochopia-root", type=Path, default=OPENHYRA_ROOT.parent / "Stochopia")
@@ -434,6 +471,7 @@ def _arguments() -> argparse.Namespace:
     parsers.add_argument("--tokenizers-dir", type=Path, help="directory for locally installed provider tokenizers")
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--retry-failed", action="store_true", help="repair only the registered v2 failed tasks")
+    parser.add_argument("--closing", action="store_true", help="evaluate the registered M5 closing roster")
     args = parser.parse_args()
     if args.cache_root is None:
         args.cache_root = args.market_root / "m4-model-cache" / args.artifact_root.name
@@ -443,6 +481,8 @@ def _arguments() -> argparse.Namespace:
         parser.error("dev requires --tokenizers-dir or --tokenizer")
     if args.retry_failed and args.phase != "verify":
         parser.error("--retry-failed is available only in the verifier phase")
+    if args.closing and (args.phase != "verify" or args.retry_failed):
+        parser.error("--closing is only available for verification without --retry-failed")
     return args
 
 
@@ -460,6 +500,15 @@ def main() -> None:
         manifest = freeze_study(args.artifact_root, args.market_root, development_root=args.cache_root / "ledger")
         write_archive_tables(args.artifact_root)
         result = {"manifest": str(args.artifact_root / MANIFEST), "tasks": len(manifest["tasks"])}
+    elif args.phase == "register-closing":
+        from .formal_verify import load_frozen_study, register_closing_verification
+
+        manifest = load_frozen_study(args.artifact_root)
+        _require_m5_closing_code(manifest, code, args.stochopia_root)
+        if manifest["data"] != data_registration(args.market_root):
+            raise ValueError("market metadata differs from the frozen experiment")
+        registration = register_closing_verification(args.artifact_root, code=code)
+        result = {"profiles": len(registration["profiles"]), "comparisons": len(registration["tasks"])}
     else:
         from .formal_archive import write_archive_tables
 

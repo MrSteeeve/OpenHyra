@@ -8,6 +8,7 @@ from pathlib import Path
 
 from stochopia.common import atomic_write_bytes, atomic_write_json
 
+from .closing_verify import ClosingProfiler, register_closing_verification, verify_closing_study
 from .formal_manifest import ARM_MODELS, M5_SCHEMA, MANIFEST, SYMBOLS, SourceArchive, validate_frozen
 from .paired_stats import (
     EVALUATION_FAILED, GUARDRAIL_VIOLATION, VERIFIED_GAIN, assess, failed_evaluation, metric_delta,
@@ -374,9 +375,19 @@ def _retry_failed_tasks(
 
 def verify_frozen_study(
     root: Path, *, evaluators: Mapping[str, Evaluator], retry_failed: bool = False,
-    retry_code: Mapping[str, str] | None = None, jobs: int = 1,
+    retry_code: Mapping[str, str] | None = None, jobs: int = 1, closing: bool = False,
 ) -> Json:
     """Evaluate each sealed task under a verifier-only lock and resume saved results."""
+    if closing:
+        if retry_failed:
+            raise ValueError("closing selection is independent of the M4 resource retry")
+        profilers: dict[str, ClosingProfiler] = {}
+        for stock, evaluator in evaluators.items():
+            if not isinstance(evaluator, ClosingProfiler):
+                raise ValueError("closing verification requires source-level profile evaluators")
+            profilers[stock] = evaluator
+        return verify_closing_study(root, evaluators=profilers, jobs=jobs)
+
     if set(evaluators) != set(SYMBOLS):
         raise ValueError("the verifier requires both stock evaluators")
     if jobs < 1 or jobs > 3:
@@ -388,6 +399,8 @@ def verify_frozen_study(
     archive = SourceArchive(archive_ledger)
     ledger = Ledger(archive_ledger.file("verification"))
     with ledger.lock():
+        if ledger.read("closing-registration.json") is not None:
+            raise ValueError("the registered M5 closing selection requires closing verification mode")
         if retry_failed:
             return _retry_failed_tasks(manifest, archive, ledger, evaluators, retry_code, jobs)
         if manifest["schema"] == M5_SCHEMA:

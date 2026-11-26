@@ -9,6 +9,7 @@ from pathlib import Path
 
 from stochopia.common import atomic_write_text
 
+from .closing_verify import MODE, REGISTRATION
 from .formal_manifest import M5_SCHEMA
 from .formal_verify import RESOURCE_RETRY, load_frozen_study
 from .store import IMPACT, NLL, Json, Ledger
@@ -46,6 +47,22 @@ AUDIT_FIELDS = (
     "stock", "arm", "task_id", "status", "test_decision", "mean_delta_score", "p05_delta_score", "p10_delta_score",
     "has_benchmark_gain", "primary", "guardrail", *CALIBRATION_FIELDS,
 )
+
+
+PAIRED_FIELDS = (
+    "delta_lob_impact_score", "delta_impact_ci95_low", "delta_impact_ci95_high", "delta_impact_p10",
+    "delta_val_nll_total", "delta_nll_ci95_low", "delta_nll_ci95_high",
+    "seed_delta_lob_impact_score", "seed_delta_impact_ci95_low", "seed_delta_impact_ci95_high",
+    "seed_delta_impact_p10", "seed_delta_val_nll_total", "seed_delta_nll_ci95_low", "seed_delta_nll_ci95_high",
+)
+SECONDARY_FIELDS = (
+    "stock", "arm", "search_seed", "round", "trial_id", "model_id", "source_sha256", "parent_id",
+    "status", "selection_label", "dev_score", "dev_delta", "dev_verdict", "test_decision", *PAIRED_FIELDS,
+    NLL, IMPACT, "primary", "guardrail", *CALIBRATION_FIELDS,
+)
+CLOSING_ENDPOINT_FIELDS = (*RESULT_FIELDS, "source_sha256", "parent_id", *PAIRED_FIELDS)
+CLOSING_AUDIT_FIELDS = (*AUDIT_FIELDS, "source_sha256", "parent_id", *PAIRED_FIELDS)
+CLOSING_CROSS_FIELDS = (*CROSS_FIELDS, "source_arm", "comparison", "representative_trial_id", *PAIRED_FIELDS)
 
 
 def _write_csv(path: Path, columns: tuple[str, ...], rows: Iterable[Json]) -> None:
@@ -184,6 +201,91 @@ def _audit_rows(report: Json) -> Iterable[Json]:
         }
 
 
+# --- Reduced M5 report tables ---
+
+
+def _paired_columns(result: Json) -> Json:
+    """Export paired interval bounds, never differences of marginal bounds."""
+    columns = {}
+    for field, prefix in (("readouts", ""), ("seed_readouts", "seed_")):
+        impact = result.get(field, {}).get(IMPACT, {})
+        nll = result.get(field, {}).get(NLL, {})
+        impact_interval = impact.get("interval") or (None, None)
+        nll_interval = nll.get("interval") or (None, None)
+        columns.update({
+            f"{prefix}delta_lob_impact_score": impact.get("estimate"),
+            f"{prefix}delta_impact_ci95_low": impact_interval[0],
+            f"{prefix}delta_impact_ci95_high": impact_interval[1],
+            f"{prefix}delta_impact_p10": impact.get("p10"),
+            f"{prefix}delta_val_nll_total": nll.get("estimate"),
+            f"{prefix}delta_nll_ci95_low": nll_interval[0],
+            f"{prefix}delta_nll_ci95_high": nll_interval[1],
+        })
+    return columns
+
+
+def _closing_metadata(result: Json) -> Json:
+    candidate = result.get("candidate") or {}
+    parent = result.get("parent") or {}
+    metrics = result.get("metrics") or {}
+    return {
+        "model_id": candidate.get("model_id"), "source_sha256": candidate.get("source_sha256"),
+        "parent_id": parent.get("model_id"), NLL: metrics.get(NLL), IMPACT: metrics.get(IMPACT),
+        **_paired_columns(result),
+    }
+
+
+def _closing_endpoint_rows(report: Json) -> Iterable[Json]:
+    for trajectory in report["trajectories"].values():
+        metadata = {key: trajectory[key] for key in ("stock", "arm", "search_seed")}
+        for phase in ("initial", "first", "final"):
+            endpoint = trajectory[phase]
+            assessment = endpoint["direct_parent_assessment"] or {}
+            metrics = endpoint["metrics"]
+            interval = endpoint.get("impact_ci95") or (None, None)
+            yield {
+                **metadata, **endpoint, **_closing_metadata(endpoint), **_roles(assessment), "phase": phase,
+                "decision": assessment.get("verdict"), "p05_delta_score": assessment.get("p05_delta_score"),
+                "p10_delta_score": assessment.get("p10_delta_score"),
+                "impact_ci95_low": interval[0], "impact_ci95_high": interval[1], **metrics.get("claims", {}),
+            }
+
+
+def _closing_secondary_rows(report: Json) -> Iterable[Json]:
+    for row in report["secondary_best_guarded"]:
+        result = row["result"] or {}
+        assessment = result.get("assessment") or {}
+        yield {
+            **row, **_closing_metadata(result), **_roles(assessment),
+            "status": result.get("status", row["status"]), "test_decision": assessment.get("verdict"),
+            "selection_label": report["closing_registration"]["secondary_label"],
+        }
+
+
+def _closing_cross_rows(report: Json) -> Iterable[Json]:
+    for category, sources in report["cross_regime"].items():
+        for source, data in sources.items():
+            for target, result in data["cells"].items():
+                impact = result.get("readouts", {}).get(IMPACT, {})
+                interval = impact.get("candidate_interval") or (None, None)
+                yield {
+                    **result, **_closing_metadata(result), "arm": category, "source_stock": source,
+                    "target_stock": target, "source_arm": data.get("source_arm"),
+                    "representative_trial_id": data.get("representative"),
+                    "role": "diagonal" if target == source else "transfer",
+                    "impact_ci95_low": interval[0], "impact_ci95_high": interval[1],
+                }
+
+
+def _closing_audit_rows(report: Json) -> Iterable[Json]:
+    for row in report["audit_only_rejected_unverified"]:
+        assessment = row["assessment"] or {}
+        yield {
+            **row, **assessment, **_closing_metadata(row), **_roles(assessment),
+            "arm": row["group"], "test_decision": assessment.get("verdict"),
+        }
+
+
 def _readme(manifest: Json, *, has_holdout: bool) -> str:
     code = manifest["code"]
     status = "留出复验已落盘。" if has_holdout else "开发记录与留出任务清单已封存。"
@@ -251,13 +353,27 @@ def write_archive_tables(root: Path) -> None:
         ):
             if retry is None or not ledger.file(name).exists():
                 _write_csv(ledger.file(name), fields, rows)
-        if report is not None:
+        if report is not None and report.get("mode") == MODE:
+            _write_csv(ledger.file("holdout-endpoints.csv"), CLOSING_ENDPOINT_FIELDS, _closing_endpoint_rows(report))
+            _write_csv(ledger.file("rejected-audit.csv"), CLOSING_AUDIT_FIELDS, _closing_audit_rows(report))
+            _write_csv(ledger.file("secondary-best-guarded.csv"), SECONDARY_FIELDS, _closing_secondary_rows(report))
+            _write_csv(ledger.file("cross-regime.csv"), CLOSING_CROSS_FIELDS, _closing_cross_rows(report))
+        elif report is not None:
             _write_csv(ledger.file("holdout-endpoints.csv"), RESULT_FIELDS, _endpoint_rows(report))
             _write_csv(ledger.file("rejected-audit.csv"), AUDIT_FIELDS, _audit_rows(report))
             _write_csv(ledger.file("cross-regime.csv"), CROSS_FIELDS, _cross_rows(report))
         readme = ledger.file("README.md")
         if retry is None or not readme.exists():
-            atomic_write_text(readme, _readme(manifest, has_holdout=report is not None))
+            content = _readme(manifest, has_holdout=report is not None)
+            if ledger.read("verification", REGISTRATION) is not None:
+                content += """
+## M5 收尾精简复验
+
+`verification/closing-registration.json` 在留出集获取前冻结 A/B/C 入选名单及开发清单哈希；保留原始 `study_manifest.json`。`secondary-best-guarded.csv` 明确为冻结后次要审计，未测的 `X_1` 标记 `not_scheduled`。原始档案中登记的全量首轮和弱候选迁移不再执行。
+
+复验按目标股票与源码 SHA256 去重；同一源码的不同直接父模型与事前预测仍独立判定。CSV 的 `delta_*` 为直接父模型配对差值，`seed_delta_*` 为同股 seed 配对差值。跨股矩阵的对角线使用 B 集同一原始轮廓与同股 seed 构造配对，不再重训；两个方向分别在目标股训练，权重不共享。
+"""
+            atomic_write_text(readme, content)
         if retry is not None:
             previous = readme.read_text(encoding="utf-8")
             heading = "## V2 资源失败补测审计"
