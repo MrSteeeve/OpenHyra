@@ -27,7 +27,7 @@ class BehaviorProfiler:
         per_instance_scores: dict[str, float],
         per_instance_exercise_rates: dict[str, float],
         training_seconds: float,
-        peak_memory_bytes: int,
+        peak_memory_bytes: int | None,
         inference_microseconds_per_state: float,
         parameter_count: int,
         seed_scores: dict[str, list[float]] | None = None,
@@ -109,7 +109,7 @@ class BehaviorProfiler:
             },
             compute={
                 "training_seconds": training_seconds,
-                "peak_memory_bytes": peak_memory_bytes,
+                **({"peak_memory_bytes": peak_memory_bytes} if peak_memory_bytes is not None else {}),
                 "inference_microseconds_per_state": (
                     inference_microseconds_per_state
                 ),

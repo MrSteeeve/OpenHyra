@@ -1,4 +1,4 @@
-"""P1 protocol and native zero-data sandbox acceptance tests."""
+"""P1 protocol and zero-data scientific worker acceptance tests."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def test_actual_compiler_repair_records_seal_before_synthesis(tmp_path: Path) ->
             assert "Sealed proposal" in message
             return ProviderReply(fence(BAD_MATRIX), 340, 90)
         assert "mat1 and mat2 shapes cannot be multiplied" in message
-        assert "<sandbox>" in message
+        assert "<worker>" in message
         return ProviderReply(fence(MULTISCALE), 513, 220)
 
     def save(hypothesis: DynamicHypothesis, predictions: tuple[StructuredPrediction, ...]) -> None:
@@ -190,33 +190,55 @@ def test_registered_provider_binding_preserves_settings_and_counts_truncation(mo
     (FUTURE, "Tensor-likes are not close"),
     (OVER_BUDGET, "model exceeds max_params"),
 ])
-def test_actual_sandbox_rejects_noncausal_or_oversized_model(source: str, error: str) -> None:
+def test_actual_gate_rejects_noncausal_or_oversized_model(source: str, error: str) -> None:
     assert error in (CandidateGate()(source) or "")
 
 
-def test_actual_sandbox_rejects_singular_backward_with_finite_forward() -> None:
+def test_actual_gate_rejects_singular_backward_with_finite_forward() -> None:
     assert "missing or nonfinite training gradients" in (CandidateGate()(NONFINITE_GRADIENT) or "")
 
 
-def test_actual_sandbox_denies_host_read_and_write(tmp_path: Path) -> None:
-    secret = tmp_path / "synthetic-private.txt"
-    secret.write_text("local fixture", encoding="utf-8")
-    outside = tmp_path / "unapproved.txt"
-    gate = CandidateGate()
-    read = f"open({str(secret)!r}, 'r').read()\n"
-    write = f"open({str(outside)!r}, 'w').write('blocked')\n"
-    assert "PermissionError" in (gate(read + SEED) or "")
-    assert "PermissionError" in (gate(write + SEED) or "")
-    assert not outside.exists()
-
-
-def test_actual_sandbox_accepts_the_exact_seed_source() -> None:
+def test_actual_gate_accepts_the_exact_seed_source() -> None:
     assert CandidateGate()(seed_lob_source()) is None
 
 
-@pytest.mark.parametrize("module", ["socket", "torch.storage"])
-def test_candidate_imports_are_checked_at_runtime(module: str) -> None:
-    assert f"Candidate cannot import {module!r}" in (CandidateGate()(f"import {module}\n" + SEED) or "")
+def test_gate_allows_standard_scientific_imports() -> None:
+    source = """from dataclasses import dataclass
+from functools import partial
+from itertools import repeat
+from typing import Optional
+import torch
+import torch.fft
+import torch.linalg
+from stochopia.neural.primitives import SeedGRULOBModel
+
+@dataclass(frozen=True)
+class ModelShape:
+    state_dim: Optional[int] = 48
+
+class CandidateLOBWorldModel(SeedGRULOBModel):
+    def __init__(self):
+        shape = ModelShape()
+        values = torch.tensor(list(repeat(1.0, 2)))
+        spectrum = partial(torch.fft.rfft, dim=-1)(values)
+        assert torch.linalg.vector_norm(spectrum).item() == 2.0
+        super().__init__(state_dim=shape.state_dim)
+"""
+    assert CandidateGate()(source) is None
+
+
+def test_gate_requires_completed_tensor_checks(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tasks.stochopia_p1 import gate as module
+
+    def completed_without_marker(command, *, timeout_s, work_dir, extra_env):
+        assert command[1:3] == ["-s", "-B"]
+        assert [path.name for path in work_dir.iterdir()] == ["candidate.py"]
+        assert extra_env["PYTHONPATH"] == module._runtime_pythonpath()
+        return {"returncode": 0, "timed_out": False, "cancelled": False,
+                "elapsed_s": 0.1, "stdout": "", "stderr": ""}
+
+    monkeypatch.setattr(module, "run_worker_subprocess", completed_without_marker)
+    assert "before completing its tensor checks" in (CandidateGate()(SEED) or "")
 
 
 @pytest.mark.parametrize("group", ["evidence", "metrics"])

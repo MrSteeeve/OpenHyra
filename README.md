@@ -132,11 +132,13 @@ pricing paths. Paired contrasts are written to
 structures, test a counterfactual, and verify independently” rather than a
 single best-score claim.
 
-**Sandbox + trusted evaluation** — candidates run under macOS Seatbelt with no
-network and writes confined to the sandbox. Most host reads remain allowed, so
-this is write-confinement rather than a confidentiality sandbox. Candidate
-`solution.json` files are accepted only as bounded, single-link regular files,
-copied into a candidate-inaccessible trusted directory, and scored there. An
+**Worker lifecycle + trusted evaluation** — trusted research candidates run in
+separate process groups with a dedicated temporary directory, a filtered
+environment, and a wall-clock timeout. Filesystem and network permissions are
+the responsibility of the deployment environment; the Python worker does not
+provide a security boundary. Candidate `solution.json` files are validated,
+copied into the trusted evaluation directory after the worker exits, and scored
+there. An
 integrity whitelist rejects changes beyond the declared editable files, an AST
 preflight catches known crash patterns, and every failed/repaired attempt is
 stored as an immutable EB record linked by `repair_of`. Proposal source is

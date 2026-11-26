@@ -38,7 +38,7 @@ python world_model.py --input IN --output OUT
   - `returns (256,21,2)`：联合样本路径，|r| ≤ 0.5；
   - `q (256,3)`：[CSI1000 IV, CSI500 carry, CSI1000 carry] 在第 21 个交易日的样本。
 
-只允许 numpy / scipy。每个起点单独运行一次，在 Seatbelt 训练沙箱里执行（`sandbox.run_training_sandbox`）：
+只允许 numpy / scipy。每个起点单独运行一次，在独立工作进程中执行（`sandbox.run_training_sandbox`），主机权限由外层部署环境负责：
 - 断网；
 - 只能写自己的输出目录与临时目录；
 - 读不到面板文件或其他起点的数据；

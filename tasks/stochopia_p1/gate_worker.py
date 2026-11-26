@@ -2,62 +2,40 @@
 
 from __future__ import annotations
 
-import builtins
 import sys
-from collections.abc import Mapping
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from types import ModuleType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stochopia.neural.lob_interface import LOBWorldModel
 
 
-IMPORTS = frozenset({
-    "__future__", "math", "cmath", "decimal", "fractions", "statistics",
-    "torch", "torch.nn", "torch.nn.functional",
-    "stochopia.neural.lob_interface", "stochopia.neural.primitives",
-})
-
-
-def _candidate_import(name: str, globals: Mapping[str, object] | None = None,
-                      locals: Mapping[str, object] | None = None,
-                      fromlist: tuple[str, ...] = (), level: int = 0) -> ModuleType:
-    # The OS sandbox remains the security boundary. This is the source API.
-    if level != 0 or name not in IMPORTS:
-        raise ImportError(f"Candidate cannot import {name!r}")
-    return builtins.__import__(name, globals, locals, fromlist, level)
-
-
 def load_candidate(candidate: Path) -> type[LOBWorldModel]:
-    """Load from an isolated child after the caller stages its trusted imports."""
-    import torch
+    """Load trusted candidate source as a standard Python module in the child."""
     from stochopia.neural.lob_interface import LOBWorldModel
 
-    # PyTorch lazily imports torch.storage from the first tensor caller's
-    # builtins. Initialize it in trusted code before applying candidate imports.
-    torch.tensor(0)
-    namespace = {
-        "__builtins__": {**vars(builtins), "__import__": _candidate_import},
-        "__name__": "candidate",
-        "__file__": str(candidate),
-    }
-    exec(compile(candidate.read_text(encoding="utf-8"), str(candidate), "exec"), namespace)
-    candidate_type = namespace.get("CandidateLOBWorldModel")
+    spec = spec_from_file_location("candidate", candidate)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load research candidate from {candidate}")
+    module = module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    candidate_type = getattr(module, "CandidateLOBWorldModel", None)
     if not isinstance(candidate_type, type) or not issubclass(candidate_type, LOBWorldModel):
         raise TypeError("CandidateLOBWorldModel must subclass LOBWorldModel")
     return candidate_type
 
 
 def main(candidate: Path, completion: Path) -> None:
-    sys.path.insert(0, str(candidate.parent))
-
     import torch
 
-    # Configure both thread pools before loading candidate or probe code.
+    # Configure both thread pools and numeric precision before loading the model.
     torch.set_num_threads(1)
     if torch.get_num_interop_threads() != 1:
         torch.set_num_interop_threads(1)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
 
     from stochopia.neural.lob_interface import _probe, verify_world_model_contract, world_model_loss
 

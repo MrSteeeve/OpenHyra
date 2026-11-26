@@ -2,8 +2,8 @@
 
 The legacy feature task does not call this bridge; executable-program tasks
 do. A trusted caller gives one validated contract and only its training paths.
-The candidate process never receives an evaluation request or any pricing,
-outer, or inner audit paths.
+The candidate invocation and input bundle do not include an evaluation request
+or any pricing, outer, or inner audit paths. Deployment owns host-level permissions.
 """
 
 from __future__ import annotations
@@ -49,7 +49,6 @@ MAX_TRAINING_SEED = (1 << 63) - 1
 PROGRAM_PREDICTION_REQUEST_SCHEMA = "openhyra-python-program-predict.v1"
 PROGRAM_ENTRYPOINT = "algorithm.py"
 DEFAULT_PREDICTION_TIMEOUT_S = 5.0
-DEFAULT_PREDICTION_MEMORY_BYTES = 1024 * 1024 * 1024
 DEFAULT_PREDICTION_FILE_SIZE_BYTES = 16 * 1024 * 1024
 
 
@@ -65,14 +64,14 @@ class TrainingInputBundle:
 
 @dataclass(frozen=True)
 class TrainingCellResult:
-    """One fail-closed sandbox outcome and its trusted policy, if any."""
+    """One worker outcome and its trusted policy, if any."""
 
     status: str
     returncode: int | None
     isolation: str
     log_tail: str
     wall_seconds: float
-    peak_memory_bytes: int
+    peak_memory_bytes: int | None
     output_entries: int
     output_bytes: int
     train_seed: int
@@ -82,8 +81,8 @@ class TrainingCellResult:
     policy_artifact_sha256: str | None
     runner: ContinuationRunner | "SandboxedPythonProgramRunner" | None
     research_fallback: bool = False
-    # False when the supervisor could not measure process-group RSS (no kill).
-    memory_limit_enforced: bool = True
+    # Host deployment owns memory limits; this worker does not sample RSS.
+    memory_limit_enforced: bool = False
 
 
 @dataclass(frozen=True)
@@ -471,10 +470,7 @@ class SandboxedPythonProgramRunner:
         prediction_parent: Path,
         runtime_roots: Iterable[str | os.PathLike[str]],
         timeout_s: float,
-        cpu_seconds: float | None,
-        memory_bytes: int,
         file_size_bytes: int,
-        externally_isolated: bool,
         cancel_event: Any,
         python_executable: str | os.PathLike[str],
     ) -> None:
@@ -485,10 +481,7 @@ class SandboxedPythonProgramRunner:
         self.prediction_parent = prediction_parent
         self.runtime_roots = tuple(runtime_roots)
         self.timeout_s = timeout_s
-        self.cpu_seconds = cpu_seconds
-        self.memory_bytes = memory_bytes
         self.file_size_bytes = file_size_bytes
-        self.externally_isolated = externally_isolated
         self.cancel_event = cancel_event
         self.python_executable = os.fspath(python_executable)
         self.prediction_calls = 0
@@ -540,11 +533,6 @@ class SandboxedPythonProgramRunner:
                 tmp_dir=tmp_dir,
                 runtime_roots=self.runtime_roots,
                 timeout_s=self.timeout_s,
-                cpu_seconds=self.cpu_seconds,
-                memory_bytes=self.memory_bytes,
-                file_size_bytes=self.file_size_bytes,
-                max_total_output_bytes=self.file_size_bytes,
-                externally_isolated=self.externally_isolated,
                 cancel_event=self.cancel_event,
             )
             self.prediction_wall_seconds += float(result["wall_seconds"])
@@ -669,21 +657,16 @@ def run_per_instance_training(
     train_seed: int,
     runtime_roots: Iterable[str | os.PathLike[str]],
     timeout_s: float = 60,
-    cpu_seconds: float | None = None,
-    memory_bytes: int = 1024 * 1024 * 1024,
     file_size_bytes: int = 64 * 1024 * 1024,
     prediction_timeout_s: float = DEFAULT_PREDICTION_TIMEOUT_S,
-    prediction_cpu_seconds: float | None = None,
-    prediction_memory_bytes: int = DEFAULT_PREDICTION_MEMORY_BYTES,
     prediction_file_size_bytes: int = DEFAULT_PREDICTION_FILE_SIZE_BYTES,
-    externally_isolated: bool = False,
     cancel_event: Any = None,
     python_executable: str | os.PathLike[str] = sys.executable,
 ) -> TrainingCellResult:
     """Train and trusted-load one fresh per-instance policy cell.
 
     There is deliberately no evaluation-request or evaluation-path argument.
-    Only the sealed training bundle is mounted as candidate input.
+    Only the sealed training bundle is passed as candidate input.
     """
     seed = _strict_seed(train_seed)
     validated_instance = _validated_instance(instance)
@@ -727,13 +710,6 @@ def run_per_instance_training(
         tmp_dir=tmp_dir,
         runtime_roots=runtime_root_tuple,
         timeout_s=timeout_s,
-        cpu_seconds=cpu_seconds,
-        memory_bytes=memory_bytes,
-        file_size_bytes=file_size_bytes,
-        max_total_output_bytes=(
-            file_size_bytes if is_python_program else 64 * 1024 * 1024
-        ),
-        externally_isolated=externally_isolated,
         cancel_event=cancel_event,
     )
     common = {
@@ -742,8 +718,8 @@ def run_per_instance_training(
         "research_fallback": bool(sandbox_result.get("research_fallback", False)),
         "log_tail": sandbox_result["log_tail"],
         "wall_seconds": float(sandbox_result["wall_seconds"]),
-        "peak_memory_bytes": int(sandbox_result["peak_memory_bytes"]),
-        "memory_limit_enforced": bool(sandbox_result.get("memory_limit_enforced", True)),
+        "peak_memory_bytes": sandbox_result.get("peak_memory_bytes"),
+        "memory_limit_enforced": False,
         "output_entries": int(sandbox_result["output_entries"]),
         "output_bytes": int(sandbox_result["output_bytes"]),
         "train_seed": seed,
@@ -775,10 +751,7 @@ def run_per_instance_training(
                 prediction_parent=prediction_parent,
                 runtime_roots=runtime_root_tuple,
                 timeout_s=prediction_timeout_s,
-                cpu_seconds=prediction_cpu_seconds,
-                memory_bytes=prediction_memory_bytes,
                 file_size_bytes=prediction_file_size_bytes,
-                externally_isolated=externally_isolated,
                 cancel_event=cancel_event,
                 python_executable=python_executable,
             )

@@ -1590,7 +1590,6 @@ class CancellationTests(unittest.TestCase):
             self.assertFalse(marker.exists())
 
 
-@unittest.skipUnless(sys.platform == "darwin", "requires macOS Seatbelt")
 class SandboxTests(unittest.TestCase):
     def test_cancel_event_kills_active_solver_process_group(self):
         with tempfile.TemporaryDirectory() as temporary:

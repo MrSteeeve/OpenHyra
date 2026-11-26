@@ -70,18 +70,22 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         gated_sources.append(source)
 
     def worker(
-        command: list[str], *, source_dir: Path, input_dir: Path, output_dir: Path,
-        tmp_dir: Path, runtime_roots: tuple[Path, ...], timeout_s: float, cpu_seconds: int, memory_bytes: int,
+        command: list[str], *, work_dir: Path, timeout_s: float, extra_env: dict[str, str],
     ) -> Json:
-        mode = command[3]
-        source = (source_dir / "candidate.py").read_text()
+        assert command[1:3] == ["-s", "-B"]
+        assert Path(command[3]) == market_eval._WORKER_SCRIPT
+        mode = command[4]
+        candidate_path, input_dir, output_dir = map(Path, command[5:8])
+        source_dir = candidate_path.parent
+        source = candidate_path.read_text()
         role = "parent" if source == request.parent.source else "candidate"
         model = request.parent if role == "parent" else request.candidate
         assert gated_sources[-1] == model.source
-        assert (source_dir / "candidate.py").read_text() == model.source
-        assert (source_dir / "experiments" / "p1_m2_baseline.py").is_file()
-        assert len(list(source_dir.rglob("*.npz"))) == 0
-        assert not any(tmp_dir.iterdir()) and runtime_roots and memory_bytes > 0
+        assert candidate_path.read_text() == model.source
+        assert list(source_dir.iterdir()) == [candidate_path]
+        assert output_dir.parent == work_dir
+        assert extra_env == {"PYTHONPATH": market_eval._runtime_pythonpath()}
+        assert command[8:12] == ["--device", "cpu", "--device-id", "cpu"]
         plan = json.loads((input_dir / "plan.json").read_bytes())
         assert plan["symbol"] == SYMBOL
         assert plan["train_dates"] == list(TRAIN)
@@ -92,7 +96,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         if mode == "fit":
             seed = int(command[-1])
             calls.append((role, mode, seed))
-            assert timeout_s == 180 and cpu_seconds == 720
+            assert timeout_s == 180
             assert not (input_dir / "raw").exists()
             assert not (input_dir / "weights").exists()
             assert set(plan) == {"symbol", "train_dates"}
@@ -100,7 +104,7 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
         else:
             calls.append((role, mode, None))
             eval_inputs.append(input_dir)
-            assert mode == "evaluate" and timeout_s == 700 and cpu_seconds == 2_800
+            assert mode == "evaluate" and timeout_s == 700
             assert input_dir.parent == source_dir.parent
             assert plan["rollout_seed"] == request.rollout_seed
             assert plan["eval_dates"] == list(DEV)
@@ -115,10 +119,10 @@ def test_market_adapter_dispatches_the_same_plan_and_only_allowed_inputs(
                 "day_metrics": {day: {"val_nll_total": nll, "lob_impact_score": None} for day in DEV},
                 "evidence": {"lob_impact_score": 0.5},
             }))
-        return {"status": "ok"}
+        return {"returncode": 0, "timed_out": False, "stdout": "", "stderr": ""}
 
     monkeypatch.setattr(market_eval, "CandidateGate", lambda: gate)
-    monkeypatch.setattr(market_eval, "run_training_sandbox", worker)
+    monkeypatch.setattr(market_eval, "run_worker_subprocess", worker)
     evaluate = market_eval.MarketEvaluator(archive, SYMBOL, evaluation_timeout_s=700)
     result = evaluate(request)
 
@@ -153,18 +157,18 @@ def test_market_adapter_rejects_unregistered_dates_and_seeds_before_gate(
 
 
 @pytest.mark.parametrize(("candidate", "outcome", "error"), [
-    (True, {"status": "timeout"}, CandidateEvaluationFailed),
-    (True, {"status": "crash", "returncode": 65}, CandidateEvaluationFailed),
-    (True, {"status": "crash", "returncode": 66}, NonfiniteCandidateLoss),
-    (True, {"status": "crash", "returncode": None}, market_eval.MarketEvaluationError),
-    (False, {"status": "timeout"}, market_eval.MarketEvaluationError),
+    (True, {"timed_out": True}, CandidateEvaluationFailed),
+    (True, {"returncode": 65}, CandidateEvaluationFailed),
+    (True, {"returncode": 66}, NonfiniteCandidateLoss),
+    (True, {"returncode": None}, market_eval.MarketEvaluationError),
+    (False, {"timed_out": True}, market_eval.MarketEvaluationError),
 ])
 def test_only_known_candidate_failures_are_scored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, candidate: bool, outcome: Json,
     error: type[RuntimeError],
 ) -> None:
-    monkeypatch.setattr(market_eval, "run_training_sandbox", lambda *args, **kwargs: {
-        **outcome, "log_tail": "worker failed",
+    monkeypatch.setattr(market_eval, "run_worker_subprocess", lambda *args, **kwargs: {
+        "timed_out": False, "returncode": -9, "stdout": "", "stderr": "worker failed", **outcome,
     })
     with pytest.raises(error, match="fit worker"):
         market_eval._run_worker(tmp_path / "fit", tmp_path, tmp_path, "fit", 60,
@@ -285,27 +289,38 @@ CandidateLOBWorldModel = ThreadProbe
     assert market_eval.CandidateGate()(source) is None
 
 
-def test_native_worker_fits_one_minibatch_from_a_synthetic_npz(tmp_path: Path) -> None:
-    # Only the test's staged copy uses a reduced fit budget. The native entry,
-    # import staging, NPZ loading, encoding, optimizer, and export stay real.
+def test_native_worker_fits_one_minibatch_from_a_synthetic_npz(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A test-only launcher supplies a reduced fit budget in its child process.
+    # The real worker, imports, NPZ loading, optimizer, and export are used;
+    # neither the shared checkout nor the candidate runtime is copied/edited.
     source = tmp_path / "source"
-    market_eval._stage_runtime(source, _request().parent)
-    training = source / "stochopia/neural/lob_training.py"
-    with training.open("a", encoding="utf-8") as handle:
-        handle.write("""
-
+    market_eval._stage_candidate(source, _request().parent)
+    launcher = tmp_path / "test_worker.py"
+    launcher.write_text("""
 from dataclasses import replace
+import torch
+from tasks.stochopia_p1.market_worker import cli
+from stochopia.neural import lob_training
 
-full_fit = fit_lob_world_model
+full_fit = lob_training.fit_lob_world_model
 
 
-def fit_lob_world_model(factory, days, seed):
+def fit_lob_world_model(factory, days, seed, *, device="cpu"):
     assert torch.get_num_threads() == 1
     assert torch.get_num_interop_threads() == 1
+    assert not torch.backends.cuda.matmul.allow_tf32
+    assert not torch.backends.cudnn.allow_tf32
     return full_fit(factory, days, seed, protocol=replace(
-        P1_FIT_PROTOCOL, subseq_len=4, burn_in=1, batch_size=1, steps=1,
-    ))
-""")
+        lob_training.P1_FIT_PROTOCOL, subseq_len=4, burn_in=1, batch_size=1, steps=1,
+    ), device=device)
+
+
+lob_training.fit_lob_world_model = fit_lob_world_model
+cli()
+""", encoding="utf-8")
+    monkeypatch.setattr(market_eval, "_WORKER_SCRIPT", launcher)
     events = np.arange(8, dtype=np.int64)
     book_ticks = np.zeros((len(events), 2, 10), dtype=np.int64)
     book_ticks[:, 0, 0] = 99
@@ -325,7 +340,7 @@ def fit_lob_world_model(factory, days, seed):
 
     output = market_eval._run_worker(tmp_path / "fit", source, inputs, "fit", 60, P1_TRAIN_SEEDS[0])
 
-    weights = market_eval.read_regular_file(output / "weights.pt", 1024 * 1024)
+    weights = (output / "weights.pt").read_bytes()
     state = torch.load(BytesIO(weights), map_location="cpu", weights_only=True)
     SeedGRULOBModel().load_state_dict(state)
     assert all(torch.isfinite(weight).all().item() for weight in state.values())

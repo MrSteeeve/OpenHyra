@@ -86,7 +86,6 @@ EVIDENCE_SCHEMA = "openhyra-bermudan-evidence.v1"
 # mirror the standalone training bridge; task/request configuration can lower
 # them for a cheap smoke run, but cannot silently make them unbounded.
 DEFAULT_TRAINING_TIMEOUT_S = 60.0
-DEFAULT_TRAINING_MEMORY_BYTES = 1024 * 1024 * 1024
 DEFAULT_TRAINING_FILE_SIZE_BYTES = 64 * 1024 * 1024
 
 MAX_FEATURES = 16
@@ -1718,61 +1717,8 @@ def _source_bundle_digest(
 
 
 def _training_runtime_roots() -> tuple[Path, ...]:
-    """Return narrow, non-overlapping roots needed by the candidate runtime."""
-    import sysconfig
-
-    prefix = Path(sys.prefix)
-    exec_prefix = Path(getattr(sys, "exec_prefix", sys.prefix))
-    candidates = [
-        # ``sys.prefix`` itself can be a protected broad root (notably
-        # ``/usr/local`` on Linux).  Expose the versioned stdlib/site-packages
-        # directories and the binary/lib directories instead.
-        prefix / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}",
-        exec_prefix / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}",
-        prefix / "lib",
-        exec_prefix / "lib",
-        # A venv's ``bin/python`` is a symlink; Seatbelt checks the exec of
-        # that literal path, so its directory must be allowed as well as the
-        # resolved interpreter directory.
-        Path(sys.executable).parent,
-        Path(sys.executable).resolve().parent,
-    ]
-    # The macOS framework build links the interpreter against a sibling
-    # ``Python`` dynamic library (``$base_prefix/Python``; under a venv
-    # ``sys.prefix`` is the venv), not merely the files under
-    # ``lib/pythonX.Y`` and ``bin``.  Allow that *versioned* framework
-    # directory as one narrow root when the library is present.  Do not add
-    # the prefix on Linux/Unix installations where it is commonly the broad
-    # ``/usr/local`` root rejected by the training sandbox.
-    base_prefix = Path(sys.base_prefix)
-    if (
-        sys.platform == "darwin"
-        and (base_prefix / "Python").is_file()
-    ):
-        candidates.insert(0, base_prefix)
-    for key in ("stdlib", "platstdlib", "purelib", "platlib"):
-        configured = sysconfig.get_path(key)
-        if configured:
-            candidates.append(Path(configured))
-    roots: list[Path] = []
-    for candidate in candidates:
-        try:
-            resolved = candidate.resolve(strict=True)
-        except OSError:
-            continue
-        if not resolved.is_dir():
-            continue
-        if any(
-            resolved == existing
-            or resolved in existing.parents
-            or existing in resolved.parents
-            for existing in roots
-        ):
-            continue
-        roots.append(resolved)
-    if not roots:
-        raise ValueError("no usable Python runtime root for candidate training")
-    return tuple(roots)
+    """Interpreter roots retained for compatibility with training call sites."""
+    return tuple(dict.fromkeys((Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve())))
 
 
 def _training_result_metrics(result: Any) -> dict[str, Any]:
@@ -1791,8 +1737,8 @@ def _training_result_metrics(result: Any) -> dict[str, Any]:
         "isolation": result.isolation,
         "research_fallback": bool(getattr(result, "research_fallback", False)),
         "wall_seconds": float(result.wall_seconds),
-        "peak_memory_bytes": int(result.peak_memory_bytes),
-        "memory_limit_enforced": bool(getattr(result, "memory_limit_enforced", True)),
+        "peak_memory_bytes": result.peak_memory_bytes,
+        "memory_limit_enforced": bool(getattr(result, "memory_limit_enforced", False)),
         "output_entries": int(result.output_entries),
         "output_bytes": int(result.output_bytes),
         "train_seed": int(result.train_seed),
@@ -1862,7 +1808,6 @@ def _fit_algorithm_policy(
     )
 
     timeout_s = float(config.get("training_timeout_s", DEFAULT_TRAINING_TIMEOUT_S))
-    memory_bytes = int(config.get("training_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES))
     file_size_bytes = int(config.get("training_file_size_bytes", DEFAULT_TRAINING_FILE_SIZE_BYTES))
     result = run_per_instance_training(
         instance=instance,
@@ -1876,20 +1821,11 @@ def _fit_algorithm_policy(
         train_seed=train_seed & ((1 << 63) - 1),
         runtime_roots=_training_runtime_roots(),
         timeout_s=timeout_s,
-        cpu_seconds=config.get("training_cpu_seconds"),
-        memory_bytes=memory_bytes,
         file_size_bytes=file_size_bytes,
         prediction_timeout_s=float(config.get("prediction_timeout_s", 5.0)),
-        prediction_cpu_seconds=config.get("prediction_cpu_seconds"),
-        prediction_memory_bytes=int(config.get(
-            "prediction_memory_bytes", DEFAULT_TRAINING_MEMORY_BYTES,
-        )),
         prediction_file_size_bytes=int(config.get(
             "prediction_file_size_bytes", 16 * 1024 * 1024,
         )),
-        # Opt-in only (same switch as sandbox._sandboxed_cmd): without it the
-        # training sandbox fails closed on hosts lacking Seatbelt.
-        externally_isolated=os.environ.get("OPENHYRA_ALLOW_UNSANDBOXED") == "1",
     )
     details = _training_result_metrics(result)
     if result.status != "ok" or result.runner is None:
@@ -2686,8 +2622,9 @@ def _validate_config(stage: str, raw: Any) -> dict[str, Any]:
     common_allowed = {
         "suite_id", "direction", "metric", "confidence_level", "instance_count",
         "repeats", "training_paths", "pricing_paths", "ridge_alpha",
-        # Open algorithm-track limits.  They are optional and intentionally
-        # omitted from the legacy task's canonical request unless supplied.
+        # Optional algorithm-track time and artifact bounds. Historical CPU
+        # and memory fields remain accepted for request hash compatibility;
+        # host execution quotas are deployment-owned.
         "training_timeout_s", "training_cpu_seconds",
         "training_memory_bytes", "training_file_size_bytes",
         "prediction_timeout_s", "prediction_cpu_seconds",

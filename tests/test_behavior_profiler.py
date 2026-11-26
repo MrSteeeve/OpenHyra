@@ -192,3 +192,12 @@ def test_profile_validates() -> None:
     validate = getattr(profile, "validate", None)
     if validate is not None:
         assert validate() is None
+
+
+def test_unknown_peak_memory_is_not_fabricated() -> None:
+    profiler = BehaviorProfiler({"a": 1.0}, PROBE_SHA)
+    profile = profiler.build_profile(
+        POLICY_SHA, {"a": 1.25}, {"a": 0.2}, 1.0, None, 2.0, 10,
+    )
+    assert "peak_memory_bytes" not in profile.compute
+    assert profile.compute["training_seconds"] == 1.0

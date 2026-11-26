@@ -132,11 +132,10 @@ same-seed fit with model/prediction digest comparison, and a repeat-query
 determinism probe (the same prefix queried twice). No-look-ahead is structural:
 the evaluator passes only the history up to the decision time. These are evidence
 fields and do not enter the primary score. `research_mode` is a provenance
-flag and never bypasses isolation. The native Seatbelt sandbox must launch;
-if the host denies it, the evaluation fails explicitly. Making input files
-read-only with chmod alone is insufficient because the same user could undo
-that permission. No automatic unisolated retry is allowed. Training/probe/replay
-wall time is observed and reported separately from numerical replay identity.
+flag. Trusted research programs run in independent process groups with wall-clock
+timeouts and a filtered environment; deployment is responsible for filesystem
+and network permissions. Training/probe/replay wall time is observed and
+reported separately from numerical replay identity.
 
 The pre-registered complete-program controls under
 `research_candidates/` include linear/ridge, PCA, gated ridge, residual

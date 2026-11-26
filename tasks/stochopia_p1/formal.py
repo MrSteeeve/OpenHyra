@@ -34,7 +34,10 @@ TokenCounterFactory = Callable[[str], TokenCounter]
 
 OPENHYRA_ROOT = Path(__file__).resolve().parents[2]
 MODEL_REGISTRY = Path("config/p1-lob-models.yaml")
-OPENHYRA_CODE = ("tasks/stochopia_p1", "sandbox.py", "island_scheduler.py")
+OPENHYRA_CODE = (
+    "tasks/stochopia_p1", "sandbox.py", "worker_subprocess.py",
+    "sandbox_artifacts.py", "island_scheduler.py",
+)
 STOCHOPIA_CODE = (
     "stochopia/__init__.py", "stochopia/common.py", "stochopia/data", "stochopia/llm.py",
     "stochopia/harness/lob_rollout.py", "stochopia/measure/impact.py", "stochopia/neural",

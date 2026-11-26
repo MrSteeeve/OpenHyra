@@ -175,12 +175,9 @@ class PrivateAuditTests(unittest.TestCase):
                     "config": {},
                 },
             )
-            with patch.dict(
-                os.environ, {"OPENHYRA_ALLOW_UNSANDBOXED": "1"},
-            ):
-                score, status, _tail, metrics = run_solution(
-                    source, root / "sandbox", task,
-                )
+            score, status, _tail, metrics = run_solution(
+                source, root / "sandbox", task,
+            )
             self.assertEqual((score, status), (99.0, "ok"))
             self.assertEqual(metrics["threads"], "1")
             self.assertEqual(
@@ -193,9 +190,7 @@ class PrivateAuditTests(unittest.TestCase):
             )
 
     def test_real_bermudan_search_and_private_audit_integrate(self):
-        with tempfile.TemporaryDirectory() as temporary, patch.dict(
-            os.environ, {"OPENHYRA_ALLOW_UNSANDBOXED": "1"},
-        ):
+        with tempfile.TemporaryDirectory() as temporary:
             task = Task("bermudan_optimal_stopping", "integration-test")
             task.run_dir = Path(temporary) / "run"
             manifest = build_run_manifest(

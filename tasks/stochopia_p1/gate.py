@@ -1,44 +1,32 @@
-"""Execute the P1 zero-data checks through the existing training sandbox."""
+"""Run zero-data scientific checks in a dedicated worker process."""
 
 from __future__ import annotations
 
-import shutil
+import os
 import sys
 import tempfile
 from importlib.util import find_spec
 from pathlib import Path
 
-from sandbox import read_regular_file, run_training_sandbox
+from sandbox import run_worker_subprocess
 
 
-def _runtime_roots() -> tuple[Path, ...]:
-    candidates = (Path(sys.base_prefix), Path(sys.prefix),
-                  Path(sys.executable).resolve().parent, Path("/System/Library"),
-                  Path("/usr/lib"))
-    roots: list[Path] = []
-    for path in candidates:
-        root = path.resolve()
-        if root.is_dir() and not any(root == item or item in root.parents for item in roots):
-            roots.append(root)
-    return tuple(roots)
-
-
-def _stage_neural_runtime(source_dir: Path) -> None:
-    """Make only the two approved companion modules visible to the candidate."""
-    location = find_spec("stochopia.neural.lob_interface")
+def _runtime_pythonpath() -> str:
+    """Resolve the two local package roots without inheriting the host PYTHONPATH."""
+    location = find_spec("stochopia")
     if location is None or location.origin is None:
         raise RuntimeError("P1 gate requires the Stochopia neural runtime")
-    implementation = Path(location.origin).parent
-    package = source_dir / "stochopia" / "neural"
-    package.mkdir(parents=True)
-    (package.parent / "__init__.py").touch()
-    (package / "__init__.py").touch()
-    for name in ("lob_interface.py", "primitives.py"):
-        shutil.copyfile(implementation / name, package / name)
+    stochopia = Path(location.origin).resolve().parents[1]
+    openhyra = Path(__file__).resolve().parents[2]
+    return os.pathsep.join((str(openhyra), str(stochopia)))
 
 
 class CandidateGate:
-    """Run a candidate from an empty data directory with network denied."""
+    """Check one trusted research candidate in a separate, empty work directory.
+
+    This verifies the tensor contract, not host permissions. Deployment-level
+    isolation is the responsibility of the surrounding execution environment.
+    """
 
     def __init__(self, *, timeout_s: float = 20.0) -> None:
         self.timeout_s = timeout_s
@@ -46,30 +34,29 @@ class CandidateGate:
     def __call__(self, source: str) -> str | None:
         with tempfile.TemporaryDirectory(prefix="stochopia-p1-gate-") as directory:
             root = Path(directory).resolve()
-            source_dir = root / "source"
-            input_dir = root / "input"
-            output_dir = root / "output"
-            scratch = root / "scratch"
-            for path in (source_dir, input_dir, output_dir, scratch):
-                path.mkdir()
-            _stage_neural_runtime(source_dir)
-            worker = source_dir / "gate_worker.py"
-            shutil.copyfile(Path(__file__).with_name("gate_worker.py"), worker)
-            candidate = source_dir / "candidate.py"
+            worker = Path(__file__).resolve().with_name("gate_worker.py")
+            candidate = root / "candidate.py"
             candidate.write_text(source, encoding="utf-8")
-            completion = output_dir / "checked"
-            result = run_training_sandbox(
-                [sys.executable, "-I", str(worker), str(candidate), str(completion)],
-                source_dir=source_dir, input_dir=input_dir, output_dir=output_dir,
-                tmp_dir=scratch, runtime_roots=_runtime_roots(), timeout_s=self.timeout_s,
-                memory_bytes=2 * 1024 ** 3,
+            completion = root / "checked"
+            result = run_worker_subprocess(
+                [sys.executable, "-s", "-B", str(worker), str(candidate), str(completion)],
+                work_dir=root,
+                extra_env={"PYTHONPATH": _runtime_pythonpath()},
+                timeout_s=self.timeout_s,
             )
-            if result["status"] == "ok":
+            if result["returncode"] == 0 and not result["timed_out"] and not result["cancelled"]:
                 try:
-                    value = read_regular_file(completion, 3, label="P1 gate completion")
-                except ValueError:
+                    with completion.open("rb") as marker:
+                        value = marker.read(4)
+                except OSError:
                     return "Candidate exited before completing its tensor checks"
                 return None if value == b"ok\n" else "Candidate did not complete its tensor checks"
-            trace = result["log_tail"].strip()
-            trace = trace.replace(str(root), "<sandbox>").replace(str(Path.home()), "~")
-            return f"Sandbox {result['status']} (returncode {result['returncode']})\n{trace[-3500:]}"
+            if result["timed_out"]:
+                status = "timeout"
+            elif result["cancelled"]:
+                status = "cancelled"
+            else:
+                status = "crash"
+            trace = "\n".join((result["stdout"], result["stderr"])).strip()
+            trace = trace.replace(str(root), "<worker>").replace(str(Path.home()), "~")
+            return f"Worker {status} (returncode {result['returncode']})\n{trace[-3500:]}"

@@ -1089,8 +1089,9 @@ class V5Bridge:
                 training_seconds=float(
                     metrics.get("training_seconds", 0.0)
                 ),
-                peak_memory_bytes=int(
-                    metrics.get("peak_memory_bytes", 0)
+                peak_memory_bytes=(
+                    int(metrics["peak_memory_bytes"])
+                    if metrics.get("peak_memory_bytes") is not None else None
                 ),
                 inference_microseconds_per_state=float(
                     metrics.get("inference_us", 0.0)

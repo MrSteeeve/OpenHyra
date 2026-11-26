@@ -41,6 +41,8 @@ SOURCE_FILES = (
     "provenance.py",
     "reporting.py",
     "sandbox.py",
+    "sandbox_artifacts.py",
+    "worker_subprocess.py",
     "schemas_v5.py",
     "stopping.py",
 )

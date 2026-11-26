@@ -1,4 +1,4 @@
-"""Two-step preregistration and sandboxed synthesis for P1 candidates."""
+"""Two-step preregistration and process-isolated synthesis for P1 candidates."""
 
 from __future__ import annotations
 

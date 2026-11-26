@@ -255,26 +255,26 @@ def test_replay_prediction_check_covers_every_decision_date(tmp_path, monkeypatc
     assert result["repeat_query_probe"]["status"] == "passed"
 
 
-def test_external_isolation_is_opt_in(tmp_path, monkeypatch) -> None:
+def test_training_receives_wall_timeout_and_artifact_bounds(tmp_path, monkeypatch) -> None:
     from tasks.bermudan_optimal_stopping import training_pipeline
 
     seen = []
 
     def fake_training(**kwargs):
-        seen.append(kwargs["externally_isolated"])
+        seen.append(kwargs)
         return type("Result", (), {"status": "crash", "runner": None, "log_tail": "stub"})()
 
     monkeypatch.setattr(training_pipeline, "run_per_instance_training", fake_training)
     monkeypatch.setattr(evaluator, "_training_result_metrics", lambda result: {})
     instance = evaluator.public_suite()[0]
-    for env_value, expected in ((None, False), ("1", True)):
-        if env_value is None:
-            monkeypatch.delenv("OPENHYRA_ALLOW_UNSANDBOXED", raising=False)
-        else:
-            monkeypatch.setenv("OPENHYRA_ALLOW_UNSANDBOXED", env_value)
-        with pytest.raises(ValueError, match="candidate training failed"):
-            evaluator._fit_algorithm_policy(
-                tmp_path, None, instance, np.zeros((4, 7, 1)), train_seed=1,
-                cell_dir=tmp_path / "cell", config={},
-            )
-        assert seen[-1] is expected
+    with pytest.raises(ValueError, match="candidate training failed"):
+        evaluator._fit_algorithm_policy(
+            tmp_path, None, instance, np.zeros((4, 7, 1)), train_seed=1,
+            cell_dir=tmp_path / "cell", config={
+                "training_timeout_s": 12.0, "prediction_timeout_s": 3.0,
+                "training_file_size_bytes": 123456,
+            },
+        )
+    assert seen[0]["timeout_s"] == 12.0
+    assert seen[0]["prediction_timeout_s"] == 3.0
+    assert seen[0]["file_size_bytes"] == 123456

@@ -2,11 +2,10 @@
 
 A candidate is the full text of ``world_model.py``.  For every walk-forward
 origin the evaluator writes that origin's public history prefix and query to
-a fresh input directory and runs the program once in the training sandbox
-(macOS Seatbelt: no network, writes only to its own output/tmp directories,
-no access to the panel or other origins).  Because each origin is a separate
-process that only ever receives data up to its own origin, look-ahead is
-impossible by construction.  Scoring is done in this trusted process by
+a fresh input directory and runs the program once in a separate worker.
+Only history up to that origin is supplied in the query's input bundle;
+host-level filesystem and network boundaries belong to deployment.
+Scoring is done in this trusted process by
 Stochopia's ``forecast_protocol``; candidate-reported metrics are never used.
 """
 
@@ -36,7 +35,6 @@ PROGRAM_FILE = "world_model.py"
 SEED_PROGRAM = Path(__file__).with_name("seed_solution") / PROGRAM_FILE
 MAX_PROGRAM_BYTES = 64 * 1024
 DEFAULT_ORIGIN_TIMEOUT_S = 20.0
-DEFAULT_MEMORY_BYTES = 1024 * 1024 * 1024
 MAX_MEMBER_BYTES = 8 * 1024 * 1024  # uncompressed; a valid forecast is ~100 KB
 EXPECTED_MEMBERS = {
     "returns.npy": (fp.N_PATHS, fp.HORIZON, 2),
@@ -80,8 +78,7 @@ def runtime_roots() -> tuple[Path, ...]:
 class SandboxedProgram:
     """Callable forecaster that runs one candidate program per origin."""
 
-    def __init__(self, program: str, *, workdir: Path, timeout_s: float = DEFAULT_ORIGIN_TIMEOUT_S,
-                 memory_bytes: int = DEFAULT_MEMORY_BYTES):
+    def __init__(self, program: str, *, workdir: Path, timeout_s: float = DEFAULT_ORIGIN_TIMEOUT_S):
         encoded = program.encode("utf-8")
         if not program.strip():
             raise ValueError("program is empty")
@@ -89,13 +86,11 @@ class SandboxedProgram:
             raise ValueError(f"program exceeds {MAX_PROGRAM_BYTES} bytes")
         compile(program, PROGRAM_FILE, "exec")  # syntax check only; never executed here
         Path(workdir).mkdir(parents=True, exist_ok=False)
-        # Seatbelt matches resolved paths (macOS /var -> /private/var).
         self.workdir = Path(workdir).resolve(strict=True)
         self.source_dir = self.workdir / "source"
         self.source_dir.mkdir()
         (self.source_dir / PROGRAM_FILE).write_text(program, encoding="utf-8")
         self.timeout_s = float(timeout_s)
-        self.memory_bytes = int(memory_bytes)
         self.calls = 0
         self.wall_seconds = 0.0
         self.roots = runtime_roots()
@@ -116,8 +111,6 @@ class SandboxedProgram:
             tmp_dir=tmp_dir,
             runtime_roots=self.roots,
             timeout_s=self.timeout_s,
-            memory_bytes=self.memory_bytes,
-            externally_isolated=False,  # fail closed without Seatbelt
         )
         self.wall_seconds += float(result.get("wall_seconds") or 0.0)
         try:

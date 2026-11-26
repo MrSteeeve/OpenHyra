@@ -107,10 +107,7 @@ class BermudanTrainingPipelineTests(unittest.TestCase):
             train_seed=seed,
             runtime_roots=runtime_roots(),
             timeout_s=10,
-            cpu_seconds=10,
-            memory_bytes=512 * 1024 * 1024,
             file_size_bytes=2 * 1024 * 1024,
-            externally_isolated=sys.platform != "darwin",
         )
 
     def test_smoke_trains_from_exact_canonical_inputs_and_loads_runner(self):
@@ -119,15 +116,13 @@ class BermudanTrainingPipelineTests(unittest.TestCase):
             source = write_candidate(root)
             result = self.run_cell(source, root / "cell")
             self.assertEqual(result.status, "ok", result.log_tail)
-            self.assertEqual(
-                result.isolation,
-                "seatbelt" if sys.platform == "darwin" else "external",
-            )
+            self.assertEqual(result.isolation, "process_group")
             self.assertIsNotNone(result.runner)
             self.assertEqual(len(result.input_bundle_sha256), 64)
             self.assertEqual(len(result.policy_artifact_sha256), 64)
             self.assertGreaterEqual(result.wall_seconds, 0.0)
-            self.assertGreater(result.peak_memory_bytes, 0)
+            self.assertIsNone(result.peak_memory_bytes)
+            self.assertFalse(result.memory_limit_enforced)
             self.assertEqual(
                 result.output_entries,
                 len(self.instance.exercise_times),
@@ -218,14 +213,10 @@ class BermudanTrainingPipelineTests(unittest.TestCase):
             self.assertEqual(second.status, "ok", second.log_tail)
             self.assertEqual(first.input_bundle_sha256, second.input_bundle_sha256)
             self.assertEqual(first.policy_artifact_sha256, second.policy_artifact_sha256)
-            self.assertEqual(
-                (root / "cell-a" / "tmp" / "fresh-cell.marker").read_text(),
-                "11",
-            )
-            self.assertEqual(
-                (root / "cell-b" / "tmp" / "fresh-cell.marker").read_text(),
-                "12",
-            )
+            # The worker owns and automatically removes its scratch directory.
+            # The candidate also asserts that no marker from a prior fit exists.
+            self.assertEqual(list((root / "cell-a" / "tmp").iterdir()), [])
+            self.assertEqual(list((root / "cell-b" / "tmp").iterdir()), [])
             with self.assertRaisesRegex(FileExistsError, "fresh"):
                 self.run_cell(source, root / "cell-a", seed=13)
 

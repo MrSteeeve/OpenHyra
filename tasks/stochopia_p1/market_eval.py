@@ -9,105 +9,70 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from hashlib import sha256
-from importlib.util import find_spec
 from math import isfinite
 from pathlib import Path
 from time import perf_counter
 
 import fcntl
 
-from sandbox import (
-    TRAINING_SANDBOX_DEFAULT_OUTPUT_ENTRIES, TRAINING_SANDBOX_DEFAULT_TOTAL_OUTPUT_BYTES,
-    read_regular_file, run_training_sandbox,
-)
+from sandbox import run_worker_subprocess
 from stochopia.common import atomic_write_json
-from stochopia.neural.lob_training import P1_FIT_PROTOCOL, P1_TRAIN_SEEDS
+from stochopia.neural.lob_training import FitProtocol, P1_FIT_PROTOCOL, P1_TRAIN_SEEDS
 
-from .gate import CandidateGate, _runtime_roots
-from .market_worker import MODEL_FAILURE_EXIT, NONFINITE_LOSS_EXIT
+from .gate import CandidateGate, _runtime_pythonpath
+from .market_worker import MODEL_FAILURE_EXIT, NONFINITE_LOSS_EXIT, device_cache_identity, normalize_device
 from .store import (
     CandidateEvaluationFailed, EvaluationRequest, Json, ModelRef, NonfiniteCandidateLoss,
     PairedEvaluation, validate_dates,
 )
 
 
-_RUNTIME_FILES = (
-    "stochopia/__init__.py",
-    "stochopia/common.py",
-    "stochopia/data/__init__.py",
-    "stochopia/data/day_cache.py",
-    "stochopia/data/szse_l2.py",
-    "stochopia/harness/__init__.py",
-    "stochopia/harness/lob_rollout.py",
-    "stochopia/measure/__init__.py",
-    "stochopia/measure/impact.py",
-    "stochopia/neural/__init__.py",
-    "stochopia/neural/lob_interface.py",
-    "stochopia/neural/lob_training.py",
-    "stochopia/neural/primitives.py",
-    "experiments/p1_m2_baseline.py",
-    "experiments/p1_m2_metrics.py",
-    "experiments/p1_m3_evidence.py",
-    "experiments/p1_m4_market_stats.py",
+_WORKER_SCRIPT = Path(__file__).resolve().with_name("market_worker.py")
+# Only the exact frozen P1 fit parameters produced pre-device CPU caches.
+_LEGACY_CPU_FIT = FitProtocol(
+    subseq_len=256, burn_in=64, batch_size=16, steps=1_200, start_lr=0.002,
+    end_lr=0.0001, weight_decay=0.0001, grad_clip=1.0, max_train_seconds=180.0,
 )
-_WEIGHTS_LIMIT = 64 * 1024**2
-_PROFILE_LIMIT = 2 * 1024**2
-_MEMORY_LIMIT = 4 * 1024**3
 
 
 class MarketEvaluationError(RuntimeError):
     """The production evaluation could not finish due to a shared or unexpected error."""
 
 
-# --- Sandboxed worker staging ---
+# --- Per-run inputs and worker execution ---
 
-def _stage_runtime(source_dir: Path, model: ModelRef) -> None:
-    location = find_spec("stochopia")
-    if location is None or location.origin is None:
-        raise RuntimeError("The P1 market evaluator requires the Stochopia checkout")
-    checkout = Path(location.origin).resolve().parents[1]
-    for filename in _RUNTIME_FILES:
-        output = source_dir / filename
-        output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(checkout / filename, output)
-    (source_dir / "experiments" / "__init__.py").touch()
-    for filename in ("gate_worker.py", "market_worker.py"):
-        shutil.copyfile(Path(__file__).with_name(filename), source_dir / filename)
+def _stage_candidate(source_dir: Path, model: ModelRef) -> None:
+    """Write candidate source once; workers import the shared research runtime."""
+    source_dir.mkdir(parents=True, exist_ok=True)
     (source_dir / "candidate.py").write_text(model.source, encoding="utf-8")
 
 
 def _run_worker(
     work: Path, source_dir: Path, input_dir: Path, mode: str, timeout: float, seed: int | None = None,
-    *, candidate: bool = False,
+    *, candidate: bool = False, device: str = "cpu", device_id: str | None = None,
 ) -> Path:
     output_dir = work / "output"
-    scratch = work / "scratch"
-    for directory in (output_dir, scratch):
-        directory.mkdir(parents=True)
-    command = [sys.executable, "-I", str(source_dir / "market_worker.py"),
-               mode, str(input_dir), str(output_dir)]
+    output_dir.mkdir(parents=True)
+    command = [
+        sys.executable, "-s", "-B", str(_WORKER_SCRIPT), mode,
+        str(source_dir / "candidate.py"), str(input_dir), str(output_dir),
+        "--device", device, "--device-id", device_id or device_cache_identity(device),
+    ]
     if seed is not None:
         command.append(str(seed))
-    result = run_training_sandbox(
-        command, source_dir=source_dir, input_dir=input_dir, output_dir=output_dir,
-        tmp_dir=scratch, runtime_roots=_runtime_roots(), timeout_s=timeout,
-        cpu_seconds=max(1, int(4 * timeout)),
-        memory_bytes=_MEMORY_LIMIT,
+    result = run_worker_subprocess(
+        command, work_dir=work, timeout_s=timeout,
+        extra_env={"PYTHONPATH": _runtime_pythonpath()},
     )
-    if result["status"] != "ok":
-        trace = result["log_tail"].replace(str(work.parents[1]), "<sandbox>")
-        detail = f"{mode} worker {result['status']}\n{trace[-2500:]}"
-        if candidate and result["status"] == "crash" and result["returncode"] == NONFINITE_LOSS_EXIT:
+    if result["returncode"] != 0 or result["timed_out"] or result.get("cancelled"):
+        status = "timeout" if result["timed_out"] else "crash"
+        if result.get("cancelled"):
+            status = "cancelled"
+        trace = (result["stdout"] + "\n" + result["stderr"]).replace(str(work.parents[1]), "<worker>")
+        detail = f"{mode} worker {status}\n{trace[-2500:]}"
+        if candidate and status == "crash" and result["returncode"] == NONFINITE_LOSS_EXIT:
             raise NonfiniteCandidateLoss(detail)
-        expected = result["status"] == "timeout"
-        if result["status"] == "crash":
-            expected = result["returncode"] == MODEL_FAILURE_EXIT
-        if result["status"] == "resource_limit":
-            expected = (
-                result["peak_memory_bytes"] > _MEMORY_LIMIT
-                or result["peak_writable_bytes"] > TRAINING_SANDBOX_DEFAULT_TOTAL_OUTPUT_BYTES
-                or result["peak_writable_entries"] > TRAINING_SANDBOX_DEFAULT_OUTPUT_ENTRIES
-            )
+        expected = status == "timeout" or (status == "crash" and result["returncode"] == MODEL_FAILURE_EXIT)
         if candidate and expected:
             raise CandidateEvaluationFailed(detail)
         raise MarketEvaluationError(detail)
@@ -131,12 +96,15 @@ class MarketEvaluator:
     Each fit sees only training caches. Evaluation sees the registered split
     and read-only checkpoints. Separate cache keys keep train-only weights
     reusable across phases without reusing development readouts in the verifier.
+    Worker isolation from the host filesystem/network is a deployment concern;
+    separate work directories and registered inputs are the experiment boundary.
     """
 
     def __init__(
         self, market_root: Path, symbol: str, *, evaluation_timeout_s: float = 1_800.0,
         cache_root: Path | None = None, authorized_test_dates: tuple[int, ...] | None = None,
         expected_dev_days: int = 12, expected_test_days: int = 12,
+        device: str = "cpu",
     ) -> None:
         if (expected_dev_days, expected_test_days) not in ((12, 12), (24, 20)):
             raise ValueError("expected a registered P1 12/12 or 24/20 development/test split")
@@ -179,6 +147,8 @@ class MarketEvaluator:
         self.authorized_test_dates = authorized_test_dates
         self.evaluation_timeout_s = evaluation_timeout_s
         self.cache_root = None if cache_root is None else cache_root.resolve() / symbol
+        self.device = normalize_device(device)
+        self.device_id = device_cache_identity(self.device)
 
     def _registered_file(self, relative: Path) -> Path:
         path = self.root / relative
@@ -213,12 +183,12 @@ class MarketEvaluator:
         for seed in P1_TRAIN_SEEDS:
             started = perf_counter()
             output = _run_worker(work / f"fit-{seed}", source, train, "fit",
-                                 P1_FIT_PROTOCOL.max_train_seconds, seed, candidate=candidate)
-            checkpoint = read_regular_file(output / "weights.pt", _WEIGHTS_LIMIT, label="P1 model weights")
-            (weights / f"{seed}.pt").write_bytes(checkpoint)
+                                 P1_FIT_PROTOCOL.max_train_seconds, seed, candidate=candidate,
+                                 device=self.device, device_id=self.device_id)
+            shutil.copyfile(output / "weights.pt", weights / f"{seed}.pt")
             record = output / "fit.json"
             if record.is_file():
-                records.append(json.loads(read_regular_file(record, 4096, label="P1 fit record")))
+                records.append(json.loads(record.read_text(encoding="utf-8")))
             else:
                 records.append({"seed": seed, "seconds": perf_counter() - started})
         return records
@@ -233,7 +203,16 @@ class MarketEvaluator:
         with _exclusive(cache):
             ready = cache / "fit.json"
             if not ready.exists():
-                records = self._fit_into(work, train, source, weights, candidate=candidate)
+                legacy_key = self._legacy_cpu_key(key)
+                legacy = self.cache_root / "train" / legacy_key if legacy_key is not None else None
+                if legacy is not None and (legacy / "fit.json").is_file():
+                    # The old ready marker was committed after all CPU fit
+                    # checkpoints. Never write to the old P1 key.
+                    records = json.loads((legacy / "fit.json").read_text(encoding="utf-8"))["fits"]
+                    for seed in P1_TRAIN_SEEDS:
+                        shutil.copyfile(legacy / f"{seed}.pt", weights / f"{seed}.pt")
+                else:
+                    records = self._fit_into(work, train, source, weights, candidate=candidate)
                 for seed in P1_TRAIN_SEEDS:
                     shutil.copyfile(weights / f"{seed}.pt", cache / f"{seed}.pt")
                 atomic_write_json(ready, {"fits": records})
@@ -254,7 +233,7 @@ class MarketEvaluator:
             source = root / "source"
             train = root / "train-input"
             evaluation = root / "evaluation-input"
-            _stage_runtime(source, model)
+            _stage_candidate(source, model)
             self._stage_caches(train, self.train_dates)
             atomic_write_json(train / "plan.json", {"symbol": self.symbol, "train_dates": self.train_dates})
             shutil.copytree(train / "cache", evaluation / "cache")
@@ -266,8 +245,8 @@ class MarketEvaluator:
             })
             records = self._weights(root, train, source, evaluation / "weights", key=key, candidate=candidate)
             output = _run_worker(root / "measure", source, evaluation, "evaluate", self.evaluation_timeout_s,
-                                 candidate=candidate)
-            result = json.loads(read_regular_file(output / "result.json", _PROFILE_LIMIT, label="P1 market profile"))
+                                 candidate=candidate, device=self.device, device_id=self.device_id)
+            result = json.loads((output / "result.json").read_text(encoding="utf-8"))
             result["evidence"]["fit_seconds_by_seed"] = {str(row["seed"]): row["seconds"] for row in records}
             result["evidence"]["evaluation_seconds"] = result.get("evaluation_seconds")
             return result
@@ -277,21 +256,38 @@ class MarketEvaluator:
         # the same deterministic fit regardless of its experiment label.
         source_sha256 = sha256(model.source.encode("utf-8")).hexdigest()
         train_seeds = "-".join(map(str, request.train_seeds))
-        key = f"{source_sha256}-{train_seeds}"
+        key = f"{source_sha256}-{train_seeds}-device-{self.device_id}"
         if self.cache_root is None:
             return self._measure(model, request, key=key, candidate=candidate)
+        cache = self._profile_cache(request, key)
+        with _exclusive(cache):
+            ready = cache / "profile.json"
+            if ready.exists():
+                return json.loads(ready.read_text(encoding="utf-8"))
+            legacy_key = self._legacy_cpu_key(key)
+            legacy = self._profile_cache(request, legacy_key) if legacy_key is not None else None
+            if legacy is not None and (legacy / "profile.json").is_file():
+                result = json.loads((legacy / "profile.json").read_text(encoding="utf-8"))
+            else:
+                result = self._measure(model, request, key=key, candidate=candidate)
+            atomic_write_json(ready, result)
+            return result
+
+    def _legacy_cpu_key(self, key: str) -> str | None:
+        """Permit read-only migration of the known frozen CPU protocol."""
+        if self.device != "cpu" or P1_FIT_PROTOCOL != _LEGACY_CPU_FIT or not key.endswith("-device-cpu"):
+            return None
+        return key.removesuffix("-device-cpu")
+
+    def _profile_cache(self, request: EvaluationRequest, key: str) -> Path:
+        if self.cache_root is None:
+            raise ValueError("profile cache requires a cache root")
         cache = self.cache_root / request.split / str(request.rollout_seed) / key
         if len(self.dev_dates) == 24:
             # A registered holdout replacement can change this panel without
             # changing the fitted weights, candidate source or rollout seed.
             cache /= "-".join(map(str, request.eval_dates))
-        with _exclusive(cache):
-            ready = cache / "profile.json"
-            if ready.exists():
-                return json.loads(ready.read_text(encoding="utf-8"))
-            result = self._measure(model, request, key=key, candidate=candidate)
-            atomic_write_json(ready, result)
-            return result
+        return cache
 
     def _check_request(self, request: EvaluationRequest) -> None:
         if request.split == "dev" and self.authorized_test_dates is None:

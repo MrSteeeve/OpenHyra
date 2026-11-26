@@ -11,8 +11,8 @@ permissions:
 jobs:
   test:
     if: github.ref_name != 'world-model' && github.base_ref != 'world-model' && github.head_ref != 'world-model'
-    # macOS: the sandbox layer targets Seatbelt (sandbox-exec); tests that
-    # exercise it must run on the platform the harness actually supports.
+    # Historical research suites run on macOS; the world-model integration
+    # jobs below verify the new worker lifecycle on Ubuntu.
     runs-on: macos-latest
     strategy:
       matrix:
@@ -75,10 +75,10 @@ jobs:
           PY
 
   stochopia-p1:
-    name: Stochopia P1 Seatbelt integration
+    name: Stochopia P1 Linux integration
     if: github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
-    # P1 executes generated candidate code through the native training sandbox.
-    runs-on: macos-latest
+    # Workers use trusted research code and process-group lifecycle control.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -100,7 +100,7 @@ jobs:
       - name: Sync locked dependencies
         working-directory: p1-stochopia
         run: uv sync --locked --all-extras --dev
-      - name: Verify OpenHyra P1 with native isolation
+      - name: Verify OpenHyra P1 and worker lifecycle on Linux
         working-directory: p1-stochopia
         env:
           OPENHYRA_REPO: ${{ github.workspace }}
@@ -108,7 +108,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           uv run --frozen pytest -q --junitxml "$RUNNER_TEMP/openhyra-p1.xml" \
-            "$OPENHYRA_REPO"/tests/test_stochopia_p1_*.py
+            "$OPENHYRA_REPO"/tests/test_stochopia_p1_*.py \
+            "$OPENHYRA_REPO"/tests/test_training_sandbox.py
           uv run --frozen python - "$RUNNER_TEMP/openhyra-p1.xml" <<'PY'
           import sys
           from xml.etree import ElementTree
