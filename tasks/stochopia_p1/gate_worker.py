@@ -27,7 +27,7 @@ def load_candidate(candidate: Path) -> type[LOBWorldModel]:
     return candidate_type
 
 
-def main(candidate: Path, completion: Path) -> None:
+def main(candidate: Path, completion: Path, max_state_dim: int = 128) -> None:
     import torch
 
     # Configure both thread pools and numeric precision before loading the model.
@@ -41,7 +41,7 @@ def main(candidate: Path, completion: Path) -> None:
 
     torch.manual_seed(291)
     model = load_candidate(candidate)()
-    verify_world_model_contract(model, max_params=28_000, max_state_dim=128)
+    verify_world_model_contract(model, max_params=28_000, max_state_dim=max_state_dim)
 
     model.train()
     batch = _probe(torch.device("cpu"), 417)
@@ -56,4 +56,5 @@ def main(candidate: Path, completion: Path) -> None:
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    max_state_dim = int(sys.argv[3]) if len(sys.argv) > 3 else 128
+    main(Path(sys.argv[1]), Path(sys.argv[2]), max_state_dim)

@@ -36,12 +36,14 @@ OPENHYRA_ROOT = Path(__file__).resolve().parents[2]
 MODEL_REGISTRY = Path("config/p1-lob-models.yaml")
 OPENHYRA_CODE = (
     "tasks/stochopia_p1", "sandbox.py", "worker_subprocess.py",
-    "sandbox_artifacts.py", "island_scheduler.py",
+    "sandbox_artifacts.py", "island_scheduler.py", "scripts/verify_p2_m1_szse_300001.py",
 )
 STOCHOPIA_CODE = (
     "stochopia/__init__.py", "stochopia/common.py", "stochopia/data", "stochopia/llm.py",
-    "stochopia/harness/lob_rollout.py", "stochopia/measure/impact.py", "stochopia/neural",
-    "experiments/p1_*", "config/p1-lob-models.yaml", "pyproject.toml", "uv.lock",
+    "stochopia/harness/lob_rollout.py", "stochopia/harness/lob_rollout_batch.py",
+    "stochopia/harness/lob_batch_matching.py", "stochopia/measure/impact.py",
+    "stochopia/measure/continuous_impact.py", "stochopia/neural",
+    "experiments/p1_*", "experiments/p2_m1_*", "config/p1-lob-models.yaml", "pyproject.toml", "uv.lock",
 )
 SEED_MODEL_ID = "seed-gru"
 V2_RESOURCE_RETRY_LOCK = {

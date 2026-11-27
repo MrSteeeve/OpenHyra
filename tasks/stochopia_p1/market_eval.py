@@ -20,7 +20,9 @@ from stochopia.common import atomic_write_json
 from stochopia.neural.lob_training import FitProtocol, P1_FIT_PROTOCOL, P1_TRAIN_SEEDS
 
 from .gate import CandidateGate, _runtime_pythonpath
-from .market_worker import MODEL_FAILURE_EXIT, NONFINITE_LOSS_EXIT, device_cache_identity, normalize_device
+from .market_worker import (
+    MODEL_FAILURE_EXIT, NONFINITE_LOSS_EXIT, device_cache_identity, evaluation_options, normalize_device,
+)
 from .store import (
     CandidateEvaluationFailed, EvaluationRequest, Json, ModelRef, NonfiniteCandidateLoss,
     PairedEvaluation, validate_dates,
@@ -50,6 +52,8 @@ def _stage_candidate(source_dir: Path, model: ModelRef) -> None:
 def _run_worker(
     work: Path, source_dir: Path, input_dir: Path, mode: str, timeout: float, seed: int | None = None,
     *, candidate: bool = False, device: str = "cpu", device_id: str | None = None,
+    num_replicates: int = 1, metric_schema_version: str = "p1", rollout_batch_windows: int = 2,
+    max_state_dim: int | None = None,
 ) -> Path:
     output_dir = work / "output"
     output_dir.mkdir(parents=True)
@@ -58,6 +62,17 @@ def _run_worker(
         str(source_dir / "candidate.py"), str(input_dir), str(output_dir),
         "--device", device, "--device-id", device_id or device_cache_identity(device),
     ]
+    options = evaluation_options(
+        num_replicates=num_replicates, metric_schema_version=metric_schema_version,
+        rollout_batch_windows=rollout_batch_windows, max_state_dim=max_state_dim,
+    )
+    if metric_schema_version != "p1":
+        command.extend([
+            "--num-replicates", str(options["num_replicates"]),
+            "--metric-schema-version", str(options["metric_schema_version"]),
+            "--rollout-batch-windows", str(options["rollout_batch_windows"]),
+            "--max-state-dim", str(options["max_state_dim"]),
+        ])
     if seed is not None:
         command.append(str(seed))
     result = run_worker_subprocess(
@@ -104,7 +119,8 @@ class MarketEvaluator:
         self, market_root: Path, symbol: str, *, evaluation_timeout_s: float = 1_800.0,
         cache_root: Path | None = None, authorized_test_dates: tuple[int, ...] | None = None,
         expected_dev_days: int = 12, expected_test_days: int = 12,
-        device: str = "cpu",
+        device: str = "cpu", num_replicates: int = 1, metric_schema_version: str = "p1",
+        rollout_batch_windows: int = 2, max_state_dim: int | None = None,
     ) -> None:
         if (expected_dev_days, expected_test_days) not in ((12, 12), (24, 20)):
             raise ValueError("expected a registered P1 12/12 or 24/20 development/test split")
@@ -149,6 +165,12 @@ class MarketEvaluator:
         self.cache_root = None if cache_root is None else cache_root.resolve() / symbol
         self.device = normalize_device(device)
         self.device_id = device_cache_identity(self.device)
+        self.options = evaluation_options(
+            num_replicates=num_replicates, metric_schema_version=metric_schema_version,
+            rollout_batch_windows=rollout_batch_windows, max_state_dim=max_state_dim,
+        )
+        self.metric_schema_version = metric_schema_version
+        self.num_replicates = num_replicates
 
     def _registered_file(self, relative: Path) -> Path:
         path = self.root / relative
@@ -224,7 +246,10 @@ class MarketEvaluator:
     def _measure(
         self, model: ModelRef, request: EvaluationRequest, *, key: str, candidate: bool,
     ) -> Json:
-        diagnostic = CandidateGate()(model.source)
+        gate = CandidateGate() if self.metric_schema_version == "p1" else CandidateGate(
+            max_state_dim=int(self.options["max_state_dim"]),
+        )
+        diagnostic = gate(model.source)
         if diagnostic is not None:
             raise MarketEvaluationError(f"Model {model.model_id} failed the zero-data gate\n{diagnostic}")
 
@@ -245,7 +270,8 @@ class MarketEvaluator:
             })
             records = self._weights(root, train, source, evaluation / "weights", key=key, candidate=candidate)
             output = _run_worker(root / "measure", source, evaluation, "evaluate", self.evaluation_timeout_s,
-                                 candidate=candidate, device=self.device, device_id=self.device_id)
+                                 candidate=candidate, device=self.device, device_id=self.device_id,
+                                 **self.options)
             result = json.loads((output / "result.json").read_text(encoding="utf-8"))
             result["evidence"]["fit_seconds_by_seed"] = {str(row["seed"]): row["seconds"] for row in records}
             result["evidence"]["evaluation_seconds"] = result.get("evaluation_seconds")
@@ -259,12 +285,13 @@ class MarketEvaluator:
         key = f"{source_sha256}-{train_seeds}-device-{self.device_id}"
         if self.cache_root is None:
             return self._measure(model, request, key=key, candidate=candidate)
-        cache = self._profile_cache(request, key)
+        profile_key = self._evaluation_key(key)
+        cache = self._profile_cache(request, profile_key)
         with _exclusive(cache):
             ready = cache / "profile.json"
             if ready.exists():
                 return json.loads(ready.read_text(encoding="utf-8"))
-            legacy_key = self._legacy_cpu_key(key)
+            legacy_key = self._legacy_cpu_key(key) if self.metric_schema_version == "p1" else None
             legacy = self._profile_cache(request, legacy_key) if legacy_key is not None else None
             if legacy is not None and (legacy / "profile.json").is_file():
                 result = json.loads((legacy / "profile.json").read_text(encoding="utf-8"))
@@ -272,6 +299,18 @@ class MarketEvaluator:
                 result = self._measure(model, request, key=key, candidate=candidate)
             atomic_write_json(ready, result)
             return result
+
+    def _evaluation_key(self, train_key: str) -> str:
+        """Separate evaluation schemas/K while allowing identical CPU fits to be reused.
+
+        Include batch width and state cap so a changed numerical protocol or
+        admissibility check cannot accidentally return an old evaluation.
+        """
+        if self.metric_schema_version == "p1":
+            return train_key
+        return (f"{train_key}-schema-{self.metric_schema_version}-rollout-v2"
+                f"-k{self.num_replicates}-batch{self.options['rollout_batch_windows']}"
+                f"-cap{self.options['max_state_dim']}")
 
     def _legacy_cpu_key(self, key: str) -> str | None:
         """Permit read-only migration of the known frozen CPU protocol."""

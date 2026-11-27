@@ -28,8 +28,11 @@ class CandidateGate:
     isolation is the responsibility of the surrounding execution environment.
     """
 
-    def __init__(self, *, timeout_s: float = 20.0) -> None:
+    def __init__(self, *, timeout_s: float = 20.0, max_state_dim: int = 128) -> None:
+        if type(max_state_dim) is not int or max_state_dim < 1:
+            raise ValueError("max_state_dim must be a positive integer")
         self.timeout_s = timeout_s
+        self.max_state_dim = max_state_dim
 
     def __call__(self, source: str) -> str | None:
         with tempfile.TemporaryDirectory(prefix="stochopia-p1-gate-") as directory:
@@ -39,7 +42,8 @@ class CandidateGate:
             candidate.write_text(source, encoding="utf-8")
             completion = root / "checked"
             result = run_worker_subprocess(
-                [sys.executable, "-s", "-B", str(worker), str(candidate), str(completion)],
+                [sys.executable, "-s", "-B", str(worker), str(candidate), str(completion),
+                 str(self.max_state_dim)],
                 work_dir=root,
                 extra_env={"PYTHONPATH": _runtime_pythonpath()},
                 timeout_s=self.timeout_s,

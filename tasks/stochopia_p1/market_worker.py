@@ -63,9 +63,32 @@ def device_cache_identity(device: str) -> str:
     return f"cuda-{index}-{sha256(encoded).hexdigest()[:24]}"
 
 
+def evaluation_options(
+    *, num_replicates: int = 1, metric_schema_version: str = "p1",
+    rollout_batch_windows: int = 2, max_state_dim: int | None = None,
+) -> dict[str, int | str]:
+    """Resolve explicit P2 evaluation settings; preserve the P1 defaults."""
+    if metric_schema_version not in ("p1", "p2-m1"):
+        raise ValueError("Unknown market metric schema version")
+    legacy = metric_schema_version == "p1"
+    if type(num_replicates) is not int or num_replicates < 1 or (legacy and num_replicates != 1):
+        raise ValueError("num_replicates requires a positive integer and P2 for K > 1")
+    if type(rollout_batch_windows) is not int or rollout_batch_windows < 1:
+        raise ValueError("rollout_batch_windows requires a positive integer")
+    cap = max_state_dim if max_state_dim is not None else (128 if legacy else 512)
+    if type(cap) is not int or cap < 1 or (legacy and cap != 128):
+        raise ValueError("Invalid model state cap for this metric schema")
+    return {
+        "num_replicates": num_replicates, "metric_schema_version": metric_schema_version,
+        "rollout_batch_windows": rollout_batch_windows, "max_state_dim": cap,
+    }
+
+
 def main(
     mode: str, candidate: Path, input_dir: Path, output_dir: Path, seed: int | None = None,
-    *, device: str = "cpu", device_id: str | None = None,
+    *, device: str = "cpu", device_id: str | None = None, num_replicates: int = 1,
+    metric_schema_version: str = "p1", rollout_batch_windows: int = 2,
+    max_state_dim: int | None = None,
 ) -> None:
     """Fit from train-only caches or measure three fixed checkpoints on dev."""
     import torch
@@ -77,6 +100,10 @@ def main(
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
 
+    options = evaluation_options(
+        num_replicates=num_replicates, metric_schema_version=metric_schema_version,
+        rollout_batch_windows=rollout_batch_windows, max_state_dim=max_state_dim,
+    )
     device = normalize_device(device)
     actual_device_id = device_cache_identity(device)
     if device_id is not None and device_id != actual_device_id:
@@ -120,7 +147,7 @@ def main(
         evaluate_symbol(
             input_dir, symbol, train_dates, plan["eval_dates"], directory,
             factory=factory, rollout_seed=plan["rollout_seed"], checkpoints=checkpoints, save_traces=False,
-            device=device,
+            device=device, **options,
         )
     except NonfiniteModelLoss as exc:
         raise ModelLossFailure(str(exc)) from exc
@@ -148,10 +175,16 @@ def cli() -> None:
     parser.add_argument("seed", type=int, nargs="?")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--device-id")
+    parser.add_argument("--num-replicates", type=int, default=1)
+    parser.add_argument("--metric-schema-version", choices=("p1", "p2-m1"), default="p1")
+    parser.add_argument("--rollout-batch-windows", type=int, default=2)
+    parser.add_argument("--max-state-dim", type=int)
     args = parser.parse_intermixed_args()
     try:
         main(args.mode, args.candidate, args.input_dir, args.output_dir, args.seed,
-             device=args.device, device_id=args.device_id)
+             device=args.device, device_id=args.device_id, num_replicates=args.num_replicates,
+             metric_schema_version=args.metric_schema_version, rollout_batch_windows=args.rollout_batch_windows,
+             max_state_dim=args.max_state_dim)
     except ModelLossFailure:
         traceback.print_exc()
         sys.exit(NONFINITE_LOSS_EXIT)
