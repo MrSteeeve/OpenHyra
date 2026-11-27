@@ -285,6 +285,9 @@ def _market_readouts(
         c2_summary["candidate_complete_execution_days"] = int(np.isfinite(candidate.paths["child_visible"]).all(axis=(1, 2)).sum())
         c2_summary["estimand"] = "paired C2 indicator differences; bootstrap mean is pass probability difference"
         summaries["delta_c2_pass_prob"] = dict(c2_summary)
+        summaries["c2_bootstrap_pass_rate"] = c2_summary["candidate_bootstrap_mean"]
+        summaries["parent_c2_bootstrap_pass_rate"] = c2_summary["parent_bootstrap_mean"]
+        summaries["delta_c2_bootstrap_pass_rate"] = c2_summary["mean"]
         summaries["joint_c2_pass_share"] = joint_share
         summaries["delta_lob_impact_score"] = _p2_conditional_score(
             summaries[IMPACT], parent_samples[IMPACT], candidate_samples[IMPACT], parent_c2, candidate_c2,
@@ -320,7 +323,9 @@ def paired_readouts(pair: PairedEvaluation, request: EvaluationRequest, metrics:
         market_metrics = P2_MARKET_METRICS if schema == P2_METRIC_SCHEMA else M4_MARKET_METRICS
         pooled = tuple(metric for metric in requested if metric in market_metrics)
         if schema == P2_METRIC_SCHEMA:
-            if "delta_c2_pass_prob" in requested or "joint_c2_pass_share" in requested:
+            c2_aliases = ("delta_c2_pass_prob", "joint_c2_pass_share", "c2_bootstrap_pass_rate",
+                          "parent_c2_bootstrap_pass_rate", "delta_c2_bootstrap_pass_rate")
+            if any(metric in requested for metric in c2_aliases):
                 pooled = tuple(dict.fromkeys((*pooled, C2_PASS_METRIC)))
             if "delta_lob_impact_score" in requested:
                 pooled = tuple(dict.fromkeys((*pooled, IMPACT)))

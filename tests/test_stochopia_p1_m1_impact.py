@@ -25,7 +25,7 @@ CONTINUOUS = (
 
 
 def _payload(multipliers: Sequence[float], replicas: int = 1) -> dict[str, object]:
-    reference = reference_impact_curve(GRID, 8, scale_ticks=10.0, participation=0.25)
+    reference = reference_impact_curve(GRID, 8, scale_ticks=10.0, participation=0.25, permanent_fraction=0.0)
     visible = np.asarray(multipliers)[:, None] * reference
     paths = np.stack((visible, -visible), axis=1)
     tape = {

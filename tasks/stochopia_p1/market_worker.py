@@ -113,6 +113,7 @@ def main(
 
     from experiments.p1_m2_baseline import _load_days, evaluate_symbol
     from stochopia.common import atomic_write_json
+    from stochopia.harness.lob_rollout_batch import NonfiniteRolloutProbability
     from stochopia.neural.lob_training import P1_TRAIN_SEEDS, NonfiniteModelLoss, fit_lob_world_model
     from tasks.stochopia_p1.gate_worker import load_candidate
 
@@ -149,7 +150,7 @@ def main(
             factory=factory, rollout_seed=plan["rollout_seed"], checkpoints=checkpoints, save_traces=False,
             device=device, **options,
         )
-    except NonfiniteModelLoss as exc:
+    except (NonfiniteModelLoss, NonfiniteRolloutProbability) as exc:
         raise ModelLossFailure(str(exc)) from exc
     except RuntimeError as exc:
         raise ModelFailure("Model could not finish the registered rollouts") from exc

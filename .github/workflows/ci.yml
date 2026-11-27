@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, world-model]
+    branches: [main, world-model, "p2/**", "codex/p2/**", "p2-*", "codex/p2-*"]
   pull_request:
 
 permissions:
@@ -10,7 +10,14 @@ permissions:
 
 jobs:
   test:
-    if: github.ref_name != 'world-model' && github.base_ref != 'world-model' && github.head_ref != 'world-model'
+    if: >-
+      ${{ !(github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+      || startsWith(github.ref_name, 'p2')
+      || startsWith(github.ref_name, 'codex/p2')
+      || startsWith(github.base_ref, 'p2')
+      || startsWith(github.base_ref, 'codex/p2')
+      || startsWith(github.head_ref, 'p2')
+      || startsWith(github.head_ref, 'codex/p2')) }}
     # Historical research suites run on macOS; the world-model integration
     # jobs below verify the new worker lifecycle on Ubuntu.
     runs-on: macos-latest
@@ -27,7 +34,14 @@ jobs:
 
   stochopia-p0:
     name: Stochopia P0 integration
-    if: github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+    if: >-
+      github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+      || startsWith(github.ref_name, 'p2')
+      || startsWith(github.ref_name, 'codex/p2')
+      || startsWith(github.base_ref, 'p2')
+      || startsWith(github.base_ref, 'codex/p2')
+      || startsWith(github.head_ref, 'p2')
+      || startsWith(github.head_ref, 'codex/p2')
     runs-on: ubuntu-latest
     # The public P0 surface uses Stochopia main. Historical research suites
     # need Benchmark v3 and a checkout of the private StructurerDSL repository.
@@ -75,8 +89,15 @@ jobs:
           PY
 
   stochopia-p1:
-    name: Stochopia P1 Linux integration
-    if: github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+    name: Stochopia P1/P2 Linux integration
+    if: >-
+      github.ref_name == 'world-model' || github.base_ref == 'world-model' || github.head_ref == 'world-model'
+      || startsWith(github.ref_name, 'p2')
+      || startsWith(github.ref_name, 'codex/p2')
+      || startsWith(github.base_ref, 'p2')
+      || startsWith(github.base_ref, 'codex/p2')
+      || startsWith(github.head_ref, 'p2')
+      || startsWith(github.head_ref, 'codex/p2')
     # Workers use trusted research code and process-group lifecycle control.
     runs-on: ubuntu-latest
     steps:
@@ -100,16 +121,18 @@ jobs:
       - name: Sync locked dependencies
         working-directory: p1-stochopia
         run: uv sync --locked --all-extras --dev
-      - name: Verify OpenHyra P1 and worker lifecycle on Linux
+      - name: Verify OpenHyra P1/P2 and worker lifecycle on Linux
         working-directory: p1-stochopia
         env:
           OPENHYRA_REPO: ${{ github.workspace }}
           STOCHOPIA_REPO: ${{ github.workspace }}/p1-stochopia
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          shopt -s nullglob
+          p2_tests=("$OPENHYRA_REPO"/tests/test_stochopia_p2_*.py "$OPENHYRA_REPO"/tests/test_p2_*.py)
           uv run --frozen pytest -q --junitxml "$RUNNER_TEMP/openhyra-p1.xml" \
             "$OPENHYRA_REPO"/tests/test_stochopia_p1_*.py \
-            "$OPENHYRA_REPO"/tests/test_training_sandbox.py
+            "$OPENHYRA_REPO"/tests/test_training_sandbox.py "${p2_tests[@]}"
           uv run --frozen python - "$RUNNER_TEMP/openhyra-p1.xml" <<'PY'
           import sys
           from xml.etree import ElementTree
