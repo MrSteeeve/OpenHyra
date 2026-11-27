@@ -1,0 +1,20 @@
+request_defaults: &request_defaults
+  provider: openai-compatible
+  temperature: null
+  max_tokens: 8192
+  timeout: 180
+  strict_model_match: true
+models:
+  gpt-6.2-sol:
+    <<: *request_defaults
+    base_url: https://api.openai.com/v1
+    model: gpt-6.2-sol
+    api_key_env: OPENAI_API_KEY
+    use_max_completion_tokens: true
+    extra_body: {reasoning_effort: low}
+  deepseek-flash:
+    <<: *request_defaults
+    base_url: https://api.deepseek.com/v1
+    model: deepseek-flash
+    api_key_env: DEEPSEEK_API_KEY
+    extra_body: {thinking: {type: disabled}}

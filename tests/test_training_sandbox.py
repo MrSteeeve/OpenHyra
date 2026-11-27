@@ -93,7 +93,7 @@ def test_worker_cancellation() -> None:
 
 def test_public_worker_api_and_scientific_imports() -> None:
     from sandbox import run_worker_subprocess as public_worker
-    from tasks.stochopia_p1.gate import CandidateGate
+    from tasks.lob_world_model.gate import CandidateGate
     from stochopia.neural.primitives import seed_lob_source
 
     assert public_worker is run_worker_subprocess

@@ -11,6 +11,5 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-# Stochopia tasks/experiments (the sibling Stochopia repo is loaded via
-# sys.path; structurerdsl is installed from the sibling StructurerDSL repo).
-stochopia = ["torch", "httpx", "scipy", "structurerdsl", "python-dotenv"]
+# World-model evaluation uses the sibling Stochopia research runtime.
+world-model = ["httpx", "PyYAML", "tiktoken", "tokenizers", "huggingface-hub"]

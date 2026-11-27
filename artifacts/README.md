@@ -6,6 +6,16 @@
 
 Each bundle contains its own `EXPERIMENT_SUMMARY.md` with the applicable evidence boundaries and interpretation limits.
 
+## Limit order book world-model evidence
+
+The current branch retains the immutable [`p2-m1-validation/`](p2-m1-validation/) and
+[`p2-m2-synthetic/`](p2-m2-synthetic/) evidence bundles. Verify the original `SHA256SUMS` in the synthetic bundle.
+The earlier validation bundle has no checksum file; its immutable Git tree is
+`9e3a28dc846f90fe6ce53638ac1cdfe5b918b923`. The earlier P0 and P1 source, manifests
+and evidence are preserved at the annotated Git tags [`tier0-p0-final`](https://github.com/MrSteeeve/OpenHyra/tree/tier0-p0-final)
+and [`p1-szse-final`](https://github.com/MrSteeeve/OpenHyra/tree/p1-szse-final), respectively.
+The historical Bermudan evidence remains on this branch.
+
 ## Publication provenance
 
 The bundles retain their original runtime base commit, `4ad87556c2155bcda4120b76448c5393df9f75a3`.
