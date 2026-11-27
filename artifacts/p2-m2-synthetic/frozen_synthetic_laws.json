@@ -1,0 +1,132 @@
+{
+  "H1": {
+    "boundary": "individual operator and backbone results reported; not universal",
+    "estimand": "equal-weight impact MAE interaction over four backbone/operator comparisons",
+    "manipulation_passed": true,
+    "primary": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "daily": [
+        -0.0412326388888889,
+        0.016295770202020193,
+        -0.011324179292929292,
+        -0.032946654040404054,
+        -0.0009075126262626204,
+        -0.02051767676767675,
+        -0.040995896464646485,
+        0.07982165404040403,
+        0.002209595959595953,
+        7.891414141413759e-05,
+        0.0013020833333333426,
+        -0.006944444444444446
+      ],
+      "estimate": -0.0045967487373737405,
+      "interval": [
+        -0.020390016703493278,
+        0.014119548348063947
+      ],
+      "paired_days": 12,
+      "registered_days": 12
+    },
+    "status": "INCONCLUSIVE"
+  },
+  "H2": {
+    "boundary": "matrix vs flat and readout gate are secondary controls",
+    "estimand": "advect vs no-shift impact MAE interaction; identical parameter count and state size",
+    "manipulation_passed": true,
+    "primary": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 1997,
+      "candidate": "matrix-advect",
+      "daily": [
+        null,
+        null,
+        null,
+        0.10506102693602722,
+        -0.0382996632996638,
+        null,
+        null,
+        -0.3693181818181821,
+        null,
+        -0.01046927609427654,
+        0.12868265993266004,
+        null
+      ],
+      "estimate": -0.03686868686868704,
+      "interval": null,
+      "metric": "counterfactual_impact_mae",
+      "paired_days": 5,
+      "parent": "matrix-noshift",
+      "registered_days": 12,
+      "world_high": "W3_thin_short",
+      "world_low": "W1_thick_short"
+    },
+    "status": "INCONCLUSIVE"
+  },
+  "H3": {
+    "boundary": "impact and burst residuals reported separately; no-gain equivalence requires the Poisson interval within ±0.02 nats",
+    "estimand": "Hawkes vs GRU dt NLL interaction",
+    "manipulation_passed": true,
+    "poisson_contrast": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate": "gru-hawkes",
+      "daily": [
+        0.002902572619773114,
+        0.0032304200742926024,
+        0.00317484042828986,
+        0.0038609290052028142,
+        0.004095270697559661,
+        0.004649282388743847,
+        0.003959095726410622,
+        0.004207680888828798,
+        0.003372833310138675,
+        0.007909342291809285,
+        0.0064659693411418155,
+        0.00020483145046804965
+      ],
+      "estimate": 0.004002755685221596,
+      "interval": [
+        0.003031041303886094,
+        0.005010534563131419
+      ],
+      "metric": "dt_nll",
+      "paired_days": 12,
+      "parent": "gru-base",
+      "registered_days": 12,
+      "world": "W3_thin_short"
+    },
+    "poisson_equivalence_supported": true,
+    "primary": {
+      "bootstrap_total": 2000,
+      "bootstrap_valid": 2000,
+      "candidate": "gru-hawkes",
+      "daily": [
+        -0.02412887283467824,
+        -0.01252486616639148,
+        -0.022210992052264105,
+        -0.031618590422329396,
+        -0.018868193252100873,
+        -0.024796403190564604,
+        -0.0187742869325338,
+        -0.02051675929466179,
+        -0.02112458134070046,
+        -0.034773988671423485,
+        -0.024918698040502434,
+        -0.019219795530218464
+      ],
+      "estimate": -0.022789668977364095,
+      "interval": [
+        -0.026053370883603343,
+        -0.019828395386566496
+      ],
+      "metric": "dt_nll",
+      "paired_days": 12,
+      "parent": "gru-base",
+      "registered_days": 12,
+      "world_high": "W6_thin_hawkes",
+      "world_low": "W3_thin_short"
+    },
+    "status": "SUPPORTED_WITH_BOUNDARY"
+  }
+}

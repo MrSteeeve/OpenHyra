@@ -1,0 +1,713 @@
+{
+  "api_calls": 0,
+  "batch_windows": 2,
+  "bootstrap_draws": 2000,
+  "bootstrap_seed": 41397,
+  "child_shares": 100,
+  "child_times_ms": [
+    100,
+    300,
+    500,
+    700
+  ],
+  "code_commit": "ef9389f3e1c20b675d1af38eb1ddb28c303d6a1d",
+  "context_len": 128,
+  "data_seed": 20261127,
+  "decision": "95% paired day-bootstrap interval wholly below 0 supports; wholly above 0 refutes; otherwise inconclusive; require target manipulation and common support",
+  "eval_days": 12,
+  "events_per_session": 256,
+  "fit_protocol": {
+    "batch_size": 8,
+    "burn_in": 32,
+    "end_lr": 0.0001,
+    "grad_clip": 1.0,
+    "max_train_seconds": 120.0,
+    "start_lr": 0.002,
+    "steps": 96,
+    "subseq_len": 128,
+    "weight_decay": 0.0001
+  },
+  "generation_calibration": {
+    "final_train_anchor_calibration": "Depth 300/100 and 4 x 100-share children chosen before any model fit using training anchors.",
+    "formal_model_outcomes_seen": false,
+    "initial_generation_only": "Depth 2000 and 8 x 200-share children produced degenerate thick truth and low W6 support.",
+    "truth_condition": "Standard ten-level aggregated snapshot with true latent sign/clock state; common random marks."
+  },
+  "grid_ms": [
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600,
+    650,
+    700,
+    750,
+    800,
+    850,
+    900,
+    950,
+    1000,
+    1050,
+    1100,
+    1150,
+    1200,
+    1250,
+    1300,
+    1350,
+    1400,
+    1450,
+    1500,
+    1550,
+    1600
+  ],
+  "hypotheses": {
+    "H1": "mean of four (GRU/LRU x multiscale/surprise) impact MAE interactions long-short",
+    "H2": "advect minus no-shift impact MAE interaction thin-thick",
+    "H3": "GRU-Hawkes minus GRU-base dt NLL interaction hawkes-poisson"
+  },
+  "jobs": [
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-base-103",
+      "model": "gru-base",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-base-137",
+      "model": "gru-base",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-base-211",
+      "model": "gru-base",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-multiscale-103",
+      "model": "gru-multiscale",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-multiscale-137",
+      "model": "gru-multiscale",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-multiscale-211",
+      "model": "gru-multiscale",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-surprise-103",
+      "model": "gru-surprise",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-surprise-137",
+      "model": "gru-surprise",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-gru-surprise-211",
+      "model": "gru-surprise",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-base-103",
+      "model": "lru-base",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-base-137",
+      "model": "lru-base",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-base-211",
+      "model": "lru-base",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-multiscale-103",
+      "model": "lru-multiscale",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-multiscale-137",
+      "model": "lru-multiscale",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-multiscale-211",
+      "model": "lru-multiscale",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-surprise-103",
+      "model": "lru-surprise",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-surprise-137",
+      "model": "lru-surprise",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W1_thick_short-lru-surprise-211",
+      "model": "lru-surprise",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-base-103",
+      "model": "gru-base",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-base-137",
+      "model": "gru-base",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-base-211",
+      "model": "gru-base",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-multiscale-103",
+      "model": "gru-multiscale",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-multiscale-137",
+      "model": "gru-multiscale",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-multiscale-211",
+      "model": "gru-multiscale",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-surprise-103",
+      "model": "gru-surprise",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-surprise-137",
+      "model": "gru-surprise",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-gru-surprise-211",
+      "model": "gru-surprise",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-base-103",
+      "model": "lru-base",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-base-137",
+      "model": "lru-base",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-base-211",
+      "model": "lru-base",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-multiscale-103",
+      "model": "lru-multiscale",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-multiscale-137",
+      "model": "lru-multiscale",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-multiscale-211",
+      "model": "lru-multiscale",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-surprise-103",
+      "model": "lru-surprise",
+      "seed": 103,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-surprise-137",
+      "model": "lru-surprise",
+      "seed": 137,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E1",
+      "job_id": "E1-W2_thick_long-lru-surprise-211",
+      "model": "lru-surprise",
+      "seed": 211,
+      "world": "W2_thick_long"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-gru-103",
+      "model": "flat-gru",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-gru-137",
+      "model": "flat-gru",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-gru-211",
+      "model": "flat-gru",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-noshift-103",
+      "model": "matrix-noshift",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-noshift-137",
+      "model": "matrix-noshift",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-noshift-211",
+      "model": "matrix-noshift",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-advect-103",
+      "model": "matrix-advect",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-advect-137",
+      "model": "matrix-advect",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-matrix-advect-211",
+      "model": "matrix-advect",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-readoutgate-103",
+      "model": "flat-readoutgate",
+      "seed": 103,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-readoutgate-137",
+      "model": "flat-readoutgate",
+      "seed": 137,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W1_thick_short-flat-readoutgate-211",
+      "model": "flat-readoutgate",
+      "seed": 211,
+      "world": "W1_thick_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-gru-103",
+      "model": "flat-gru",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-gru-137",
+      "model": "flat-gru",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-gru-211",
+      "model": "flat-gru",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-noshift-103",
+      "model": "matrix-noshift",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-noshift-137",
+      "model": "matrix-noshift",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-noshift-211",
+      "model": "matrix-noshift",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-advect-103",
+      "model": "matrix-advect",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-advect-137",
+      "model": "matrix-advect",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-matrix-advect-211",
+      "model": "matrix-advect",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-readoutgate-103",
+      "model": "flat-readoutgate",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-readoutgate-137",
+      "model": "flat-readoutgate",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E2",
+      "job_id": "E2-W3_thin_short-flat-readoutgate-211",
+      "model": "flat-readoutgate",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-base-103",
+      "model": "gru-base",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-base-137",
+      "model": "gru-base",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-base-211",
+      "model": "gru-base",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-selective-ssm-103",
+      "model": "selective-ssm",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-selective-ssm-137",
+      "model": "selective-ssm",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-selective-ssm-211",
+      "model": "selective-ssm",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-hawkes-103",
+      "model": "gru-hawkes",
+      "seed": 103,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-hawkes-137",
+      "model": "gru-hawkes",
+      "seed": 137,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W3_thin_short-gru-hawkes-211",
+      "model": "gru-hawkes",
+      "seed": 211,
+      "world": "W3_thin_short"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-base-103",
+      "model": "gru-base",
+      "seed": 103,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-base-137",
+      "model": "gru-base",
+      "seed": 137,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-base-211",
+      "model": "gru-base",
+      "seed": 211,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-selective-ssm-103",
+      "model": "selective-ssm",
+      "seed": 103,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-selective-ssm-137",
+      "model": "selective-ssm",
+      "seed": 137,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-selective-ssm-211",
+      "model": "selective-ssm",
+      "seed": 211,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-hawkes-103",
+      "model": "gru-hawkes",
+      "seed": 103,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-hawkes-137",
+      "model": "gru-hawkes",
+      "seed": 137,
+      "world": "W6_thin_hawkes"
+    },
+    {
+      "experiment": "E3",
+      "job_id": "E3-W6_thin_hawkes-gru-hawkes-211",
+      "model": "gru-hawkes",
+      "seed": 211,
+      "world": "W6_thin_hawkes"
+    }
+  ],
+  "manipulation_rules": {
+    "burst": "same thin/short world with alpha=.7 increases median zero waits and interarrival CV²",
+    "memory": "long memory ACF sum exceeds short by >2 and VR is higher, on both thicknesses",
+    "thin": "both thick worlds median shift < .05; both thin worlds > .20",
+    "valid_book": "no empty/crossed pre-event touch in the training panel"
+  },
+  "model_k": 4,
+  "parameter_counts": {
+    "flat-gru": 24244,
+    "flat-readoutgate": 26227,
+    "gru-base": 24244,
+    "gru-hawkes": 24383,
+    "gru-multiscale": 24244,
+    "gru-surprise": 24307,
+    "lru-base": 22361,
+    "lru-multiscale": 22361,
+    "lru-surprise": 22424,
+    "matrix-advect": 25722,
+    "matrix-noshift": 25722,
+    "selective-ssm": 22212
+  },
+  "poisson_dt_equivalence_band_nats": [
+    -0.02,
+    0.02
+  ],
+  "rollout_seed": 9127,
+  "schema": "p2-m2-synthetic-v1",
+  "sessions_per_day": 2,
+  "state_scalars": 60,
+  "train_days": 16,
+  "training_device": "cpu",
+  "truth_k": 16,
+  "truth_seed": 76193,
+  "workers": 3,
+  "world_aliases": {
+    "W5_thin_poisson": "W3_thin_short"
+  },
+  "worlds": {
+    "W1_thick_short": {
+      "alpha_hawk": 0.0,
+      "beta_hawk": 0.25,
+      "cancel_probability": 0.12,
+      "fast_persistence": 0.5,
+      "mean_dt_ms": 40.0,
+      "name": "W1_thick_short",
+      "q_scale": 300,
+      "slow_persistence": 0.5
+    },
+    "W2_thick_long": {
+      "alpha_hawk": 0.0,
+      "beta_hawk": 0.25,
+      "cancel_probability": 0.12,
+      "fast_persistence": 0.8,
+      "mean_dt_ms": 40.0,
+      "name": "W2_thick_long",
+      "q_scale": 300,
+      "slow_persistence": 0.97
+    },
+    "W3_thin_short": {
+      "alpha_hawk": 0.0,
+      "beta_hawk": 0.25,
+      "cancel_probability": 0.18,
+      "fast_persistence": 0.5,
+      "mean_dt_ms": 40.0,
+      "name": "W3_thin_short",
+      "q_scale": 100,
+      "slow_persistence": 0.5
+    },
+    "W4_thin_long": {
+      "alpha_hawk": 0.0,
+      "beta_hawk": 0.25,
+      "cancel_probability": 0.18,
+      "fast_persistence": 0.8,
+      "mean_dt_ms": 40.0,
+      "name": "W4_thin_long",
+      "q_scale": 100,
+      "slow_persistence": 0.97
+    },
+    "W6_thin_hawkes": {
+      "alpha_hawk": 0.7,
+      "beta_hawk": 0.25,
+      "cancel_probability": 0.18,
+      "fast_persistence": 0.5,
+      "mean_dt_ms": 40.0,
+      "name": "W6_thin_hawkes",
+      "q_scale": 100,
+      "slow_persistence": 0.5
+    }
+  }
+}

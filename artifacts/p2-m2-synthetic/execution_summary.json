@@ -1,0 +1,13 @@
+{
+  "api_calls": 0,
+  "completed": 78,
+  "completed_utc": "2026-11-27T08:24:59.859377+00:00",
+  "counts": {
+    "E1": 36,
+    "E2": 24,
+    "E3": 18
+  },
+  "total_eval_seconds": 154.54370870423736,
+  "total_fit_seconds": 164.3126475418685,
+  "wall_seconds": 121.9937382080243
+}
