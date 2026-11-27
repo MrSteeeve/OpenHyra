@@ -1,0 +1,26 @@
+{
+  "python": "3.12",
+  "stochopia": {
+    "passed": 335,
+    "failed": 0,
+    "skipped": 0,
+    "tested_commit": "b25fac5c57099818b3de949201d675b0ecba9493"
+  },
+  "openhyra_p0p1_worker": {
+    "passed": 206,
+    "failed": 0,
+    "skipped": 0,
+    "code_commit": "44a908588c6af2ed9314112fac0408673657d92f"
+  },
+  "openhyra_full": {
+    "passed": 966,
+    "subtests_passed": 34,
+    "failed": 0,
+    "skipped": 0,
+    "code_commit": "44a908588c6af2ed9314112fac0408673657d92f",
+    "stochopia_runtime_commit": "f5959ebbc7f98f1b8411ef542e94c3168a92e1b2",
+    "compatibility_restored_paths": 54,
+    "structurer_dsl_commit": "468223e9f0c82bd84d8c272158dc59677245f6b7",
+    "note": "Stochopia test-only import fix b25fac5 was not collected by OpenHyra; runtime is identical."
+  }
+}
