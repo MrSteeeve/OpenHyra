@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "When the best quote is often depleted, the depth behind it should help predict the response to a fixed order. Sharing a depth encoder across reflected sides while retaining the signed contrast should reduce impact MAE by at least 0.010 tick versus B0, with total NLL rising by no more than 0.005 and exhaustion rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "680558698d6442d49d3e204cd48ad0d0516cc472b08d88331d269ba6a9fde2a2"
+}

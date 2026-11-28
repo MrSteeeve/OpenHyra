@@ -1,0 +1,34 @@
+--- parent
+
++++ candidate
+
+@@ -10,20 +10,24 @@
+
+         self.gru = nn.GRU(32, 60, batch_first=True)
+         self.local = nn.Linear(3, 12)
+         self.readout = nn.Linear(12, 6)
++        self.pair = nn.Linear(24, 6, bias=False)
+         nn.init.zeros_(self.readout.weight)
+         nn.init.zeros_(self.readout.bias)
++        nn.init.zeros_(self.pair.weight)
+ 
+     def context(self, obs, h):
+         q = obs.book_shares.to(h.dtype).clamp_min(0)
+-        logq = q.log1p()
+         share = q / (1 + q.sum(dim=-1, keepdim=True))
+         ticks = obs.book_ticks
+         distance = (ticks - ticks[..., :1]).to(h.dtype).abs()
+         features = torch.stack(
+-            (logq, share, distance / (1 + distance)), dim=-1
++            (q.log1p(), share, distance / (1 + distance)), dim=-1
+         )
+-        local = self.readout(self.local(features).tanh())
+-        gain, shift = local.split(3, dim=-1)
++        u = self.local(features).tanh()
++        v = u.flip(dims=(-3,))
++        # Shared coefficients for symmetric and antisymmetric pair features.
++        paired = torch.cat((u * v, u - v), dim=-1)
++        gain, shift = (self.readout(u) + self.pair(paired)).split(3, dim=-1)
+         slots = h.reshape(*h.shape[:-1], 2, 10, 3)
+         adjusted = slots + 0.25 * (gain.tanh() * slots + shift.tanh())
+         return adjusted.reshape_as(h)

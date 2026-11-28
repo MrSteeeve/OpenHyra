@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Depth-conditioned mixing across the two best queues and nearby levels will make the response less dependent on which side receives the fixed order, without tying the output heads. Predict impact MAE <= 0.209559, total NLL increase <= 0.005, and exhaustion increase <= 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "18ac5d67948ee4bbe47e6a38592ccbd500f70f478952920db173972b04e89bb2"
+}

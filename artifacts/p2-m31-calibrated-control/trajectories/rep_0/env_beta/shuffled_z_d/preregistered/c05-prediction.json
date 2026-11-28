@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Shared depth should modulate the strength of directional queue imbalance without reversing its sign. Predict impact MAE <= 0.20539, total NLL <= 4.82871, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "fb538f4e2ffdd480ab9ff29789f68515d46ba72fdfe127fda2506314a07bb046"
+}

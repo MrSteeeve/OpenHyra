@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "If the slow trace carries predictable continuation into the response to a fixed order, subtracting a gated prediction made from the prior recurrent state should reduce impact MAE to 0.223474 or lower, with total NLL at most 4.81926 and exhaustion at most 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "f9e86609615fe6a813a1dc5b7bab1102e81bba6bc122db929f08a4e78815e1d5"
+}

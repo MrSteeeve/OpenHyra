@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Predictable event continuations may contribute too much to the modeled response. Feeding a gated event innovation into recurrent memory should reduce impact MAE by at least 0.010 tick versus the parent, with total NLL rising by at most 0.005 and exhausted replicate rate rising by at most 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "a4b4ac0ecc556d50f20229a85d95f6465b66ce4d71f8a0a1a6c0137afd23ceb8"
+}

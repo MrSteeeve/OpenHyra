@@ -1,0 +1,51 @@
+--- parent
+
++++ candidate
+
+@@ -8,7 +8,7 @@
+
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.queue = nn.Linear(34, 2)
+-        self.pair = nn.Sequential(nn.Linear(4, 12), nn.Tanh(), nn.Linear(12, 2))
++        self.pair = nn.Sequential(nn.Linear(6, 12), nn.Tanh(), nn.Linear(12, 2))
+         self.flow = nn.Linear(4, 1, bias=False)
+         self.gru = nn.GRUCell(56, 16)
+         self.readout = nn.Sequential(
+@@ -23,8 +23,7 @@
+
+             aligned = x.new_zeros(b, 2, 10)
+         else:
+             h, memory, old_ticks, trace = state
+-            match = ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)
+-            weight = match.to(x.dtype)
++            weight = (ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)).to(x.dtype)
+             aligned = (weight * trace.unsqueeze(-2)).sum(-1)
+             aligned = aligned / weight.sum(-1).clamp_min(1)
+ 
+@@ -34,14 +33,21 @@
+
+         memory = torch.lerp(signal.expand_as(memory), memory, retain)
+ 
+         live = shares > 0
+-        depth = shares.to(x.dtype).clamp_min(0).log1p()
++        quantity = shares.to(torch.float32).clamp_min(0)
++        depth = quantity.log1p().to(x.dtype)
+         aligned = aligned * live.to(x.dtype)
++        # Exclusive prefix: visible shares ahead of each level on its own side.
++        prefix = torch.cat((
++            torch.zeros_like(quantity[..., :1]),
++            quantity[..., :-1].cumsum(dim=-1)
++        ), dim=-1).log1p().to(x.dtype)
+         other_depth = depth.flip((1,))
+         other_trace = aligned.flip((1,))
+-        # Shared residual uses common and side-relative signals at paired ranks.
++        other_prefix = prefix.flip((1,))
+         pair = torch.stack((
+             depth + other_depth, depth - other_depth,
+-            aligned + other_trace, aligned - other_trace
++            aligned + other_trace, aligned - other_trace,
++            prefix + other_prefix, prefix - other_prefix
+         ), dim=-1)
+         side = x.new_tensor([-1, 1]).view(1, 2, 1, 1)
+         local = torch.cat((

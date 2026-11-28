@@ -1,0 +1,58 @@
+--- parent
+
++++ candidate
+
+@@ -11,16 +11,19 @@
+
+         self.boundary = nn.Parameter(torch.zeros(2, 10))
+         self.gru = nn.GRUCell(52, 38)
+         self.readout = nn.Linear(58, 60)
++        self.queue = nn.Sequential(nn.Linear(4, 8), nn.SiLU(), nn.Linear(8, 1))
++        self.queue_readout = nn.Linear(20, 60, bias=False)
++        nn.init.zeros_(self.queue_readout.weight)
+ 
+     def _advance(self, x, ticks, shares, state):
+-        best = ticks[..., 0].to(torch.int64)
++        ticks = ticks.to(torch.int64)
++        best = ticks[..., 0]
+         fill = self.boundary.tanh().unsqueeze(0).expand(x.size(0), -1, -1)
+         if state is None:
+             h = x.new_zeros(x.size(0), 38)
+             aligned = fill
+         else:
+             h, memory, old_best = state
+-            # Convert current ranks to old ranks on each side.
+             sign = best.new_tensor([-1, 1])
+             shift = ((best - old_best) * sign).clamp(-10, 10)
+             rank = torch.arange(10, device=x.device, dtype=torch.int64)
+@@ -30,9 +33,9 @@
+
+                 memory.gather(-1, idx.clamp(0, 9)),
+                 fill,
+             )
+-        depth = shares.to(x.dtype).clamp_min(0).log1p()
+-        distance = (ticks.to(torch.int64) - best.unsqueeze(-1)).abs()
+-        distance = distance.to(x.dtype).log1p()
++        volume = shares.to(x.dtype).clamp_min(0)
++        depth = volume.log1p()
++        distance = (ticks - best.unsqueeze(-1)).abs().to(x.dtype).log1p()
+         side = x.new_tensor([-1, 1]).view(1, 2, 1).expand_as(depth)
+         gate, value = self.local(
+             torch.stack((depth, distance, side, aligned), dim=-1)
+@@ -40,7 +43,15 @@
+
+         memory = torch.lerp(aligned, value.tanh(), gate.sigmoid())
+         flat = memory.flatten(1)
+         h = self.gru(torch.cat((x, flat), dim=-1), h)
++
++        # Read current scarcity and mirrored depth contrast without a time gate.
++        scarcity = (1 + volume).reciprocal()
++        contrast = (depth - depth.flip((1,))).tanh()
++        pressure = self.queue(torch.stack(
++            (scarcity, contrast, distance, aligned), dim=-1
++        )).squeeze(-1).tanh()
+         context = self.readout(torch.cat((h, flat), dim=-1))
++        context = context + self.queue_readout(pressure.flatten(1))
+         return context, (h, memory, best)
+ 
+     def step_context(self, obs, state):

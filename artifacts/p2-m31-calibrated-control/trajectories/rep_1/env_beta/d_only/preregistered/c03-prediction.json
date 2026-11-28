@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A slow signed depth-innovation trace will help distinguish persistent queue depletion from a transient depth change after the fixed order. Predict impact MAE <= 0.172601 tick, with total NLL <= 4.62096 and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "bdb9a280b8d24b9b25586b5d256c65aef85346de29332de689fc2e43b7f48570"
+}

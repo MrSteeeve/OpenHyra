@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Predicting the next non-own book change from the preceding state lets the recurrent update distinguish expected depletion from a surprise. Bypassing that subtraction for own events preserves their direct signal. Predict impact MAE <= 0.207718 tick, total NLL <= 4.83351, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "7f72eb7c298dd74524a48babdb71db4a7ebaad486e0465f4ba898bcb956201aa"
+}

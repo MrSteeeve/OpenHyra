@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Aligning opposing depth by tick distance rather than level rank will better distinguish a thin queue from a gap in liquidity. Predict impact MAE <= 1.19296, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "2ef6b03a99d51b1212b89ed70d8f64efdd2a60e163ae818ebdaa3017709cb754"
+}

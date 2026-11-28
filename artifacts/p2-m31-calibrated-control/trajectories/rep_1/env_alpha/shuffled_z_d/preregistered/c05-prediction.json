@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replacing the shared depth projection with an opposite-side-conditioned projection will let the same depletion pattern have different effects depending on liquidity across the spread. Predict impact MAE <= 1.19296, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "862f4ab56e771bbcb160b9190842bad3c30924c61b72160b6fdebc1fe0754385"
+}

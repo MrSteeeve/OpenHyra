@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Side-specific queue features gated by touch depth will distinguish depletion from replenishment after an external order. Predict impact MAE <= 0.213623, total NLL increase <= 0.005, and exhausted replicate rate <= 0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

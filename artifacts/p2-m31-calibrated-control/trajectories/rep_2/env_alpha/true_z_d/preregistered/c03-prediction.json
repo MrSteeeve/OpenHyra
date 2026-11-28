@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Aligning queue memory by price before updating should reduce fixed-order impact MAE by at least 0.010 tick versus B0, while keeping dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "ba7c7ed4e16e982cf1f60dd2c5bab410feeb461b5ce9f7077422d6e122c4cdbd"
+}

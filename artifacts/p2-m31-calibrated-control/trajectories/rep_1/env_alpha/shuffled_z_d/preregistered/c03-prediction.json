@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared nonlinear readout of cumulative depth should let the model learn how much liquidity a fixed order must consume on either side without forcing the two responses to match. I predict impact MAE at or below 1.66167 ticks, with total NLL increasing by no more than 0.005 and exhaustion rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "94edd732965e3534df7ffefeadf20827c2f4353fe875d08992f38c427c339c21"
+}

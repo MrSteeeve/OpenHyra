@@ -1,0 +1,57 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRUCell(32, 60)
+        self.queue_gate = nn.Linear(60, 60, bias=False)
+        nn.init.zeros_(self.queue_gate.weight)
+
+    def _inputs(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        shares = obs.book_shares.to(x.dtype).clamp_min(0)
+        depth = shares.log1p()
+        ticks = obs.book_ticks
+        gap = (ticks - ticks[..., :1]).abs().to(x.dtype)
+        q = torch.cat(
+            (
+                (depth / 8).tanh().flatten(-2),
+                (depth.cumsum(-1) / 32).tanh().flatten(-2),
+                (gap.log1p() / 4).tanh().flatten(-2),
+            ),
+            dim=-1,
+        )
+        return x, self.queue_gate(q).tanh()
+
+    def _advance(self, x, offset, prior):
+        if prior is None:
+            prior = x.new_zeros(x.shape[0], 60)
+        g = self.gru
+        ir, iz, inn = nn.functional.linear(
+            x, g.weight_ih, g.bias_ih
+        ).chunk(3, dim=-1)
+        hr, hz, hn = nn.functional.linear(
+            prior, g.weight_hh, g.bias_hh
+        ).chunk(3, dim=-1)
+        reset = (ir + hr).sigmoid()
+        keep = (iz + hz + offset).sigmoid()
+        proposal = (inn + reset * hn).tanh()
+        return keep * prior + (1 - keep) * proposal
+
+    def step_context(self, obs, state):
+        x, offset = self._inputs(obs)
+        h = self._advance(x, offset, state)
+        return h, h
+
+    def sequence_context(self, obs):
+        x, offset = self._inputs(obs)
+        h = None
+        out = []
+        for i in range(x.size(1)):
+            h = self._advance(x[:, i], offset[:, i], h)
+            out.append(h)
+        return torch.stack(out, dim=1) if out else offset

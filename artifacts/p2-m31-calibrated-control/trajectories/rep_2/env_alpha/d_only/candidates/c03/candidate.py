@@ -1,0 +1,59 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.queue_update = nn.Linear(3, 2)
+        self.boundary = nn.Parameter(torch.zeros(2, 10))
+        self.gru = nn.GRUCell(52, 40)
+
+    def _advance(self, x, ticks, shares, state):
+        boundary = self.boundary.tanh().unsqueeze(0).expand_as(shares)
+        if state is None:
+            h = x.new_zeros(x.size(0), 40)
+            carried = boundary
+        else:
+            h, old_ticks, memory = state
+            # Match prices within each side, not relative level indices.
+            match = ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)
+            weights = match.to(x.dtype)
+            count = weights.sum(-1)
+            aligned = (weights * memory.unsqueeze(-2)).sum(-1)
+            carried = torch.where(count > 0, aligned / count.clamp_min(1), boundary)
+        local = torch.stack(
+            (shares.clamp_min(0).log1p(), carried,
+             x[:, :1].unsqueeze(-1).expand_as(carried)), dim=-1
+        )
+        proposal, gate = self.queue_update(local).unbind(-1)
+        memory = torch.lerp(carried, proposal.tanh(), gate.sigmoid())
+        h = self.gru(torch.cat((x, memory.flatten(1)), dim=-1), h)
+        return torch.cat((h, memory.flatten(1)), dim=-1), (h, ticks, memory)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._advance(
+            x, obs.book_ticks.to(torch.int64), obs.book_shares.to(x.dtype), state
+        )
+
+    def sequence_context(self, obs):
+        from dataclasses import replace
+
+        state = None
+        contexts = []
+        for t in range(obs.book_ticks.size(1)):
+            step = replace(
+                obs,
+                book_ticks=obs.book_ticks[:, t],
+                book_shares=obs.book_shares[:, t],
+                previous_event=obs.previous_event[:, t],
+                is_own=obs.is_own[:, t],
+            )
+            context, state = self.step_context(step, state)
+            contexts.append(context)
+        if not contexts:
+            return self.boundary.new_empty(obs.book_ticks.size(0), 0, 60)
+        return torch.stack(contexts, dim=1)

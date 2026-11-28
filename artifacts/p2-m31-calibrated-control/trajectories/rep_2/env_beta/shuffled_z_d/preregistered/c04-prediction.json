@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared encoder in outward-from-touch coordinates will let depletion on either side inform the response to a fixed order. I predict impact MAE at or below 0.213623 tick, with total NLL increasing by at most 0.005 and exhausted replicate rate increasing by at most 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "f4cd6e8492f53e4c120b98500f84f30885e5e8add02f4d0524b9dfcf19835738"
+}

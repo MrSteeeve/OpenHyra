@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared queue encoder with depletion-gated access to the next level should improve the response to a fixed order. Predict impact MAE decreases by at least 0.010 tick, with total NLL rising by no more than 0.005 and exhaustion rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "37b740abaf35be8e4db455652cdf7ca89107bc8a498bb27232bf012c389184d8"
+}

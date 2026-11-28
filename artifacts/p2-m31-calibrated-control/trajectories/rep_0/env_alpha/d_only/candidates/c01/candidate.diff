@@ -1,0 +1,55 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,41 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.queue = nn.Sequential(nn.Linear(2, 8), nn.Tanh(), nn.Linear(8, 2))
++        self.gate = nn.Linear(40, 60, bias=False)
++        nn.init.zeros_(self.gate.weight)
++
++    def _inputs(self, obs):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        q = obs.book_shares.to(dtype=x.dtype).clamp(0, 1e7)
++        q = q.log1p() / 16
++        deeper = torch.cat((q[..., 1:], torch.zeros_like(q[..., :1])), dim=-1)
++        local = self.queue(torch.stack((q, deeper), dim=-1))
++        g = self.gate(local.flatten(-3)).tanh()
++        return x, g
++
++    def _update(self, x, g, prior):
++        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
++        return h[0] + 0.5 * g * (h[0] - prior)
++
++    def step_context(self, obs, state):
++        x, g = self._inputs(obs)
++        prior = x.new_zeros((x.size(0), 60)) if state is None else state
++        h = self._update(x, g, prior)
++        return h, h
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        x, g = self._inputs(obs)
++        h = x.new_zeros((x.size(0), 60))
++        out = []
++        for t in range(x.size(1)):
++            h = self._update(x[:, t], g[:, t], h)
++            out.append(h)
++        return torch.stack(out, dim=1) if out else x.new_zeros((x.size(0), 0, 60))

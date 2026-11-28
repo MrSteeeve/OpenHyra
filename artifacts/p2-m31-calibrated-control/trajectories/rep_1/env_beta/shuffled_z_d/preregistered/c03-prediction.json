@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A direct readout of one-tick queue pressure should expose order-induced changes without waiting for the recurrent update to encode them. Predict MAE <= 0.213623, total NLL <= 4.84304, and exhaustion rate <= 0.05.",
+    "selected_card_ids": [
+      "C07"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "b24b71a306581e28819e0466e979cdb8778a521c24956985c48338fd60c4f36b"
+}

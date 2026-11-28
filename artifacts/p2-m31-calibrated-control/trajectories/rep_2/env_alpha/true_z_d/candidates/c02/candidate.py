@@ -1,0 +1,65 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.local = nn.Linear(5, 4)
+        self.boundary = nn.Parameter(torch.zeros(1, 2, 1, 2))
+        self.global_cell = nn.GRUCell(36, 18)
+        self.readout = nn.Linear(58, 60)
+
+    def _advance(self, ticks, shares, own, x, state):
+        ticks = ticks.to(torch.int64)
+        best = ticks[..., 0]
+        side = ticks.new_tensor([-1, 1]).view(1, 2, 1)
+        levels = torch.arange(10, device=ticks.device, dtype=torch.int64)
+        fill = self.boundary.tanh().expand(x.size(0), 2, 10, 2)
+        if state is None:
+            aligned = fill
+            h = x.new_zeros(x.size(0), 18)
+        else:
+            memory, h, old_best = state
+            shift = (best - old_best).clamp(-10, 10)
+            idx = levels + shift.unsqueeze(-1) * side
+            valid = (idx >= 0) & (idx < 10)
+            source = idx.clamp(0, 9).unsqueeze(-1).expand_as(memory)
+            aligned = torch.where(
+                valid.unsqueeze(-1), memory.gather(2, source), fill
+            )
+        depth = shares.to(x.dtype).clamp_min(0).log1p()
+        distance = ((ticks - best.unsqueeze(-1)) * side).to(x.dtype)
+        distance = distance.clamp(0, 100).log1p()
+        own = own.to(x.dtype)[:, None, None].expand_as(depth)
+        features = torch.stack((depth, distance, own), dim=-1)
+        gate, update = self.local(
+            torch.cat((features, aligned), dim=-1)
+        ).chunk(2, dim=-1)
+        memory = torch.lerp(aligned, update.tanh(), gate.sigmoid())
+        summary = memory.mean(dim=2).flatten(1)
+        h = self.global_cell(torch.cat((x, summary), dim=-1), h)
+        context = self.readout(torch.cat((h, memory.flatten(1)), dim=-1))
+        return context, (memory, h, best)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._advance(
+            obs.book_ticks, obs.book_shares, obs.is_own, x, state
+        )
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = None
+        outputs = []
+        for t in range(x.size(1)):
+            context, state = self._advance(
+                obs.book_ticks[:, t], obs.book_shares[:, t],
+                obs.is_own[:, t], x[:, t], state
+            )
+            outputs.append(context)
+        if not outputs:
+            return x.new_empty(x.size(0), 0, 60)
+        return torch.stack(outputs, dim=1)

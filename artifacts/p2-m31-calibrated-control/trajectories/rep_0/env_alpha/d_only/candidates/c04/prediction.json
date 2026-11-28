@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A shared bid-ask interaction at each paired rank will help distinguish one-sided depletion from a book-wide depth change. Predict impact MAE <= 1.80889 ticks, with total NLL <= 3.97683 and exhausted replicate rate <= 0.591667.", "selected_card_ids": ["C09"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

@@ -1,0 +1,74 @@
+--- parent
+
++++ candidate
+
+@@ -1,28 +1,56 @@
+
+ import torch
+ from torch import nn
+-from stochopia.neural.probe_features import ProbeBase, input_projection
++from stochopia.neural.probe_features import ProbeBase, input_projection, previous_flow
+ 
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.gru = nn.GRU(32, 56, batch_first=True)
+         self.queue = nn.Linear(40, 60, bias=False)
++        self.flow_read = nn.Linear(12, 60, bias=False)
+         nn.init.zeros_(self.queue.weight)
++        nn.init.zeros_(self.flow_read.weight)
++        self.register_buffer("retention", torch.tensor([0.60, 0.84, 0.952, 0.987]))
+ 
+-    def _read(self, obs, h):
+-        q = obs.book_shares.to(dtype=h.dtype).clamp_min(0)
+-        local = torch.stack((q.log1p().tanh(), (1 + q).reciprocal()), dim=-1)
+-        return h + self.queue(local.flatten(-3)).tanh()
++    def _inputs(self, obs):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        q = obs.book_shares.to(x.dtype).clamp_min(0)
++        flow = previous_flow(obs).to(x.dtype)
++        return x, q, flow.reshape(x.shape[:-1]).tanh()
++
++    def _memory(self, flow, prior):
++        r = self.retention.to(prior.dtype)
++        return r * prior + (1 - r) * flow.unsqueeze(-1)
++
++    def _read(self, q, h, m):
++        inv = (1 + q).reciprocal()
++        local = torch.stack((q.log1p().tanh(), inv), dim=-1)
++        near = inv[..., :3].mean(dim=-1)
++        cross = torch.cat(
++            (m, m * near[..., 0:1], m * near[..., 1:2]), dim=-1
++        )
++        return (
++            torch.cat((h, m), dim=-1)
++            + self.queue(local.flatten(-3)).tanh()
++            + self.flow_read(cross).tanh()
++        )
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        x, q, flow = self._inputs(obs)
+         h, _ = self.gru(x)
+-        return self._read(obs, h)
++        m = x.new_zeros((x.size(0), 4))
++        history = []
++        for f in flow.unbind(dim=1):
++            m = self._memory(f, m)
++            history.append(m)
++        return self._read(q, h, torch.stack(history, dim=1))
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return self._read(obs, h[0]), h[0]
++        x, q, flow = self._inputs(obs)
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        _, h = self.gru(x.unsqueeze(1), state[:, :56].unsqueeze(0))
++        m = self._memory(flow, state[:, 56:])
++        return self._read(q, h[0], m), torch.cat((h[0], m), dim=-1)

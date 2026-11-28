@@ -1,0 +1,31 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+        self.readout = nn.Linear(20, 60, bias=False)
+        nn.init.zeros_(self.readout.weight)
+
+    def _context(self, obs, hidden):
+        # Prefix depth represents the shares needed to sweep to each level.
+        q = obs.book_shares.to(dtype=hidden.dtype).clamp(0, 1e7)
+        depth = q.cumsum(dim=-1)
+        profile = torch.log1p(depth) / 16.0
+        return hidden + self.readout(profile.flatten(start_dim=-2))
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        hidden, _ = self.gru(x)
+        return self._context(obs, hidden)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+        hidden = h[0]
+        return self._context(obs, hidden), hidden

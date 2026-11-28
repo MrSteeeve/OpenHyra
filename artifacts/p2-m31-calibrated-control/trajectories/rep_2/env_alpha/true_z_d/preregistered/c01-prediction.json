@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Gating recurrent inputs by current headroom at each queue should improve the response to an external order that consumes the touch. Predict impact MAE <= 6.7599, total NLL <= 4.31127, and exhausted replicate rate <= 0.921528.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "042aab2b9b551be0f69c6630abe859f27d310f08eab968a34ab0326cec2dc6a1"
+}

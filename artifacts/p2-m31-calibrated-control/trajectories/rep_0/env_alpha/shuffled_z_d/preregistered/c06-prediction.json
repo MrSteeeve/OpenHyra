@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "An order of fixed size can consume very different numbers of levels depending on how depth accumulates from the touch. Giving the output heads a direct read of cumulative depth, without storing it in recurrent state, should reduce impact MAE by at least 0.010 tick versus B0 while keeping dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "f77cc7179f904d34143b5046061be1dc3ad30410453ffb6586b412c2497f693c"
+}

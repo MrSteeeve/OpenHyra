@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Mixing queue features across levels in cumulative-volume coordinates should distinguish paths where an order can reach deeper quotes from paths where intervening depth absorbs it. Predict at least 0.010 tick lower impact MAE, with total NLL rising by at most 0.005 and exhaustion rate by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "01f589c9fbf86477e166d3dac4225ae98173ef7f18bd7b7a1efe48b882925dc9"
+}

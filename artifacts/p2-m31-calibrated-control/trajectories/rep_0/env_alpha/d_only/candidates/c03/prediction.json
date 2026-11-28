@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A bank of four retention scales can distinguish a short order-flow impulse from a persistent imbalance. Predict impact MAE <= 1.85258, with total NLL <= 3.98017 and exhaustion <= 0.609028.", "selected_card_ids": ["C03"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

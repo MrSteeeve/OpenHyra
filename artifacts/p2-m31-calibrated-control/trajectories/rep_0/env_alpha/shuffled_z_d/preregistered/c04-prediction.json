@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared side encoder with separate common and signed readouts should improve generalization across opposing order directions. Predict at least 0.010 tick lower impact MAE without exceeding either guardrail; the untied parent path preserves side-specific information.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "c8adb9ef49e35de80e76d1bfa5447066d5953dd9d1d1732a0e2adc67141eef3f"
+}

@@ -1,0 +1,170 @@
+{
+  "api_calls": 0,
+  "caveat": "The prescribed A00 is a 60-dimensional Flat-GRU, while A10/A01/A11 split state into 52+8. A01 also removes the input-conditioned clock. The interaction includes the topology and clock changes and does not identify only two isolated operators. The M3 holdout is disjoint from training but has already been opened in M3; this is a retrospective mechanism ablation, not a fresh confirmatory holdout.",
+  "data_protocol": {
+    "batch_windows": 2,
+    "bootstrap_draws": 2000,
+    "bootstrap_seed": 41397,
+    "context": 128,
+    "data_seed": 20261127,
+    "dev_days": 12,
+    "events_per_session": 256,
+    "fit": {
+      "batch_size": 8,
+      "burn_in": 32,
+      "end_lr": 0.0001,
+      "grad_clip": 1.0,
+      "max_train_seconds": 120.0,
+      "start_lr": 0.002,
+      "steps": 96,
+      "subseq_len": 128,
+      "weight_decay": 0.0001
+    },
+    "holdout_days": 12,
+    "holdout_first_day": 28,
+    "model_k": 4,
+    "rollout_seed": 9127,
+    "sessions_per_day": 2,
+    "train_days": 16,
+    "training_seeds": [
+      103,
+      137,
+      211
+    ],
+    "truth_k": 16,
+    "truth_seed": 76193
+  },
+  "fit_roster": [
+    {
+      "seed": 103,
+      "variant": "A00"
+    },
+    {
+      "seed": 137,
+      "variant": "A00"
+    },
+    {
+      "seed": 211,
+      "variant": "A00"
+    },
+    {
+      "seed": 103,
+      "variant": "A10"
+    },
+    {
+      "seed": 137,
+      "variant": "A10"
+    },
+    {
+      "seed": 211,
+      "variant": "A10"
+    },
+    {
+      "seed": 103,
+      "variant": "A01"
+    },
+    {
+      "seed": 137,
+      "variant": "A01"
+    },
+    {
+      "seed": 211,
+      "variant": "A01"
+    },
+    {
+      "seed": 103,
+      "variant": "A11"
+    },
+    {
+      "seed": 137,
+      "variant": "A11"
+    },
+    {
+      "seed": 211,
+      "variant": "A11"
+    }
+  ],
+  "holdout_dates": [
+    20300129,
+    20300130,
+    20300131,
+    20300201,
+    20300202,
+    20300203,
+    20300204,
+    20300205,
+    20300206,
+    20300207,
+    20300208,
+    20300209
+  ],
+  "holdout_sha256": "40bbf15e3fcc8f5d08d9e852f8f3d0acfc97f7e9449b5a6ed6267f8cbfb985a8",
+  "metrics": [
+    "val_nll_total",
+    "dt_nll",
+    "event_nll",
+    "level_nll",
+    "size_nll",
+    "counterfactual_impact_mae",
+    "post_stop_relaxation_delta",
+    "sign_acf_abs_error",
+    "memory_gap_1",
+    "memory_gap_4",
+    "memory_gap_16",
+    "memory_gap_64",
+    "exhausted_replicate_rate"
+  ],
+  "reference": {
+    "participation": 0.01855610321832415,
+    "scale_ticks": 0.0
+  },
+  "source_freeze_sha256": "c90828c3352c77f340ea54f130724af7305ceddd707572062c969af96c47883d",
+  "source_sha256": {
+    "A00": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+    "A01": "da0fbf85bcba1cf01ac8219b8b338d1f11a9ce352542c4b29d7c6253becbff11",
+    "A10": "b1e32308dc00e2f49c5c4b60e325b347e59b84eda70a6c7e3a74fbe1143c4104",
+    "A11": "563f34670ced48a5762f0e467e93745ce32cb896efce63498458ac745e779660"
+  },
+  "train_dates": [
+    20300101,
+    20300102,
+    20300103,
+    20300104,
+    20300105,
+    20300106,
+    20300107,
+    20300108,
+    20300109,
+    20300110,
+    20300111,
+    20300112,
+    20300113,
+    20300114,
+    20300115,
+    20300116
+  ],
+  "train_sha256": "43c8253c6b693b46065e71c2ff6b54e7f12ac53db67cec67dd4433ed431b74a1",
+  "variants": {
+    "A00": {
+      "c03": false,
+      "c08": false,
+      "description": "Unmodified frozen Flat-GRU B0."
+    },
+    "A01": {
+      "c03": false,
+      "c08": true,
+      "description": "Keep prediction-subtracted innovation and its -2 gain bias; remove clock module, use pace=1 and eight identical rates of 0.0707."
+    },
+    "A10": {
+      "c03": true,
+      "c08": false,
+      "description": "Unmodified multiscale input-conditioned clock; replace innovation with measure(x).tanh(). Keep the now-unused predict module registered to preserve parameter allocation and initialization; 480 disconnected parameters."
+    },
+    "A11": {
+      "c03": true,
+      "c08": true,
+      "description": "Unmodified frozen c06 winner."
+    }
+  },
+  "world": "env_beta"
+}

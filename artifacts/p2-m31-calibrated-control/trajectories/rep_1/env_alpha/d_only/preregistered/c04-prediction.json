@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A side-specific cumulative-depth readout will help distinguish touch depletion from deeper liquidity loss. I predict impact MAE will fall by at least 0.010 tick, with total NLL increasing by at most 0.005 and exhausted replicate rate by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "17ec2605f20a10bd7da969926b8c2e242c581cbf26863fda97fc38fb2a2112a1"
+}

@@ -1,0 +1,34 @@
+--- parent
+
++++ candidate
+
+@@ -8,6 +8,9 @@
+
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.cell = nn.GRUCell(36, 54)
++        self.forecast = nn.Linear(54, 2, bias=False)
++        nn.init.zeros_(self.forecast.weight)
++        self.gate = nn.Parameter(torch.full((2,), -2.0))
+         self.register_buffer("retention", torch.tensor([0.65, 0.96]))
+         self.register_buffer("weights", torch.arange(1, 11).float().reciprocal())
+         self.mix = nn.Linear(60, 60)
+@@ -25,10 +28,16 @@
+
+             prior = depth
+         else:
+             h, trace, prior = state
++
++        # Forecast from the prior recurrent state, before ingesting x.
++        predicted = self.forecast(h).tanh()
+         delta = depth - prior
++        observed = delta.tanh()
++        slow = observed - self.gate.sigmoid() * predicted
++        drive = torch.stack((observed, slow), dim=-1)
+         clock = 1 + delta.abs().sum(-1, keepdim=True).clamp(max=3)
+         keep = self.retention.pow(clock).unsqueeze(1)
+-        trace = keep * trace + (1 - keep) * delta.tanh().unsqueeze(-1)
++        trace = keep * trace + (1 - keep) * drive
+         bid, ask = trace.unbind(1)
+         flow = torch.cat((bid - ask, bid + ask), -1)
+         h = self.cell(torch.cat((x, flow), -1), h)

@@ -1,0 +1,58 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.local = nn.Linear(6, 2)
+        self.boundary = nn.Parameter(torch.zeros(1, 2, 1))
+        self.gru = nn.GRUCell(52, 20)
+        self.readout = nn.Linear(72, 60)
+
+    def _advance(self, x, ticks, shares, own, state):
+        ticks = ticks.to(torch.int64)
+        q = shares.to(x.dtype).clamp_min(0).log1p()
+        base = self.boundary.tanh().expand_as(q)
+        if state is None:
+            m = base
+            g = x.new_zeros(x.size(0), 20)
+        else:
+            g, old_ticks, old_m = state
+            match = ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)
+            weights = match.to(x.dtype)
+            count = weights.sum(-1)
+            aligned = (weights * old_m.unsqueeze(-2)).sum(-1)
+            m = torch.where(count > 0, aligned / count.clamp_min(1), base)
+
+        dist = (ticks - ticks[..., :1]).abs().to(x.dtype).log1p()
+        own = own.to(x.dtype)[:, None, None].expand_as(q)
+        side = x.new_tensor([-1, 1])[None, :, None].expand_as(q)
+        spread = (ticks[:, 1, 0] - ticks[:, 0, 0]).to(x.dtype)
+        spread = spread.clamp_min(0).log1p()[:, None, None].expand_as(q)
+        gate, value = self.local(
+            torch.stack((q, dist, own, side, spread, m), dim=-1)
+        ).unbind(-1)
+        m = torch.lerp(m, value.tanh(), gate.sigmoid())
+        flat = m.flatten(1)
+        g = self.gru(torch.cat((x, flat), dim=-1), g)
+        c = self.readout(torch.cat((x, g, flat), dim=-1)).tanh()
+        return c, (g, ticks, m)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._advance(x, obs.book_ticks, obs.book_shares, obs.is_own, state)
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = None
+        out = []
+        for t in range(x.size(1)):
+            c, state = self._advance(
+                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t],
+                obs.is_own[:, t], state
+            )
+            out.append(c)
+        return torch.stack(out, dim=1) if out else x.new_empty(x.size(0), 0, 60)

@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Matching queue memory by observed price should preserve depletion history when quotes move, reducing fixed-order impact MAE by at least 0.010 tick while keeping ΔNLL ≤ +0.005 and Δexhaust ≤ +0.05 versus B0.", "selected_card_ids": ["C05"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

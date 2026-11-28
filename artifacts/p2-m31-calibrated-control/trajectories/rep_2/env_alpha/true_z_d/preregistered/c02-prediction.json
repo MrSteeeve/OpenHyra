@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "With frequent best-quote moves, carrying queue memory at the same physical price should improve the response to a fixed external order. Predict impact MAE <= 6.7599, total NLL <= 4.31127, and exhausted replicate rate <= 0.921528.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "984083b37bd034629e45e7f275e40ad0d1338ad6462dff31d4ba7e9a1b90d4c0"
+}

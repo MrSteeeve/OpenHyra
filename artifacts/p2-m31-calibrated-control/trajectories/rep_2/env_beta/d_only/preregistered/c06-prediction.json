@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace the near/deep imbalance averages in the recurrent drive with side-specific sweep costs at two fixed volumes. The same imbalance can hide very different quantities ahead of a price move. Predict impact MAE <=0.223474 tick, total NLL increase <=0.005, and exhaustion increase <=0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "9570ca60f26dbce8bb8f706f227f7d72b044352249f5eb591e9c9d03ccd375aa"
+}

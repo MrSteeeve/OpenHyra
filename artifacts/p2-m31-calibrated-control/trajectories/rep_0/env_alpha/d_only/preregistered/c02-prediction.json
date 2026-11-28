@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Matching queue memory by observed price should preserve the history of queues that survive an order but change rank. Predict impact MAE <= 6.7599, total NLL <= 4.31127, and exhausted replicate rate <= 0.921528.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "bff16eb1577c4c7a4d8e656b194ed9817cea815b7331931b38ab44c6b8bc62a3"
+}

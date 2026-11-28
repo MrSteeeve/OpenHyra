@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Conditioning the GRU write gate on ordered queue depth and price gaps will better distinguish similar external orders hitting different liquidity profiles. Predict impact MAE <= 6.7599, with dNLL <= +0.005 and dExhaust <= +0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

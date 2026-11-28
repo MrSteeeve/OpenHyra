@@ -1,0 +1,37 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,29 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.depth_read = nn.Linear(20, 60, bias=False)
++        nn.init.zeros_(self.depth_read.weight)
++
++    def _read(self, obs, h):
++        q = obs.book_shares.to(dtype=h.dtype).clamp(0, 1e6)
++        # Sum outward from each touch before compressing the depth scale.
++        depth = q.cumsum(dim=-1).log1p().flatten(-2)
++        return h + 0.25 * self.depth_read(depth).tanh()
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        h, _ = self.gru(x)
++        return self._read(obs, h)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        return self._read(obs, h[0]), h[0]

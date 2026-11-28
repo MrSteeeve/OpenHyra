@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "The slow trace may accumulate predictable depth changes as if they were fresh shocks. Subtracting a gated forecast from the prior hidden state on the slow path only should reduce impact MAE to 0.172601 tick or lower, with total NLL increasing by at most 0.005 and exhaustion by at most 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "2b0bba4efc8976777d953586c5e70af6674305f36c1a6d27f6188689b5242b85"
+}

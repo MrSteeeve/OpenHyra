@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared correction that reverses sign under side exchange at the queue readout should reduce spurious directional drift while leaving the parent free to model genuine asymmetry. Predict at least 0.010 tick lower impact MAE, with total NLL rising by no more than 0.005 and exhaustion rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "c60d11d06243f111be148addd5863f0275ae252f67c722e2afccc72743165b9d"
+}

@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Explicit short-, medium-, and long-memory traces of causal event and queue pressure will reduce fixed-order impact MAE to at most 0.213623 tick, with total NLL increasing by no more than 0.005 and exhausted replicate rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8bbfc0eefcd6427b73c7dd817d44dee6948643f08024d0d290a9af8a15b80f64"
+}

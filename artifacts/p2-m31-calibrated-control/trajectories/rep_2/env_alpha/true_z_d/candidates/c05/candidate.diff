@@ -1,0 +1,45 @@
+--- parent
+
++++ candidate
+
+@@ -13,7 +13,10 @@
+
+         self.readout = nn.Linear(58, 60)
+         self.queue = nn.Sequential(nn.Linear(4, 8), nn.SiLU(), nn.Linear(8, 1))
+         self.queue_readout = nn.Linear(20, 60, bias=False)
++        self.ladder = nn.Sequential(nn.Linear(4, 12), nn.SiLU(), nn.Linear(12, 1))
++        self.ladder_readout = nn.Linear(20, 60, bias=False)
+         nn.init.zeros_(self.queue_readout.weight)
++        nn.init.zeros_(self.ladder_readout.weight)
+ 
+     def _advance(self, x, ticks, shares, state):
+         ticks = ticks.to(torch.int64)
+@@ -44,7 +47,6 @@
+
+         flat = memory.flatten(1)
+         h = self.gru(torch.cat((x, flat), dim=-1), h)
+ 
+-        # Read current scarcity and mirrored depth contrast without a time gate.
+         scarcity = (1 + volume).reciprocal()
+         contrast = (depth - depth.flip((1,))).tanh()
+         pressure = self.queue(torch.stack(
+@@ -52,6 +54,18 @@
+
+         )).squeeze(-1).tanh()
+         context = self.readout(torch.cat((h, flat), dim=-1))
+         context = context + self.queue_readout(pressure.flatten(1))
++
++        # Pair each visible price jump with the depth needed to expose it.
++        prefix = volume.cumsum(-1)
++        before = torch.cat((torch.zeros_like(prefix[..., :1]), prefix[..., :-1]), -1)
++        gap = ticks.diff(dim=-1, prepend=best.unsqueeze(-1)).abs().to(x.dtype)
++        ladder = self.ladder(torch.stack(
++            (before.log1p(), gap.log1p(), depth, distance), dim=-1
++        )).squeeze(-1).tanh()
++        bid, ask = ladder.unbind(1)
++        context = context + self.ladder_readout(
++            torch.cat((bid + ask, ask - bid), dim=-1)
++        )
+         return context, (h, memory, best)
+ 
+     def step_context(self, obs, state):

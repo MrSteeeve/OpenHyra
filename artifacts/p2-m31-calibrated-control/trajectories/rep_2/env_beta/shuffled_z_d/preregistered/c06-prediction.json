@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "If the price response to a fixed order depends on both the depth it must consume and the distance to the next quote, coupling cumulative depth to tick distance should reduce impact MAE to 0.208559 or lower, with total NLL at most 4.70952 and exhaustion at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "acccbe8c031a0e26bcaa48cedb30827108eefe3e05387179fd14bf0a4ab7b490"
+}

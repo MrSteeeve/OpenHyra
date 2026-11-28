@@ -1,0 +1,53 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 40, batch_first=True)
+        self.boundary = nn.Parameter(torch.zeros(1, 2, 1, 2))
+        self.readout = nn.Linear(40, 60)
+
+    def _advance(self, x, ticks, shares, state):
+        b = x.size(0)
+        ticks = ticks.to(torch.int64)
+        live = shares > 0
+        keys = torch.where(live, ticks, torch.iinfo(torch.int64).min)
+        if state is None:
+            prior = self.boundary.tanh().expand(b, 2, 10, 2)
+        else:
+            memory, old_keys = state
+            # Match absolute ticks independently on each side.
+            match = (ticks.unsqueeze(-1) == old_keys.unsqueeze(-2))
+            match = match & live.unsqueeze(-1)
+            match = match & (
+                old_keys.unsqueeze(-2) != torch.iinfo(torch.int64).min
+            )
+            weights = match.to(x.dtype)
+            aligned = weights @ memory
+            aligned = aligned / weights.sum(-1, keepdim=True).clamp_min(1)
+            prior = torch.where(
+                match.any(-1, keepdim=True), aligned, self.boundary.tanh()
+            )
+        _, h = self.gru(x.unsqueeze(1), prior.reshape(1, b, 40).contiguous())
+        return self.readout(h[0]).tanh(), (h[0].reshape(b, 2, 10, 2), keys)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._advance(x, obs.book_ticks, obs.book_shares, state)
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = None
+        contexts = []
+        for t in range(x.size(1)):
+            context, state = self._advance(
+                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
+            )
+            contexts.append(context)
+        return torch.stack(contexts, dim=1) if contexts else x.new_empty(
+            (x.size(0), 0, 60)
+        )

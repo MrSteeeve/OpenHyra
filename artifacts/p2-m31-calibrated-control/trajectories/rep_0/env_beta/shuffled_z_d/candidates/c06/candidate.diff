@@ -1,0 +1,37 @@
+--- parent
+
++++ candidate
+
+@@ -7,17 +7,26 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.side = nn.Sequential(nn.Linear(20, 24), nn.Tanh(), nn.Linear(24, 16))
++        self.local = nn.Sequential(nn.Linear(3, 8), nn.Tanh())
++        self.read = nn.Linear(80, 16)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+ 
+     def _encode(self, obs):
+         base = self.encoder(self.raw_features(obs))
+         shares = obs.book_shares.to(base.dtype).clamp_min(0)
+         ticks = obs.book_ticks.to(torch.int64)
+-        distance = (ticks - ticks[..., :1]).abs().to(base.dtype)
+-        distance = torch.where(shares > 0, distance, torch.zeros_like(distance))
+-        profiles = torch.cat((shares.log1p(), distance.log1p()), dim=-1)
+-        bid, ask = self.side(profiles).tanh().unbind(dim=-2)
++        occupied = shares > 0
++        level = torch.arange(10, device=ticks.device, dtype=torch.int64)
++        last = torch.where(occupied, level, -1).cummax(dim=-1).values
++        prev = torch.cat((torch.full_like(last[..., :1], -1), last[..., :-1]), dim=-1)
++        prev_ticks = ticks.gather(-1, prev.clamp_min(0))
++        gap = torch.where(occupied & (prev >= 0), (ticks - prev_ticks).abs(), 0)
++        offset = torch.where(occupied, (ticks - ticks[..., :1]).abs(), 0)
++        local = self.local(torch.stack(
++            (shares.log1p(), gap.to(base.dtype).log1p(),
++             offset.to(base.dtype).log1p()), dim=-1))
++        local = local * occupied.unsqueeze(-1)
++        bid, ask = self.read(local.flatten(-2)).tanh().unbind(dim=-2)
+         paired = torch.cat(((bid + ask) * 0.5, (bid - ask) * 0.5), dim=-1)
+         return (base + 0.25 * paired).tanh()
+ 

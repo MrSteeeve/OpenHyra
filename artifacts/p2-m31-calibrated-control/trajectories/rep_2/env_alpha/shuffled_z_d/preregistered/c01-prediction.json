@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A side- and level-specific queue readout bypasses recurrent smoothing, letting the heads react immediately to depth removed by a fixed external order. Predict impact MAE falls by at least 0.010 tick, with ΔNLL ≤ +0.005 and Δexhaustion ≤ +0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "456883cd41b20201f1d42e1e800ffcf222388f656f5d5563ecd9a4d23da17484"
+}

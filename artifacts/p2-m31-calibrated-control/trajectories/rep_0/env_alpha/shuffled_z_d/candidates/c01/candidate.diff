@@ -1,0 +1,41 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,33 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.local = nn.Linear(3, 4)
++        self.readout = nn.Linear(80, 60, bias=False)
++
++    def queue_context(self, obs):
++        q = obs.book_shares.to(self.local.weight.dtype).clamp_min(0)
++        ticks = obs.book_ticks.to(self.local.weight.dtype)
++        distance = (ticks - ticks[..., :1]).abs()
++        features = torch.stack(
++            (q.log1p(), (1 + q).reciprocal(), distance.log1p()), dim=-1
++        )
++        return self.readout(self.local(features).tanh().flatten(-3))
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        h = self.gru(x)[0]
++        return h + self.queue_context(obs)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        h = h[0]
++        return h + self.queue_context(obs), h

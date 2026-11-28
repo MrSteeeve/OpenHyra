@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Using current queue depth and adjacent-level depth to gate the recurrent input will reduce impact MAE by at least 0.010 tick (to 6.7599 or lower), with total NLL at most 4.31127 and exhaustion at most 0.921528.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "fe96700fe92071a4bb69b572a495143c39a10e66b0ecd1803f2ced6a5be2383f"
+}

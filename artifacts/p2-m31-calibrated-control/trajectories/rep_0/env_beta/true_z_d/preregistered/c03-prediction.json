@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "The parent reads queues independently at each level. Adding cumulative depth and the depth-weighted distance between each level and the touch should better distinguish books that absorb the same fixed order at different prices. Predict impact MAE at or below 0.215122 tick, with total NLL at or below 4.78069 and exhaustion at or below 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "d54eac1d2c07ed276562473f0a76b683677275ebea55feb9ad6356b6b50befce"
+}

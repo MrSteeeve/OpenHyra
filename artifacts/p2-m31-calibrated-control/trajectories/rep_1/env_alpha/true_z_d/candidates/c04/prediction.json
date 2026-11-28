@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A direct context readout of gaps weighted by inverse cumulative depth will improve fixed-order impact MAE by at least 0.010 tick versus B0. The candidate should also meet both guardrails: ΔNLL ≤ +0.005 and Δexhaust ≤ +0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

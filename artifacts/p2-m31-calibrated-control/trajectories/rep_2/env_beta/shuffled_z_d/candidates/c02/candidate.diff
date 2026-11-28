@@ -1,0 +1,45 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,36 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.local = nn.Linear(3, 4)
++        self.mix = nn.Linear(80, 32, bias=False)
++        nn.init.normal_(self.mix.weight, std=0.005)
++
++    def _encode(self, obs):
++        x = self.encoder(self.raw_features(obs))
++        q = obs.book_shares.to(x.dtype).clamp(min=0, max=1e9).log1p()
++        p = obs.book_ticks.to(x.dtype)
++        distance = (p - p[..., :1]).abs().clamp(max=1e6).log1p()
++        touch = q[..., :1]
++        depletion = (1 + touch).reciprocal().expand_as(q)
++        local = torch.stack(
++            (q / (1 + q), distance / (1 + distance), depletion), dim=-1
++        )
++        h = self.local(local).tanh()
++        weight = (1 + depletion) / (1 + distance)
++        return (x + self.mix((h * weight.unsqueeze(-1)).flatten(-3))).tanh()
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self.gru(self._encode(obs))[0]
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        x = self._encode(obs)
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         return h[0], h[0]

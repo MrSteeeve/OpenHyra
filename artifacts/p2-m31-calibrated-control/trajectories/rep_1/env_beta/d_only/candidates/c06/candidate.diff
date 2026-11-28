@@ -1,0 +1,46 @@
+--- parent
+
++++ candidate
+
+@@ -9,14 +9,21 @@
+
+         self.encoder = input_projection(32)
+         self.cell = nn.GRUCell(36, 54)
+         self.register_buffer("retention", torch.tensor([0.65, 0.96]))
+-        self.register_buffer("weights", torch.arange(1, 11).float().reciprocal())
++        self.register_buffer("rank", torch.arange(1, 11).float())
++        self.blend = nn.Parameter(torch.tensor(0.0))
+         self.mix = nn.Linear(60, 60)
+         nn.init.eye_(self.mix.weight)
+         nn.init.zeros_(self.mix.bias)
+ 
+-    def _depth(self, shares, x):
++    def _depth(self, ticks, shares, x):
+         q = shares.to(x).clamp_min(0).log1p()
+-        return (q * self.weights).sum(-1) / self.weights.sum()
++        # Subtract in tick coordinates before converting to feature dtype.
++        gap = (ticks - ticks[..., :1]).abs().to(x)
++        rank_weight = self.rank.reciprocal()
++        tick_weight = (1 + gap).reciprocal()
++        a = self.blend.sigmoid()
++        weight = rank_weight.lerp(tick_weight, a)
++        return (q * weight).sum(-1) / rank_weight.sum()
+ 
+     def _advance(self, x, depth, state):
+         if state is None:
+@@ -39,11 +46,12 @@
+
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self._advance(x, self._depth(obs.book_shares, x), state)
++        depth = self._depth(obs.book_ticks, obs.book_shares, x)
++        return self._advance(x, depth, state)
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        depth = self._depth(obs.book_shares, x)
++        depth = self._depth(obs.book_ticks, obs.book_shares, x)
+         state = None
+         out = []
+         for xt, qt in zip(x.unbind(1), depth.unbind(1)):

@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Giving the recurrent gates direct access to side-specific cumulative depth and local queue share will reduce counterfactual impact MAE by at least 0.010 tick versus B0, with ΔNLL ≤ +0.005 and Δexhaust ≤ +0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "4dfdafdbfc60647e6de4ba7a8cd42ce54f83e4d5fafd9a79934f4a3821cf38ae"
+}

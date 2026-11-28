@@ -1,0 +1,32 @@
+--- parent
+
++++ candidate
+
+@@ -8,6 +8,7 @@
+
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.side = nn.Sequential(nn.Linear(20, 24), nn.Tanh(), nn.Linear(24, 16))
++        self.pressure = nn.Linear(1, 16, bias=False)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+ 
+     def _encode(self, obs):
+@@ -18,7 +19,16 @@
+
+         distance = torch.where(shares > 0, distance, torch.zeros_like(distance))
+         profiles = torch.cat((shares.log1p(), distance.log1p()), dim=-1)
+         bid, ask = self.side(profiles).tanh().unbind(dim=-2)
+-        paired = torch.cat(((bid + ask) * 0.5, (bid - ask) * 0.5), dim=-1)
++
++        qb, qa = shares[..., 0].unbind(dim=-1)
++        tb, ta = ticks[..., 0].unbind(dim=-1)
++        imbalance = (qb - qa) / (qb + qa + 1.0)
++        valid = (qb > 0) & (qa > 0) & (ta > tb)
++        spread = (ta - tb).clamp_min(1).to(base.dtype)
++        signal = torch.where(valid, imbalance / spread, torch.zeros_like(imbalance))
++        odd = self.pressure(signal.unsqueeze(-1)).tanh()
++
++        paired = torch.cat(((bid + ask) * 0.5, (bid - ask) * 0.5 + odd), dim=-1)
+         return (base + 0.25 * paired).tanh()
+ 
+     def sequence_context(self, obs):

@@ -1,0 +1,60 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 58, batch_first=True)
+        self.local = nn.Linear(3, 4)
+        self.mix = nn.Linear(80, 32, bias=False)
+        nn.init.zeros_(self.mix.weight)
+        self.predict = nn.Linear(58, 1)
+        self.inject = nn.Linear(1, 32, bias=False)
+        self.gate = nn.Parameter(torch.tensor(-2.0))
+        nn.init.zeros_(self.predict.weight)
+        nn.init.zeros_(self.predict.bias)
+
+    def _encode(self, obs):
+        x = self.encoder(self.raw_features(obs))
+        depth = obs.book_shares.to(dtype=x.dtype).clamp_min(0).log1p()
+        neighbor = torch.cat((depth[..., 1:], depth[..., -1:]), dim=-1)
+        own = obs.is_own.to(dtype=x.dtype)
+        q = torch.stack(
+            (depth / (1 + depth), (depth - neighbor).tanh(),
+             own[..., None, None].expand_as(depth)), dim=-1
+        )
+        local = self.local(q).tanh().flatten(start_dim=-3)
+        profile = (depth[..., :, :3] / (1 + depth[..., :, :3])).mean(-1)
+        contrast = profile[..., 0] - profile[..., 1]
+        return (x * (1 + 0.5 * self.mix(local).tanh())).tanh(), contrast, own
+
+    def _advance(self, x, contrast, own, state):
+        contrast = contrast.unsqueeze(-1)
+        if state is None:
+            state = torch.cat((x.new_zeros(x.size(0), 58),
+                               contrast, torch.zeros_like(contrast)), -1)
+        h = state[:, :58]
+        # Predict before incorporating the current observation.
+        expected = 0.5 * self.predict(h).tanh()
+        change = contrast - state[:, 58:59]
+        innovation = (change - (1 - own.unsqueeze(-1)) * expected).tanh()
+        slow = 0.875 * state[:, 59:60] + self.gate.sigmoid() * innovation
+        update = x + self.inject(slow)
+        _, h = self.gru(update.unsqueeze(1), h.unsqueeze(0).contiguous())
+        return torch.cat((h[0], contrast, slow), -1)
+
+    def step_context(self, obs, state):
+        state = self._advance(*self._encode(obs), state)
+        return state, state
+
+    def sequence_context(self, obs):
+        x, contrast, own = self._encode(obs)
+        state = None
+        outputs = []
+        for t in range(x.size(1)):
+            state = self._advance(x[:, t], contrast[:, t], own[:, t], state)
+            outputs.append(state)
+        return torch.stack(outputs, 1) if outputs else x.new_empty(x.size(0), 0, 60)

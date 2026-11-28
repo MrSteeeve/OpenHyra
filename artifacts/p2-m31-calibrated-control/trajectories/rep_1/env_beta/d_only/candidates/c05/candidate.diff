@@ -1,0 +1,23 @@
+--- parent
+
++++ candidate
+
+@@ -25,10 +25,15 @@
+
+             prior = depth
+         else:
+             h, trace, prior = state
++        fast, slow = trace.unbind(-1)
++        forecast = fast
+         delta = depth - prior
+         clock = 1 + delta.abs().sum(-1, keepdim=True).clamp(max=3)
+-        keep = self.retention.pow(clock).unsqueeze(1)
+-        trace = keep * trace + (1 - keep) * delta.tanh().unsqueeze(-1)
++        kf, ks = self.retention.pow(clock).split(1, dim=-1)
++        change = delta.tanh()
++        fast = kf * fast + (1 - kf) * change
++        slow = ks * slow + (1 - ks) * (change - forecast)
++        trace = torch.stack((fast, slow), dim=-1)
+         bid, ask = trace.unbind(1)
+         flow = torch.cat((bid - ask, bid + ask), -1)
+         h = self.cell(torch.cat((x, flow), -1), h)

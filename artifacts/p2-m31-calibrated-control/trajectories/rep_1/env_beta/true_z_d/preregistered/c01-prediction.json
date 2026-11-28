@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared encoder for both sides' cumulative depth should help the model learn how much liquidity a fixed order must consume, while the untied path preserves side-specific behavior. I predict impact MAE at or below 0.213623 tick, with total NLL rising by no more than 0.005 and exhaustion rate rising by no more than 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8b6bdc06084163a07b6e6c802a8881a3a8d97026ee94eb410a080f18a5b60ac1"
+}

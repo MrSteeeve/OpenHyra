@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared queue encoder gated by shallower displayed depth will expose the levels most likely to become the next touch. Relative to B0, I predict impact MAE will fall by at least 0.010 tick, with total NLL rising by at most 0.005 and exhaustion rising by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8a64f67cf9373b7882a965e4cf943d52994d4282198b346734c9c8518fb8ecf2"
+}

@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Filtering bid and ask depth changes separately lets the model distinguish simultaneous depletion from inactivity, which the parent's signed trace can conflate. Predict impact MAE at or below 0.183267, with total NLL at or below 4.62752 and exhaustion at or below 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "a288f2f69572474a419136a33490cb87a60b9c26b4981d18cc6b9513a08a0750"
+}

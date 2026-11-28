@@ -1,0 +1,75 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,61 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.local = nn.Linear(4, 2)
++        self.boundary = nn.Parameter(torch.zeros(2, 10))
++        self.gru = nn.GRUCell(52, 38)
++        self.readout = nn.Linear(58, 60)
++
++    def _advance(self, x, ticks, shares, state):
++        best = ticks[..., 0].to(torch.int64)
++        fill = self.boundary.tanh().unsqueeze(0).expand(x.size(0), -1, -1)
++        if state is None:
++            h = x.new_zeros(x.size(0), 38)
++            aligned = fill
++        else:
++            h, memory, old_best = state
++            # Convert current ranks to old ranks on each side.
++            sign = best.new_tensor([-1, 1])
++            shift = ((best - old_best) * sign).clamp(-10, 10)
++            rank = torch.arange(10, device=x.device, dtype=torch.int64)
++            idx = rank + shift.unsqueeze(-1)
++            aligned = torch.where(
++                (idx >= 0) & (idx < 10),
++                memory.gather(-1, idx.clamp(0, 9)),
++                fill,
++            )
++        depth = shares.to(x.dtype).clamp_min(0).log1p()
++        distance = (ticks.to(torch.int64) - best.unsqueeze(-1)).abs()
++        distance = distance.to(x.dtype).log1p()
++        side = x.new_tensor([-1, 1]).view(1, 2, 1).expand_as(depth)
++        gate, value = self.local(
++            torch.stack((depth, distance, side, aligned), dim=-1)
++        ).unbind(-1)
++        memory = torch.lerp(aligned, value.tanh(), gate.sigmoid())
++        flat = memory.flatten(1)
++        h = self.gru(torch.cat((x, flat), dim=-1), h)
++        context = self.readout(torch.cat((h, flat), dim=-1))
++        return context, (h, memory, best)
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        return self._advance(x, obs.book_ticks, obs.book_shares, state)
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        state = None
++        contexts = []
++        for t in range(x.size(1)):
++            context, state = self._advance(
++                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
++            )
++            contexts.append(context)
++        return torch.stack(contexts, dim=1) if contexts else x.new_empty(
++            x.size(0), 0, 60
++        )

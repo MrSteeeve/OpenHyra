@@ -1,0 +1,49 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,38 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.local = nn.Linear(3, 4)
++        self.mix = nn.Linear(80, 32, bias=False)
++        nn.init.zeros_(self.mix.weight)
++
++    def _encode(self, obs):
++        x = self.encoder(self.raw_features(obs))
++        shares = obs.book_shares.to(dtype=x.dtype).clamp_min(0)
++        depth = shares.log1p()
++        # Compare neighboring queues without mixing bid and ask.
++        neighbor = torch.cat((depth[..., 1:], depth[..., -1:]), dim=-1)
++        own = obs.is_own.to(dtype=x.dtype)[..., None, None].expand_as(depth)
++        q = torch.stack(
++            (depth / (1 + depth), (depth - neighbor).tanh(), own),
++            dim=-1,
++        )
++        local = self.local(q).tanh().flatten(start_dim=-3)
++        gain = 1 + 0.5 * self.mix(local).tanh()
++        return (x * gain).tanh()
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self.gru(self._encode(obs))[0]
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
++        x = self._encode(obs)
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        _, h = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+         return h[0], h[0]

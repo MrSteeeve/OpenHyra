@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared encoder for mirrored queue-removal curves should improve the predicted response to a fixed order by exposing the depth required to reach each price. Predict impact MAE <= 0.20539, validation NLL <= 4.82871, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "cfdf86d710002ce6292dc2a282ad73d7512e405bb619545f9f2363e3b6a2da94"
+}

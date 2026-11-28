@@ -1,0 +1,72 @@
+--- parent
+
++++ candidate
+
+@@ -11,13 +11,16 @@
+
+         self.readout = nn.Linear(58, 60)
+         self.boundary = nn.Parameter(torch.zeros(2, 10))
+         self.carry = nn.Linear(3, 1)
+-        nn.init.zeros_(self.carry.weight)
+-        nn.init.zeros_(self.carry.bias)
+         self.queue_readout = nn.Sequential(
+             nn.Linear(4, 12), nn.Tanh(), nn.Linear(12, 3)
+         )
+-        nn.init.zeros_(self.queue_readout[-1].weight)
+-        nn.init.zeros_(self.queue_readout[-1].bias)
++        self.pair = nn.Sequential(
++            nn.Linear(8, 12), nn.Tanh(), nn.Linear(12, 3, bias=False)
++        )
++        for layer in (self.carry, self.queue_readout[-1], self.pair[-1]):
++            nn.init.zeros_(layer.weight)
++            if layer.bias is not None:
++                nn.init.zeros_(layer.bias)
+ 
+     def _update(self, x, best, shares, state):
+         q = shares.to(torch.float32).clamp(0, 1e9)
+@@ -26,8 +29,7 @@
+
+             prior = x.new_zeros(x.size(0), 58)
+         else:
+             h, last = state
+-            side = best.new_tensor([-1, 1])
+-            shift = ((best - last) * side).clamp(-10, 10)
++            shift = ((best - last) * best.new_tensor([-1, 1])).clamp(-10, 10)
+             levels = torch.arange(10, device=x.device, dtype=torch.int64)
+             source = levels + shift.unsqueeze(-1)
+             valid = (source >= 0) & (source < 10)
+@@ -35,26 +37,26 @@
+
+             local = local.gather(-1, source.clamp(0, 9))
+             features = torch.stack(
+                 (depth, depth - depth.flip((1,)),
+-                 shift.abs().unsqueeze(-1).expand_as(depth)),
+-                dim=-1,
++                 shift.abs().unsqueeze(-1).expand_as(depth)), dim=-1
+             ).to(x.dtype) * 0.1
+             gate = 1 + 0.5 * self.carry(features).squeeze(-1).tanh()
+             local = torch.where(valid, local * gate, self.boundary.tanh())
+             prior = torch.cat((local.flatten(1), h[:, 20:]), dim=-1)
+         _, next_h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         h = next_h[0]
+-
+-        # Exclusive prefix depth measures liquidity closer to the touch.
+         ahead = torch.cat(
+             (torch.zeros_like(q[..., :1]), q[..., :-1].cumsum(-1)), dim=-1
+         )
+         features = torch.stack(
+             (h[:, :20].reshape(-1, 2, 10), depth.to(h.dtype) * 0.1,
+-             ahead.log1p().to(h.dtype) * 0.1, 1 / (1 + q).to(h.dtype)),
++             ahead.log1p().to(h.dtype) * 0.1, q.add(1).reciprocal().to(h.dtype)),
+             dim=-1,
+         )
+-        residual = self.queue_readout(features).tanh().flatten(1)
+-        return self.readout(h) + residual, (h, best)
++        # Compare both queue orientations with one shared operator.
++        paired = self.pair(torch.cat((features, features.flip((1,))), dim=-1))
++        contrast = (0.5 * (paired - paired.flip((1,)))).tanh()
++        residual = self.queue_readout(features).tanh() + 0.5 * contrast
++        return self.readout(h) + residual.flatten(1), (h, best)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()

@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A bounded volume-clock trace of bid-versus-ask depth changes will distinguish persistent pressure from an isolated queue change, reducing fixed-order impact MAE to at most 0.213623 tick. Predict total NLL at most 4.84304 and exhausted replicate rate at most 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "d5be2812fd746d0c3f7e5b889dd9cddbfcef466bdd9b4f470966829e807e1676"
+}

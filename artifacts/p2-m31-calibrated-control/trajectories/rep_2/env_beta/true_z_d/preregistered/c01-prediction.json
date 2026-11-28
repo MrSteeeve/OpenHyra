@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared encoder for mirrored queue geometry will improve response to the fixed external order, while the unrestricted parent path preserves side-specific flow. Predict impact MAE <= 0.213623 tick, total validation NLL <= 4.84304, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "1490f8c3bffd6f7790f918d73c2e544d61537b56e032ab7e1921a315909c98d6"
+}

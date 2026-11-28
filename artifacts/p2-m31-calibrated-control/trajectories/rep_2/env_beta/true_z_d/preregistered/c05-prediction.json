@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A queue-conditioned interaction with the previous event should distinguish the same order arriving against different displayed depths. I predict impact MAE at or below 0.213623 tick, with total validation NLL at or below 4.84304 and exhaustion at or below 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "ecc3fe7c0ce6f90b2c09cfeb0652ff2e15732c935f8b514115f75f2ce1fce0bc"
+}

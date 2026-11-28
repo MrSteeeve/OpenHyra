@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A side- and level-preserving queue readout that bypasses recurrent smoothing should make the heads respond immediately to depletion caused by the fixed order. Predict MAE <= 6.7599, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "399cee7054dc15aa629cb09c137e4aa5549f4d8feea6d4d94e47b7f41ca738a0"
+}

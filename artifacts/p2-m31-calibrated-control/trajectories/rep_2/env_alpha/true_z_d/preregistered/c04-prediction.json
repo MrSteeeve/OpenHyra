@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Separate instantaneous queue pressure from persistent level memory so that depletion and replenishment reach the heads without being smoothed by the memory gate. Predict impact MAE <= 5.11202, with total NLL rising by at most 0.005 and exhaustion rising by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8285f6529fa010b6cb776f1f8b0807c6a98d8414571c0b35c7f795f7145418ee"
+}

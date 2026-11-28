@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A direct readout of current near-touch pressure should keep the pre-order recurrent state from masking the queue change caused by the fixed order. Predict impact MAE at or below 0.213623 tick, with total NLL rising by no more than 0.005 and exhaustion by no more than 0.05.",
+    "selected_card_ids": [
+      "C07"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "46be4f135ab2021d204d919e8c4b00e86a94b5d5aa8b0fb84e1056cf937b651c"
+}

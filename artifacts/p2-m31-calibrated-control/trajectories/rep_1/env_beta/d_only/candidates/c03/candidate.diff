@@ -1,0 +1,52 @@
+--- parent
+
++++ candidate
+
+@@ -7,8 +7,8 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.cell = nn.GRUCell(36, 54)
+-        self.register_buffer("retention", torch.tensor([0.65, 0.96]))
++        self.cell = nn.GRUCell(38, 52)
++        self.register_buffer("retention", torch.tensor([0.65, 0.93, 0.987]))
+         self.register_buffer("weights", torch.arange(1, 11).float().reciprocal())
+         self.mix = nn.Linear(60, 60)
+         nn.init.eye_(self.mix.weight)
+@@ -20,21 +20,25 @@
+
+ 
+     def _advance(self, x, depth, state):
+         if state is None:
+-            h = x.new_zeros(x.size(0), 54)
+-            trace = x.new_zeros(x.size(0), 2, 2)
++            h = x.new_zeros(x.size(0), 52)
++            trace = x.new_zeros(x.size(0), 2, 3)
+             prior = depth
+         else:
+             h, trace, prior = state
++
+         delta = depth - prior
+-        clock = 1 + delta.abs().sum(-1, keepdim=True).clamp(max=3)
+-        keep = self.retention.pow(clock).unsqueeze(1)
+-        trace = keep * trace + (1 - keep) * delta.tanh().unsqueeze(-1)
+-        bid, ask = trace.unbind(1)
+-        flow = torch.cat((bid - ask, bid + ask), -1)
++        activity = delta.abs().sum(-1, keepdim=True)
++        bid, ask = delta.tanh().unbind(-1)
++        innovation = torch.stack((bid - ask, bid + ask), -1)
++        # Advance signed memory on book activity but common memory on event count.
++        clock = torch.cat((1 + activity.clamp(max=3), torch.ones_like(activity)), -1)
++        keep = self.retention.to(x).pow(clock.unsqueeze(-1))
++        trace = keep * trace + (1 - keep) * innovation.unsqueeze(-1)
++        fast, medium, slow = trace.unbind(-1)
++        flow = torch.cat((fast, medium - fast, slow - medium), -1)
+         h = self.cell(torch.cat((x, flow), -1), h)
+         imbalance = (depth[:, :1] - depth[:, 1:]).tanh()
+-        activity = delta.abs().sum(-1, keepdim=True).tanh()
+-        context = self.mix(torch.cat((h, flow, imbalance, activity), -1))
++        context = self.mix(torch.cat((h, flow, imbalance, activity.tanh()), -1))
+         return context, (h, trace, depth)
+ 
+     def step_context(self, obs, state):

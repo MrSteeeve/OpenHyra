@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared queue encoder should let depth changes on either side inform the response to an external order, while an untied recurrent update preserves directional flow bias. Predict impact MAE decreases by at least 0.010 tick, with ΔNLL ≤ +0.005 and Δexhaust ≤ +0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "7a14e593af7251fd4e32a1964e99fdb6e5c52a3f1550dc806790a27b2ac0c6d3"
+}

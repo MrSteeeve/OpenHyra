@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Separating recent event history into four decay scales will help distinguish the response to the fixed order from persistent background flow. Predict impact MAE <= 0.207718, total NLL <= 4.83351, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "71119ac3344df449363d28812c1b13809ad0bf6663866bd892f4bfc4d2b9ad29"
+}

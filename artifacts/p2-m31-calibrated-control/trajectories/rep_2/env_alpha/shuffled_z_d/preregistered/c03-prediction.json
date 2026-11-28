@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Three retention scales for prior-event features will help distinguish persistent flow from the immediate response to a fixed external order. Predict impact MAE at or below 6.7599, with total NLL at or below 4.31127 and exhaustion at or below 0.921528.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "d85599ebb5e2f4c612e7ba46eb4742444fde1d6837e7cbb751352297978616eb"
+}

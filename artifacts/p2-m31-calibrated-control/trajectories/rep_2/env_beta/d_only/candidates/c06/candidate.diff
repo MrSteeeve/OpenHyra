@@ -1,0 +1,42 @@
+--- parent
+
++++ candidate
+
+@@ -7,19 +7,28 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.drive = nn.Linear(7, 2)
++        self.drive = nn.Linear(9, 2)
+         self.gru = nn.GRU(38, 54, batch_first=True)
+ 
+     def _inputs(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        q = obs.book_shares.to(x.dtype).clamp_min(0).log1p()
+-        near = q[..., :3].mean(dim=-1)
+-        deep = q[..., 3:].mean(dim=-1)
+-        p = (near[..., 0] - near[..., 1]).unsqueeze(-1)
+-        d = (deep[..., 0] - deep[..., 1]).unsqueeze(-1)
++        q = obs.book_shares.to(x.dtype).clamp_min(0)
++        ticks = obs.book_ticks.to(torch.int64)
++        distance = (ticks - ticks[..., :1]).abs().to(x.dtype)
++        volume = q.new_tensor((32., 128.))
++        end = q.cumsum(dim=-1)
++        before = torch.cat((torch.zeros_like(end[..., :1]), end[..., :-1]), dim=-1)
++        filled = torch.minimum(
++            (volume - before.unsqueeze(-1)).clamp_min(0), q.unsqueeze(-1)
++        )
++        # Bound the feature and account for volume beyond the visible ladder.
++        gap = (distance / (1 + distance)).unsqueeze(-1)
++        missing = (1 - end[..., -1:] / volume).clamp_min(0)
++        cost = (filled * gap / volume).sum(dim=-2) + missing
+         u = torch.cat(
+-            (obs.previous_event.to(x.dtype), obs.is_own.to(x.dtype).unsqueeze(-1),
+-             p, d), dim=-1
++            (obs.previous_event.to(x.dtype),
++             obs.is_own.to(x.dtype).unsqueeze(-1), cost.flatten(-2)),
++            dim=-1,
+         )
+         return x, self.drive(u).tanh()
+ 

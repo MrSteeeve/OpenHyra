@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A bounded, side-specific readout of current and cumulative depth will make the heads more sensitive to liquidity changed by a fixed external order without changing recurrent memory. Predict an impact MAE decrease of at least 0.010 tick, with total NLL increasing by at most 0.005 and exhaustion rate by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "dfe0c496552a896ac40a362f652c9a3d4b5fbfb2a57ef00a72d872bc5f156568"
+}

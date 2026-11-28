@@ -1,0 +1,43 @@
+--- parent
+
++++ candidate
+
+@@ -9,15 +9,34 @@
+
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+         self.pressure_readout = nn.Parameter(torch.zeros(60))
++        self.queue = nn.Linear(30, 12)
++        self.queue_readout = nn.Linear(24, 60, bias=False)
++        nn.init.zeros_(self.queue_readout.weight)
+ 
+     def _readout(self, obs, hidden):
+         ticks = obs.book_ticks
+-        depth = obs.book_shares[..., :, 0].to(hidden.dtype).clamp_min(0)
+-        bid, ask = depth.unbind(dim=-1)
++        depth = obs.book_shares.to(hidden.dtype).clamp_min(0)
++        bid, ask = depth[..., 0].unbind(dim=-1)
+         imbalance = (bid - ask) / (bid + ask).clamp_min(1)
+         narrow = ticks[..., 1, 0] - ticks[..., 0, 0] == 1
+         pressure = imbalance * narrow.to(hidden.dtype)
+-        return hidden + pressure.unsqueeze(-1) * self.pressure_readout.tanh()
++
++        gap = (ticks - ticks[..., :1]).abs().to(hidden.dtype)
++        ahead = torch.cat(
++            (torch.zeros_like(depth[..., :1]),
++             depth[..., :-1].cumsum(dim=-1)),
++            dim=-1,
++        )
++        queues = torch.cat(
++            (depth.log1p(), ahead.log1p(), gap.log1p()), dim=-1
++        )
++        left, right = self.queue(queues).tanh().unbind(dim=-2)
++        paired = torch.cat((left + right, left - right), dim=-1)
++        return (
++            hidden
++            + pressure.unsqueeze(-1) * self.pressure_readout.tanh()
++            + self.queue_readout(paired).tanh()
++        )
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()

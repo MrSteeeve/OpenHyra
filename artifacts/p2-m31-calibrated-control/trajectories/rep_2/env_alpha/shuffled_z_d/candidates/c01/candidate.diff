@@ -1,0 +1,40 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,32 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.queue = nn.Linear(2, 3)
++        self.gain = nn.Parameter(torch.full((60,), 0.1))
++
++    def queue_readout(self, obs, h):
++        shares = obs.book_shares.to(dtype=h.dtype).clamp_min(0)
++        depth = shares.log1p()
++        near_empty = (1 + depth).reciprocal()
++        local = torch.stack((depth, near_empty), dim=-1)
++        # Keep three separate readout channels for each of the twenty queues.
++        local = self.queue(local).tanh().flatten(-3)
++        return h + self.gain.tanh() * local
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        h, _ = self.gru(x)
++        return self.queue_readout(obs, h)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        return self.queue_readout(obs, h[0]), h[0]

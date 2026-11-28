@@ -1,0 +1,42 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,33 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
++        self.queue_filter = nn.Conv1d(2, 4, 3, padding=1)
++        self.queue_mix = nn.Linear(80, 32, bias=False)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+ 
++    def _encode(self, obs):
++        base = self.encoder(self.raw_features(obs))
++        depth = obs.book_shares.to(dtype=base.dtype).clamp(0, 1e8)
++        depth = depth.reshape(-1, 2, 10)
++        features = torch.stack(
++            (depth.log1p(), (1.0 + depth).reciprocal()), dim=-2
++        )
++        # Apply the same local filter to each side without crossing the spread.
++        local = self.queue_filter(features.reshape(-1, 2, 10)).tanh()
++        local = local.reshape(*base.shape[:-1], 80)
++        return (base + self.queue_mix(local)).tanh()
++
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self.gru(self._encode(obs))[0]
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        x = self._encode(obs)
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         return h[0], h[0]

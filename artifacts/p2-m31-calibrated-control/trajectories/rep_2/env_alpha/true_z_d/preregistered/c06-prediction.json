@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Matching recurrent queue memory by exact price with the same rule on both sides prevents quote moves across gaps from transferring memory to unrelated queues. Relative to c05, predict impact MAE falls by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8fc12312cb57c7e4a510cc23165a678987954fd3fc24f28a0c0e4b38df299652"
+}

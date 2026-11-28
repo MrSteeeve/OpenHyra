@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Matching recurrent queue channels by observed price tick rather than depth rank should preserve useful history when quotes move. Predict impact MAE <= 6.7599, total validation NLL <= 4.31127, and exhausted replicate rate <= 0.921528.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "2706fd8ee2d35efa1d82347e4a1f90d8c379f686774378587e2e5dbf43f795fe"
+}

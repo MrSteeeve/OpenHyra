@@ -1,0 +1,33 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.depth = nn.Linear(40, 16)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+
+    def _encode(self, obs):
+        ticks = obs.book_ticks.to(dtype=self.depth.weight.dtype)
+        shares = obs.book_shares.to(dtype=ticks.dtype)
+        sign = ticks.new_tensor([-1., 1.]).unsqueeze(-1)
+        offset = (sign * (ticks - ticks[..., :1])).clamp(-64., 64.) / 64.
+        depth = shares.clamp_min(0.).log1p()
+        local = torch.cat((offset, depth), dim=-1)
+        paired = torch.cat((local, local.flip((-2,))), dim=-1)
+        side = self.depth(paired).tanh()
+        shared = side.flatten(start_dim=-2)
+        return (self.encoder(self.raw_features(obs)) + shared).tanh()
+
+    def sequence_context(self, obs):
+        return self.gru(self._encode(obs))[0]
+
+    def step_context(self, obs, state):
+        x = self._encode(obs)
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        _, h = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+        return h[0], h[0]

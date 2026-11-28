@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Letting symmetric queue conditions modulate the signed depth contrast should improve the response to a fixed order without forcing the full model to be symmetric. Predict impact MAE at or below 0.197564, with total NLL increasing by at most 0.005 and exhaustion increasing by at most 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "ae2c70af20b31d13ca6c3fd6c2969b42a9d277a633c02cfc9366c49a407116b9"
+}

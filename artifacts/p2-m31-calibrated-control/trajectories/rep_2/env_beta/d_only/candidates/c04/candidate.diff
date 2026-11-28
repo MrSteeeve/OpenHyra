@@ -1,0 +1,45 @@
+--- parent
+
++++ candidate
+
+@@ -7,12 +7,23 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
++        self.profile = nn.Linear(20, 16)
++        self.mix = nn.Linear(32, 32, bias=False)
+         self.drive = nn.Linear(7, 2)
+         self.gru = nn.GRU(38, 54, batch_first=True)
+ 
+     def _inputs(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        q = obs.book_shares.to(x.dtype).clamp_min(0).log1p()
++        base = self.encoder(self.raw_features(obs))
++        shares = obs.book_shares.to(base.dtype).clamp_min(0)
++        q = shares.log1p()
++        mass = shares.cumsum(dim=-1).log1p()
++        ticks = obs.book_ticks
++        distance = (ticks - ticks[..., :1]).to(base.dtype).abs().log1p()
++        profile = self.profile(torch.cat((mass, distance), dim=-1)).tanh()
++        bid, ask = profile.unbind(dim=-2)
++        paired = torch.cat((0.5 * (bid + ask), 0.5 * (bid - ask)), dim=-1)
++        x = (base + 0.25 * self.mix(paired)).tanh()
++
+         near = q[..., :3].mean(dim=-1)
+         deep = q[..., 3:].mean(dim=-1)
+         p = (near[..., 0] - near[..., 1]).unsqueeze(-1)
+@@ -29,10 +40,9 @@
+
+ 
+     def step_context(self, obs, state):
+         x, u = self._inputs(obs)
+-        b = x.size(0)
+         if state is None:
+-            h = x.new_zeros(b, 54)
+-            m = x.new_zeros(b, 3, 2)
++            h = x.new_zeros(x.size(0), 54)
++            m = x.new_zeros(x.size(0), 3, 2)
+         else:
+             h, m = state
+         m = self._advance(m, u)

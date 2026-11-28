@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Level-specific depth modulation conditioned on the own-order flag will help the recurrent update distinguish shallow from deep queues after an intervention. I predict impact MAE at or below 0.213623, with total NLL rising by no more than 0.005 and exhaustion rising by no more than 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8309a217ac579df838f22ce1846f654eaf0bc71e4409a826f87d91c47cfd7c97"
+}

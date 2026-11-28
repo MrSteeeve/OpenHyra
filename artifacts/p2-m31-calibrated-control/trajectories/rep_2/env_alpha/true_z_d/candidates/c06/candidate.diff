@@ -1,0 +1,65 @@
+--- parent
+
++++ candidate
+
+@@ -9,8 +9,8 @@
+
+         self.encoder = input_projection(32)
+         self.local = nn.Linear(4, 2)
+         self.boundary = nn.Parameter(torch.zeros(2, 10))
+-        self.gru = nn.GRUCell(52, 38)
+-        self.readout = nn.Linear(58, 60)
++        self.gru = nn.GRUCell(52, 20)
++        self.readout = nn.Linear(40, 60)
+         self.queue = nn.Sequential(nn.Linear(4, 8), nn.SiLU(), nn.Linear(8, 1))
+         self.queue_readout = nn.Linear(20, 60, bias=False)
+         self.ladder = nn.Sequential(nn.Linear(4, 12), nn.SiLU(), nn.Linear(12, 1))
+@@ -23,19 +23,17 @@
+
+         best = ticks[..., 0]
+         fill = self.boundary.tanh().unsqueeze(0).expand(x.size(0), -1, -1)
+         if state is None:
+-            h = x.new_zeros(x.size(0), 38)
++            h = x.new_zeros(x.size(0), 20)
+             aligned = fill
+         else:
+-            h, memory, old_best = state
+-            sign = best.new_tensor([-1, 1])
+-            shift = ((best - old_best) * sign).clamp(-10, 10)
+-            rank = torch.arange(10, device=x.device, dtype=torch.int64)
+-            idx = rank + shift.unsqueeze(-1)
+-            aligned = torch.where(
+-                (idx >= 0) & (idx < 10),
+-                memory.gather(-1, idx.clamp(0, 9)),
+-                fill,
+-            )
++            h, memory, old_ticks = state
++            # Match prices within each side, not ranks shifted by ticks.
++            match = ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)
++            weight = match.to(x.dtype)
++            count = weight.sum(-1)
++            aligned = (weight * memory.unsqueeze(-2)).sum(-1) / count.clamp_min(1)
++            aligned = torch.where(count > 0, aligned, fill)
++
+         volume = shares.to(x.dtype).clamp_min(0)
+         depth = volume.log1p()
+         distance = (ticks - best.unsqueeze(-1)).abs().to(x.dtype).log1p()
+@@ -55,7 +53,6 @@
+
+         context = self.readout(torch.cat((h, flat), dim=-1))
+         context = context + self.queue_readout(pressure.flatten(1))
+ 
+-        # Pair each visible price jump with the depth needed to expose it.
+         prefix = volume.cumsum(-1)
+         before = torch.cat((torch.zeros_like(prefix[..., :1]), prefix[..., :-1]), -1)
+         gap = ticks.diff(dim=-1, prepend=best.unsqueeze(-1)).abs().to(x.dtype)
+@@ -66,7 +63,7 @@
+
+         context = context + self.ladder_readout(
+             torch.cat((bid + ask, ask - bid), dim=-1)
+         )
+-        return context, (h, memory, best)
++        return context, (h, memory, ticks)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()

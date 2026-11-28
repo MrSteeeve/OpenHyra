@@ -1,0 +1,290 @@
+{
+  "rep_0": {
+    "env_alpha": {
+      "d_only": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "33ddb08be6e6c2ab0eac6d4f8e5cf775cd8fc3d6041703ce40e833aa2f532081",
+        "tokens": 1677,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "863f7e170d47ba7339e125f1189478c9336a004170779ed1ce5f1dc32fd8160f",
+        "tokens": 1823,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "28d21df96d1b962242afc4b5f76cbb93919f6cd26a39ea6ab89b3834a64ad8ce",
+        "tokens": 1827,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      }
+    },
+    "env_beta": {
+      "d_only": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "2d1d801189360d791542947d2486cb09443d617b5b7668a567d537ee6da249c7",
+        "tokens": 1689,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "3aa8e2aa532baafced76ea880a14d8ac88932d218766853b0d99f2f6a81aab47",
+        "tokens": 1839,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "60ba6e2dab3b7f10c2b47a686a1539a083deecfef188e06d795e410c65e613e1",
+        "tokens": 1835,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      }
+    }
+  },
+  "rep_1": {
+    "env_alpha": {
+      "d_only": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "33ddb08be6e6c2ab0eac6d4f8e5cf775cd8fc3d6041703ce40e833aa2f532081",
+        "tokens": 1677,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "863f7e170d47ba7339e125f1189478c9336a004170779ed1ce5f1dc32fd8160f",
+        "tokens": 1823,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "28d21df96d1b962242afc4b5f76cbb93919f6cd26a39ea6ab89b3834a64ad8ce",
+        "tokens": 1827,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      }
+    },
+    "env_beta": {
+      "d_only": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "2d1d801189360d791542947d2486cb09443d617b5b7668a567d537ee6da249c7",
+        "tokens": 1689,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "3aa8e2aa532baafced76ea880a14d8ac88932d218766853b0d99f2f6a81aab47",
+        "tokens": 1839,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "60ba6e2dab3b7f10c2b47a686a1539a083deecfef188e06d795e410c65e613e1",
+        "tokens": 1835,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      }
+    }
+  },
+  "rep_2": {
+    "env_alpha": {
+      "d_only": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "33ddb08be6e6c2ab0eac6d4f8e5cf775cd8fc3d6041703ce40e833aa2f532081",
+        "tokens": 1677,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "863f7e170d47ba7339e125f1189478c9336a004170779ed1ce5f1dc32fd8160f",
+        "tokens": 1823,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C04",
+          "C06",
+          "C09"
+        ],
+        "non_z_sha256": "714ac3cb03c0ee4b6c96bc530dbf671f766e96a4738d5798bb314aaa55d91063",
+        "prompt_sha256": "28d21df96d1b962242afc4b5f76cbb93919f6cd26a39ea6ab89b3834a64ad8ce",
+        "tokens": 1827,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      }
+    },
+    "env_beta": {
+      "d_only": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "2d1d801189360d791542947d2486cb09443d617b5b7668a567d537ee6da249c7",
+        "tokens": 1689,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "shuffled_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "3aa8e2aa532baafced76ea880a14d8ac88932d218766853b0d99f2f6a81aab47",
+        "tokens": 1839,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "true_z_d": {
+        "active_card_ids": [
+          "C09",
+          "C03",
+          "C06"
+        ],
+        "non_z_sha256": "6e410e0af3fd5b8c9235a0a7d12067a30117939cf7519d22fedc705226a9f720",
+        "prompt_sha256": "60ba6e2dab3b7f10c2b47a686a1539a083deecfef188e06d795e410c65e613e1",
+        "tokens": 1835,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      }
+    }
+  }
+}

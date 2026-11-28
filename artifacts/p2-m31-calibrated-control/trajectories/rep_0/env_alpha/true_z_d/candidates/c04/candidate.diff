@@ -1,0 +1,53 @@
+--- parent
+
++++ candidate
+
+@@ -13,8 +13,15 @@
+
+         self.carry = nn.Linear(3, 1)
+         nn.init.zeros_(self.carry.weight)
+         nn.init.zeros_(self.carry.bias)
++        self.queue_readout = nn.Sequential(
++            nn.Linear(4, 12), nn.Tanh(), nn.Linear(12, 3)
++        )
++        nn.init.zeros_(self.queue_readout[-1].weight)
++        nn.init.zeros_(self.queue_readout[-1].bias)
+ 
+     def _update(self, x, best, shares, state):
++        q = shares.to(torch.float32).clamp(0, 1e9)
++        depth = q.log1p()
+         if state is None:
+             prior = x.new_zeros(x.size(0), 58)
+         else:
+@@ -26,9 +33,6 @@
+
+             valid = (source >= 0) & (source < 10)
+             local = h[:, :20].reshape(-1, 2, 10)
+             local = local.gather(-1, source.clamp(0, 9))
+-
+-            # Share the carry rule across sides, not the recurrent state.
+-            depth = shares.to(torch.float32).clamp(0, 1e9).log1p()
+             features = torch.stack(
+                 (depth, depth - depth.flip((1,)),
+                  shift.abs().unsqueeze(-1).expand_as(depth)),
+@@ -39,7 +43,18 @@
+
+             prior = torch.cat((local.flatten(1), h[:, 20:]), dim=-1)
+         _, next_h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         h = next_h[0]
+-        return self.readout(h), (h, best)
++
++        # Exclusive prefix depth measures liquidity closer to the touch.
++        ahead = torch.cat(
++            (torch.zeros_like(q[..., :1]), q[..., :-1].cumsum(-1)), dim=-1
++        )
++        features = torch.stack(
++            (h[:, :20].reshape(-1, 2, 10), depth.to(h.dtype) * 0.1,
++             ahead.log1p().to(h.dtype) * 0.1, 1 / (1 + q).to(h.dtype)),
++            dim=-1,
++        )
++        residual = self.queue_readout(features).tanh().flatten(1)
++        return self.readout(h) + residual, (h, best)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()

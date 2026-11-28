@@ -1,0 +1,28 @@
+--- parent
+
++++ candidate
+
+@@ -10,8 +10,10 @@
+
+         self.gru = nn.GRU(32, 60, batch_first=True)
+         self.queue = nn.Linear(40, 60, bias=False)
+         self.depth = nn.Linear(20, 12)
++        self.cross = nn.Linear(20, 12, bias=False)
+         self.even = nn.Linear(12, 30, bias=False)
+         self.odd = nn.Linear(12, 30, bias=False)
++        nn.init.zeros_(self.cross.weight)
+         nn.init.zeros_(self.queue.weight)
+         nn.init.zeros_(self.even.weight)
+         nn.init.zeros_(self.odd.weight)
+@@ -21,7 +23,9 @@
+
+         log_q = q.log1p()
+         local = torch.stack((log_q.tanh(), (1 + q).reciprocal()), dim=-1)
+         depth = torch.cat((log_q, q.cumsum(dim=-1).log1p()), dim=-1)
+-        bid, ask = self.depth(depth).tanh().unbind(dim=-2)
++        # The same bounded cross-side gate applies to both sides.
++        gate = 1 + 0.5 * self.cross(depth.flip((-2,))).tanh()
++        bid, ask = (self.depth(depth) * gate).tanh().unbind(dim=-2)
+         paired = torch.cat(
+             (self.even((bid + ask) * 0.5), self.odd((bid - ask) * 0.5)),
+             dim=-1,

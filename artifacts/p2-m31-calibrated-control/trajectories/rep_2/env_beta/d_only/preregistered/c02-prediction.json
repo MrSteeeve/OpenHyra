@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "At matched training budget, depth-conditioned retention will reduce impact MAE to 0.223474 or lower by letting the same observed event update flow memory faster when displayed depth is thin. Guardrail predictions: total NLL <= 4.81926 and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "aeec52b35401b40a91e734cb343c9f571f7124303d8fb41411c926e994050287"
+}

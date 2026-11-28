@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A queue-conditioned residual gate on the recurrent update should let the model respond faster to depletion at the affected side and level without discarding history elsewhere. Predict impact MAE <= 6.7599 ticks, total NLL <= 4.31127, and exhaustion rate <= 0.921528.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "4d9d45f5e4beac56568596ba5fc2bac2ce0ad432af0c68f91e103c243c079256"
+}

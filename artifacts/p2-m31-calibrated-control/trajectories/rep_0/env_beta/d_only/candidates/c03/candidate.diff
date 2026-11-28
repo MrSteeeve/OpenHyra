@@ -1,0 +1,32 @@
+--- parent
+
++++ candidate
+
+@@ -7,6 +7,9 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
++        self.depth = nn.Sequential(nn.Linear(20, 24), nn.Tanh(),
++                                   nn.Linear(24, 16), nn.Tanh())
++        self.depth_gain = nn.Parameter(torch.full((32,), 0.1))
+         self.flow = nn.Linear(4, 2)
+         self.mix = nn.Linear(6, 32, bias=False)
+         self.gru = nn.GRU(32, 54, batch_first=True)
+@@ -14,6 +17,15 @@
+
+ 
+     def _inputs(self, obs):
+         x = self.encoder(self.raw_features(obs))
++        ticks = obs.book_ticks.to(dtype=x.dtype)
++        shares = obs.book_shares.to(dtype=x.dtype)
++        # Encode each side in coordinates relative to its own best quote.
++        distance = (ticks - ticks[..., :1]).abs()
++        depth = self.depth(torch.cat((torch.log1p(distance),
++                                      torch.asinh(shares)), dim=-1))
++        bid, ask = depth.unbind(dim=-2)
++        pair = 0.5 * torch.cat((bid + ask, bid - ask), dim=-1)
++        x = x + self.depth_gain.tanh() * pair
+         e = obs.previous_event.to(dtype=x.dtype)
+         return x, self.flow(torch.asinh(e)).tanh()
+ 

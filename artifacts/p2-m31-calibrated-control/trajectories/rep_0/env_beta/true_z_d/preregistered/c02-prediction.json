@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A queue-dependent readout can change the response to an external order immediately without overwriting recurrent memory. Predict impact MAE at or below 0.213623 ticks, with total NLL increasing by no more than 0.005 and exhausted replicate rate increasing by no more than 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "8bf0d751a2260a81a2c883f0ed85991f6c57eb7c2696407c1caba38b9afa5e6c"
+}

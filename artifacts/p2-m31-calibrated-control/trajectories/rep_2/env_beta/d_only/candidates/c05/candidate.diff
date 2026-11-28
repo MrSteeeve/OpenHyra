@@ -1,0 +1,76 @@
+--- parent
+
++++ candidate
+
+@@ -9,46 +9,57 @@
+
+         self.encoder = input_projection(32)
+         self.drive = nn.Linear(7, 2)
+         self.gru = nn.GRU(38, 54, batch_first=True)
++        self.queue_read = nn.Linear(6, 6, bias=False)
++        nn.init.zeros_(self.queue_read.weight)
+ 
+     def _inputs(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         q = obs.book_shares.to(x.dtype).clamp_min(0).log1p()
+         near = q[..., :3].mean(dim=-1)
+         deep = q[..., 3:].mean(dim=-1)
+-        p = (near[..., 0] - near[..., 1]).unsqueeze(-1)
+-        d = (deep[..., 0] - deep[..., 1]).unsqueeze(-1)
++        p = near[..., :1] - near[..., 1:2]
++        d = deep[..., :1] - deep[..., 1:2]
+         u = torch.cat(
+-            (obs.previous_event.to(x.dtype), obs.is_own.to(x.dtype).unsqueeze(-1),
+-             p, d), dim=-1
++            (obs.previous_event.to(x.dtype),
++             obs.is_own.to(x.dtype).unsqueeze(-1), p, d), dim=-1
+         )
+-        return x, self.drive(u).tanh()
++        # Shared side-local operator; output keeps both sides at each scale.
++        a = q[..., 0]
++        b = near
++        c = deep
++        f = torch.stack((a, b, c, a - b, b - c, a - c), dim=-1)
++        w = self.queue_read((f / 4).tanh())
++        return x, self.drive(u).tanh(), w
+ 
+     def _advance(self, m, u):
+         r = u.new_tensor((0.65, 0.90, 0.98)).reshape(1, 3, 1)
+         return r * m + (1 - r) * u.unsqueeze(1)
+ 
++    def _read(self, m, w):
++        g, v = w.transpose(-1, -2).chunk(2, dim=-2)
++        return (m * (1 + 0.5 * g.tanh()) + 0.25 * v.tanh()).flatten(-2)
++
+     def step_context(self, obs, state):
+-        x, u = self._inputs(obs)
+-        b = x.size(0)
++        x, u, w = self._inputs(obs)
+         if state is None:
+-            h = x.new_zeros(b, 54)
+-            m = x.new_zeros(b, 3, 2)
++            h = x.new_zeros(x.size(0), 54)
++            m = x.new_zeros(x.size(0), 3, 2)
+         else:
+             h, m = state
+         m = self._advance(m, u)
+-        z = m.flatten(1)
++        z = self._read(m, w)
+         _, h = self.gru(torch.cat((x, z), dim=-1).unsqueeze(1), h.unsqueeze(0))
+         return torch.cat((h[0], z), dim=-1), (h[0], m)
+ 
+     def sequence_context(self, obs):
+-        x, u = self._inputs(obs)
++        x, u, w = self._inputs(obs)
+         if x.size(1) == 0:
+             return x.new_empty(x.size(0), 0, 60)
+         m = x.new_zeros(x.size(0), 3, 2)
+         traces = []
+         for v in u.unbind(dim=1):
+             m = self._advance(m, v)
+-            traces.append(m.flatten(1))
+-        z = torch.stack(traces, dim=1)
++            traces.append(m)
++        z = self._read(torch.stack(traces, dim=1), w)
+         h, _ = self.gru(torch.cat((x, z), dim=-1))
+         return torch.cat((h, z), dim=-1)

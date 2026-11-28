@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Current depth should change how strongly the heads rely on recurrent history after an external order. A depth-conditioned readout will lower impact MAE by at least 0.010 tick while keeping total NLL within +0.005 and exhaustion within +0.05 of the parent.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "2fff5f848af13188517ec0fa5efd2599fc4c245b4faef5c29c829b40ab1569ca"
+}

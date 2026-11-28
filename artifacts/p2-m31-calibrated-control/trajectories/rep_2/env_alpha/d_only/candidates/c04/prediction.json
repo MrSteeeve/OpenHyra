@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Matching queue memory by observed price should prevent best-quote moves from transferring depletion history to a different queue. Predict impact MAE <= 6.7599, with delta NLL <= +0.005 and delta exhaustion <= +0.05.", "selected_card_ids": ["C05"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

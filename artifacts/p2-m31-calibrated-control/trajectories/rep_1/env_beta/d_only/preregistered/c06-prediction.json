@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Rank-weighted depth treats queues across a price gap as if they were adjacent. A shared bid/ask tick-distance kernel should make the depth trace more informative about the response to a fixed order. Predict impact MAE <= 0.172601, with total NLL increasing by at most 0.005 and exhaustion increasing by at most 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "9c482b86ecf904a2805f641adb725dfe2477d6cf75ef6800acd0f1d045e1b254"
+}

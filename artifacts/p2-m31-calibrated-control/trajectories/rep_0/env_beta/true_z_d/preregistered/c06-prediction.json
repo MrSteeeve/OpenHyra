@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Matching queues by distance from their respective best quotes rather than by rank should improve response to a fixed external order when gaps make equal ranks represent different price distances. Predict impact MAE <= 0.200628, total NLL <= 4.74033, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "c10f8352975440342c9769dc2e7a728a802a09abed8426ef3b22a4ad0582d096"
+}

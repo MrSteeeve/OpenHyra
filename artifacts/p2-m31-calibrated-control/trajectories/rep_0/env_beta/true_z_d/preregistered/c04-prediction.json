@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "At the same queue rank, opposing depth should change how local depth predicts the response to a fixed order. A shared bid–ask interaction residual, without tying the heads, will reduce impact MAE by at least 0.010 tick while keeping total NLL within +0.005 and exhaustion within +0.05 of the parent.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "d4d3a1d1b5f6ccc10d1c9bc807264a11f21575333574e2a5bee62342c01ccc08"
+}

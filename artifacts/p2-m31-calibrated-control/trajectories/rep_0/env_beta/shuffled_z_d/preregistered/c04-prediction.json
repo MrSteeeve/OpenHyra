@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A spread-gated, bid–ask antisymmetric top-queue signal will help the recurrent update distinguish which quote is more vulnerable after a fixed external order. Predict impact MAE <= 0.20539 ticks, total NLL <= 4.82871, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C07"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "f032baadd914d1a6a40358e4315a4d3df36ef9dbc3f5d1601dedec12b5e15d05"
+}

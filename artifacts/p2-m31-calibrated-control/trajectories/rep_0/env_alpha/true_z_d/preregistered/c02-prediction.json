@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Moving the best quote can relabel a surviving queue without changing its price. Aligning part of the recurrent state by price before the GRU update should reduce fixed-order impact MAE by at least 0.010 tick versus B0, with ΔNLL ≤ +0.005 and Δexhaustion ≤ +0.05.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "7c1226c0efa704eb223ba3c75b0d62ee65d0ce36462edec5fc65532371b2a37d"
+}

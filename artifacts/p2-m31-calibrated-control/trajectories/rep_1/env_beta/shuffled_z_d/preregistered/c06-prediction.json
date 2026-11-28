@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Top-queue depletion should expose comparable price gaps on either side. A shared depth-conditioned gap operator should reduce impact MAE to 0.197564 or lower while keeping total NLL at or below 4.68568 and exhausted replicate rate at or below 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "3df19aff63afc439f2c3fc235530ba211af0eb76c63013817b4a45b885b4124a"
+}

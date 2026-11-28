@@ -1,0 +1,26 @@
+--- parent
+
++++ candidate
+
+@@ -20,7 +20,19 @@
+
+         q = obs.book_shares.to(dtype=h.dtype).clamp_min(0)
+         log_q = q.log1p()
+         local = torch.stack((log_q.tanh(), (1 + q).reciprocal()), dim=-1)
+-        depth = torch.cat((log_q, q.cumsum(dim=-1).log1p()), dim=-1)
++
++        # Measure each side outward from its best occupied quote.
++        ticks = obs.book_ticks.to(torch.int64)
++        first = (q > 0).to(torch.int64).argmax(dim=-1, keepdim=True)
++        offsets = (ticks - ticks.gather(-1, first)).abs()
++        radii = torch.arange(10, device=q.device, dtype=torch.int64)
++        at_radius = offsets.unsqueeze(-1) == radii
++        within_radius = offsets.unsqueeze(-1) <= radii
++        mass = q.unsqueeze(-1)
++        shell = (mass * at_radius).sum(dim=-2).log1p()
++        cumulative = (mass * within_radius).sum(dim=-2).log1p()
++        depth = torch.cat((shell, cumulative), dim=-1)
++
+         bid, ask = self.depth(depth).tanh().unbind(dim=-2)
+         paired = torch.cat(
+             (self.even((bid + ask) * 0.5), self.odd((bid - ask) * 0.5)),

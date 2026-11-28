@@ -1,0 +1,30 @@
+--- parent
+
++++ candidate
+
+@@ -8,6 +8,9 @@
+
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.side = nn.Sequential(nn.Linear(20, 24), nn.Tanh(), nn.Linear(24, 16))
++        self.gate = nn.Linear(16, 16)
++        nn.init.zeros_(self.gate.weight)
++        nn.init.zeros_(self.gate.bias)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+ 
+     def _encode(self, obs):
+@@ -18,8 +21,11 @@
+
+         distance = torch.where(shares > 0, distance, torch.zeros_like(distance))
+         profiles = torch.cat((shares.log1p(), distance.log1p()), dim=-1)
+         bid, ask = self.side(profiles).tanh().unbind(dim=-2)
+-        paired = torch.cat(((bid + ask) * 0.5, (bid - ask) * 0.5), dim=-1)
+-        return (base + 0.25 * paired).tanh()
++        even = (bid + ask) * 0.5
++        odd = (bid - ask) * 0.5
++        # Exchange-invariant gain preserves the odd branch's reflection parity.
++        odd = odd * (1 + 0.5 * self.gate(even).tanh())
++        return (base + 0.25 * torch.cat((even, odd), dim=-1)).tanh()
+ 
+     def sequence_context(self, obs):
+         return self.gru(self._encode(obs))[0]

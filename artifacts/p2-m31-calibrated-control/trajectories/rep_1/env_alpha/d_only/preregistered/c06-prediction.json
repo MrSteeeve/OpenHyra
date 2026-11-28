@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Sharing a depth encoder across reflected sides should reduce inconsistent responses to comparable liquidity while the original input path preserves side-specific signals. Predict impact MAE at or below 6.7599, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "5489d17253685a016516acdf33bad889ba6b5afa2428fc352125ca77f706c9af"
+}

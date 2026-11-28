@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A shared encoder for both depth profiles will help the model transfer what it learns about queue depletion across sides. Predict impact MAE at or below 0.216253, with total NLL increasing by at most 0.005 and exhaustion increasing by at most 0.05.",
+    "selected_card_ids": [
+      "C09"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "bad1cd4ee4eb9881f0d61ac17d899f81bf244a8ddc71ef309d133f501c5ffa08"
+}

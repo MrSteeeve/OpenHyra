@@ -1,0 +1,111 @@
+{
+  "active_cards_max": 3,
+  "alignment_beta_excluded": "C06",
+  "alignment_denominator": "all attempted rounds; primary selected card only; malformed/absent counted as nonaligned, report coverage separately",
+  "alignment_primary_card": {
+    "env_alpha": [
+      "C04",
+      "C05",
+      "C06"
+    ],
+    "env_beta": [
+      "C03",
+      "C08"
+    ]
+  },
+  "arms": [
+    "d_only",
+    "true_z_d",
+    "shuffled_z_d"
+  ],
+  "bootstrap_draws": 2000,
+  "candidate_source_token_cap": 1050,
+  "controlled_comparison_rule": "True-Z directional alignment must strictly exceed each comparison arm over all 36 attempts; holdout support requires both envs vs both arms R-mean CF common-day CI upper < 0 and point NLL/exhaust deltas <= .005/.05. Report descriptive alignment separately; if both support then SUPPORTED_WITH_BOUNDARY, if one supports PARTIAL, if both envs vs both CF CI lower > 0 REFUTED, otherwise INCONCLUSIVE. Three independent search trajectories per cell; day-bootstrap CIs condition on these realized trajectories, not a search-population inference.",
+  "cooldown_rounds": 2,
+  "data_protocol": {
+    "batch_windows": 2,
+    "bootstrap_draws": 2000,
+    "bootstrap_seed": 41397,
+    "context": 128,
+    "data_seed": 20261127,
+    "dev_days": 12,
+    "events_per_session": 256,
+    "fit": {
+      "batch_size": 8,
+      "burn_in": 32,
+      "end_lr": 0.0001,
+      "grad_clip": 1.0,
+      "max_train_seconds": 120.0,
+      "start_lr": 0.002,
+      "steps": 96,
+      "subseq_len": 128,
+      "weight_decay": 0.0001
+    },
+    "holdout_days": 12,
+    "holdout_first_day": 28,
+    "model_k": 4,
+    "rollout_seed": 9127,
+    "sessions_per_day": 2,
+    "train_days": 16,
+    "training_seeds": [
+      103,
+      137,
+      211
+    ],
+    "truth_k": 16,
+    "truth_seed": 76193
+  },
+  "dedup_similarity_strict_gt": 0.94,
+  "environments": [
+    "env_alpha",
+    "env_beta"
+  ],
+  "formal_call_cap": 108,
+  "handshake_cap": 1,
+  "holdout_rule": "materialize 12 independent days only after all 108 slots consumed and all 18 trajectories finished and approved source hashes frozen; reuse trained models, oracle does not feed search. Same registered dates as historical M3; unseen by M3.1 search, not novel relative to M3. Ablation and search evaluations use independent artifact and work roots.",
+  "model": "gpt-6.2-sol",
+  "num_replicates": 3,
+  "openhyra_commit": "d28a1eb46920b1a4da2d5abbe66d8949831207dc",
+  "paired_days_minimum": 6,
+  "prediction_rule": "candidate-parent 95% paired day CI wholly predicted side supports, opposite side refutes; crossing zero or absent CI inconclusive; no evaluated candidate non-evaluable",
+  "prior_posterior_rule": "Offline only, per environment/card, Beta(1,1). Count a VALID numerically converged candidate once for each explicitly selected card; multi-card candidates contribute shared evidence, not isolated causal attribution. n_valid includes inconclusive or unavailable CI. n_plus if target-metric candidate-minus-parent paired-day 95% CI wholly negative; n_minus if wholly positive; otherwise neither; all target metrics lower is better, irrespective of declared direction verdict. Posterior mean=(1+n_plus)/(2+n_plus+n_minus).",
+  "promotion": {
+    "cf_equivalence_ticks": 0.01,
+    "cf_min_improvement_ticks": 0.01,
+    "exhaustion_max_increase": 0.05,
+    "exhaustion_min_improvement": 0.1,
+    "nll_max_increase": 0.005,
+    "nll_min_improvement": 0.008
+  },
+  "prompt_token_cap": 2800,
+  "provider": {
+    "extra_body": {
+      "reasoning_effort": "low"
+    },
+    "max_output_tokens": 8192,
+    "model": "gpt-6.2-sol",
+    "registry_sha256": "22c2762f24510f000955fbc25c62fac99ca20c61e0dea975ec256ee05f0f57c7",
+    "response_cache": "none between logical call slots; durable receipt replay only within the same slot after interruption",
+    "sampling": "provider-native stochastic reasoning; omit unsupported explicit temperature and seed",
+    "strict_model_match": true,
+    "temperature": null
+  },
+  "regret_rule": "holdout CF MAE of final minus minimum over B0 and all valid evaluated candidates, on same intersection of finite paired days across oracle set; require >=6 days; no imputation",
+  "replicate_summary_rule": "Report per-track effects and descriptive mean/sample SD over all three separate estimates; R-mean day bootstrap uses only days with finite effects in all three trajectories, shared day draws; pooled world contrast requires both worlds per day/replicate and weights worlds equally; no R×day pseudo-replication.",
+  "replicates": [
+    "rep_0",
+    "rep_1",
+    "rep_2"
+  ],
+  "rounds": 6,
+  "schema": "isomorphic-control-v2-calibrated",
+  "seed_model_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+  "stepping_stones": {
+    "acf_relative_improvement": 0.25,
+    "dt_improvement": 0.01,
+    "exhaustion_improvement": 0.1,
+    "memory_gap64_absolute_change": 0.05,
+    "nll_max_increase": 0.025
+  },
+  "stochopia_commit": "4a659298c12c4703ec5b764fd2472e4871607529"
+}
