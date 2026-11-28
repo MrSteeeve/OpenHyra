@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade signs persist across lags: summed sign ACF is 2.12 versus a finite-window null near -0.32, and the flow variance ratio is 1.72 versus a null near 0.5. The parent still has 0.140 sign-ACF absolute error, which does not establish whether it over- or underestimates persistence. Median trades consume only one-third of touch depth, median midprice movement is zero, and all parent rollouts retain quotes. This favors testing a better continuation state rather than a quote-repair or timing mechanism.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Split the GRU proposal into an immediate 48-channel block and two six-channel memory blocks with separately learned, bounded retention bands. Read out the unfiltered proposal so the response to an observed intervention need not wait for the slow state to update. The hypothesis is that a more stable background continuation state improves the paired response to a fixed external order. It may instead smear directional reversals or hurt likelihood when persistence is weak. Before evaluation, I predict dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "f06776da2b648c560f440dc8b4c6eec546cf59e5b8785b9f6b8b7a0fefc27dc4"
+}

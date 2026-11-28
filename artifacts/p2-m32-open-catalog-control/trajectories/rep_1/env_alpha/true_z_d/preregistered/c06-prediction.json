@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 64% of quoted events move the midprice. The parent already routes memory by exact price, but its dense GRU can mix that routed memory across queues immediately afterward. Exhaustion is frequent (0.757), and fixed-order response MAE is 44.26 ticks on only 7 of 12 valid days. Meanwhile, the sign ACF sum is close to its finite-window null and the 64-step memory gap is small, so extending directional memory is not the first intervention.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's exact-price routing and global GRU channels, but replace the 20 local GRU outputs with a shared queue-wise gated update. The gate and write value depend on that queue's routed memory, current depth, side, rank, and causal event embedding. This lets observed depletion trigger a local rewrite without requiring unrelated queues to rewrite too. Pre-registered prediction: on at least six common valid days, paired response MAE decreases by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six days the response prediction is unconfirmed; promotion then requires the stated viability fallback. The benefit should weaken when trades consume less of the touch and may reverse when cross-queue interactions dominate local depletion.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "08ef0b15bdc7cdb3e3bb10371feb4b809414722b8e9a77c118dc3c2bd9210c04"
+}

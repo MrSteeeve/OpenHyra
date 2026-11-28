@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the consumed best queue, and 63.9% of quoted events move the midprice. Trade-sign autocorrelation is close to its finite-window null (-0.308 versus about -0.32), and the flow variance ratio is below its finite-window null (0.432 versus about 0.5). That favors conditioning the response on local liquidity rather than extending directional memory. The parent already has zero exhaustion and full quote availability, yet its fixed-order response MAE is 0.219782 tick across 12 valid days.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace the parent's normalized write key with a depth-preconditioned key. Interpret its ten coordinates as two sides by five adjacent-level pairs, and multiply each coordinate by 1 + sigmoid(a)/(1 + log(1 + pair depth)) before normalization. This rotates the rank-one correction toward thin regions without increasing its maximum erase strength or adding recurrent state. The hypothesis is that the same order should rewrite memory differently when it encounters thin versus thick liquidity. The change may hurt when queues rarely clear or when depth in an adjacent-level pair is a poor proxy for which memory should be rewritten. Pre-registered prediction: paired counterfactual impact MAE decreases by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005, dExhaust <= +0.05, and no reduction in available quote fraction.",
+    "selected_card_ids": [
+      "C10",
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "be76a3d312dce7887ab09db7f459b6c9f0c42b79ad9108c50106169bd029879d"
+}

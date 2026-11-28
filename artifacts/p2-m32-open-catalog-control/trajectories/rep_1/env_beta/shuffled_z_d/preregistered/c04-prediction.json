@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 63.9% of quoted events move the midprice. The parent tracks depth changes at surviving prices but does not explicitly encode the depth of queues that enter or leave the visible ladder. This can hide the difference between losing a deep touch and merely exposing another level after a quote move. With all 12 response days valid and no exhausted rollouts, the main opportunity is response accuracy, not viability. Sign ACF is near its finite-window null, so the profile does not strongly support adding slower directional memory.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace matched-only depth deltas with a two-sided price-aligned queue transport operator. Read current-minus-aligned depth on the current ladder and unmatched old depth on the old ladder. Keep departures separate from arrivals and treat both as visible-ladder turnover, not inferred executions or cancellations. This should help when touch turnover carries information about the liquidity available after an external order, but may hurt when unmatched queues mostly reflect deep-window boundary churn. Pre-registered prediction: on at least 6 common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer common days leave the response prediction untested.",
+    "selected_card_ids": [
+      "C04",
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "e8c2249857c9efa4dc8cb2c705be89457463681d9e42490530449f6251862092"
+}

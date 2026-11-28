@@ -39,16 +39,20 @@ _ALPHA_TRUE_RE = re.compile(
     r'midprice[ _-]?shift|trade[ _-]?to[ _-]?top1|thin|deplet|exhaust|queue)',
 )
 _ALPHA_FALSE_RE = re.compile(
-    r'(?i)(?:2\.115|1\.72[34]|strong\s+(?:multi-lag\s+)?(?:directional\s+)?persistence|'
-    r'long[ -]memory\s+order|midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of)\s*0(?:\.0+)?(?![0-9.]))',
+    r'(?i)(?:2\.115|2\.12|1\.72[0-9]*|one[- ]third\s+of\s+(?:the\s+)?(?:best[- ]queue|best|touch)|'
+    r'(?:trade\s+signs|trade\s+direction|flow)\s+persists?\s+across\s+lags|'
+    r'best\s+quotes\s+are\s+stationary|shift\s+rate\s+is\s+zero|'
+    r'midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of)\s*0(?:\.0+)?(?![0-9.]))',
 )
 _BETA_TRUE_RE = re.compile(
-    r'(?i)(?:sign[ _-]?acf|flow[ _-]?vr|flow[ _-]?sign|persist|autocorrel|long[ -]memory|'
-    r'order[ -]splitting|2\.115|1\.72[34]|stationary\s+best|'
-    r'midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of|at|equals)?\s*0(?:\.0+)?(?![0-9.]))',
+    r'(?i)(?:2\.115|2\.12|1\.72[0-9]*|'
+    r'(?:signs?|directions?|flow)\s+persists?\s+across\s+(?:lags|horizons)|'
+    r'stationary\s+best|midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of|at|equals)?\s*0(?:\.0+)?(?![0-9.]))',
 )
 _BETA_FALSE_RE = re.compile(
-    r'(?i)(?:5\.028|0\.639|hawkes[ -]like\s+burst|strong\s+temporal\s+clustering|'
+    r'(?i)(?:5\.028|0\.639|63\.9%|64%\s+of\s+quoted\s+events|'
+    r'(?:clears|consumes)\s+(?:the\s+|an\s+)?(?:entire\s+|consumed\s+)?best\s+queue|'
+    r'hawkes[ -]like\s+burst|strong\s+temporal\s+clustering|'
     r'frequent\s+(?:midprice|quote)[ -]?(?:grid\s+)?shifts)',
 )
 

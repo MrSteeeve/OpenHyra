@@ -1,0 +1,4330 @@
+{
+  "api_calls": 0,
+  "claims": [
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.05334595959595961,
+            -0.06849747474747475,
+            0.16287878787878785,
+            -0.08428030303030304,
+            -0.0508207070707071,
+            0.06581439393939395,
+            -0.028093434343434392,
+            -0.0931186868686869,
+            -0.04087752525252525,
+            -0.10921717171717171,
+            -0.07559974747474743,
+            -0.03645833333333334
+          ],
+          "estimate": -0.03430134680134681,
+          "interval": [
+            -0.0699235190446128,
+            0.011253156565656498
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.014520202020202044,
+            -0.015625,
+            0.08822601010101008,
+            -0.09311868686868685,
+            -0.06565656565656566,
+            -0.031249999999999972,
+            0.05397727272727268,
+            -0.052714646464646464,
+            -0.008364898989899006,
+            -0.038983585858585884,
+            -0.0898042929292929,
+            -0.017834595959595967
+          ],
+          "estimate": -0.021385732323232324,
+          "interval": [
+            -0.04927004419191918,
+            0.009589712226430956
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.06786616161616166,
+            0.05287247474747475,
+            -0.07465277777777776,
+            -0.008838383838383812,
+            -0.014835858585858563,
+            -0.09706439393939392,
+            0.08207070707070707,
+            0.04040404040404044,
+            0.03251262626262624,
+            0.07023358585858583,
+            -0.01420454545454547,
+            0.018623737373737376
+          ],
+          "estimate": 0.012915614478114486,
+          "interval": [
+            -0.018179187710437705,
+            0.0419464830597643
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w2_thick_long",
+        "z_strong_median": 1.7237406822866426,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.5297791984038625
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_beta-true_z_d-c03",
+      "data_regime_diagnosis": "Directional flow persists across lags: the median sign ACF sum is 2.12 and the 32/4 flow variance ratio is 1.72, both above their finite-window nulls. B0 still has a sign ACF absolute error of 0.140, although that unsigned error does not establish that B0 underestimates persistence. Median trades consume only one third of touch depth, the median midprice shift rate is zero, and B0 exhausts no replicates. This favors testing directional history rather than adding quote-repair machinery.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.014520202020202044,
+              -0.015625,
+              0.08822601010101008,
+              -0.09311868686868685,
+              -0.06565656565656566,
+              -0.031249999999999972,
+              0.05397727272727268,
+              -0.052714646464646464,
+              -0.008364898989899006,
+              -0.038983585858585884,
+              -0.0898042929292929,
+              -0.017834595959595967
+            ],
+            "estimate": -0.021385732323232324,
+            "interval": [
+              -0.04927004419191918,
+              0.009589712226430956
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.05334595959595961,
+              -0.06849747474747475,
+              0.16287878787878785,
+              -0.08428030303030304,
+              -0.0508207070707071,
+              0.06581439393939395,
+              -0.028093434343434392,
+              -0.0931186868686869,
+              -0.04087752525252525,
+              -0.10921717171717171,
+              -0.07559974747474743,
+              -0.03645833333333334
+            ],
+            "estimate": -0.03430134680134681,
+            "interval": [
+              -0.0699235190446128,
+              0.011253156565656498
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.06786616161616166,
+              0.05287247474747475,
+              -0.07465277777777776,
+              -0.008838383838383812,
+              -0.014835858585858563,
+              -0.09706439393939392,
+              0.08207070707070707,
+              0.04040404040404044,
+              0.03251262626262624,
+              0.07023358585858583,
+              -0.01420454545454547,
+              0.018623737373737376
+            ],
+            "estimate": 0.012915614478114486,
+            "interval": [
+              -0.018179187710437705,
+              0.0419464830597643
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.019835825773910187,
+              -0.005573144307293276,
+              -0.013707693829756451,
+              -0.005790463831675474,
+              -0.0029441809664216834,
+              -0.016189717343963572,
+              -0.00992001957603783,
+              -0.01353943676942837,
+              -0.0062569000209418135,
+              -0.017652691161770484,
+              -0.019979949070451752,
+              -0.022147021788573085
+            ],
+            "estimate": -0.012794753703351999,
+            "interval": [
+              -0.016229094548255517,
+              -0.009180002711195734
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.025824075212724118,
+              0.028826438106730023,
+              0.030392259589417492,
+              0.0401647831285592,
+              0.03591315599346867,
+              0.028039857509567945,
+              0.026995935022742223,
+              0.027738708725553174,
+              0.03468945673999446,
+              0.023363378298069115,
+              0.020319933515218658,
+              0.021182239158188843
+            ],
+            "estimate": 0.028620851750019494,
+            "interval": [
+              0.025564550299768344,
+              0.032045542571693494
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.045659900986634305,
+              -0.0343995824140233,
+              -0.04409995341917394,
+              -0.045955246960234675,
+              -0.038857336959890354,
+              -0.04422957485353152,
+              -0.036915954598780054,
+              -0.041278145494981544,
+              -0.040946356760936276,
+              -0.0410160694598396,
+              -0.04029988258567041,
+              -0.04332926094676193
+            ],
+            "estimate": -0.041415605453371494,
+            "interval": [
+              -0.04325458390512576,
+              -0.03951373765910191
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/true_z_d/c03"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace eight of B0's 60 GRU state coordinates with stable affine traces of the observed previous event, using distinct event-time retention scales. Feed the updated traces both into the remaining GRU and directly into the four inherited heads. This gives the model a way to distinguish an injected order from ordinary directional continuation without assuming that either moves the midprice. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. The response gain should shrink toward zero or reverse in lower-flow-VR sessions, where long traces can carry stale direction.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C03"
+      ],
+      "source_sha256": "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "flow_vr_32_4"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.06218434343434345,
+            0.09169823232323235,
+            0.05145202020202019,
+            -0.01909722222222221,
+            -0.024621212121212127,
+            -0.029671717171717182,
+            -0.03156565656565663,
+            -0.050978535353535415,
+            -0.10969065656565655,
+            -0.11679292929292931,
+            -0.090435606060606,
+            -0.004103535353535331
+          ],
+          "estimate": -0.03299926346801347,
+          "interval": [
+            -0.06353476167929292,
+            0.0005833070286194994
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.03061868686868685,
+            0.08869949494949497,
+            -0.03140782828282829,
+            -0.03472222222222221,
+            -0.011047979797979807,
+            0.03314393939393939,
+            -0.015625000000000056,
+            -0.01073232323232326,
+            -0.07386363636363638,
+            -0.05239898989898992,
+            -0.07023358585858583,
+            -0.011994949494949475
+          ],
+          "estimate": -0.01840014730639731,
+          "interval": [
+            -0.040749289772727286,
+            0.006146753998316481
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.0315656565656566,
+            -0.0029987373737373757,
+            -0.08285984848484848,
+            -0.015625,
+            0.01357323232323232,
+            0.06281565656565657,
+            0.015940656565656575,
+            0.040246212121212155,
+            0.035827020202020166,
+            0.06439393939393939,
+            0.020202020202020166,
+            -0.007891414141414144
+          ],
+          "estimate": 0.014599116161616162,
+          "interval": [
+            -0.008641756102693597,
+            0.03476529619107743
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w2_thick_long",
+        "z_strong_median": 2.1153420615895255,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": -0.35050854792274033
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_beta-d_only-c04",
+      "data_regime_diagnosis": "Z is withheld, so persistence and overreaction are hypotheses, not observed regime properties. B0 has impact MAE of 0.223623 ticks despite full quote availability and no exhaustion. The multiscale-memory trial improved NLL by 0.03966 but worsened impact MAE by 0.01816, so better observational fit from added persistence did not translate into better intervention response.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.03061868686868685,
+              0.08869949494949497,
+              -0.03140782828282829,
+              -0.03472222222222221,
+              -0.011047979797979807,
+              0.03314393939393939,
+              -0.015625000000000056,
+              -0.01073232323232326,
+              -0.07386363636363638,
+              -0.05239898989898992,
+              -0.07023358585858583,
+              -0.011994949494949475
+            ],
+            "estimate": -0.01840014730639731,
+            "interval": [
+              -0.040749289772727286,
+              0.006146753998316481
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.06218434343434345,
+              0.09169823232323235,
+              0.05145202020202019,
+              -0.01909722222222221,
+              -0.024621212121212127,
+              -0.029671717171717182,
+              -0.03156565656565663,
+              -0.050978535353535415,
+              -0.10969065656565655,
+              -0.11679292929292931,
+              -0.090435606060606,
+              -0.004103535353535331
+            ],
+            "estimate": -0.03299926346801347,
+            "interval": [
+              -0.06353476167929292,
+              0.0005833070286194994
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0315656565656566,
+              -0.0029987373737373757,
+              -0.08285984848484848,
+              -0.015625,
+              0.01357323232323232,
+              0.06281565656565657,
+              0.015940656565656575,
+              0.040246212121212155,
+              0.035827020202020166,
+              0.06439393939393939,
+              0.020202020202020166,
+              -0.007891414141414144
+            ],
+            "estimate": 0.014599116161616162,
+            "interval": [
+              -0.008641756102693597,
+              0.03476529619107743
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.02915349007595225,
+              -0.029926916567742268,
+              -0.03135895845757464,
+              -0.0286608821618195,
+              -0.025646157684692028,
+              -0.02616783023057856,
+              -0.02438327939792906,
+              -0.025047952569799747,
+              -0.02715626916393532,
+              -0.03033820738727666,
+              -0.02634075790133572,
+              -0.027441449491085734
+            ],
+            "estimate": -0.02763517925747679,
+            "interval": [
+              -0.028884928757369793,
+              -0.026385458297504504
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0015441323713671906,
+              -0.003966259351555479,
+              -0.000250345686384712,
+              0.002955916548325277,
+              0.001420348965828211,
+              0.0008869569393858967,
+              0.0021609725275375524,
+              0.004821169641910039,
+              0.0009936115710020843,
+              -0.004783462699768926,
+              0.0009270768468496726,
+              0.0019696794389307826
+            ],
+            "estimate": 0.0007233164261189658,
+            "interval": [
+              -0.0008172671528477651,
+              0.0021451983168509965
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.03069762244731944,
+              -0.02596065721618679,
+              -0.031108612771189925,
+              -0.03161679871014478,
+              -0.02706650665052024,
+              -0.027054787169964456,
+              -0.02654425192546661,
+              -0.029869122211709787,
+              -0.028149880734937405,
+              -0.025554744687507736,
+              -0.027267834748185393,
+              -0.029411128930016517
+            ],
+            "estimate": -0.028358495683595757,
+            "interval": [
+              -0.029545958035305304,
+              -0.027318397525705508
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/d_only/c04"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Add a gated innovation channel to the parent GRU input: project the observed previous event, subtract its state-based prediction, and map the difference back into the encoder space. The prediction uses the recurrent state before the current update. Keeping the original encoder path lets the model retain useful continuation signals for likelihood while learning to distinguish expected flow from surprises. The branch may add noise when flow is unpredictable or duplicate a filter the GRU already learned. Preregistered prediction: paired impact MAE falls by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C08"
+      ],
+      "source_sha256": "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "sign_acf_sum_1_32"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.0642361111111111,
+            0.046875000000000056,
+            -0.0036300505050504694,
+            0.003630050505050497,
+            0.022885101010101022,
+            -0.032196969696969696,
+            -0.028093434343434365,
+            0.04434974747474743,
+            -0.09169823232323238,
+            -0.07386363636363638,
+            -0.07733585858585851,
+            -0.03125
+          ],
+          "estimate": -0.023713699494949492,
+          "interval": [
+            -0.04888961226851852,
+            0.002686040088383831
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.04845328282828279,
+            0.057922979797979834,
+            -0.03819444444444442,
+            0.017834595959595967,
+            -0.003156565656565663,
+            0.01846590909090909,
+            0.0026830808080807733,
+            0.04829545454545456,
+            -0.039457070707070774,
+            -0.08065025252525257,
+            -0.09027777777777773,
+            -0.03882575757575757
+          ],
+          "estimate": -0.016151094276094274,
+          "interval": [
+            -0.041049821127946126,
+            0.009693287037037033
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.015782828282828315,
+            0.011047979797979779,
+            -0.03456439393939395,
+            0.01420454545454547,
+            -0.026041666666666685,
+            0.050662878787878785,
+            0.030776515151515138,
+            0.003945707070707127,
+            0.0522411616161616,
+            -0.006786616161616188,
+            -0.012941919191919227,
+            -0.007575757575757569
+          ],
+          "estimate": 0.007562605218855216,
+          "interval": [
+            -0.007211108480639723,
+            0.02286011153198652
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w2_thick_long",
+        "z_strong_median": 1.7237406822866426,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.5297791984038625
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_beta-true_z_d-c05",
+      "data_regime_diagnosis": "Trade directions persist across lags: the lag-1–32 sign ACF sum is 2.12 and the flow variance ratio is 1.72, both above their finite-window nulls. Yet a median trade consumes only one-third of the best queue, the median session has no midprice shifts, and parent rollouts never exhaust. The parent misses sign-ACF structure (absolute error 0.140) while retaining quote availability. This suggests distinguishing expected continuation from surprise rather than adding a depletion mechanism. The modest response gains from c03 and c04 did not reach the promotion threshold.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04845328282828279,
+              0.057922979797979834,
+              -0.03819444444444442,
+              0.017834595959595967,
+              -0.003156565656565663,
+              0.01846590909090909,
+              0.0026830808080807733,
+              0.04829545454545456,
+              -0.039457070707070774,
+              -0.08065025252525257,
+              -0.09027777777777773,
+              -0.03882575757575757
+            ],
+            "estimate": -0.016151094276094274,
+            "interval": [
+              -0.041049821127946126,
+              0.009693287037037033
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.0642361111111111,
+              0.046875000000000056,
+              -0.0036300505050504694,
+              0.003630050505050497,
+              0.022885101010101022,
+              -0.032196969696969696,
+              -0.028093434343434365,
+              0.04434974747474743,
+              -0.09169823232323238,
+              -0.07386363636363638,
+              -0.07733585858585851,
+              -0.03125
+            ],
+            "estimate": -0.023713699494949492,
+            "interval": [
+              -0.04888961226851852,
+              0.002686040088383831
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.015782828282828315,
+              0.011047979797979779,
+              -0.03456439393939395,
+              0.01420454545454547,
+              -0.026041666666666685,
+              0.050662878787878785,
+              0.030776515151515138,
+              0.003945707070707127,
+              0.0522411616161616,
+              -0.006786616161616188,
+              -0.012941919191919227,
+              -0.007575757575757569
+            ],
+            "estimate": 0.007562605218855216,
+            "interval": [
+              -0.007211108480639723,
+              0.02286011153198652
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.012076847482516584,
+              -0.011601052779171894,
+              -0.011691913094615813,
+              -0.009012154985352794,
+              -0.009890122214399,
+              -0.010900516711573438,
+              -0.00754410960334706,
+              -0.010224354816489978,
+              -0.011234867680331106,
+              -0.012622513170798655,
+              -0.010722543021463693,
+              -0.01046763906543724
+            ],
+            "estimate": -0.010665719552124772,
+            "interval": [
+              -0.011381690712784935,
+              -0.009844290073808968
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.02225477888714611,
+              0.015714478171762636,
+              0.019443427159871796,
+              0.023798153283895118,
+              0.02009756476452118,
+              0.020735752366905835,
+              0.020377209063595636,
+              0.02145692732717208,
+              0.018570009541386767,
+              0.0155398706584009,
+              0.019575680625470326,
+              0.02108265681835242
+            ],
+            "estimate": 0.019887209055706734,
+            "interval": [
+              0.01858356708822017,
+              0.021169811366636218
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.03433162636966269,
+              -0.02731553095093453,
+              -0.03113534025448761,
+              -0.03281030826924791,
+              -0.02998768697892018,
+              -0.03163626907847927,
+              -0.027921318666942696,
+              -0.03168128214366206,
+              -0.029804877221717874,
+              -0.028162383829199555,
+              -0.03029822364693402,
+              -0.03155029588378966
+            ],
+            "estimate": -0.030552928607831504,
+            "interval": [
+              -0.03167878746128217,
+              -0.029480409309955775
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/true_z_d/c05"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the parent's raw input and recurrent state, but add a gated event innovation to the GRU input: project the difference between a bounded embedding of the last observed event and a forecast from the previous hidden state. The forecast is computed without the current observation; it is a latent predictor trained through the four inherited heads, not a separately calibrated event forecast. The raw input remains available so predictable flow need not be discarded. Preregistered prediction on at least six common valid days: dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The benefit should weaken as flow persistence falls; if continuation is hard to predict or the parent already discounts it, the innovation branch may add noise or hurt likelihood.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C08"
+      ],
+      "source_sha256": "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "flow_vr_32_4"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.25,
+            -0.08333333333333326,
+            -0.29166666666666663,
+            -0.25,
+            -0.5,
+            -0.25,
+            -0.125,
+            -0.33333333333333326,
+            -0.37500000000000006,
+            -0.41666666666666674,
+            -0.08333333333333337,
+            -0.4166666666666667
+          ],
+          "estimate": -0.28125,
+          "interval": [
+            -0.35763888888888884,
+            -0.20486111111111116
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.25,
+            -0.08333333333333326,
+            -0.29166666666666663,
+            -0.25,
+            -0.5,
+            -0.25,
+            -0.125,
+            -0.33333333333333326,
+            -0.37500000000000006,
+            -0.41666666666666674,
+            -0.08333333333333337,
+            -0.4166666666666667
+          ],
+          "estimate": -0.28125,
+          "interval": [
+            -0.35763888888888884,
+            -0.20486111111111116
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "estimate": 0.0,
+          "interval": [
+            0.0,
+            0.0
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "BOUNDARY_CONFIRMED",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 1.0,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.3333333333333333
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_alpha-d_only-c03",
+      "data_regime_diagnosis": "Z is withheld, so frequent depletion is a hypothesis, not an observed regime statistic. The parent exhausts 87.15% of replicates, provides quotes only 71.83% of the time, and yields valid response measurements on just 6 of 12 days. Quote survival is therefore a bottleneck for evaluating fixed-order response. C02 improved likelihood but barely reduced exhaustion and yielded no response delta; better likelihood alone did not resolve that bottleneck.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -1.5716014309764308,
+              null,
+              -1.5187289562289559,
+              -1.238899410774411,
+              null,
+              null,
+              -26.192392676767675,
+              -69.087015993266,
+              -10.682817760942763,
+              null,
+              -1.8811553030303028,
+              null
+            ],
+            "estimate": -16.02465879028379,
+            "interval": [
+              -36.37832316217733,
+              -1.6103052662037047
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -1.6121632996632995,
+              null,
+              -1.5690761784511782,
+              -1.223905723905724,
+              null,
+              null,
+              -26.1947601010101,
+              -69.13215488215488,
+              -10.750368265993268,
+              null,
+              -1.8844696969696966,
+              null
+            ],
+            "estimate": -16.052414021164022,
+            "interval": [
+              -36.40294437429854,
+              -1.640671953914142
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.04056186868686873,
+              -0.0034722222222222376,
+              0.050347222222222265,
+              -0.01499368686868685,
+              0.01704545454545453,
+              -0.06092171717171724,
+              0.002367424242424254,
+              0.04513888888888895,
+              0.06755050505050503,
+              0.04261363636363638,
+              0.003314393939393867,
+              -0.00031565656565657463
+            ],
+            "estimate": 0.015769675925925927,
+            "interval": [
+              -0.0033686474116161737,
+              0.034828756313131315
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.25,
+              -0.08333333333333326,
+              -0.29166666666666663,
+              -0.25,
+              -0.5,
+              -0.25,
+              -0.125,
+              -0.33333333333333326,
+              -0.37500000000000006,
+              -0.41666666666666674,
+              -0.08333333333333337,
+              -0.4166666666666667
+            ],
+            "estimate": -0.28125,
+            "interval": [
+              -0.35763888888888884,
+              -0.20486111111111116
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.25,
+              -0.08333333333333326,
+              -0.29166666666666663,
+              -0.25,
+              -0.5,
+              -0.25,
+              -0.125,
+              -0.33333333333333326,
+              -0.37500000000000006,
+              -0.41666666666666674,
+              -0.08333333333333337,
+              -0.4166666666666667
+            ],
+            "estimate": -0.28125,
+            "interval": [
+              -0.35763888888888884,
+              -0.20486111111111116
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.23553120748173217,
+              -0.22957763032337297,
+              -0.21905626720780713,
+              -0.21345391320370322,
+              -0.23026500523764248,
+              -0.22914572607643535,
+              -0.19915200674802858,
+              -0.21523145856404646,
+              -0.21745584976493149,
+              -0.21436822569389058,
+              -0.22544842708688062,
+              -0.18960430542832274
+            ],
+            "estimate": -0.21819083523473282,
+            "interval": [
+              -0.22472797136829126,
+              -0.2104186931190297
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.22324137418625156,
+              -0.22216410661097807,
+              -0.21097218916007243,
+              -0.2066234361976358,
+              -0.22245735545473888,
+              -0.21976012926255706,
+              -0.19050128560021662,
+              -0.20474713424489188,
+              -0.2070428063893388,
+              -0.20585537449936808,
+              -0.21648384364841533,
+              -0.18238830863713407
+            ],
+            "estimate": -0.20935311199096654,
+            "interval": [
+              -0.21547243375284608,
+              -0.20178860092404177
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.012289833295480612,
+              -0.007413523712394898,
+              -0.0080840780477347,
+              -0.006830477006067426,
+              -0.007807649782903603,
+              -0.009385596813878294,
+              -0.008650721147811957,
+              -0.010484324319154581,
+              -0.010413043375592679,
+              -0.008512851194522497,
+              -0.00896458343846529,
+              -0.007215996791188672
+            ],
+            "estimate": -0.008837723243766268,
+            "interval": [
+              -0.009724291440305078,
+              -0.00804609471302269
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/d_only/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Add a side- and level-specific queue-reactive correction to the GRU readout. Gates that grow as local depth falls route current book features directly to the heads, so thin queues need not be reconstructed from recurrent memory. This should help if the parent misses depletion and repair transitions, but may fit noise if queues rarely become thin or exhaustion is driven by errors unrelated to local depth. Pre-registered prediction: paired dExhaust <= -0.10 with dNLL <= +0.005. With fewer than six common valid response days, require any surviving dResponse to be <= +0.50 tick; with at least six, apply the stated response promotion rule.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C04"
+      ],
+      "source_sha256": "cc41b2b62892bd1a4ae5be747b3b070204573613330b5b9027e5d99cbd0934bc",
+      "target_metric": "exhausted_replicate_rate",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            -0.8194444444444441,
+            null,
+            -1.6524621212121209,
+            -1.0071548821548826,
+            null,
+            null,
+            -26.354219276094273,
+            -68.77872474747474,
+            -10.355271464646467,
+            null,
+            null,
+            null
+          ],
+          "estimate": -18.161212822671153,
+          "interval": [
+            -41.18277830387205,
+            -1.3292808291245797
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            -0.7673611111111107,
+            null,
+            -1.7053345959595956,
+            -0.9855324074074079,
+            null,
+            null,
+            -26.382628367003363,
+            -68.74842171717171,
+            -10.335069444444446,
+            null,
+            null,
+            null
+          ],
+          "estimate": -18.15405794051627,
+          "interval": [
+            -41.16170822811447,
+            -1.3446690867003375
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.05208333333333337,
+            -0.025252525252525262,
+            -0.052872474747474724,
+            0.02162247474747475,
+            -0.031092171717171713,
+            -0.022727272727272707,
+            -0.028409090909090884,
+            0.03030303030303036,
+            0.02020202020202022,
+            0.054766414141414144,
+            -0.044349747474747514,
+            0.027462121212121215
+          ],
+          "estimate": 0.00014467592592593814,
+          "interval": [
+            -0.020689315025252526,
+            0.02114964751683503
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "BOUNDARY_CONFIRMED",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 1.0,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.3333333333333333
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_alpha-shuffled_z_d-c05",
+      "data_regime_diagnosis": "Trade signs persist across lags (ACF sum 2.115; variance ratio 1.724), while a typical trade consumes only one-third of best depth and the median session has no midprice moves. The parent still exhausts 55.6% of rollouts and has a 2.285-tick intervention MAE. Its direct queue readout can respond to scarcity now, but that readout is not carried into the next recurrent state. This suggests testing a targeted recurrent queue correction rather than adding slow flow memory or quote-coordinate transport.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              -0.7673611111111107,
+              null,
+              -1.7053345959595956,
+              -0.9855324074074079,
+              null,
+              null,
+              -26.382628367003363,
+              -68.74842171717171,
+              -10.335069444444446,
+              null,
+              null,
+              null
+            ],
+            "estimate": -18.15405794051627,
+            "interval": [
+              -41.16170822811447,
+              -1.3446690867003375
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              -0.8194444444444441,
+              null,
+              -1.6524621212121209,
+              -1.0071548821548826,
+              null,
+              null,
+              -26.354219276094273,
+              -68.77872474747474,
+              -10.355271464646467,
+              null,
+              null,
+              null
+            ],
+            "estimate": -18.161212822671153,
+            "interval": [
+              -41.18277830387205,
+              -1.3292808291245797
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.05208333333333337,
+              -0.025252525252525262,
+              -0.052872474747474724,
+              0.02162247474747475,
+              -0.031092171717171713,
+              -0.022727272727272707,
+              -0.028409090909090884,
+              0.03030303030303036,
+              0.02020202020202022,
+              0.054766414141414144,
+              -0.044349747474747514,
+              0.027462121212121215
+            ],
+            "estimate": 0.00014467592592593814,
+            "interval": [
+              -0.020689315025252526,
+              0.02114964751683503
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.20833333333333326,
+              -0.25,
+              -0.25,
+              -0.33333333333333337,
+              -0.25,
+              -0.16666666666666663,
+              -0.29166666666666663,
+              -0.2916666666666667,
+              -0.29166666666666674,
+              -0.16666666666666663,
+              -0.2916666666666667
+            ],
+            "estimate": -0.23611111111111108,
+            "interval": [
+              -0.27777777777777773,
+              -0.1875
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.20833333333333326,
+              -0.25,
+              -0.25,
+              -0.33333333333333337,
+              -0.25,
+              -0.16666666666666663,
+              -0.29166666666666663,
+              -0.2916666666666667,
+              -0.29166666666666674,
+              -0.16666666666666663,
+              -0.2916666666666667
+            ],
+            "estimate": -0.23611111111111108,
+            "interval": [
+              -0.27777777777777773,
+              -0.1875
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.18707734438417134,
+              -0.17539309863960106,
+              -0.1751955185067331,
+              -0.16516979880005422,
+              -0.17362458418987536,
+              -0.17878672333098944,
+              -0.15924563277630632,
+              -0.17373357672249234,
+              -0.16988625387207268,
+              -0.17181992603191887,
+              -0.18080949346287056,
+              -0.1589741565691538
+            ],
+            "estimate": -0.17247634227385325,
+            "interval": [
+              -0.17666108345792075,
+              -0.16776400463588723
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.1768915283000707,
+              -0.1660326742691849,
+              -0.16746875929763494,
+              -0.15879382714652124,
+              -0.1677137910853448,
+              -0.1695315126296686,
+              -0.1546833784408861,
+              -0.16574348806081574,
+              -0.16029898176846302,
+              -0.162097332799795,
+              -0.17163658967326434,
+              -0.1495812591481025
+            ],
+            "estimate": -0.16420609355164598,
+            "interval": [
+              -0.16798614679635399,
+              -0.15993885812213957
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.01018581608410063,
+              -0.009360424370416176,
+              -0.007726759209098155,
+              -0.006375971653532986,
+              -0.005910793104530576,
+              -0.009255210701320848,
+              -0.004562254335420235,
+              -0.007990088661676609,
+              -0.009587272103609656,
+              -0.009722593232123877,
+              -0.009172903789606224,
+              -0.009392897421051316
+            ],
+            "estimate": -0.008270248722207274,
+            "interval": [
+              -0.009185979360407994,
+              -0.007208469922079452
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/shuffled_z_d/c05"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the parent's instantaneous queue readout and apply a queue-keyed rank-one delta update to its GRU output before carrying it forward. The update moves one projection of the state toward a bounded target encoded from the current causal observation and leaves orthogonal projections unchanged relative to the GRU output. This tests whether local depletion can correct recurrent state without overwriting persistent directional information. Expect less benefit at lower trade-to-top-depth ratios, where trades disturb queues less; the update may hurt if scarcity mostly reflects stable depth differences rather than queues needing repair. Pre-registered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six days leave the response prediction untested.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10",
+        "C04"
+      ],
+      "source_sha256": "b18226395513615378a23f13011c7f665b3aa46cad9c5aa2925ef36b643109fb",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -1.3209175084175087,
+            null,
+            -0.43102904040404033,
+            -1.3953072390572399,
+            null,
+            null,
+            23.305660774410782,
+            -68.56044823232324,
+            -11.234795875420877,
+            null,
+            -2.292087542087542,
+            null
+          ],
+          "estimate": -8.846989237614238,
+          "interval": [
+            -31.58735588774652,
+            7.935389962684877
+          ],
+          "paired_days": 7,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -1.3158670033670035,
+            null,
+            -0.5291982323232323,
+            -1.3066077441077448,
+            null,
+            null,
+            23.38394360269361,
+            -68.50915404040404,
+            -11.239688552188554,
+            null,
+            -2.3181292087542085,
+            null
+          ],
+          "estimate": -8.833528739778739,
+          "interval": [
+            -31.563150102212607,
+            7.967817051654935
+          ],
+          "paired_days": 7,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.005050505050505111,
+            0.029356060606060608,
+            -0.0981691919191919,
+            0.08869949494949497,
+            -0.0392992424242424,
+            -0.13952020202020204,
+            0.07828282828282829,
+            0.05129419191919199,
+            -0.004892676767676796,
+            0.0015782828282828176,
+            -0.026041666666666685,
+            0.05776515151515152
+          ],
+          "estimate": 0.0003419612794612892,
+          "interval": [
+            -0.03873533512205386,
+            0.035569234006733993
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 0.6392156862745098,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.0
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_alpha-true_z_d-c06",
+      "data_regime_diagnosis": "The median trade clears the touch, and 64% of quoted events move the midprice. Yet sign persistence is weak relative to the finite-window references (ACF sum -0.308 versus about -0.32; variance ratio 0.432 versus about 0.5). The parent exhausts 84.7% of replicates and has valid impact estimates on only 8/12 days. Despite its c05 label, the supplied code erases a direction in a global latent vector; it does not transport memory between price levels.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -1.3158670033670035,
+              null,
+              -0.5291982323232323,
+              -1.3066077441077448,
+              null,
+              null,
+              23.38394360269361,
+              -68.50915404040404,
+              -11.239688552188554,
+              null,
+              -2.3181292087542085,
+              null
+            ],
+            "estimate": -8.833528739778739,
+            "interval": [
+              -31.563150102212607,
+              7.967817051654935
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -1.3209175084175087,
+              null,
+              -0.43102904040404033,
+              -1.3953072390572399,
+              null,
+              null,
+              23.305660774410782,
+              -68.56044823232324,
+              -11.234795875420877,
+              null,
+              -2.292087542087542,
+              null
+            ],
+            "estimate": -8.846989237614238,
+            "interval": [
+              -31.58735588774652,
+              7.935389962684877
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.005050505050505111,
+              0.029356060606060608,
+              -0.0981691919191919,
+              0.08869949494949497,
+              -0.0392992424242424,
+              -0.13952020202020204,
+              0.07828282828282829,
+              0.05129419191919199,
+              -0.004892676767676796,
+              0.0015782828282828176,
+              -0.026041666666666685,
+              0.05776515151515152
+            ],
+            "estimate": 0.0003419612794612892,
+            "interval": [
+              -0.03873533512205386,
+              0.035569234006733993
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.25,
+              -0.08333333333333326,
+              -0.29166666666666663,
+              -0.33333333333333326,
+              -0.20833333333333337,
+              -0.33333333333333326,
+              -0.3333333333333333,
+              -0.29166666666666663,
+              -0.20833333333333337,
+              -0.29166666666666674,
+              -0.25,
+              -0.125
+            ],
+            "estimate": -0.25,
+            "interval": [
+              -0.2916666666666667,
+              -0.20486111111111116
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.25,
+              -0.08333333333333326,
+              -0.29166666666666663,
+              -0.33333333333333326,
+              -0.20833333333333337,
+              -0.33333333333333326,
+              -0.3333333333333333,
+              -0.29166666666666663,
+              -0.20833333333333337,
+              -0.29166666666666674,
+              -0.25,
+              -0.125
+            ],
+            "estimate": -0.25,
+            "interval": [
+              -0.2916666666666667,
+              -0.20486111111111116
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.26815297966623763,
+              -0.22055849740012246,
+              -0.26428511886868744,
+              -0.20346486095990013,
+              -0.22974404056648723,
+              -0.26898748738966827,
+              -0.2183301165229885,
+              -0.2463508461872026,
+              -0.2408010041648856,
+              -0.23290339024437579,
+              -0.2432780432569599,
+              -0.23652606814487598
+            ],
+            "estimate": -0.23944853778103262,
+            "interval": [
+              -0.25066900784426016,
+              -0.2283286957114921
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.22757102946906294,
+              -0.20152658759707176,
+              -0.22479628258146533,
+              -0.16263748716188342,
+              -0.20728889881575707,
+              -0.23234452501869196,
+              -0.19802719910967514,
+              -0.19075625524424034,
+              -0.20538718813137802,
+              -0.18623945905316397,
+              -0.2040160181665378,
+              -0.18646569788420297
+            ],
+            "estimate": -0.20225471901942757,
+            "interval": [
+              -0.21306439925906392,
+              -0.19107096058858988
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.0405819501971747,
+              -0.019031909803050695,
+              -0.03948883628722211,
+              -0.04082737379801671,
+              -0.022455141750730157,
+              -0.036642962370976306,
+              -0.02030291741331336,
+              -0.05559459094296226,
+              -0.03541381603350757,
+              -0.046663931191211816,
+              -0.03926202509042209,
+              -0.050060370260673004
+            ],
+            "estimate": -0.03719381876160507,
+            "interval": [
+              -0.04337266352917719,
+              -0.030933412303645942
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/true_z_d/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace the global rank-one erase with a same-side tick-equality transport operator on recurrent memory. A surviving price inherits its previous latent pair regardless of its depth rank; an unmatched price receives a bounded learned prior. This should help the model distinguish surviving queues from newly visible ones after the fixed order clears the touch. It should help less when quotes rarely move, and can hurt when equal tick values do not identify the same price across observations or when queues turn over at unchanged prices. Preregistered: on at least six common valid days, expect dResponse <= -0.010 tick with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six, response is not confirmed; test the viability fallback of dExhaust <= -0.10 and surviving dResponse <= +0.50 tick when available.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05"
+      ],
+      "source_sha256": "203e97d2f8f01c4de558009d9dbc1fac6b15b0daffc82c52dadcb8b2b6ac2a36",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1984,
+          "daily": [
+            null,
+            null,
+            0.43102904040404,
+            null,
+            null,
+            null,
+            13.30029461279462,
+            -50.615688131313135,
+            -7.183291245791246,
+            null,
+            null,
+            null
+          ],
+          "estimate": -11.01691393097643,
+          "interval": null,
+          "paired_days": 4,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1984,
+          "daily": [
+            null,
+            null,
+            0.37657828282828243,
+            null,
+            null,
+            null,
+            13.343697390572398,
+            -50.58270202020202,
+            -7.188657407407407,
+            null,
+            null,
+            null
+          ],
+          "estimate": -11.012770938552187,
+          "interval": null,
+          "paired_days": 4,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.008049242424242459,
+            0.060132575757575774,
+            -0.05445075757575757,
+            0.032354797979797956,
+            -0.045138888888888895,
+            -0.007891414141414144,
+            0.04340277777777779,
+            0.03298611111111116,
+            -0.005366161616161602,
+            0.08475378787878787,
+            -0.03582702020202022,
+            0.029356060606060608
+          ],
+          "estimate": 0.011863425925925932,
+          "interval": [
+            -0.010828335437710442,
+            0.03646030618686869
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 1.0,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.3333333333333333
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_beta-d_only-c06",
+      "data_regime_diagnosis": "Profile Z is withheld, so replenishment frequency and flow persistence are unverified. The parent has full quote availability, zero exhausted replicates, and 12 valid response days, but fixed-order impact MAE is 0.230673 tick with a post-stop relaxation delta of 0.0373264. The multiscale trial improved impact MAE by 0.01644 tick but worsened NLL by 0.07475 and the lag-64 memory gap by 0.01593. That motivates changing how the existing transient state clears rather than adding longer memory.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1984,
+            "daily": [
+              null,
+              null,
+              0.37657828282828243,
+              null,
+              null,
+              null,
+              13.343697390572398,
+              -50.58270202020202,
+              -7.188657407407407,
+              null,
+              null,
+              null
+            ],
+            "estimate": -11.012770938552187,
+            "interval": null,
+            "paired_days": 4,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1984,
+            "daily": [
+              null,
+              null,
+              0.43102904040404,
+              null,
+              null,
+              null,
+              13.30029461279462,
+              -50.615688131313135,
+              -7.183291245791246,
+              null,
+              null,
+              null
+            ],
+            "estimate": -11.01691393097643,
+            "interval": null,
+            "paired_days": 4,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.008049242424242459,
+              0.060132575757575774,
+              -0.05445075757575757,
+              0.032354797979797956,
+              -0.045138888888888895,
+              -0.007891414141414144,
+              0.04340277777777779,
+              0.03298611111111116,
+              -0.005366161616161602,
+              0.08475378787878787,
+              -0.03582702020202022,
+              0.029356060606060608
+            ],
+            "estimate": 0.011863425925925932,
+            "interval": [
+              -0.010828335437710442,
+              0.03646030618686869
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.04166666666666663,
+              0.0,
+              0.0,
+              -0.04166666666666674,
+              -0.125,
+              0.25,
+              -0.04166666666666663,
+              0.08333333333333326,
+              0.0,
+              0.16666666666666663,
+              0.04166666666666663
+            ],
+            "estimate": 0.020833333333333325,
+            "interval": [
+              -0.03124999999999999,
+              0.08333333333333331
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.04166666666666663,
+              0.0,
+              0.0,
+              -0.04166666666666674,
+              -0.125,
+              0.25,
+              -0.04166666666666663,
+              0.08333333333333326,
+              0.0,
+              0.16666666666666663,
+              0.04166666666666663
+            ],
+            "estimate": 0.020833333333333325,
+            "interval": [
+              -0.03124999999999999,
+              0.08333333333333331
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.05767374641699696,
+              0.06421039368619219,
+              0.055318371245871134,
+              0.04927473268088889,
+              0.049901862423775256,
+              0.051980976759306685,
+              0.046813809214296676,
+              0.049386078156874014,
+              0.04848063506698885,
+              0.053486899562694035,
+              0.06299052875864763,
+              0.04472824098825967
+            ],
+            "estimate": 0.05285385624673267,
+            "interval": [
+              0.049791248563693616,
+              0.056181624029377014
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.1594446932256668,
+              0.1420498690898322,
+              0.1535781608060054,
+              0.15254285292195213,
+              0.13606673278831138,
+              0.14509220911065146,
+              0.13142478869311436,
+              0.15324180782679342,
+              0.13724688464556767,
+              0.14857015102375914,
+              0.15231095999062294,
+              0.1406228986124809
+            ],
+            "estimate": 0.14601600072789647,
+            "interval": [
+              0.14151950870941207,
+              0.15071805893363954
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.10177094680866983,
+              -0.07783947540364,
+              -0.09825978956013426,
+              -0.10326812024106324,
+              -0.08616487036453613,
+              -0.09311123235134477,
+              -0.08461097947881768,
+              -0.1038557296699194,
+              -0.08876624957857882,
+              -0.09508325146106511,
+              -0.0893204312319753,
+              -0.09589465762422122
+            ],
+            "estimate": -0.09316214448116382,
+            "interval": [
+              -0.09744009254666887,
+              -0.08880807436338131
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/d_only/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the baseline GRU and innovation write unchanged. After ordinary transient decay, use the current causal encoding to select a direction and erase only the carried residual projected onto that direction, before writing the new innovation. This lets a book update clear stale impact without resetting unrelated transient signals. The edit should help if depletion and repair selectively invalidate those signals; it should be ineffective when orders are small relative to touch depth, and can hurt when the selected direction contains persistent price discovery. Pre-registered prediction: paired impact MAE drops by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10",
+        "C02"
+      ],
+      "source_sha256": "73e19975de6f65f35e511c5c3c56d4f2bce3bae7ed885288191fd3ebb1f5b7cd",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1987,
+          "daily": [
+            6.069707491582491,
+            null,
+            -0.2910879629629628,
+            null,
+            null,
+            null,
+            15.156881313131318,
+            null,
+            -8.604324494949495,
+            null,
+            null,
+            null
+          ],
+          "estimate": 3.0827940867003383,
+          "interval": null,
+          "paired_days": 4,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1987,
+          "daily": [
+            6.05424031986532,
+            null,
+            -0.30734427609427595,
+            null,
+            null,
+            null,
+            15.20280934343435,
+            null,
+            -8.526515151515152,
+            null,
+            null,
+            null
+          ],
+          "estimate": 3.1057975589225606,
+          "interval": null,
+          "paired_days": 4,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.015467171717171685,
+            0.05634469696969699,
+            -0.01625631313131315,
+            0.017518939393939392,
+            -0.04940025252525254,
+            -0.08317550505050508,
+            0.045928030303030276,
+            -0.0029987373737372924,
+            0.07780934343434343,
+            0.08996212121212124,
+            0.025726010101010055,
+            0.04671717171717174
+          ],
+          "estimate": 0.01605902777777778,
+          "interval": [
+            -0.01257365319865319,
+            0.04318477746212121
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 1.0,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.3333333333333333
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_0-env_beta-shuffled_z_d-c02",
+      "data_regime_diagnosis": "The median aggressive trade clears the best queue (trade/depth = 1), and 63.9% of quoted events move the midpoint. Yet the sign ACF sum (-0.308) and flow variance ratio (0.432) are near or below their finite-window nulls, so the profile does not support adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order response MAE is 0.224 tick. The failed C01 trial worsened both response and likelihood, so this candidate changes the recurrent write rather than adding another depth-normalized feature.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1987,
+            "daily": [
+              6.05424031986532,
+              null,
+              -0.30734427609427595,
+              null,
+              null,
+              null,
+              15.20280934343435,
+              null,
+              -8.526515151515152,
+              null,
+              null,
+              null
+            ],
+            "estimate": 3.1057975589225606,
+            "interval": null,
+            "paired_days": 4,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1987,
+            "daily": [
+              6.069707491582491,
+              null,
+              -0.2910879629629628,
+              null,
+              null,
+              null,
+              15.156881313131318,
+              null,
+              -8.604324494949495,
+              null,
+              null,
+              null
+            ],
+            "estimate": 3.0827940867003383,
+            "interval": null,
+            "paired_days": 4,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.015467171717171685,
+              0.05634469696969699,
+              -0.01625631313131315,
+              0.017518939393939392,
+              -0.04940025252525254,
+              -0.08317550505050508,
+              0.045928030303030276,
+              -0.0029987373737372924,
+              0.07780934343434343,
+              0.08996212121212124,
+              0.025726010101010055,
+              0.04671717171717174
+            ],
+            "estimate": 0.01605902777777778,
+            "interval": [
+              -0.01257365319865319,
+              0.04318477746212121
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.04166666666666674,
+              -0.04166666666666663,
+              0.0,
+              -0.04166666666666674,
+              -0.04166666666666663,
+              0.08333333333333337,
+              0.0,
+              0.0,
+              0.0,
+              0.04166666666666663,
+              -0.04166666666666663
+            ],
+            "estimate": 9.25185853854297e-18,
+            "interval": [
+              -0.020833333333333325,
+              0.02083333333333336
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.04166666666666674,
+              -0.04166666666666663,
+              0.0,
+              -0.04166666666666674,
+              -0.04166666666666663,
+              0.08333333333333337,
+              0.0,
+              0.0,
+              0.0,
+              0.04166666666666663,
+              -0.04166666666666663
+            ],
+            "estimate": 9.25185853854297e-18,
+            "interval": [
+              -0.020833333333333325,
+              0.02083333333333336
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.017790481654845536,
+              -0.015420005678346449,
+              -0.009513030056214511,
+              -0.01026211425269441,
+              -0.014951233955819987,
+              -0.010635199918310967,
+              -0.01064757032578445,
+              -0.011916823478952843,
+              -0.012155709686837213,
+              -0.010308517310996024,
+              -0.0161664947662592,
+              -0.006005842568205466
+            ],
+            "estimate": -0.012147751971105588,
+            "interval": [
+              -0.01382392048940706,
+              -0.010369620187901878
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.03637655095008174,
+              0.029690255710929314,
+              0.04405164953649976,
+              0.046226160363339375,
+              0.030912513862664248,
+              0.04356986758457726,
+              0.03357353438176247,
+              0.04642401959779807,
+              0.034308570000771255,
+              0.043135713446170065,
+              0.03426067578170766,
+              0.04703979150677462
+            ],
+            "estimate": 0.03913077522692299,
+            "interval": [
+              0.03571359980613506,
+              0.04271300125724612
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.05416703260492728,
+              -0.04511026138927576,
+              -0.05356467959271427,
+              -0.056488274616033785,
+              -0.045863747818484235,
+              -0.05420506750288823,
+              -0.04422110470754692,
+              -0.058340843076750915,
+              -0.04646427968760847,
+              -0.05344423075716609,
+              -0.05042717054796686,
+              -0.053045634074980086
+            ],
+            "estimate": -0.05127852719802858,
+            "interval": [
+              -0.053757868697865516,
+              -0.04873437741684139
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/shuffled_z_d/c02"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the GRU proposal, then view its 60 features as a 6-by-10 matrix H and apply the causal write H + beta*(v - Hk)*k^T. A key, value, and write strength learned from the current observation let the model revise one direction after a queue shock without changing orthogonal directions in the proposal. This is a learned latent route, not explicit price-level alignment. The edit should help less when best queues are rarely cleared, and may hurt likelihood if useful revisions are broad rather than selective. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10"
+      ],
+      "source_sha256": "4796324642214256a4557fbe8e657e50c86a8cad78bb91a8c6971de7bdb118ac",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.69481271043771,
+            null,
+            -0.3693707912457906,
+            0.4681712962962962,
+            null,
+            null,
+            -25.704229797979796,
+            -50.810606060606055,
+            -8.831123737373739,
+            null,
+            0.1751893939393945,
+            null
+          ],
+          "estimate": -12.252397486772486,
+          "interval": [
+            -27.571089804292928,
+            -0.3112964340828925
+          ],
+          "paired_days": 7,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.6706649831649827,
+            null,
+            -0.33543771043770976,
+            0.4978430134680134,
+            null,
+            null,
+            -25.685132575757574,
+            -50.75126262626262,
+            -8.798137626262628,
+            null,
+            0.14346590909090962,
+            null
+          ],
+          "estimate": -12.22847522847523,
+          "interval": [
+            -27.540735973011362,
+            -0.29138940245711176
+          ],
+          "paired_days": 7,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.024147727272727293,
+            0.011837121212121215,
+            0.03393308080808083,
+            0.029671717171717182,
+            0.008522727272727293,
+            -0.04498106060606066,
+            0.019097222222222265,
+            0.05934343434343442,
+            0.032986111111111105,
+            0.04529671717171718,
+            -0.03172348484848489,
+            0.006628787878787901
+          ],
+          "estimate": 0.016230008417508428,
+          "interval": [
+            -0.0008502998737373764,
+            0.03223905723905725
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "BOUNDARY_CONFIRMED",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 1.0,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.3333333333333333
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_alpha-d_only-c06",
+      "data_regime_diagnosis": "Regime statistics are withheld, so frequent queue invalidation is a hypothesis, not an observed property. The parent has 5.02882 ticks of counterfactual impact MAE, a 7.35385 post-stop relaxation delta, and 77.43% rollout exhaustion. The c04 trial improved NLL by 0.1319 but worsened impact MAE by 30.25 ticks, so better event fit is not a reliable proxy for intervention response. The parent uses queue scarcity only in the readout; it never directly uses scarcity to revise the carried state.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.6706649831649827,
+              null,
+              -0.33543771043770976,
+              0.4978430134680134,
+              null,
+              null,
+              -25.685132575757574,
+              -50.75126262626262,
+              -8.798137626262628,
+              null,
+              0.14346590909090962,
+              null
+            ],
+            "estimate": -12.22847522847523,
+            "interval": [
+              -27.540735973011362,
+              -0.29138940245711176
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.69481271043771,
+              null,
+              -0.3693707912457906,
+              0.4681712962962962,
+              null,
+              null,
+              -25.704229797979796,
+              -50.810606060606055,
+              -8.831123737373739,
+              null,
+              0.1751893939393945,
+              null
+            ],
+            "estimate": -12.252397486772486,
+            "interval": [
+              -27.571089804292928,
+              -0.3112964340828925
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.024147727272727293,
+              0.011837121212121215,
+              0.03393308080808083,
+              0.029671717171717182,
+              0.008522727272727293,
+              -0.04498106060606066,
+              0.019097222222222265,
+              0.05934343434343442,
+              0.032986111111111105,
+              0.04529671717171718,
+              -0.03172348484848489,
+              0.006628787878787901
+            ],
+            "estimate": 0.016230008417508428,
+            "interval": [
+              -0.0008502998737373764,
+              0.03223905723905725
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.125,
+              -0.04166666666666663,
+              0.0,
+              -0.04166666666666663,
+              0.08333333333333326,
+              0.0,
+              -0.04166666666666663,
+              0.0
+            ],
+            "estimate": -0.027777777777777773,
+            "interval": [
+              -0.05902777777777774,
+              0.00347222222222221
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.125,
+              -0.04166666666666663,
+              0.0,
+              -0.04166666666666663,
+              0.08333333333333326,
+              0.0,
+              -0.04166666666666663,
+              0.0
+            ],
+            "estimate": -0.027777777777777773,
+            "interval": [
+              -0.05902777777777774,
+              0.00347222222222221
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.09610690753611184,
+              -0.09393922475811323,
+              -0.08621312411635973,
+              -0.08200695262420066,
+              -0.09195634091440041,
+              -0.08928746960630995,
+              -0.07764545083126073,
+              -0.08115113873808344,
+              -0.08455132519492459,
+              -0.0822192579686476,
+              -0.09169207009208158,
+              -0.0731177148360036
+            ],
+            "estimate": -0.08582391476804145,
+            "interval": [
+              -0.0893175286174968,
+              -0.0819492762475092
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.09308944497893012,
+              -0.09257122986630151,
+              -0.08561622021432402,
+              -0.08445170894683063,
+              -0.0927555375120539,
+              -0.08772808386473674,
+              -0.07737056416029464,
+              -0.08022735701305983,
+              -0.08347832536767186,
+              -0.07971407837701516,
+              -0.08949094261052348,
+              -0.07364984384767403
+            ],
+            "estimate": -0.08501194472995133,
+            "interval": [
+              -0.08823009431442792,
+              -0.08149797936605485
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.003017462557181716,
+              -0.001367994891811719,
+              -0.0005969039020357059,
+              0.0024447563226299707,
+              0.0007991965976534843,
+              -0.001559385741573216,
+              -0.0002748866709660902,
+              -0.0009237817250236091,
+              -0.0010729998272527297,
+              -0.0025051795916324338,
+              -0.002201127481558096,
+              0.0005321290116704347
+            ],
+            "estimate": -0.0008119700380901188,
+            "interval": [
+              -0.0015743425489616306,
+              6.556689951389877e-05
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/d_only/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Before the parent GRU update, remove a bounded fraction of the prior state's projection onto a key formed from current queue scarcity and side-local depth contrast. This rank-one erase leaves orthogonal components unchanged at the erase stage. The hypothesis is that thin, uneven books identify a stale liquidity direction that otherwise carries through an external order. If queues rarely become thin or scarcity instead marks persistent pressure, the erase should help less or hurt. Pre-registered prediction: on at least six common valid days, paired counterfactual impact MAE will fall by at least 0.010 tick with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction unconfirmed.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10"
+      ],
+      "source_sha256": "3187201943a7cb169451e0174835e458e494d68fd19c03c900ca128d34982047",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            null,
+            null,
+            0.024884259259258107,
+            1.2122790404040407,
+            null,
+            null,
+            -1.3546401515151525,
+            67.90135732323232,
+            8.762521043771045,
+            null,
+            0.4301872895622888,
+            null
+          ],
+          "estimate": 12.8294314674523,
+          "interval": [
+            -0.2998562008978685,
+            36.15259627525251
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.11679292929292934,
+            0.022411616161616188,
+            -0.0754419191919192,
+            0.028882575757575746,
+            -0.059974747474747486,
+            -0.07260101010101011,
+            -0.05113636363636362,
+            -0.0022095959595959114,
+            0.05776515151515155,
+            -0.05634469696969696,
+            -0.04403409090909094,
+            0.04766414141414144
+          ],
+          "estimate": -0.007352167508417498,
+          "interval": [
+            -0.038567642571548814,
+            0.025713186553030322
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            null,
+            null,
+            -0.1003261784511773,
+            -1.183396464646465,
+            null,
+            null,
+            1.303503787878789,
+            -67.90356691919192,
+            -8.704755892255893,
+            null,
+            -0.47422138047137974,
+            null
+          ],
+          "estimate": -12.843793841189672,
+          "interval": [
+            -36.157727667297976,
+            0.2429854096520773
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w1_thick_short",
+        "z_strong_median": 0.3333333333333333,
+        "z_weak_env": "w3_thin_short",
+        "z_weak_median": 1.0
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_alpha-shuffled_z_d-c06",
+      "data_regime_diagnosis": "Median trades consume one-third of the best queue, and median midprice shift rate is zero. Yet c04 exhausts 74.3% of rollouts and has a 17.27-tick counterfactual MAE on 9 valid days. c04 improved both response and viability over B0, while quote advection worsened response. This points toward testing how the model reads depletion across levels before adding quote-motion machinery. Sign persistence is substantial (ACF sum 2.12, variance ratio 1.72), but does not by itself identify the source of the response error.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              null,
+              null,
+              -0.1003261784511773,
+              -1.183396464646465,
+              null,
+              null,
+              1.303503787878789,
+              -67.90356691919192,
+              -8.704755892255893,
+              null,
+              -0.47422138047137974,
+              null
+            ],
+            "estimate": -12.843793841189672,
+            "interval": [
+              -36.157727667297976,
+              0.2429854096520773
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              null,
+              null,
+              -0.024884259259258107,
+              -1.2122790404040407,
+              null,
+              null,
+              1.3546401515151525,
+              -67.90135732323232,
+              -8.762521043771045,
+              null,
+              -0.4301872895622888,
+              null
+            ],
+            "estimate": -12.8294314674523,
+            "interval": [
+              -36.15259627525252,
+              0.2998562008978685
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.11679292929292934,
+              0.022411616161616188,
+              -0.0754419191919192,
+              0.028882575757575746,
+              -0.059974747474747486,
+              -0.07260101010101011,
+              -0.05113636363636362,
+              -0.0022095959595959114,
+              0.05776515151515155,
+              -0.05634469696969696,
+              -0.04403409090909094,
+              0.04766414141414144
+            ],
+            "estimate": -0.007352167508417498,
+            "interval": [
+              -0.038567642571548814,
+              0.025713186553030322
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.25,
+              0.0,
+              -0.125,
+              -0.04166666666666663,
+              0.04166666666666663,
+              -0.04166666666666674,
+              -0.08333333333333337,
+              0.0
+            ],
+            "estimate": -0.06944444444444445,
+            "interval": [
+              -0.1111979166666667,
+              -0.03125000000000002
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333337,
+              -0.08333333333333326,
+              -0.25,
+              0.0,
+              -0.125,
+              -0.04166666666666663,
+              0.04166666666666663,
+              -0.04166666666666674,
+              -0.08333333333333337,
+              0.0
+            ],
+            "estimate": -0.06944444444444445,
+            "interval": [
+              -0.1111979166666667,
+              -0.03125000000000002
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.10025299055102188,
+              -0.10331839266200316,
+              -0.0781623560892939,
+              -0.10752950712494957,
+              -0.11340418717149703,
+              -0.08875834226819279,
+              -0.0872961196813824,
+              -0.10362367866041389,
+              -0.09431093869408791,
+              -0.10273150863830338,
+              -0.09880527149523122,
+              -0.08046457559839837
+            ],
+            "estimate": -0.0965548223862313,
+            "interval": [
+              -0.1025666295019873,
+              -0.09051616416165004
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.2401563668374047,
+              -0.22798688135675782,
+              -0.21849772209166574,
+              -0.2483435185370011,
+              -0.25140062452384626,
+              -0.22227621922580276,
+              -0.22477056914645566,
+              -0.23671545458815046,
+              -0.2331159074870559,
+              -0.22711040205461241,
+              -0.22716381070018787,
+              -0.2146492474941315
+            ],
+            "estimate": -0.2310155603369227,
+            "interval": [
+              -0.23727299521601863,
+              -0.2252049029837007
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.13990337628638283,
+              0.12466848869475466,
+              0.14033536600237184,
+              0.14081401141205152,
+              0.13799643735234923,
+              0.13351787695760997,
+              0.13747444946507326,
+              0.13309177592773658,
+              0.138804968792968,
+              0.12437889341630903,
+              0.12835853920495666,
+              0.13418467189573313
+            ],
+            "estimate": 0.13446073795069138,
+            "interval": [
+              0.1312413321548474,
+              0.13754886504736077
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/shuffled_z_d/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep c04's slotwise recurrence but add a depth-gated, same-side readout from the next deeper slot. The gate increases as the current queue gets shallow, so an external order that reduces displayed depth changes how much the heads see of the reserve immediately behind it. The operator neither moves quotes nor changes recurrent state. It should help less when trades routinely sweep multiple levels, where one neighboring slot is too local, and could hurt if shallow queues are routinely refilled without exposing deeper liquidity. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction untested; apply the stated viability-recovery rule separately.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C04"
+      ],
+      "source_sha256": "39c4851b2a390346a6c8702a5518057b51dda1277b8504f5b7fd2b46897dae72",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "higher",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.125,
+            0.0,
+            -0.20833333333333337,
+            -0.125,
+            -0.125,
+            -0.08333333333333326,
+            -0.08333333333333326,
+            -0.20833333333333326,
+            -0.04166666666666674,
+            -0.04166666666666674,
+            -0.2916666666666667,
+            -0.125
+          ],
+          "estimate": -0.12152777777777778,
+          "interval": [
+            -0.16666666666666666,
+            -0.0798611111111111
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            -0.125,
+            0.0,
+            -0.20833333333333337,
+            -0.125,
+            -0.125,
+            -0.08333333333333326,
+            -0.08333333333333326,
+            -0.20833333333333326,
+            -0.04166666666666674,
+            -0.04166666666666674,
+            -0.2916666666666667,
+            -0.125
+          ],
+          "estimate": -0.12152777777777778,
+          "interval": [
+            -0.16666666666666666,
+            -0.0798611111111111
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "estimate": 0.0,
+          "interval": [
+            0.0,
+            0.0
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "BOUNDARY_CONFIRMED",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 0.6392156862745098,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.0
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_alpha-true_z_d-c03",
+      "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 63.9% of quoted events move the midprice. That makes relative level a poor identifier for a resting queue across events. The parent exhausts 87.2% of rollout replicates and has response measurements on only 6 of 12 days. These residuals are consistent with misregistered depletion and replenishment history, though they do not establish it. Trade-sign persistence is weak relative to the finite-window references, so longer directional memory is not the first intervention.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.9075652356902357,
+              null,
+              -1.2775673400673395,
+              -0.405460858585859,
+              null,
+              null,
+              70.8342803030303,
+              -60.04093013468013,
+              -9.410774410774412,
+              null,
+              -1.4440235690235685,
+              null
+            ],
+            "estimate": -0.3788630351130352,
+            "interval": [
+              -26.270934343434337,
+              27.743443023989887
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.9530197811447811,
+              null,
+              -1.2111216329966323,
+              -0.4311868686868691,
+              null,
+              null,
+              70.83585858585857,
+              -60.05071548821549,
+              -9.480376683501685,
+              null,
+              -1.4212962962962958,
+              null
+            ],
+            "estimate": -0.3874083092833102,
+            "interval": [
+              -26.299910827020202,
+              27.764947916666653
+            ],
+            "paired_days": 7,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.04545454545454547,
+              0.07307449494949497,
+              -0.06644570707070707,
+              0.02572601010101011,
+              -0.06092171717171718,
+              -0.011047979797979779,
+              -0.0015782828282828731,
+              0.009785353535353591,
+              0.06960227272727276,
+              0.09296085858585859,
+              -0.022727272727272763,
+              0.01893939393939395
+            ],
+            "estimate": 0.014401830808080815,
+            "interval": [
+              -0.013995751788720536,
+              0.04091796875000001
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.125,
+              0.0,
+              -0.20833333333333337,
+              -0.125,
+              -0.125,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              -0.20833333333333326,
+              -0.04166666666666674,
+              -0.04166666666666674,
+              -0.2916666666666667,
+              -0.125
+            ],
+            "estimate": -0.12152777777777778,
+            "interval": [
+              -0.16666666666666666,
+              -0.0798611111111111
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.125,
+              0.0,
+              -0.20833333333333337,
+              -0.125,
+              -0.125,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              -0.20833333333333326,
+              -0.04166666666666674,
+              -0.04166666666666674,
+              -0.2916666666666667,
+              -0.125
+            ],
+            "estimate": -0.12152777777777778,
+            "interval": [
+              -0.16666666666666666,
+              -0.0798611111111111
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.16578872829809654,
+              -0.14233267871549327,
+              -0.15121662467741448,
+              -0.1234455545540003,
+              -0.14605772211338497,
+              -0.16500242881920713,
+              -0.12839103336504998,
+              -0.1455504970376973,
+              -0.15096787459381122,
+              -0.1372894898454211,
+              -0.14492646414276233,
+              -0.12377818111387295
+            ],
+            "estimate": -0.14372893977301762,
+            "interval": [
+              -0.15142340213792477,
+              -0.13580688558491913
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.06289730521274617,
+              -0.07602755000906303,
+              -0.05295855224327717,
+              -0.019165494934547667,
+              -0.06201265059544703,
+              -0.06722876816716727,
+              -0.04653902826058243,
+              -0.03869455175992709,
+              -0.061534958735442125,
+              -0.043737512079175644,
+              -0.04738751727693735,
+              -0.017385260004542324
+            ],
+            "estimate": -0.04963076243990461,
+            "interval": [
+              -0.05871886649972265,
+              -0.03929147962915343
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.10289142308535038,
+              -0.06630512870643024,
+              -0.09825807243413731,
+              -0.10428005961945264,
+              -0.08404507151793794,
+              -0.09777366065203985,
+              -0.08185200510446755,
+              -0.1068559452777702,
+              -0.0894329158583691,
+              -0.09355197776624546,
+              -0.09753894686582498,
+              -0.10639292110933063
+            ],
+            "estimate": -0.09409817733311303,
+            "interval": [
+              -0.10004102377092695,
+              -0.08732251495200322
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/true_z_d/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "viability_recovery"
+      ],
+      "regime_hypothesis": "Before the GRU update, route 20 queue-local hidden scalars by exact same-side tick match rather than by relative level. Use a bounded learned fill for newly occupied prices and leave 20 global recurrent channels unshifted. This should preserve history for surviving queues without assigning the depleted touch's history to its replacement. The gain should weaken when quotes rarely move and could reverse when queues turn over so completely that matching rarely preserves useful history. Pre-registered prediction: paired exhaustion falls by at least 0.10, with dNLL <= +0.005. If at least six common valid response days remain, predict dResponse <= -0.010 tick; otherwise predict that any available surviving response estimate is <= +0.50 tick.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05",
+        "C04"
+      ],
+      "source_sha256": "ee83f3ff22cb6b4741b7ec8ac64ca85252a30686e545ad743fd13f49f13de160",
+      "target_metric": "exhausted_replicate_rate",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    },
+    {
+      "boundary_evaluation": {
+        "delta_strong_minus_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            null,
+            null,
+            -1.1446759259259254,
+            -1.4425505050505054,
+            null,
+            null,
+            11.624526515151517,
+            -68.77014941077441,
+            -9.562079124579125,
+            null,
+            111.99794823232324,
+            null
+          ],
+          "estimate": 7.117169963524131,
+          "interval": [
+            -35.07097735164141,
+            56.51458596380472
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "tau_strong": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 1999,
+          "daily": [
+            null,
+            null,
+            -1.2019675925925921,
+            -1.4625946969696972,
+            null,
+            null,
+            11.694444444444446,
+            -68.74789562289563,
+            -9.469907407407408,
+            null,
+            112.0451388888889,
+            null
+          ],
+          "estimate": 7.142869668911338,
+          "interval": [
+            -35.07429569128789,
+            56.57870370370371
+          ],
+          "paired_days": 6,
+          "registered_days": 12
+        },
+        "tau_weak": {
+          "bootstrap_total": 2000,
+          "bootstrap_valid": 2000,
+          "daily": [
+            0.07133838383838387,
+            0.04135101010101011,
+            -0.05729166666666666,
+            -0.020044191919191878,
+            -0.03330176767676768,
+            -0.09848484848484851,
+            0.06991792929292923,
+            0.02225378787878793,
+            0.09217171717171713,
+            0.028251262626262652,
+            0.04719065656565652,
+            0.047032828282828315
+          ],
+          "estimate": 0.017532091750841753,
+          "interval": [
+            -0.014852299031986533,
+            0.047020004734848464
+          ],
+          "paired_days": 12,
+          "registered_days": 12
+        },
+        "verdict": "INCONCLUSIVE",
+        "z_strong_env": "w3_thin_short",
+        "z_strong_median": 0.6392156862745098,
+        "z_weak_env": "w1_thick_short",
+        "z_weak_median": 0.0
+      },
+      "candidate_status": "VALID",
+      "claim_id": "rep_1-env_beta-shuffled_z_d-c03",
+      "data_regime_diagnosis": "The median trade clears the best queue, and 63.9% of quoted events move the midprice. Relative level is therefore an unreliable identifier for a resting queue. The sign ACF sum (-0.308) is close to its finite-window null (about -0.32), and the flow variance ratio (0.432) is below its approximate null (0.5), so there is little evidence for adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order impact MAE is 0.223623 tick. Both prior edits worsened impact and likelihood.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "metrics": {
+        "counterfactual_impact_mae": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              null,
+              null,
+              -1.2019675925925921,
+              -1.4625946969696972,
+              null,
+              null,
+              11.694444444444446,
+              -68.74789562289563,
+              -9.469907407407408,
+              null,
+              112.0451388888889,
+              null
+            ],
+            "estimate": 7.142869668911338,
+            "interval": [
+              -35.07429569128789,
+              56.57870370370371
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 1999,
+            "daily": [
+              null,
+              null,
+              -1.1446759259259254,
+              -1.4425505050505054,
+              null,
+              null,
+              11.624526515151517,
+              -68.77014941077441,
+              -9.562079124579125,
+              null,
+              111.99794823232324,
+              null
+            ],
+            "estimate": 7.117169963524131,
+            "interval": [
+              -35.07097735164141,
+              56.51458596380472
+            ],
+            "paired_days": 6,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.07133838383838387,
+              0.04135101010101011,
+              -0.05729166666666666,
+              -0.020044191919191878,
+              -0.03330176767676768,
+              -0.09848484848484851,
+              0.06991792929292923,
+              0.02225378787878793,
+              0.09217171717171713,
+              0.028251262626262652,
+              0.04719065656565652,
+              0.047032828282828315
+            ],
+            "estimate": 0.017532091750841753,
+            "interval": [
+              -0.014852299031986533,
+              0.047020004734848464
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "exhausted_replicate_rate": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.04166666666666663,
+              -0.125,
+              -0.20833333333333326,
+              -0.08333333333333337,
+              0.0,
+              -0.08333333333333326,
+              -0.125,
+              -0.04166666666666674,
+              -0.04166666666666674,
+              -0.16666666666666663,
+              -0.08333333333333337
+            ],
+            "estimate": -0.08680555555555554,
+            "interval": [
+              -0.12152777777777778,
+              -0.05555555555555558
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.04166666666666663,
+              -0.04166666666666663,
+              -0.125,
+              -0.20833333333333326,
+              -0.08333333333333337,
+              0.0,
+              -0.08333333333333326,
+              -0.125,
+              -0.04166666666666674,
+              -0.04166666666666674,
+              -0.16666666666666663,
+              -0.08333333333333337
+            ],
+            "estimate": -0.08680555555555554,
+            "interval": [
+              -0.12152777777777778,
+              -0.05555555555555558
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "estimate": 0.0,
+            "interval": [
+              0.0,
+              0.0
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        },
+        "val_nll_total": {
+          "tau_high": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.16492897134533724,
+              -0.14008386805103434,
+              -0.16324869366785322,
+              -0.12945846175205578,
+              -0.13622959299897985,
+              -0.16089503578859876,
+              -0.13482378499338754,
+              -0.1432170863842357,
+              -0.14831229643944788,
+              -0.13945876096840948,
+              -0.15083515275953374,
+              -0.14163663717534458
+            ],
+            "estimate": -0.14609402852701817,
+            "interval": [
+              -0.15267859400041442,
+              -0.13989331916786543
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_high_minus_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.11423508255852255,
+              -0.10433030055585046,
+              -0.11495271928426831,
+              -0.07598327755641421,
+              -0.09122578865957376,
+              -0.11009852299013723,
+              -0.0848984915664488,
+              -0.08152325993229415,
+              -0.1031701413681052,
+              -0.08349644364456488,
+              -0.1008995308418994,
+              -0.08323685342444787
+            ],
+            "estimate": -0.0956708676985439,
+            "interval": [
+              -0.10356970322144085,
+              -0.08780983753988941
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          },
+          "tau_low": {
+            "bootstrap_total": 2000,
+            "bootstrap_valid": 2000,
+            "daily": [
+              -0.05069388878681469,
+              -0.03575356749518388,
+              -0.048295974383584905,
+              -0.05347518419564157,
+              -0.045003804339406095,
+              -0.050796512798461535,
+              -0.049925293426938744,
+              -0.06169382645194155,
+              -0.04514215507134267,
+              -0.0559623173238446,
+              -0.04993562191763434,
+              -0.05839978375089672
+            ],
+            "estimate": -0.05042316082847428,
+            "interval": [
+              -0.054028421573676495,
+              -0.04668061377900486
+            ],
+            "paired_days": 12,
+            "registered_days": 12
+          }
+        }
+      },
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/shuffled_z_d/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace rank-to-rank comparison with same-side exact-price alignment across all ten levels. Feed the GRU matched log-depth changes and a separate match mask, so a surviving queue that moves to a new rank is not mistaken for a depth shock, and an entering price is not mistaken for a matched queue with zero change. This may improve the response to best-queue depletion without changing quote legality. The benefit should weaken when quotes rarely move, and the smaller recurrent core could hurt likelihood when price overlap is scarce. Preregistered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Failure of any bound, or insufficient common coverage, does not confirm the prediction.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05"
+      ],
+      "source_sha256": "bf9254320a74dbe711b6694838da0412e447740db7fc2be8adafc1a5dfacf884",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    }
+  ],
+  "pairs_evaluated": {
+    "memory": {
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "freeze_sha256": "45af7f3fc837d5c55455cba3d58a61646f7b485e85e29a7572137122275f5d91",
+      "world_z": {
+        "w1_thick_short": {
+          "book_imbalance_bias": {
+            "intraday_iqr": 0.06382669235632789,
+            "median": 0.08851546810242877
+          },
+          "cancel_to_limit_ratio": {
+            "intraday_iqr": 0.025137727917076302,
+            "median": 0.10071474434794364
+          },
+          "flow_sign_bias": {
+            "intraday_iqr": 0.06482044646938265,
+            "median": 0.06061224489795918
+          },
+          "flow_vr_32_4": {
+            "intraday_iqr": 0.4216628225884007,
+            "median": 0.5297791984038625
+          },
+          "interarrival_cv2": {
+            "intraday_iqr": 0.12749802164580215,
+            "median": 0.942236902952763
+          },
+          "midprice_shift_rate": {
+            "intraday_iqr": 0.0,
+            "median": 0.0
+          },
+          "sign_acf_sum_1_32": {
+            "intraday_iqr": 0.29868249487954673,
+            "median": -0.35050854792274033
+          },
+          "trade_to_top1_depth": {
+            "intraday_iqr": 0.0,
+            "median": 0.3333333333333333
+          },
+          "zero_wait_prob": {
+            "intraday_iqr": 0.0087890625,
+            "median": 0.01171875
+          }
+        },
+        "w2_thick_long": {
+          "book_imbalance_bias": {
+            "intraday_iqr": 0.09739242757004213,
+            "median": 0.08291125401374586
+          },
+          "cancel_to_limit_ratio": {
+            "intraday_iqr": 0.01752215720831224,
+            "median": 0.09800826923931891
+          },
+          "flow_sign_bias": {
+            "intraday_iqr": 0.2718648688476275,
+            "median": 0.3418341249543295
+          },
+          "flow_vr_32_4": {
+            "intraday_iqr": 1.9123331184724126,
+            "median": 1.7237406822866426
+          },
+          "interarrival_cv2": {
+            "intraday_iqr": 0.12749802164580215,
+            "median": 0.942236902952763
+          },
+          "midprice_shift_rate": {
+            "intraday_iqr": 0.0,
+            "median": 0.0
+          },
+          "sign_acf_sum_1_32": {
+            "intraday_iqr": 4.2452884516176645,
+            "median": 2.1153420615895255
+          },
+          "trade_to_top1_depth": {
+            "intraday_iqr": 0.0,
+            "median": 0.3333333333333333
+          },
+          "zero_wait_prob": {
+            "intraday_iqr": 0.0087890625,
+            "median": 0.01171875
+          }
+        }
+      }
+    },
+    "thinness": {
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "freeze_sha256": "338bf3e144fe8a26524002ebe865c73b50d5735eb7c827ee0a0191098abecfbe",
+      "world_z": {
+        "w1_thick_short": {
+          "book_imbalance_bias": {
+            "intraday_iqr": 0.06382669235632789,
+            "median": 0.08851546810242877
+          },
+          "cancel_to_limit_ratio": {
+            "intraday_iqr": 0.025137727917076302,
+            "median": 0.10071474434794364
+          },
+          "flow_sign_bias": {
+            "intraday_iqr": 0.06482044646938265,
+            "median": 0.06061224489795918
+          },
+          "flow_vr_32_4": {
+            "intraday_iqr": 0.4216628225884007,
+            "median": 0.5297791984038625
+          },
+          "interarrival_cv2": {
+            "intraday_iqr": 0.12749802164580215,
+            "median": 0.942236902952763
+          },
+          "midprice_shift_rate": {
+            "intraday_iqr": 0.0,
+            "median": 0.0
+          },
+          "sign_acf_sum_1_32": {
+            "intraday_iqr": 0.29868249487954673,
+            "median": -0.35050854792274033
+          },
+          "trade_to_top1_depth": {
+            "intraday_iqr": 0.0,
+            "median": 0.3333333333333333
+          },
+          "zero_wait_prob": {
+            "intraday_iqr": 0.0087890625,
+            "median": 0.01171875
+          }
+        },
+        "w3_thin_short": {
+          "book_imbalance_bias": {
+            "intraday_iqr": 0.03189618802948428,
+            "median": 0.033103620068173564
+          },
+          "cancel_to_limit_ratio": {
+            "intraday_iqr": 0.036585365853658514,
+            "median": 0.28227642276422765
+          },
+          "flow_sign_bias": {
+            "intraday_iqr": 0.09064329072372647,
+            "median": 0.07608247422680411
+          },
+          "flow_vr_32_4": {
+            "intraday_iqr": 0.2965368711519102,
+            "median": 0.43196930393428445
+          },
+          "interarrival_cv2": {
+            "intraday_iqr": 0.12749802164580215,
+            "median": 0.942236902952763
+          },
+          "midprice_shift_rate": {
+            "intraday_iqr": 0.06372549019607843,
+            "median": 0.6392156862745098
+          },
+          "sign_acf_sum_1_32": {
+            "intraday_iqr": 0.4258129222537193,
+            "median": -0.3080473856209145
+          },
+          "trade_to_top1_depth": {
+            "intraday_iqr": 0.0,
+            "median": 1.0
+          },
+          "zero_wait_prob": {
+            "intraday_iqr": 0.0087890625,
+            "median": 0.01171875
+          }
+        }
+      }
+    }
+  },
+  "schema": "loop2-single-factor-transplant-summary-v1",
+  "total_claims": 12,
+  "transplant_freeze_sha256": "ebbc5423aac75c8c4579fcc640a3e3a20ce0b899c0b3274c57de52f6dd7ac385",
+  "unique_transplanted_models": 12,
+  "verdict_counts": {
+    "BOUNDARY_CONFIRMED": 4,
+    "BOUNDARY_REFUTED": 0,
+    "INCONCLUSIVE": 8
+  },
+  "wall_seconds": 680.3148454579641
+}

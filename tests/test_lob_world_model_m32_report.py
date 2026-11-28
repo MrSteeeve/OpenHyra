@@ -78,7 +78,7 @@ def test_render_m32_five_tables_with_open_innovation_and_transplant(tmp_path: Pa
                     reason = 'viability_recovery' if (env == 'env_alpha' and promote) else ('objective_improvement' if promote else None)
                     pred = {
                         'data_regime_diagnosis': ('interarrival_cv2=5.028 bursty thin book' if env == 'env_alpha'
-                                                  else 'sign_acf_sum=2.115 persistent flow'),
+                                                  else 'Trade signs persist across lags (2.115)'),
                         'selected_card_ids': open_cards,
                         'regime_hypothesis': 'Mechanism works under active regime, weakens otherwise.',
                         'target_metric': 'dt_nll' if env == 'env_alpha' else 'sign_acf_abs_error',

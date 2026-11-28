@@ -1,0 +1,51 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,42 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.queue = nn.Linear(3, 8)
++        self.gate = nn.Linear(1, 8)
++        self.mix = nn.Linear(16, 32, bias=False)
++        nn.init.zeros_(self.mix.weight)
++
++    def _encode(self, obs):
++        base = self.encoder(self.raw_features(obs))
++        depth = obs.book_shares.to(base.dtype).clamp_min(0).log1p()
++        depth = depth.clamp_max(16) / 4
++        ticks = obs.book_ticks.to(torch.int64)
++        distance = (ticks - ticks[..., :1]).clamp(-64, 64)
++        distance = distance.to(base.dtype).abs().log1p() / 4
++        rank = torch.arange(10, device=base.device, dtype=torch.int64)
++        rank = (rank.to(base.dtype) / 9).expand_as(depth)
++        local = torch.stack((depth, distance, rank), dim=-1)
++        channels = self.queue(local).tanh() * self.gate(
++            depth.unsqueeze(-1)
++        ).sigmoid()
++        # Pool levels but retain separate bid and ask channels.
++        weights = (1 + rank).reciprocal()
++        pooled = (channels * weights.unsqueeze(-1)).sum(dim=-2)
++        pooled = pooled / weights.sum(dim=-1, keepdim=True)
++        return (base + self.mix(pooled.flatten(-2))).tanh()
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self.gru(self._encode(obs))[0]
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        x = self._encode(obs)
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         return h[0], h[0]

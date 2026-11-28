@@ -1,0 +1,60 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,49 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.gru = nn.GRU(32, 58, batch_first=True)
++        self.decay_logits = nn.Parameter(torch.zeros(2))
++
++    def _context(self, x, shares, state):
++        # x: [B,T,32]; shares: [B,T,2,10].
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        if x.size(1) == 0:
++            return x.new_empty((x.size(0), 0, 60)), state
++
++        core, _ = self.gru(x, state[:, :58].contiguous().unsqueeze(0))
++        bid = shares[..., 0, 0].to(x.dtype).clamp_min(0)
++        ask = shares[..., 1, 0].to(x.dtype).clamp_min(0)
++        scale = torch.maximum(bid, ask).clamp_min(1)
++        b, a = bid / scale, ask / scale
++        pressure = (b - a) / (b + a + scale.reciprocal())
++
++        r = self.decay_logits.to(x.dtype).sigmoid()
++        slow_keep = 0.90 + 0.095 * r[0]
++        fast_keep = 0.10 + 0.70 * r[1]
++        slow, fast = state[:, 58], state[:, 59]
++        trace = []
++        for p in pressure.unbind(dim=1):
++            innovation = p - slow
++            fast = fast_keep * fast + (1 - fast_keep) * innovation
++            slow = slow + (1 - slow_keep) * innovation
++            trace.append(torch.stack((slow, fast), dim=-1))
++        context = torch.cat((core, torch.stack(trace, dim=1)), dim=-1)
++        return context, context[:, -1]
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self._context(x, obs.book_shares, None)[0]
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        context, next_state = self._context(
++            x.unsqueeze(1), obs.book_shares.unsqueeze(1), state
++        )
++        return context[:, 0], next_state

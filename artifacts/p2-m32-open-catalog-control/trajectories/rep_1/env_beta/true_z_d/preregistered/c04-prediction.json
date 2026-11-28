@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade directions persist across lags (ACF sum 2.12, variance ratio 1.72), and sessions have substantial directional bias (0.342 versus about 0.08 under balanced independent signs). Yet the median trade consumes only one-third of the best queue, and the median midprice shift rate is zero. The parent keeps all quotes available but has 0.224 tick counterfactual impact MAE. This motivates separating predictable event continuation from the response to a new event, rather than adding slower memory; c03 improved impact MAE by only 0.005 tick.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "From the prior state, estimate the bounded previous-event features expected before that event arrived. Subtract a gated projection of this estimate from the event contribution to the GRU input, leaving the book encoder and legal heads intact. The correction is learned end to end, so the estimate need not be a calibrated event forecast. Predict paired dResponse <= -0.010 tick on at least six common valid days, dNLL <= +0.005, and dExhaust = 0. The gain should weaken with lower flow persistence; the correction could hurt if predictable continuation itself carries most of the fixed-order response.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "90de338cc64db31b50ef782bf595258a7dad0edff25be19e74f9f9877420a5d2"
+}

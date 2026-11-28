@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Aggressive flow is persistent (sign ACF sum 2.12, flow variance ratio 1.72), but the median trade consumes only one-third of the touched queue and the median midprice shift rate is zero. The parent keeps all quotes available, yet its counterfactual impact MAE is 0.223623 tick. This points to testing whether local depletion and refill, rather than trade direction alone, explain the response error. The aggregate residual does not establish the sign of that error.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace B0's GRU-only update with a two-path operator: a 40-scalar GRU for history and a 20-scalar lagged depth snapshot for explicit queue changes. At each level, normalize the signed bid and ask changes by the sum of current and prior two-sided depth plus one share. Zero the change features when either side's tick at that level changes, rather than subtracting queues at different prices. Feed the resulting features both into the recurrent update and directly into the head context so the immediate response need not pass through a memory gate. The gain should weaken as quote shifts become more frequent and the mask discards more changes; the operator can hurt if same-price queue changes are mostly noise. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common valid days cannot confirm this response prediction.",
+    "selected_card_ids": [
+      "C01"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "higher",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "33c28d8c119e34bf1ffba926b39399f8935c3626db9a12e60e372af53e05240a"
+}

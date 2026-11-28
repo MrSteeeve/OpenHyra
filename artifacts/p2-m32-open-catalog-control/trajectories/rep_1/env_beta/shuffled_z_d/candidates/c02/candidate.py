@@ -1,0 +1,55 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.fill = nn.Parameter(torch.zeros(2, 1, 2))
+        self.update = nn.Sequential(nn.Linear(37, 24), nn.Tanh(),
+                                    nn.Linear(24, 4))
+        self.readout = nn.Linear(72, 60)
+
+    def _step(self, x, ticks, shares, state):
+        b = x.size(0)
+        ticks = ticks.to(torch.int64)
+        fill = self.fill.tanh().expand(b, 2, 10, 2)
+        if state is None:
+            prior = fill
+        else:
+            old_ticks, old_memory = state
+            match = ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2)
+            count = match.sum(dim=-1, keepdim=True)
+            moved = torch.matmul(match.to(x.dtype), old_memory)
+            prior = torch.where(count > 0, moved / count.clamp_min(1), fill)
+
+        depth = shares.to(x.dtype).clamp_min(0).log1p().unsqueeze(-1)
+        side = x.new_tensor([-1., 1.]).view(1, 2, 1, 1)
+        rank = (torch.arange(10, device=x.device, dtype=torch.int64)
+                .to(x.dtype).view(1, 1, 10, 1) / 9)
+        local = torch.cat((x[:, None, None, :].expand(b, 2, 10, 32),
+                           depth, side.expand(b, 2, 10, 1),
+                           rank.expand(b, 2, 10, 1), prior), dim=-1)
+        gate, value = self.update(local).chunk(2, dim=-1)
+        memory = torch.lerp(prior, value.tanh(), gate.sigmoid())
+        context = self.readout(torch.cat((x, memory.flatten(1)), dim=-1)).tanh()
+        return context, (ticks, memory)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._step(x, obs.book_ticks, obs.book_shares, state)
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = None
+        contexts = []
+        for t in range(x.size(1)):
+            context, state = self._step(
+                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
+            )
+            contexts.append(context)
+        return torch.stack(contexts, dim=1) if contexts else x.new_empty(
+            (x.size(0), 0, 60)
+        )

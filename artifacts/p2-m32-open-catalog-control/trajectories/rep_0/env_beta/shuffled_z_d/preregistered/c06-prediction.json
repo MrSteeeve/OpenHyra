@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the consumed best queue, and 63.9% of quoted events move the midprice. Yet the sign ACF sum (-0.308) is near its finite-window null and the flow variance ratio (0.432) is below its approximate null. This favors selective removal of stale state over adding slow directional memory. The parent already has zero exhaustion and full quote availability, but its counterfactual impact MAE is 0.220 tick. Explicit price-coordinate advection did not improve that error, so this trial targets stale latent information rather than level alignment.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the GRU reads the prior state, use the current causal observation to select a normalized key k and erase a fraction alpha of the prior along that key: S_in = S - alpha*(S*k)*k^T. Orthogonal components are unchanged, and at least 5% of the keyed component survives. The parent's post-GRU write then uses the same key but an independent gate. This tests whether clearing obsolete information before it enters the GRU improves fixed-order response. It should help less when quote changes are rare and can hurt if the key selects durable information rather than stale liquidity. Preregistered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "59ef322d5faa62077f66ff9d049ccc1bd43e14f6dceb38f114ba2792ae00072b"
+}

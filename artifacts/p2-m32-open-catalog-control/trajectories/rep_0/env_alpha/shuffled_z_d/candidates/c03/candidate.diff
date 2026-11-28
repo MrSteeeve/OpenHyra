@@ -1,0 +1,57 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,43 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.event_drive = nn.Linear(4, 2)
++        self.gru = nn.GRUCell(38, 54)
++        self.register_buffer(
++            "retention", torch.tensor([0.65, 0.90, 0.975]).reshape(1, 3, 1)
++        )
++
++    def _advance(self, x, event, state):
++        if state is None:
++            state = x.new_zeros(x.size(0), 60)
++        hidden, memory = state.split((54, 6), dim=-1)
++        hidden = self.gru(torch.cat((x, memory), dim=-1), hidden)
++
++        drive = self.event_drive(
++            event.to(dtype=x.dtype).clamp(-32, 32)
++        ).tanh()
++        r = self.retention.to(dtype=x.dtype)
++        memory = r * memory.reshape(-1, 3, 2) + (1 - r) * drive[:, None, :]
++        return torch.cat((hidden, memory.flatten(1)), dim=-1)
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        state = self._advance(x, obs.previous_event, state)
++        return state, state
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        state = None
++        contexts = []
++        for t in range(x.size(1)):
++            state = self._advance(x[:, t], obs.previous_event[:, t], state)
++            contexts.append(state)
++        if not contexts:
++            return x.new_empty(x.size(0), 0, 60)
++        return torch.stack(contexts, dim=1)

@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "A median aggressive trade clears the best queue, and 63.9% of quoted events move the midpoint. This makes best-queue turnover a plausible driver of fixed-order response. The sign ACF sum (-0.308) is near the finite-window null, and the flow variance ratio (0.432) is below its approximate null, so the profile does not support adding slow directional memory. The parent's 87.2% exhaustion rate and impact MAE of 6.77 ticks on only 6/12 valid days make quote viability essential to interpreting any response gain.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Inject a price-aware, depth-normalized touch-flow operator into the GRU input and expose it directly to the inherited heads. At an unchanged price it measures net queue change; at an improved touch it counts the new queue, and at a worsened touch it removes the old queue rather than subtracting depths at different prices. This uses only consecutive observed books and does not attempt to identify whether a queue change was caused by a trade or cancellation. It should help less when trades consume a smaller fraction of the touch, and may hurt when quote changes convey little about subsequent replenishment or the parent already captures this signal. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six common valid days, the response prediction is untested; promotion requires dExhaust <= -0.10 and surviving dResponse <= +0.50 tick when present.",
+    "selected_card_ids": [
+      "C01"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "fce9d3513e374dc11da79025a36f88083cb44f63c18fd515c239c6dceed2e3f4"
+}

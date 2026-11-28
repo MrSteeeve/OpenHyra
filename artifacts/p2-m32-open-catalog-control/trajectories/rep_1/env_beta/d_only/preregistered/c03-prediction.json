@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Regime statistics are withheld, so the residuals do not establish how often quotes move or queues reset. The parent has full quote availability and zero exhaustion, but fixed-order response MAE is 0.223623 tick across 12 valid days and sign-ACF absolute error is 0.139846. The two rejected branches improved response slightly but lost likelihood beyond the guardrail. This motivates testing selective memory replacement while retaining the parent encoder and heads, not treating quote survival as the bottleneck.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before each GRU update, use the current causal encoding to select a unit direction in hidden state and partially replace only its scalar coordinate. The rewrite leaves orthogonal coordinates unchanged before the GRU, so a local book change can invalidate one memory component without requiring the recurrent update to discard unrelated flow history. This should help if quote changes selectively invalidate history, but may be redundant when quotes rarely move or harmful when moves invalidate many components at once. Pre-result prediction: on at least six common valid days, paired fixed-order response MAE decreases by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "b24a614f06fab897d7871fd8b54c40c90cd8b59c3592178558c944e0932e1cde"
+}

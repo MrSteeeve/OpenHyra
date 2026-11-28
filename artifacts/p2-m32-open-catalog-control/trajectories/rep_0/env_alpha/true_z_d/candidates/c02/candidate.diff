@@ -1,0 +1,75 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,60 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.transport_input = nn.Linear(20, 32, bias=False)
++        self.gru = nn.GRU(32, 20, batch_first=True)
++        self.readout = nn.Linear(60, 60)
++
++    def _update(self, x, ticks, shares, state):
++        ticks = ticks.to(torch.int64)
++        live = shares > 0
++        depth = shares.to(x.dtype).clamp_min(0).log1p()
++        if state is None:
++            h = x.new_zeros(x.size(0), 20)
++            aligned = depth
++        else:
++            h, old_ticks, memory = state
++            match = (
++                (ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2))
++                & live.unsqueeze(-1)
++                & (memory > 0).unsqueeze(-2)
++            )
++            weights = match.to(x.dtype)
++            count = weights.sum(dim=-1)
++            transported = (weights * memory.unsqueeze(-2)).sum(dim=-1)
++            aligned = torch.where(
++                count > 0, transported / count.clamp_min(1), depth
++            )
++
++        delta = (depth - aligned).tanh().flatten(1)
++        memory = torch.where(live, 0.5 * (depth + aligned), 0.0)
++        z = (x + self.transport_input(delta)).tanh()
++        _, next_h = self.gru(z.unsqueeze(1), h.unsqueeze(0))
++        h = next_h[0]
++        context = self.readout(
++            torch.cat((h, depth.tanh().flatten(1), delta), dim=-1)
++        ).tanh()
++        return context, (h, ticks, memory)
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs))
++        return self._update(x, obs.book_ticks, obs.book_shares, state)
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        x = self.encoder(self.raw_features(obs))
++        state = None
++        contexts = []
++        for t in range(x.size(1)):
++            context, state = self._update(
++                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
++            )
++            contexts.append(context)
++        if not contexts:
++            return x.new_empty(x.size(0), 0, 60)
++        return torch.stack(contexts, dim=1)

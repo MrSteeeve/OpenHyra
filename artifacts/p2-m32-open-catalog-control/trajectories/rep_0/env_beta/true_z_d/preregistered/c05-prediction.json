@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Flow persists across lags (ACF sum 2.115; variance ratio 1.724), but the typical trade consumes only one third of touch depth and the median session has no midprice shifts. Session flow bias (0.342) also exceeds book imbalance bias (0.083). Persistent direction is therefore useful context, but is not evidence of imminent depletion. The parent never exhausts and improved likelihood over B0 while worsening counterfactual impact MAE by 0.00797; the target is response accuracy, not rollout repair.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's eight memory updates unchanged, but replace their unconditional readout with a bounded bilinear interaction between memory and the current bid/ask depth profile. Feed the resulting readout to both the GRU and the inherited heads, while carrying unmodulated memory forward. This lets similar flow histories have different effects when an external order leaves different queue configurations, without forecasting and subtracting the last event as in the rejected c04 trial. Predict dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. The gain should weaken when flow persistence is lower or when depth profiles vary too little to distinguish responses; noisy depth variation could instead hurt likelihood.",
+    "selected_card_ids": [
+      "C04",
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "68534b54ee22968b00de50eae1c0968495adcafde3596b6eb824889f93713db4"
+}

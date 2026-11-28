@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Regime statistics are omitted, so frequent quote changes or depletion cannot be inferred. The parent keeps quotes available on all rollouts and has zero exhaustion, yet fixed-order impact MAE is 0.218809 ticks across 12 valid days. The rejected c03 branch improved likelihood while worsening impact, so the flow-memory residual alone is not a reason to add persistence. The testable structural gap is that the parent has no explicit operator for rewriting a local component of memory while preserving its orthogonal components.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the existing GRU update, treat the 60 hidden scalars as ten six-channel routes. At each level, use the current bid and ask depths to choose a bounded rewrite strength, and use the encoded observation to choose a shared unit key and ten write values. The delta update replaces only the keyed projection of each route; orthogonal components pass unchanged into the GRU. This is not price advection. It should help if fixed orders invalidate only part of the queue-conditioned memory, and be ineffective or harmful when queues barely change or when broad repricing makes most routes stale. Preregistered prediction: on at least six common valid days, paired impact MAE decreases by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction unevaluable.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "683965db621bf8ba5d056db363725b278baa1b93a475d1487d8f09ffaf9d5c77"
+}

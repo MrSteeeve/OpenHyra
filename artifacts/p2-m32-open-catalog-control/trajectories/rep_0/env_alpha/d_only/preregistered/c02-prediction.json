@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Z is withheld, so depletion frequency is unknown. The parent exhausts 87.15% of rollout replicates and has quotes available only 71.83% of the time. Fixed-order impact MAE is 6.7699 ticks on only 6 of 12 valid days. This makes quote survival a priority, but does not establish that missed replenishment causes exhaustion. The rejected C01 edit did not improve exhaustion and produced no available paired response delta.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent GRU and add a bounded context residual from a shared side-level encoder. Give near-empty queues more weight in the readout while retaining separate bid and ask summaries. This lets the inherited heads condition replenishment on where liquidity is thin without changing quote legality or recurrent state. Before evaluation, predict dExhaust <= -0.10 and dNLL <= +0.005. With at least six common valid days, predict dResponse <= -0.010 tick; with fewer, predict surviving dResponse <= +0.50 tick when available. The exhaustion gain should weaken when trades are small relative to touch depth, and the edit may hurt if thin queues seldom call for replenishment.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "exhausted_replicate_rate",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "502f05d06e330285d442d08b54e3bf58885bace33448ea08be53790a55a5870e"
+}

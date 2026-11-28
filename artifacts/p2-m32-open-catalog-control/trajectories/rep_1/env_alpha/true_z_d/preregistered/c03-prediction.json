@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 63.9% of quoted events move the midprice. That makes relative level a poor identifier for a resting queue across events. The parent exhausts 87.2% of rollout replicates and has response measurements on only 6 of 12 days. These residuals are consistent with misregistered depletion and replenishment history, though they do not establish it. Trade-sign persistence is weak relative to the finite-window references, so longer directional memory is not the first intervention.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the GRU update, route 20 queue-local hidden scalars by exact same-side tick match rather than by relative level. Use a bounded learned fill for newly occupied prices and leave 20 global recurrent channels unshifted. This should preserve history for surviving queues without assigning the depleted touch's history to its replacement. The gain should weaken when quotes rarely move and could reverse when queues turn over so completely that matching rarely preserves useful history. Pre-registered prediction: paired exhaustion falls by at least 0.10, with dNLL <= +0.005. If at least six common valid response days remain, predict dResponse <= -0.010 tick; otherwise predict that any available surviving response estimate is <= +0.50 tick.",
+    "selected_card_ids": [
+      "C05",
+      "C04"
+    ],
+    "target_metric": "exhausted_replicate_rate",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "ee83f3ff22cb6b4741b7ec8ac64ca85252a30686e545ad743fd13f49f13de160"
+}

@@ -1,0 +1,278 @@
+{
+  "rep_0": {
+    "env_alpha": {
+      "d_only": {
+        "card_order": [
+          "C08",
+          "C01",
+          "C10",
+          "C06",
+          "C07",
+          "C03",
+          "C05",
+          "C09",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "30b4c4746d8abd7a539756d491d880c6cab06a1769cbc99bcdb2ea5ff85e54f8",
+        "prompt_sha256": "8477ffad96939cf515889e0f1ed495fd3823109f51a19a1cd865a5b2326726ed",
+        "tokens": 2635,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "shuffled_z_d": {
+        "card_order": [
+          "C08",
+          "C01",
+          "C10",
+          "C06",
+          "C07",
+          "C03",
+          "C05",
+          "C09",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "30b4c4746d8abd7a539756d491d880c6cab06a1769cbc99bcdb2ea5ff85e54f8",
+        "prompt_sha256": "f0e92310b12670c1e9558e05e3c52ef18e2403cfa01242b6392dec8e17cd6cec",
+        "tokens": 3094,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "true_z_d": {
+        "card_order": [
+          "C08",
+          "C01",
+          "C10",
+          "C06",
+          "C07",
+          "C03",
+          "C05",
+          "C09",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "30b4c4746d8abd7a539756d491d880c6cab06a1769cbc99bcdb2ea5ff85e54f8",
+        "prompt_sha256": "5495b6c9030de17d0d7150bd86aa1af38bef08ac67173b9da7f5c3478dc55c21",
+        "tokens": 3098,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      }
+    },
+    "env_beta": {
+      "d_only": {
+        "card_order": [
+          "C08",
+          "C09",
+          "C07",
+          "C06",
+          "C03",
+          "C04",
+          "C05",
+          "C10",
+          "C01",
+          "C02"
+        ],
+        "non_z_sha256": "2a97ba7d837266865dd9a6d7892a89d410c4e028951f05e4427064e4e1df64b4",
+        "prompt_sha256": "cd3900cada371dd51b4742bffdffd6b37a29b5d217212b85778f76b71969b380",
+        "tokens": 2631,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "shuffled_z_d": {
+        "card_order": [
+          "C08",
+          "C09",
+          "C07",
+          "C06",
+          "C03",
+          "C04",
+          "C05",
+          "C10",
+          "C01",
+          "C02"
+        ],
+        "non_z_sha256": "2a97ba7d837266865dd9a6d7892a89d410c4e028951f05e4427064e4e1df64b4",
+        "prompt_sha256": "e856bb77d6a6bfb30a0f49b76920cfd90a5c1c405da0abf8925e9039ecf2cd98",
+        "tokens": 3094,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "true_z_d": {
+        "card_order": [
+          "C08",
+          "C09",
+          "C07",
+          "C06",
+          "C03",
+          "C04",
+          "C05",
+          "C10",
+          "C01",
+          "C02"
+        ],
+        "non_z_sha256": "2a97ba7d837266865dd9a6d7892a89d410c4e028951f05e4427064e4e1df64b4",
+        "prompt_sha256": "f4c56e333b9425f3527c31640b8debcdb0fe82c1cf5afb4a4dde959695052bf4",
+        "tokens": 3090,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      }
+    }
+  },
+  "rep_1": {
+    "env_alpha": {
+      "d_only": {
+        "card_order": [
+          "C01",
+          "C06",
+          "C05",
+          "C07",
+          "C08",
+          "C10",
+          "C09",
+          "C03",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "b5570704bcd31ea0412d168fec990711efb80b0e96477b7850916bd086477fc8",
+        "prompt_sha256": "57a8de39f07a291e04c912ee3cf8a90617f0deae6e1ef79a5f85615c646a3c8c",
+        "tokens": 2635,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "shuffled_z_d": {
+        "card_order": [
+          "C01",
+          "C06",
+          "C05",
+          "C07",
+          "C08",
+          "C10",
+          "C09",
+          "C03",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "b5570704bcd31ea0412d168fec990711efb80b0e96477b7850916bd086477fc8",
+        "prompt_sha256": "ef203ae44dfb67ac297e53228ac8c616cad4c5b8bdd697bb688d3f1e1d9c7941",
+        "tokens": 3094,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      },
+      "true_z_d": {
+        "card_order": [
+          "C01",
+          "C06",
+          "C05",
+          "C07",
+          "C08",
+          "C10",
+          "C09",
+          "C03",
+          "C04",
+          "C02"
+        ],
+        "non_z_sha256": "b5570704bcd31ea0412d168fec990711efb80b0e96477b7850916bd086477fc8",
+        "prompt_sha256": "b71edd41f8c5f024e22cbbba56b11828c6b54f8fa9710300c596e34dad02ebd7",
+        "tokens": 3098,
+        "training_checkpoint_hashes": {
+          "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+          "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+          "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+        }
+      }
+    },
+    "env_beta": {
+      "d_only": {
+        "card_order": [
+          "C03",
+          "C04",
+          "C09",
+          "C10",
+          "C05",
+          "C07",
+          "C08",
+          "C02",
+          "C06",
+          "C01"
+        ],
+        "non_z_sha256": "8281eed892f40e7c6031c9ca0ffc76e28a4dd06415a40d5f026932f78e23a28e",
+        "prompt_sha256": "34e0d5363909279561b8058037247445d24ac662844e6147d91c72f54e8c9b1b",
+        "tokens": 2631,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "shuffled_z_d": {
+        "card_order": [
+          "C03",
+          "C04",
+          "C09",
+          "C10",
+          "C05",
+          "C07",
+          "C08",
+          "C02",
+          "C06",
+          "C01"
+        ],
+        "non_z_sha256": "8281eed892f40e7c6031c9ca0ffc76e28a4dd06415a40d5f026932f78e23a28e",
+        "prompt_sha256": "f0ed66b66a38444064c9252489b3340240e700b479076af41a47dd7ea912d85c",
+        "tokens": 3094,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      },
+      "true_z_d": {
+        "card_order": [
+          "C03",
+          "C04",
+          "C09",
+          "C10",
+          "C05",
+          "C07",
+          "C08",
+          "C02",
+          "C06",
+          "C01"
+        ],
+        "non_z_sha256": "8281eed892f40e7c6031c9ca0ffc76e28a4dd06415a40d5f026932f78e23a28e",
+        "prompt_sha256": "449ddc00348ebc11650176f9e0df5f9e119665773ed8607b3e38a6e81078b0c2",
+        "tokens": 3090,
+        "training_checkpoint_hashes": {
+          "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+          "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+          "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+        }
+      }
+    }
+  }
+}

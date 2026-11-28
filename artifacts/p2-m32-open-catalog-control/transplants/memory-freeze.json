@@ -1,0 +1,34 @@
+{
+  "approved": {
+    "w1_thick_short": [
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+      "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5",
+      "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88",
+      "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c"
+    ],
+    "w2_thick_long": [
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+      "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5",
+      "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88",
+      "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c"
+    ]
+  },
+  "dev_status": {
+    "w1_thick_short": {
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35": "VALID",
+      "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5": "VALID",
+      "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88": "VALID",
+      "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c": "VALID"
+    },
+    "w2_thick_long": {
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35": "VALID",
+      "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5": "VALID",
+      "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88": "VALID",
+      "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c": "VALID"
+    }
+  },
+  "environments": [
+    "w1_thick_short",
+    "w2_thick_long"
+  ]
+}

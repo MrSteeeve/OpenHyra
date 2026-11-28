@@ -1,0 +1,36 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+        self.retention_logits = nn.Parameter(torch.zeros(2, 6))
+
+    def _advance(self, x, state):
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        _, hidden = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+        proposal = hidden[0]
+        r0, r1 = self.retention_logits.sigmoid().to(proposal.dtype).unbind(0)
+        retain = torch.cat((0.50 + 0.32 * r0, 0.85 + 0.14 * r1))
+        memory = torch.lerp(proposal[:, 48:], state[:, 48:], retain)
+        return proposal, torch.cat((proposal[:, :48], memory), dim=-1)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        return self._advance(x, state)
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        if x.size(1) == 0:
+            return x.new_empty((x.size(0), 0, 60))
+        state = None
+        contexts = []
+        for xt in x.unbind(dim=1):
+            context, state = self._advance(xt, state)
+            contexts.append(context)
+        return torch.stack(contexts, dim=1)

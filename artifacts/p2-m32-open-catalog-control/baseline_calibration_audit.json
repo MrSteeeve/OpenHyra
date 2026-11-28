@@ -1,0 +1,34 @@
+{
+  "env_alpha": {
+    "checks": {
+      "capacity": true,
+      "checkpoints": true,
+      "data": true,
+      "prior_d_metrics": true,
+      "source": true,
+      "z": true
+    },
+    "m3_baseline_sha256": "986a8327e52d98c2242202b1994953c341130db2d490c8a197444ca2ea387dd9",
+    "training_checkpoint_hashes": {
+      "103": "f13a1ee0bb3641594e1b07dc5d7bbb97f490246336373a3e77c2ce7c232b306d",
+      "137": "b139282e83b9efb49ae95a8fffdec65d7deb243bbac13e341e130bcf4c708e3e",
+      "211": "c55e5a105f33171fa03f22f0cf98ce45f4a255f867842b88f575f08ed405e92c"
+    }
+  },
+  "env_beta": {
+    "checks": {
+      "capacity": true,
+      "checkpoints": true,
+      "data": true,
+      "prior_d_metrics": true,
+      "source": true,
+      "z": true
+    },
+    "m3_baseline_sha256": "986a8327e52d98c2242202b1994953c341130db2d490c8a197444ca2ea387dd9",
+    "training_checkpoint_hashes": {
+      "103": "b3f7875441ee2dd5d9199df8ccda499f690faab08f0bd14c6f0987d00f5e9f1b",
+      "137": "275bd4c38a8e6f74bc82fce9ce1adfc29a8e40205fae67e4666a04be39b5496e",
+      "211": "c29ef676b2de04b7b9a025346e0ee747c5d2d94b9f32370d6bea074120179039"
+    }
+  }
+}

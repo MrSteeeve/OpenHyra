@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade direction persists across lags (sign ACF sum 2.115 and flow variance ratio 1.724), yet median trades consume only one-third of the best queue and the median session has no midprice shifts. The parent shows large free drift (112.119 ticks) and a large post-stop relaxation discrepancy (160.456). This motivates testing whether predictable continuation is being treated as fresh pressure, but neither residual establishes that mechanism. Exhaustion is high (0.872), and impact MAE is available on only 6 of 12 days.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace the GRU's raw encoded input with x_t - sigmoid(g) * tanh(W h_{t-1} + b). The correction is computed before ingesting the current observation, starts at zero, and can learn to discount predictable input components without removing the GRU's recurrent history. The predictor is trained through the existing likelihood, so it is a learned correction, not a separately calibrated forecast. Preregistered prediction: on at least six common valid days, paired impact MAE falls by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. Below six common valid days, the response prediction is unconfirmed; promotion requires the specified viability-recovery rule. The gain should weaken at lower sign persistence and could reverse if the parent already discounts expected continuation or if predictable flow genuinely moves quotes.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "sign_acf_sum_1_32"
+  },
+  "source_sha256": "10dc13fb4c2b7ee1c9afd514d6efb256001928f8dd218522933fddb91e20386f"
+}

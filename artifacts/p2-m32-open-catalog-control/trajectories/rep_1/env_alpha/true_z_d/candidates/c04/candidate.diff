@@ -1,0 +1,48 @@
+--- parent
+
++++ candidate
+
+@@ -9,6 +9,8 @@
+
+         self.encoder = input_projection(32)
+         self.gru = nn.GRUCell(32, 40)
+         self.fill = nn.Parameter(torch.zeros(2, 10))
++        self.write = nn.Linear(2, 1)
++        self.drive = nn.Linear(32, 20)
+         self.readout = nn.Linear(72, 60)
+ 
+     def _update(self, x, ticks, shares, state):
+@@ -19,6 +21,7 @@
+
+         fill = self.fill.tanh().unsqueeze(0)
+         if state is None:
+             local = fill.expand(x.size(0), -1, -1)
++            matched = torch.zeros_like(live)
+             global_prior = x.new_zeros(x.size(0), 20)
+         else:
+             hidden, old_prices = state
+@@ -29,12 +32,21 @@
+
+             )
+             weight = match.to(x.dtype)
+             count = weight.sum(-1)
++            matched = count > 0
+             old_local = hidden[:, :20].reshape(-1, 2, 10)
+             routed = (weight * old_local.unsqueeze(-2)).sum(-1)
+-            local = torch.where(count > 0, routed / count.clamp_min(1), fill)
++            local = torch.where(matched, routed / count.clamp_min(1), fill)
+             global_prior = hidden[:, 20:]
+         prior = torch.cat((local.flatten(1), global_prior), dim=-1)
+-        hidden = self.gru(x, prior)
++        proposal = self.gru(x, prior)
++        depth = shares.to(x.dtype).clamp(0, 1e6).log1p()
++        drive = self.drive(x).reshape(-1, 2, 10)
++        gate = self.write(torch.stack((depth, drive), dim=-1)).squeeze(-1)
++        beta = 0.05 + 0.90 * gate.sigmoid()
++        beta = torch.where(matched, beta, torch.ones_like(beta))
++        updated = torch.lerp(local, proposal[:, :20].reshape(-1, 2, 10), beta)
++        updated = torch.where(live, updated, fill)
++        hidden = torch.cat((updated.flatten(1), proposal[:, 20:]), dim=-1)
+         context = self.readout(torch.cat((hidden, x), dim=-1)).tanh()
+         return context, (hidden, prices)
+ 

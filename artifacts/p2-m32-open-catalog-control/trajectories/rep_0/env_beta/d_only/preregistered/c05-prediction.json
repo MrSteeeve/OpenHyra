@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Z is withheld, so the frequency of local quote changes is unknown. The parent has 12/12 valid response days, full quote availability, and zero exhaustion, but fixed-order impact MAE is 0.230673 tick. The multiscale-memory trial reduced impact MAE by 0.01644 tick but raised NLL by 0.07475 and worsened the lag-64 memory gap. This motivates testing selective replacement of stale response memory rather than adding more persistence or targeting quote recovery.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's baseline GRU and additive transient readout, but replace the coordinatewise residual EMA with a keyed rank-one write to a 4-by-4 residual matrix. The key comes from the causal observation embedding, and the write moves only the keyed projection toward the projected parent innovation. Orthogonal directions receive only the shared leak. This should help if a quote change invalidates some, but not all, of the stored response information. It should be ineffective if quotes rarely move and may hurt when changes invalidate the whole residual or the learned keys do not separate those changes. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C10",
+      "C02"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "31f28963c3ddd18a041eb91d0e892fd237a123a3f9c5ec487feffabd42085907"
+}

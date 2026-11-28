@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Z is withheld, so frequent depletion and repair are hypotheses, not observed regime facts. The parent has 1.91687 ticks of fixed-order response MAE over 12 valid days, a post-stop relaxation delta of 4.96933, and 50.69% rollout exhaustion despite 88.80% quote availability. Its explicit queue readout is instantaneous and additive: it cannot directly condition the contribution of stored history on current queue geometry. The small lag-64 memory gap (0.00632) does not by itself motivate extending memory.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's GRU and additive queue readout, but use the same 40-to-60 projection to gate the recurrent contribution: context = (1 + 0.5*tanh(W local))*h + tanh(W local). This makes the effect of identical history depend on current side- and level-specific liquidity, without adding parameters or changing stored memory. This should help when external orders deplete queues enough to change which historical signals predict repair. In deep books with little queue disruption, the gate may add noise or suppress useful history. Preregistered success: dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six days, the response prediction is not testable; viability recovery is a separate criterion.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "dda3e6d1349b94517486d9a64549d32b0158e9b1f20fbb4abee224102e518cfe"
+}

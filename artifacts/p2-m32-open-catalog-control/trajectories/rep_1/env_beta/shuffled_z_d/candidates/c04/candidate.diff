@@ -1,0 +1,46 @@
+--- parent
+
++++ candidate
+
+@@ -14,28 +14,25 @@
+
+     def _update(self, encoded, ticks, shares, state):
+         ticks = ticks.to(torch.int64)
+         depth = shares.to(encoded.dtype).clamp_min(0).log1p()
+-        # -1 is an internal missing-depth marker, not a quote.
+-        depth = torch.where(shares > 0, depth, -torch.ones_like(depth))
+         if state is None:
+             hidden = encoded.new_zeros(encoded.size(0), 20)
+-            delta = torch.zeros_like(depth)
+-            matched = torch.zeros_like(depth)
++            change = torch.zeros_like(depth)
++            departure = torch.zeros_like(depth)
+         else:
+             hidden, old_ticks, old_depth = state
+-            # [B, side, current level, previous level]
+             match = (
+                 (ticks.unsqueeze(-1) == old_ticks.unsqueeze(-2))
+-                & (depth.unsqueeze(-1) >= 0)
+-                & (old_depth.unsqueeze(-2) >= 0)
++                & (depth.unsqueeze(-1) > 0)
++                & (old_depth.unsqueeze(-2) > 0)
+             )
+-            count = match.sum(dim=-1)
+-            aligned = (
+-                match.to(depth.dtype) * old_depth.unsqueeze(-2)
+-            ).sum(dim=-1) / count.clamp_min(1)
+-            matched = (count > 0).to(depth.dtype)
+-            delta = (depth - aligned).clamp(-8, 8) * matched
+-
+-        queue = torch.cat((delta.flatten(1), matched.flatten(1)), dim=-1)
++            weights = match.to(depth.dtype)
++            aligned = (weights * old_depth.unsqueeze(-2)).sum(-1)
++            aligned = aligned / match.sum(-1).clamp_min(1)
++            # Current ladder: surviving deltas and newly visible depth.
++            change = (depth - aligned).clamp(-8, 8)
++            # Previous ladder: depth at prices no longer visible.
++            departure = old_depth.clamp_max(8) * (~match.any(dim=-2))
++        queue = torch.cat((change.flatten(1), departure.flatten(1)), dim=-1)
+         x = (encoded + self.queue_encoder(queue)).tanh()
+         hidden = self.gru(x, hidden)
+         context = self.readout(torch.cat((x, hidden), dim=-1)).tanh()

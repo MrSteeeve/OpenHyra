@@ -1,0 +1,41 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.exposure = nn.Linear(18, 32, bias=False)
+        nn.init.zeros_(self.exposure.weight)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+
+    def _encode(self, obs):
+        base = self.encoder(self.raw_features(obs))
+        q = obs.book_shares.to(dtype=base.dtype).clamp(0, 1e12)
+        p = obs.book_ticks.to(dtype=torch.int64)
+        # Each row finds its next occupied queue on the same side.
+        idx = torch.arange(10, device=p.device, dtype=torch.int64)
+        deeper = idx[None, :] > idx[:, None]
+        successors = torch.where(
+            deeper & (q.unsqueeze(-2) > 0), idx, 10
+        ).amin(dim=-1)
+        next_tick = p.gather(-1, successors.clamp_max(9))
+        gap = (next_tick - p).abs().clamp_max(64).to(base.dtype)
+        valid = (q > 0) & (successors < 10)
+        depth = q.cumsum(dim=-1)
+        exposure = torch.where(
+            valid, gap.log1p() / (1.0 + depth.log1p()), 0.0
+        )
+        local = exposure[..., :9].flatten(start_dim=-2)
+        return (base + self.exposure(local)).tanh()
+
+    def sequence_context(self, obs):
+        return self.gru(self._encode(obs))[0]
+
+    def step_context(self, obs, state):
+        x = self._encode(obs)
+        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+        return h[0], h[0]

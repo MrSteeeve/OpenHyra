@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Regime statistics are withheld. The parent has no rollout exhaustion and full quote availability, yet its fixed-order response MAE is 0.223623 ticks across 12 valid days and its post-stop relaxation delta is 0.0798611. This makes response dynamics a better first target than quote recovery. The residuals do not establish whether the parent relaxes too slowly or too quickly.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Split the parent's recurrent state into a 56-channel GRU and two side-specific transient channels, with two additional scalars storing prior touch log depths. Each transient channel integrates bounded changes in observed log depth with learned stable decay per event; replenishment drives it in the opposite direction from depletion. This gives the heads a recovery signal separate from the GRU's longer-lived history. Before evaluation, predict a paired response MAE delta of at most -0.010 tick on at least six common valid days, with dNLL <= +0.005, dExhaust <= +0.05, and no reduction in available quote fraction. The gain should weaken when trades are small relative to touch depth, and the operator can hurt when touch changes mostly reflect quote relocation rather than depletion and repair.",
+    "selected_card_ids": [
+      "C02",
+      "C01"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "64cd553770e770959ea43ed5511ca0214f7b67c898c12fb53913a01244ca7ae3"
+}

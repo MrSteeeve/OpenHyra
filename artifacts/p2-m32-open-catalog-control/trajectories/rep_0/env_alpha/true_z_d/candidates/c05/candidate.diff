@@ -1,0 +1,52 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,39 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.route = nn.Linear(32, 61)
++        with torch.no_grad():
++            self.route.bias[-1].fill_(-2.0)
++
++    def _update(self, x, state):
++        key, gate = self.route(x).split((60, 1), dim=-1)
++        key = key / key.square().sum(dim=-1, keepdim=True).clamp_min(1e-4).sqrt()
++        beta = 0.95 * gate.sigmoid()
++        prior = state - beta * (state * key).sum(dim=-1, keepdim=True) * key
++        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
++        return h[0]
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        state = self._update(x, state)
++        return state, state
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        state = x.new_zeros((x.size(0), 60))
++        contexts = []
++        for xt in x.unbind(dim=1):
++            state = self._update(xt, state)
++            contexts.append(state)
++        if not contexts:
++            return x.new_empty((x.size(0), 0, 60))
++        return torch.stack(contexts, dim=1)

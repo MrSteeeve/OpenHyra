@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade consumes an entire best queue, and 63.9% of quoted events move the midprice. A queue that survives a quote move can change level without changing price, but the parent feeds its hidden state back without realigning it. This is a plausible source of the 0.219782-tick counterfactual impact MAE despite full quote availability. Sign ACF sum is close to its finite-window null, and the prior multiscale-memory trial improved the memory gap but worsened impact and likelihood.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the parent GRU and delta write, transport two recurrent channels per queue by exact same-side tick match. Average duplicate matches and zero-fill unmatched slots so a newly exposed price does not inherit the history of the previous occupant of its level. Keep the remaining 20 context channels available to the heads but do not carry them across steps, reserving that state budget for tick coordinates. Preregistered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The gain should weaken when quote moves are rare; the edit can hurt if exact prices seldom survive between observations or if the discarded recurrent channels carry useful global history.",
+    "selected_card_ids": [
+      "C05",
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "20385dd28370e96f5c978633bc9a12786d3b8be1ede6c425ecf6d9294628d52b"
+}

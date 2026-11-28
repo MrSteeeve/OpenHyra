@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade signs persist across lags (ACF sum 2.115; variance ratio 1.724), while a typical trade consumes only one-third of best depth and the median session has no midprice moves. The parent still exhausts 55.6% of rollouts and has a 2.285-tick intervention MAE. Its direct queue readout can respond to scarcity now, but that readout is not carried into the next recurrent state. This suggests testing a targeted recurrent queue correction rather than adding slow flow memory or quote-coordinate transport.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's instantaneous queue readout and apply a queue-keyed rank-one delta update to its GRU output before carrying it forward. The update moves one projection of the state toward a bounded target encoded from the current causal observation and leaves orthogonal projections unchanged relative to the GRU output. This tests whether local depletion can correct recurrent state without overwriting persistent directional information. Expect less benefit at lower trade-to-top-depth ratios, where trades disturb queues less; the update may hurt if scarcity mostly reflects stable depth differences rather than queues needing repair. Pre-registered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six days leave the response prediction untested.",
+    "selected_card_ids": [
+      "C10",
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "b18226395513615378a23f13011c7f665b3aa46cad9c5aa2925ef36b643109fb"
+}

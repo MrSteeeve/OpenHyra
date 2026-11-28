@@ -1,0 +1,66 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,51 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.flow_projection = nn.Linear(4, 32, bias=False)
++        self.gru = nn.GRU(32, 56, batch_first=True)
++
++    def _update(self, x, ticks, shares, state):
++        p = ticks[..., 0].to(torch.int64)
++        q = shares[..., 0].to(x.dtype).clamp_min(0)
++        if state is None:
++            h = x.new_zeros((x.size(0), 56))
++            prev_p, prev_q = p, q
++        else:
++            h, prev_p, prev_q = state
++
++        equal = p == prev_p
++        better = torch.stack(
++            (p[:, 0] > prev_p[:, 0], p[:, 1] < prev_p[:, 1]), dim=-1
++        )
++        change = torch.where(equal, q - prev_q, torch.where(better, q, -prev_q))
++        scale = 1 + (q + prev_q).sum(dim=-1, keepdim=True)
++        bid, ask = (change / scale).unbind(dim=-1)
++        imbalance = (q[:, 0] - q[:, 1]) / (1 + q.sum(dim=-1))
++        flow = torch.stack((bid, ask, bid - ask, imbalance), dim=-1)
++        z = (x + self.flow_projection(flow)).tanh()
++        _, last = self.gru(z.unsqueeze(1), h.unsqueeze(0))
++        h = last[0]
++        return torch.cat((h, flow), dim=-1), (h, p, q)
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs))
++        return self._update(x, obs.book_ticks, obs.book_shares, state)
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        x = self.encoder(self.raw_features(obs))
++        state = None
++        outputs = []
++        for t in range(x.size(1)):
++            context, state = self._update(
++                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
++            )
++            outputs.append(context)
++        return torch.stack(outputs, dim=1) if outputs else x.new_empty(
++            (x.size(0), 0, 60)
++        )

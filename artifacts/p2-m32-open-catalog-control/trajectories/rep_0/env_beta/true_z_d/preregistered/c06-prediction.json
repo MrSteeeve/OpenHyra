@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Flow persists across lags (sign ACF sum 2.12; 32:4 variance ratio 1.72), but the wide session IQRs suggest that one memory timescale need not fit every session. The parent improved NLL while worsening response MAE by 0.00797 tick. Median trades consume only one-third of the touch, midprice shifts are rare, and quotes remain available in all parent rollouts. That favors testing how a fixed order updates persistent flow memory, rather than adding quote repair or price-coordinate advection.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace independent writes to the eight memory modes with a budgeted, observation-conditioned write: book features, previous-event drive, and own-order status jointly route a fixed total write budget across timescales. Modes that receive less of the write retain more of their history. This lets an external order affect fast context without necessarily being read as evidence of a persistent directional run. The parent update is recovered at uniform routing. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The benefit should weaken when flow persistence is low; routing can also hurt when an external order genuinely marks a durable flow-regime change.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "7c0eb6dc4d06695641dcd7321934a5eaa3448f8f8581a01390baa826c8d4cc20"
+}

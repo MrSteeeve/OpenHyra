@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 63.9% of quoted events move the midpoint. The parent aligns depth changes by price, but its GRU receives the same recurrent state whether the previous touch survives or disappears. That makes stale touch information a plausible contributor to the 0.210839-tick response MAE, not an established cause. Both sign-persistence statistics are near or below their finite-window nulls, so extending directional memory is not the priority. Quote availability is already 1.0.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the parent GRU update, use the observed loss of each previous best price to erase only one learned direction in hidden state per side. Each rank-one contraction leaves orthogonal memory intact, and a surviving touch makes that side's contraction the identity. Preregistered prediction: on at least six common valid days, paired response MAE falls by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. The gain should weaken at lower midpoint-shift rates. The edit can hurt if vanished touches are mostly brief gaps and their stored pressure remains predictive after the quote returns.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "a4646c20079f80de0842991c12c201bd4fed6e40fe53cc643a5200bcb883b799"
+}

@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade signs persist across lags (ACF sum 2.12; flow variance ratio 1.72), yet the median trade consumes only one third of best-queue depth and the median session has no midprice shifts. Persistent flow therefore does not imply persistent quote displacement. B0 has large free drift (112.119 ticks), a large post-stop relaxation discrepancy (160.456), and 87.15% exhausted replicates. These residuals motivate separating temporary queue pressure from recurrent history, but do not establish that B0 overstates impact on the six valid days.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Factor the parent recurrence into a 54-channel GRU and a two-sided leaky queue-pressure path. On each side, update pressure from the signed log-depth loss at an unchanged best price; replenishment contributes with the opposite sign, and a price change clears that side's pressure rather than comparing different queues. Read pressure directly into the head context, separately from GRU memory. This path decays in event time when depth stops changing. It should help less when best quotes move frequently, because resets discard pressure and the operator deliberately omits depletion across price changes. Preregistered prediction: paired impact MAE falls by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= 0. If fewer than six common days survive, the response prediction is untested; viability recovery requires dExhaust <= -0.10 and surviving point dResponse <= +0.50 tick when available, subject to the NLL guardrail.",
+    "selected_card_ids": [
+      "C02",
+      "C01"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "higher",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "0f7390e9667ed31dc60e3eb63bdbff4ed35bc06fd69ace34ed00964bff00bf15"
+}

@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade signs persist across lags: the median ACF sum is 2.12 and the 32-to-4 flow variance ratio is 1.72, both above their finite-window nulls. The parent's sign-ACF absolute error is 0.140, but that unsigned error does not establish whether it underestimates persistence. Median trades consume only one-third of touch depth, the median midprice-shift rate is zero, and parent rollouts never exhaust. The priority is therefore to improve the fixed-order response without sacrificing likelihood or quote availability, not to repair depletion or model quote relocation.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace part of the GRU state with three retention scales of previous-event traces. Predict the current event embedding from the pre-update traces and feed the bounded prediction residual to the GRU alongside the unchanged book/event encoder. Expose the updated traces separately to the heads so predictable continuation remains available for likelihood without having to drive the same recurrent update as a surprise. This should help if the parent confounds persistent background flow with the response to the fixed order; it may hurt if flow is weakly persistent, reverses abruptly, or the parent already separates expected flow from surprises. Preregistered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction unconfirmed.",
+    "selected_card_ids": [
+      "C08",
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "e7ccc29081804f970ef62acdc71751f4968ea0bbb0805738029c31c3568e6240"
+}

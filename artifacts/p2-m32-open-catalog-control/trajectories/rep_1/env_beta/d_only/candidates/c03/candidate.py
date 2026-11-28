@@ -1,0 +1,47 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+        self.route = nn.Linear(32, 61)
+        self.write = nn.Linear(32, 2)
+        nn.init.zeros_(self.write.weight)
+        nn.init.zeros_(self.write.bias)
+
+    def _advance(self, x, state):
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        route = self.route(x)
+        # The positive first coordinate keeps normalization away from zero.
+        key = torch.cat(
+            (1.0 + 0.5 * route[:, :1].tanh(), route[:, 1:60].tanh()),
+            dim=-1,
+        )
+        key = key / key.square().sum(dim=-1, keepdim=True).sqrt()
+        value, gate = self.write(x).split(1, dim=-1)
+        beta = 0.9 * (gate + route[:, 60:] - 3.0).sigmoid()
+        old_value = (state * key).sum(dim=-1, keepdim=True)
+        prior = state + beta * (value.tanh() - old_value) * key
+        _, hidden = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+        return hidden[0]
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = self._advance(x, state)
+        return state, state
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = None
+        contexts = []
+        for xt in x.unbind(dim=1):
+            state = self._advance(xt, state)
+            contexts.append(state)
+        if not contexts:
+            return x.new_empty((x.size(0), 0, 60))
+        return torch.stack(contexts, dim=1)

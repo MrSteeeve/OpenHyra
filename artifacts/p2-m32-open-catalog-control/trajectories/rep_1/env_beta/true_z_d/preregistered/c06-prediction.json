@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade signs persist across horizons (ACF sum 2.12 and variance ratio 1.72, both above their finite-window nulls), but trades typically consume only one third of the best queue and the median midprice shift rate is zero. Persistent flow therefore need not imply persistent quote displacement. The parent has full quote availability and no exhaustion, yet its sign-ACF error is 0.140 and fixed-order response MAE is 0.221 tick. That favors testing how the model stores flow surprises rather than adding quote-recovery machinery.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's innovation input, but also use that innovation as a signed write value for one book-conditioned direction in the recurrent state. Before the GRU, h becomes h + beta*k*(v - k^T h), with beta at most 0.1 and ||k|| at most 1. This rewrites the active direction while leaving its orthogonal complement unchanged at the write stage. The hypothesis is that a fixed external order can revise local pressure without overwriting unrelated flow history. The write should help less in sessions with weaker directional persistence, and could hurt if surprises are mostly noise or invalidate the state broadly. Pre-result prediction: paired response MAE falls by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C10",
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "sign_acf_sum_1_32"
+  },
+  "source_sha256": "9c60965a4464c1eafdb5f95e76f89d94681314010d76fb7e5b2d8f8817b51ceb"
+}

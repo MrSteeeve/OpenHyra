@@ -1,0 +1,31 @@
+--- parent
+
++++ candidate
+
+@@ -13,6 +13,8 @@
+
+         self.retention = nn.Parameter(torch.linspace(-2.0, 2.0, 16))
+         self.readout = nn.Linear(44, 60)
+         self.correction = nn.Linear(16, 60, bias=False)
++        self.erase = nn.Linear(32, 17)
++        nn.init.constant_(self.erase.bias[16:], -2.0)
+ 
+     def _advance(self, x, state):
+         if state is None:
+@@ -22,7 +24,14 @@
+
+             self.observed(x).tanh() - self.forecast(base).tanh()
+         )
+         keep = 0.2 + 0.75 * self.retention.sigmoid()
+-        residual = keep * residual + (1.0 - keep) * innovation
++        key, gate = self.erase(x).split((16, 1), dim=-1)
++        key = key * torch.rsqrt(
++            key.square().sum(dim=-1, keepdim=True) + 1e-4
++        )
++        carried = keep * residual
++        projection = (carried * key).sum(dim=-1, keepdim=True)
++        carried = carried - (0.95 * gate.sigmoid() * projection) * key
++        residual = carried + (1.0 - keep) * innovation
+         base = self.baseline(x, base.contiguous())
+         context = self.readout(base).tanh() + self.correction(residual)
+         return context, torch.cat((base, residual), dim=-1)

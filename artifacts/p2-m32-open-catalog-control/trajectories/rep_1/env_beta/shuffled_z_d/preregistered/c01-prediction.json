@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "A median aggressive trade consumes the entire best queue (size/depth = 1), and 63.9% of quoted events move the midpoint. Yet the parent never exhausts and always has quotes: the response problem is not missing liquidity, but may be mispricing the transition to the next queue. Fixed-order impact MAE is 0.223623 tick over 12 valid days. Trade-sign ACF sum (-0.308) is close to the finite-window null, so the profile does not support adding slow directional memory.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Add a side-specific queue-to-price operator before the existing GRU. At each of the first nine queues, multiply the tick distance to the next occupied queue by inverse cumulative depth through the current queue, using bounded transforms. This gives the model an explicit measure of how far a quote can move when little depth protects it, without assuming that a future order arrives or clears any queue. Predict paired impact MAE delta <= -0.010 tick on at least six common valid days, with total NLL delta <= +0.005 and exhaustion delta <= +0.05. The gain should weaken when trades rarely reach the next queue; inverse-depth weighting may then amplify thin-queue noise.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "669d12efcdcd16c4b0b83a21ccecf6fac12dfa5a400301a4f8e125e653b5eeaa"
+}

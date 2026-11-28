@@ -1,0 +1,44 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 48, batch_first=True)
+        self.impulse = nn.Linear(4, 4, bias=False)
+        self.register_buffer("retention", torch.tensor([0.60, 0.86, 0.97]))
+
+    def _inputs(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        event = obs.previous_event.to(dtype=x.dtype)
+        u = self.impulse(torch.asinh(event)).tanh()
+        return x, u
+
+    def _advance(self, x, u, state):
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        baseline = state[:, :48]
+        trace = state[:, 48:].reshape(x.size(0), 3, 4)
+        _, h = self.gru(x.unsqueeze(1), baseline.unsqueeze(0).contiguous())
+        r = self.retention.to(dtype=x.dtype)[None, :, None]
+        trace = r * trace + (1.0 - r) * u.unsqueeze(1)
+        return torch.cat((h[0], trace.flatten(1)), dim=-1)
+
+    def step_context(self, obs, state):
+        x, u = self._inputs(obs)
+        context = self._advance(x, u, state)
+        return context, context
+
+    def sequence_context(self, obs):
+        x, u = self._inputs(obs)
+        if x.size(1) == 0:
+            return x.new_empty((x.size(0), 0, 60))
+        state = None
+        contexts = []
+        for xt, ut in zip(x.unbind(1), u.unbind(1)):
+            state = self._advance(xt, ut, state)
+            contexts.append(state)
+        return torch.stack(contexts, dim=1)

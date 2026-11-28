@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Regime statistics are withheld, so frequent depletion is a hypothesis, not an observed fact. The parent maintains full quote availability with zero exhaustion, yet fixed-order response MAE is 0.230673 tick across 12 valid days and the post-stop relaxation delta is 0.0373264. The c02 edit improved likelihood but worsened response by 0.00705 tick; c03 improved response by 0.01644 tick but failed the likelihood guardrail. This motivates testing state-dependent relaxation rather than adding more fixed memory scales.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace fixed transient retention with a bounded per-channel gate driven by the currently observed bid and ask queue profiles. Side-specific touch depth relative to deeper depth, together with absolute touch depth, lets the same innovation persist or relax differently in depleted and replenished books. Zero-initialize the gate projection so the operator starts at the parent retention rule. Pre-result prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The benefit should weaken when trades are small relative to touch depth; if current queue shape does not predict recovery, the gate may instead fit noise and hurt likelihood.",
+    "selected_card_ids": [
+      "C04",
+      "C02"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "eda03db76e56ce5bbb6825778da935fe46e9524b0c6335a3d1edce1a9fa25bb5"
+}

@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue, 64% of quoted events move the midprice, and 87% of parent rollouts exhaust. This makes queue turnover and replenishment a more direct target than long directional memory: the sign ACF sum (-0.308) is near the finite-window null, and the flow variance ratio (0.432) is below its null reference of about 0.5.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace the parent's undifferentiated 60-channel GRU with a 20-channel global GRU and a 20-slot queue memory transported by exact same-side tick matching. A shared depth-conditioned gate updates surviving queues; unmatched quotes start with no inherited memory, and empty slots carry none. Preregistered prediction: on at least six common valid days, dResponse <= -0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. With fewer common days, predict dExhaust <= -0.10 and dResponse <= +0.50 tick when available. The response gain should weaken when midprice shifts are less frequent because relative slots then stay aligned longer. The operator can hurt if queues at a matching tick are frequently replaced between observations, making tick identity a poor proxy for queue continuity.",
+    "selected_card_ids": [
+      "C05",
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "ef12a4cdfe05a37ef782d3980183a4b1acb8cb733a3be89d6d41d041ef27e7dc"
+}

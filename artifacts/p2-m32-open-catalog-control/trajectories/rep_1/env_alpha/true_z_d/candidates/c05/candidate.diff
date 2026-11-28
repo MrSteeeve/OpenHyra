@@ -1,0 +1,54 @@
+--- parent
+
++++ candidate
+
+@@ -9,6 +9,11 @@
+
+         self.encoder = input_projection(32)
+         self.gru = nn.GRUCell(32, 40)
+         self.fill = nn.Parameter(torch.zeros(2, 10))
++        self.write = nn.Linear(32, 1)
++        nn.init.zeros_(self.write.weight)
++        nn.init.ones_(self.write.bias)
++        self.depth_weight = nn.Parameter(torch.zeros(()))
++        self.rank_weight = nn.Parameter(torch.tensor(-3.0))
+         self.readout = nn.Linear(72, 60)
+ 
+     def _update(self, x, ticks, shares, state):
+@@ -20,6 +25,7 @@
+
+         if state is None:
+             local = fill.expand(x.size(0), -1, -1)
+             global_prior = x.new_zeros(x.size(0), 20)
++            matched = torch.zeros_like(live)
+         else:
+             hidden, old_prices = state
+             match = (
+@@ -29,12 +35,24 @@
+
+             )
+             weight = match.to(x.dtype)
+             count = weight.sum(-1)
++            matched = count > 0
+             old_local = hidden[:, :20].reshape(-1, 2, 10)
+             routed = (weight * old_local.unsqueeze(-2)).sum(-1)
+-            local = torch.where(count > 0, routed / count.clamp_min(1), fill)
++            local = torch.where(matched, routed / count.clamp_min(1), fill)
+             global_prior = hidden[:, 20:]
++
+         prior = torch.cat((local.flatten(1), global_prior), dim=-1)
+-        hidden = self.gru(x, prior)
++        proposal = self.gru(x, prior)
++        depth = shares.float().clamp(min=0, max=1e12).log1p()
++        relative = (depth - depth[..., :1]).tanh().to(x.dtype)
++        rank = torch.arange(10, device=x.device, dtype=torch.int64).to(x.dtype) / 9
++        gate = self.write(x).unsqueeze(-1)
++        gate = gate + self.depth_weight * relative + self.rank_weight * rank
++        rate = 0.05 + 0.90 * gate.sigmoid()
++        rate = torch.where(matched, rate, torch.ones_like(rate))
++        new_local = torch.lerp(local, proposal[:, :20].reshape(-1, 2, 10), rate)
++        new_local = torch.where(live, new_local, fill)
++        hidden = torch.cat((new_local.flatten(1), proposal[:, 20:]), dim=-1)
+         context = self.readout(torch.cat((hidden, x), dim=-1)).tanh()
+         return context, (hidden, prices)
+ 

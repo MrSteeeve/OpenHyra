@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Median trades consume one-third of the best queue, and median midprice shift rate is zero. Yet c04 exhausts 74.3% of rollouts and has a 17.27-tick counterfactual MAE on 9 valid days. c04 improved both response and viability over B0, while quote advection worsened response. This points toward testing how the model reads depletion across levels before adding quote-motion machinery. Sign persistence is substantial (ACF sum 2.12, variance ratio 1.72), but does not by itself identify the source of the response error.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep c04's slotwise recurrence but add a depth-gated, same-side readout from the next deeper slot. The gate increases as the current queue gets shallow, so an external order that reduces displayed depth changes how much the heads see of the reserve immediately behind it. The operator neither moves quotes nor changes recurrent state. It should help less when trades routinely sweep multiple levels, where one neighboring slot is too local, and could hurt if shallow queues are routinely refilled without exposing deeper liquidity. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction untested; apply the stated viability-recovery rule separately.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "higher",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "39c4851b2a390346a6c8702a5518057b51dda1277b8504f5b7fd2b46897dae72"
+}

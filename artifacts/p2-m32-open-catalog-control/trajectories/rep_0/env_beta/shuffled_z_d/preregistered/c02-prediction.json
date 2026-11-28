@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue (trade/depth = 1), and 63.9% of quoted events move the midpoint. Yet the sign ACF sum (-0.308) and flow variance ratio (0.432) are near or below their finite-window nulls, so the profile does not support adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order response MAE is 0.224 tick. The failed C01 trial worsened both response and likelihood, so this candidate changes the recurrent write rather than adding another depth-normalized feature.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the GRU proposal, then view its 60 features as a 6-by-10 matrix H and apply the causal write H + beta*(v - Hk)*k^T. A key, value, and write strength learned from the current observation let the model revise one direction after a queue shock without changing orthogonal directions in the proposal. This is a learned latent route, not explicit price-level alignment. The edit should help less when best queues are rarely cleared, and may hurt likelihood if useful revisions are broad rather than selective. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "4796324642214256a4557fbe8e657e50c86a8cad78bb91a8c6971de7bdb118ac"
+}

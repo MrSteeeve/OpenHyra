@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Z is withheld, so predictable flow is a hypothesis, not an observed regime statistic. The parent improved impact MAE by 5.136 ticks over B0, yet still has 1.91687 ticks of impact MAE on 12 valid days, a post-stop relaxation delta of 4.96933, and 50.7% rollout exhaustion. Sign ACF absolute error is 0.182505 despite a small lag-64 memory gap of 0.0063161. This motivates testing how the recurrence uses predictable continuation rather than simply adding longer memory. The residuals do not establish the sign of the response bias.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Subtract a gated, bounded, rank-8 forecast of the current encoded input from the input to the parent GRU. The forecast uses only the prior recurrent state, before the current observation enters the update. Keep the instantaneous queue readout unchanged so the heads still see observed liquidity. If predictable continuation is being counted as fresh pressure, this correction should improve the response to the fixed external order. It may hurt if predictable flow carries genuine persistent price information or the parent already discounts it. Pre-registered success: paired impact MAE decreases by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common valid days do not confirm the response hypothesis.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "sign_acf_sum_1_32"
+  },
+  "source_sha256": "1d7a80a2145982289a9354bd88de8dc6440d13275c0bc52b180efc5d62fb6b51"
+}

@@ -1,0 +1,52 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.drive = nn.Linear(4, 8, bias=False)
+        self.route = nn.Linear(41, 8)
+        nn.init.zeros_(self.route.weight)
+        nn.init.zeros_(self.route.bias)
+        self.gru = nn.GRUCell(40, 52)
+        self.register_buffer(
+            "retention",
+            torch.tensor([0.55, 0.68, 0.78, 0.86, 0.92, 0.95, 0.975, 0.988]),
+        )
+
+    def _inputs(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        event = obs.previous_event.to(dtype=x.dtype)
+        drive = self.drive(event.sign() * event.abs().log1p()).tanh()
+        own = obs.is_own.to(dtype=x.dtype).unsqueeze(-1)
+        logits = self.route(torch.cat((x, drive, own), dim=-1))
+        return x, drive, logits
+
+    def _update(self, x, drive, logits, state):
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        h, memory = state.split((52, 8), dim=-1)
+        base = 1 - self.retention.to(dtype=memory.dtype)
+        allocation = (base.log() + logits.tanh()).softmax(dim=-1)
+        write = 0.5 * (base + base.sum() * allocation)
+        memory = memory + write * (drive - memory)
+        h = self.gru(torch.cat((x, memory), dim=-1), h)
+        return torch.cat((h, memory), dim=-1)
+
+    def step_context(self, obs, state):
+        context = self._update(*self._inputs(obs), state)
+        return context, context
+
+    def sequence_context(self, obs):
+        x, drive, logits = self._inputs(obs)
+        if x.size(1) == 0:
+            return x.new_empty((x.size(0), 0, 60))
+        state = None
+        outputs = []
+        for t in range(x.size(1)):
+            state = self._update(x[:, t], drive[:, t], logits[:, t], state)
+            outputs.append(state)
+        return torch.stack(outputs, dim=1)

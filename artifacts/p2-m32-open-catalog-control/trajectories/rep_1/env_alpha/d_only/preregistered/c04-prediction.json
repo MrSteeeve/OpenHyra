@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The parent improved fixed-order response MAE by 0.8785 tick over B0, but its remaining MAE is 5.02882 ticks and 77.4% of rollout replicates exhaust. Its queue-local readout pairs current queues with recurrent slots without realigning those slots when quotes move. This makes stale queue associations a plausible contributor, not an established cause: the omitted regime statistics do not tell us how often quotes move.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before the GRU update, route each side's local memory by exact price match from the previous observed ladder to the current ladder. Unmatched prices get a learned bounded fill; global memory is carried unchanged into the update. This should preserve queue history when a fixed order moves the touch but deeper queues survive. It should offer little benefit with stationary ladders and may hurt if quote moves usually replace the whole ladder or relative rank is more informative than price identity. Pre-registered prediction: on at least six common valid days, paired response MAE will fall by at least 0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six days, the response prediction is unevaluable; viability-only promotion requires dExhaust <= -0.10 and any available surviving dResponse <= +0.50 tick.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "971c0338610fac7668962aa48bb858227ffce12141a86278b2cd819f8c3608e1"
+}

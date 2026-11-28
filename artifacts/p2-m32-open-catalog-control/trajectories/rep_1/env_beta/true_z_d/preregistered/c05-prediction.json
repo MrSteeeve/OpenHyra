@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Trade directions persist across lags: the lag-1–32 sign ACF sum is 2.12 and the flow variance ratio is 1.72, both above their finite-window nulls. Yet a median trade consumes only one-third of the best queue, the median session has no midprice shifts, and parent rollouts never exhaust. The parent misses sign-ACF structure (absolute error 0.140) while retaining quote availability. This suggests distinguishing expected continuation from surprise rather than adding a depletion mechanism. The modest response gains from c03 and c04 did not reach the promotion threshold.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Keep the parent's raw input and recurrent state, but add a gated event innovation to the GRU input: project the difference between a bounded embedding of the last observed event and a forecast from the previous hidden state. The forecast is computed without the current observation; it is a latent predictor trained through the four inherited heads, not a separately calibrated event forecast. The raw input remains available so predictable flow need not be discarded. Preregistered prediction on at least six common valid days: dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The benefit should weaken as flow persistence falls; if continuation is hard to predict or the parent already discounts it, the innovation branch may add noise or hurt likelihood.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "flow_vr_32_4"
+  },
+  "source_sha256": "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5"
+}

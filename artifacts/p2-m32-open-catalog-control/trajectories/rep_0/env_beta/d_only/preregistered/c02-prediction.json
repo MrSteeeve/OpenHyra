@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "Z is withheld, so the regime is not identified directly. The parent has full quote availability and no exhaustion, but fixed-order impact MAE is 0.223623 ticks across 12 valid days and the post-stop relaxation delta is 0.0798611. This motivates testing whether recovery dynamics are misrepresented, without assuming the sign of the relaxation error. The rejected C01 edit worsened both response and likelihood, so this trial does not add another depth-normalized flow feature.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace the shared GRU with a 44-channel gated baseline and a 16-channel contractive residual memory. The residual drive is the difference between a bounded projection of current causal features and a forecast from the pre-update baseline; it decays geometrically in event time when that difference vanishes. Independent additive readout lets this correction fade without forcing the baseline to reset. This should help if intervention-induced dislocations are temporary and replenishment makes observations predictable again. It may hurt if the dislocations are permanent or recovery is already well modeled. Pre-registered prediction: on at least six common valid days, paired dResponse <= -0.010 tick with dNLL <= +0.005 and dExhaust <= +0.05.",
+    "selected_card_ids": [
+      "C02"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "20553c9e477aebea2b4cd3dfd38ffcc0f9176226bcd688e7672437be0838f86a"
+}

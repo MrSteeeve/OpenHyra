@@ -26,10 +26,11 @@ def test_frozen_validation_files_match_original_tree_bytes() -> None:
 
 
 def test_frozen_synthetic_receipts_match_every_file() -> None:
-    folder = ROOT / "p2-m2-synthetic"
-    for line in (folder / "SHA256SUMS").read_text().splitlines():
-        digest, path = line.split(maxsplit=1)
-        assert sha256((folder / path.strip()).read_bytes()).hexdigest() == digest
+    for name in ("p2-m2-synthetic", "p2-m3-isomorphic-control", "p2-m31-calibrated-control", "p2-m32-open-catalog-control"):
+        folder = ROOT / name
+        for line in (folder / "SHA256SUMS").read_text().splitlines():
+            digest, path = line.split(maxsplit=1)
+            assert sha256((folder / path.strip()).read_bytes()).hexdigest() == digest
 
 
 def test_synthetic_roster_and_hypothesis_boundaries_are_retained() -> None:

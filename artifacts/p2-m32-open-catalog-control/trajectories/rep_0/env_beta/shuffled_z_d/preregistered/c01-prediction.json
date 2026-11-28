@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade clears the best queue (trade_to_top1_depth=1), and 64% of quoted events move the midprice. Sign persistence is near its finite-window null (-0.308 versus about -0.32), so slow directional memory is not the first lever. B0 retains quotes on all rollouts but has 0.223623 tick counterfactual impact MAE across 12 valid days. Bursty timing is a separate residual, not the target of this edit.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Add a side-specific queue-sweep operator before the parent GRU. At three hypothetical order sizes scaled by pooled top-of-book depth, a smooth threshold on cumulative queue volume routes price gaps according to whether each preceding queue would be cleared. This exposes nonlinear response differences between books with similar touch depth but different liquidity and gaps behind it, without observing the actual next order or fabricating quotes. The operator should help less when aggressive trades are smaller relative to the touch, and could hurt if rapid replenishment makes displayed depth a poor proxy for accessible liquidity. Pre-registered prediction: on at least six common valid days, candidate-minus-parent impact MAE will be <= -0.010 tick, with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common days does not confirm the response prediction.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "trade_to_top1_depth"
+  },
+  "source_sha256": "fec5b7c18151fd7b43f92993ffdc63bc65e7ff58750bc4a016bb409136ed807e"
+}

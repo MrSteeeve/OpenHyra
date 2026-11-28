@@ -1,0 +1,55 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.drive = nn.Linear(4, 8, bias=False)
+        self.gru = nn.GRUCell(40, 52)
+        self.queue_route = nn.Linear(20, 64, bias=False)
+        nn.init.normal_(self.queue_route.weight, std=0.01)
+        self.register_buffer(
+            "retention",
+            torch.tensor([0.55, 0.68, 0.78, 0.86, 0.92, 0.95, 0.975, 0.988]),
+        )
+
+    def _inputs(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        event = obs.previous_event.to(dtype=x.dtype)
+        drive = self.drive(event.sign() * event.abs().log1p()).tanh()
+
+        depth = obs.book_shares.to(torch.float32).clamp_min(0).log1p()
+        depth = depth.flatten(start_dim=-2)
+        depth = depth / (1.0 + depth.mean(dim=-1, keepdim=True))
+        route = self.queue_route(depth.to(dtype=x.dtype))
+        route = route.unflatten(-1, (8, 8)).tanh()
+        return x, drive, route
+
+    def _update(self, x, drive, route, state):
+        if state is None:
+            state = x.new_zeros((x.size(0), 60))
+        h, memory = state.split((52, 8), dim=-1)
+        r = self.retention.to(dtype=memory.dtype)
+        memory = r * memory + (1 - r) * drive
+
+        correction = (route * memory.unsqueeze(-2)).sum(dim=-1) / 16.0
+        readout = memory + correction
+        h = self.gru(torch.cat((x, readout), dim=-1), h)
+        return torch.cat((h, readout), dim=-1), torch.cat((h, memory), dim=-1)
+
+    def step_context(self, obs, state):
+        return self._update(*self._inputs(obs), state)
+
+    def sequence_context(self, obs):
+        x, drive, route = self._inputs(obs)
+        if x.size(1) == 0:
+            return x.new_empty((x.size(0), 0, 60))
+        state = None
+        outputs = []
+        for t in range(x.size(1)):
+            context, state = self._update(x[:, t], drive[:, t], route[:, t], state)
+            outputs.append(context)
+        return torch.stack(outputs, dim=1)

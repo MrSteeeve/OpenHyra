@@ -1,0 +1,412 @@
+{
+  "api_calls": 0,
+  "claims": [
+    {
+      "claim_id": "rep_0-env_beta-true_z_d-c03",
+      "data_regime_diagnosis": "Directional flow persists across lags: the median sign ACF sum is 2.12 and the 32/4 flow variance ratio is 1.72, both above their finite-window nulls. B0 still has a sign ACF absolute error of 0.140, although that unsigned error does not establish that B0 underestimates persistence. Median trades consume only one third of touch depth, the median midprice shift rate is zero, and B0 exhausts no replicates. This favors testing directional history rather than adding quote-repair machinery.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/true_z_d/c03"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace eight of B0's 60 GRU state coordinates with stable affine traces of the observed previous event, using distinct event-time retention scales. Feed the updated traces both into the remaining GRU and directly into the four inherited heads. This gives the model a way to distinguish an injected order from ordinary directional continuation without assuming that either moves the midprice. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05. The response gain should shrink toward zero or reverse in lower-flow-VR sessions, where long traces can carry stale direction.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C03"
+      ],
+      "source_sha256": "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "flow_vr_32_4"
+    },
+    {
+      "claim_id": "rep_1-env_beta-d_only-c04",
+      "data_regime_diagnosis": "Z is withheld, so persistence and overreaction are hypotheses, not observed regime properties. B0 has impact MAE of 0.223623 ticks despite full quote availability and no exhaustion. The multiscale-memory trial improved NLL by 0.03966 but worsened impact MAE by 0.01816, so better observational fit from added persistence did not translate into better intervention response.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/d_only/c04"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Add a gated innovation channel to the parent GRU input: project the observed previous event, subtract its state-based prediction, and map the difference back into the encoder space. The prediction uses the recurrent state before the current update. Keeping the original encoder path lets the model retain useful continuation signals for likelihood while learning to distinguish expected flow from surprises. The branch may add noise when flow is unpredictable or duplicate a filter the GRU already learned. Preregistered prediction: paired impact MAE falls by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C08"
+      ],
+      "source_sha256": "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "sign_acf_sum_1_32"
+    },
+    {
+      "claim_id": "rep_1-env_beta-true_z_d-c05",
+      "data_regime_diagnosis": "Trade directions persist across lags: the lag-1–32 sign ACF sum is 2.12 and the flow variance ratio is 1.72, both above their finite-window nulls. Yet a median trade consumes only one-third of the best queue, the median session has no midprice shifts, and parent rollouts never exhaust. The parent misses sign-ACF structure (absolute error 0.140) while retaining quote availability. This suggests distinguishing expected continuation from surprise rather than adding a depletion mechanism. The modest response gains from c03 and c04 did not reach the promotion threshold.",
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/true_z_d/c05"
+      ],
+      "pair_name": "memory",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the parent's raw input and recurrent state, but add a gated event innovation to the GRU input: project the difference between a bounded embedding of the last observed event and a forecast from the previous hidden state. The forecast is computed without the current observation; it is a latent predictor trained through the four inherited heads, not a separately calibrated event forecast. The raw input remains available so predictable flow need not be discarded. Preregistered prediction on at least six common valid days: dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. The benefit should weaken as flow persistence falls; if continuation is hard to predict or the parent already discounts it, the innovation branch may add noise or hurt likelihood.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C08"
+      ],
+      "source_sha256": "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "flow_vr_32_4"
+    },
+    {
+      "claim_id": "rep_0-env_alpha-d_only-c03",
+      "data_regime_diagnosis": "Z is withheld, so frequent depletion is a hypothesis, not an observed regime statistic. The parent exhausts 87.15% of replicates, provides quotes only 71.83% of the time, and yields valid response measurements on just 6 of 12 days. Quote survival is therefore a bottleneck for evaluating fixed-order response. C02 improved likelihood but barely reduced exhaustion and yielded no response delta; better likelihood alone did not resolve that bottleneck.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/d_only/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Add a side- and level-specific queue-reactive correction to the GRU readout. Gates that grow as local depth falls route current book features directly to the heads, so thin queues need not be reconstructed from recurrent memory. This should help if the parent misses depletion and repair transitions, but may fit noise if queues rarely become thin or exhaustion is driven by errors unrelated to local depth. Pre-registered prediction: paired dExhaust <= -0.10 with dNLL <= +0.005. With fewer than six common valid response days, require any surviving dResponse to be <= +0.50 tick; with at least six, apply the stated response promotion rule.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C04"
+      ],
+      "source_sha256": "cc41b2b62892bd1a4ae5be747b3b070204573613330b5b9027e5d99cbd0934bc",
+      "target_metric": "exhausted_replicate_rate",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_0-env_alpha-shuffled_z_d-c05",
+      "data_regime_diagnosis": "Trade signs persist across lags (ACF sum 2.115; variance ratio 1.724), while a typical trade consumes only one-third of best depth and the median session has no midprice moves. The parent still exhausts 55.6% of rollouts and has a 2.285-tick intervention MAE. Its direct queue readout can respond to scarcity now, but that readout is not carried into the next recurrent state. This suggests testing a targeted recurrent queue correction rather than adding slow flow memory or quote-coordinate transport.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/shuffled_z_d/c05"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the parent's instantaneous queue readout and apply a queue-keyed rank-one delta update to its GRU output before carrying it forward. The update moves one projection of the state toward a bounded target encoded from the current causal observation and leaves orthogonal projections unchanged relative to the GRU output. This tests whether local depletion can correct recurrent state without overwriting persistent directional information. Expect less benefit at lower trade-to-top-depth ratios, where trades disturb queues less; the update may hurt if scarcity mostly reflects stable depth differences rather than queues needing repair. Pre-registered prediction: on at least six common valid days, paired dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six days leave the response prediction untested.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10",
+        "C04"
+      ],
+      "source_sha256": "b18226395513615378a23f13011c7f665b3aa46cad9c5aa2925ef36b643109fb",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_0-env_alpha-true_z_d-c06",
+      "data_regime_diagnosis": "The median trade clears the touch, and 64% of quoted events move the midprice. Yet sign persistence is weak relative to the finite-window references (ACF sum -0.308 versus about -0.32; variance ratio 0.432 versus about 0.5). The parent exhausts 84.7% of replicates and has valid impact estimates on only 8/12 days. Despite its c05 label, the supplied code erases a direction in a global latent vector; it does not transport memory between price levels.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_0/env_alpha/true_z_d/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace the global rank-one erase with a same-side tick-equality transport operator on recurrent memory. A surviving price inherits its previous latent pair regardless of its depth rank; an unmatched price receives a bounded learned prior. This should help the model distinguish surviving queues from newly visible ones after the fixed order clears the touch. It should help less when quotes rarely move, and can hurt when equal tick values do not identify the same price across observations or when queues turn over at unchanged prices. Preregistered: on at least six common valid days, expect dResponse <= -0.010 tick with dNLL <= +0.005 and dExhaust <= +0.05. With fewer than six, response is not confirmed; test the viability fallback of dExhaust <= -0.10 and surviving dResponse <= +0.50 tick when available.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05"
+      ],
+      "source_sha256": "203e97d2f8f01c4de558009d9dbc1fac6b15b0daffc82c52dadcb8b2b6ac2a36",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    },
+    {
+      "claim_id": "rep_0-env_beta-d_only-c06",
+      "data_regime_diagnosis": "Profile Z is withheld, so replenishment frequency and flow persistence are unverified. The parent has full quote availability, zero exhausted replicates, and 12 valid response days, but fixed-order impact MAE is 0.230673 tick with a post-stop relaxation delta of 0.0373264. The multiscale trial improved impact MAE by 0.01644 tick but worsened NLL by 0.07475 and the lag-64 memory gap by 0.01593. That motivates changing how the existing transient state clears rather than adding longer memory.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/d_only/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the baseline GRU and innovation write unchanged. After ordinary transient decay, use the current causal encoding to select a direction and erase only the carried residual projected onto that direction, before writing the new innovation. This lets a book update clear stale impact without resetting unrelated transient signals. The edit should help if depletion and repair selectively invalidate those signals; it should be ineffective when orders are small relative to touch depth, and can hurt when the selected direction contains persistent price discovery. Pre-registered prediction: paired impact MAE drops by at least 0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10",
+        "C02"
+      ],
+      "source_sha256": "73e19975de6f65f35e511c5c3c56d4f2bce3bae7ed885288191fd3ebb1f5b7cd",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_0-env_beta-shuffled_z_d-c02",
+      "data_regime_diagnosis": "The median aggressive trade clears the best queue (trade/depth = 1), and 63.9% of quoted events move the midpoint. Yet the sign ACF sum (-0.308) and flow variance ratio (0.432) are near or below their finite-window nulls, so the profile does not support adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order response MAE is 0.224 tick. The failed C01 trial worsened both response and likelihood, so this candidate changes the recurrent write rather than adding another depth-normalized feature.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_0/env_beta/shuffled_z_d/c02"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep the GRU proposal, then view its 60 features as a 6-by-10 matrix H and apply the causal write H + beta*(v - Hk)*k^T. A key, value, and write strength learned from the current observation let the model revise one direction after a queue shock without changing orthogonal directions in the proposal. This is a learned latent route, not explicit price-level alignment. The edit should help less when best queues are rarely cleared, and may hurt likelihood if useful revisions are broad rather than selective. Before evaluation, predict paired dResponse <= -0.010 tick on at least six common valid days, with dNLL <= +0.005 and dExhaust <= +0.05.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10"
+      ],
+      "source_sha256": "4796324642214256a4557fbe8e657e50c86a8cad78bb91a8c6971de7bdb118ac",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_1-env_alpha-d_only-c06",
+      "data_regime_diagnosis": "Regime statistics are withheld, so frequent queue invalidation is a hypothesis, not an observed property. The parent has 5.02882 ticks of counterfactual impact MAE, a 7.35385 post-stop relaxation delta, and 77.43% rollout exhaustion. The c04 trial improved NLL by 0.1319 but worsened impact MAE by 30.25 ticks, so better event fit is not a reliable proxy for intervention response. The parent uses queue scarcity only in the readout; it never directly uses scarcity to revise the carried state.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "d_only"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/d_only/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Before the parent GRU update, remove a bounded fraction of the prior state's projection onto a key formed from current queue scarcity and side-local depth contrast. This rank-one erase leaves orthogonal components unchanged at the erase stage. The hypothesis is that thin, uneven books identify a stale liquidity direction that otherwise carries through an external order. If queues rarely become thin or scarcity instead marks persistent pressure, the erase should help less or hurt. Pre-registered prediction: on at least six common valid days, paired counterfactual impact MAE will fall by at least 0.010 tick with dNLL <= +0.005 and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction unconfirmed.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C10"
+      ],
+      "source_sha256": "3187201943a7cb169451e0174835e458e494d68fd19c03c900ca128d34982047",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_1-env_alpha-shuffled_z_d-c06",
+      "data_regime_diagnosis": "Median trades consume one-third of the best queue, and median midprice shift rate is zero. Yet c04 exhausts 74.3% of rollouts and has a 17.27-tick counterfactual MAE on 9 valid days. c04 improved both response and viability over B0, while quote advection worsened response. This points toward testing how the model reads depletion across levels before adding quote-motion machinery. Sign persistence is substantial (ACF sum 2.12, variance ratio 1.72), but does not by itself identify the source of the response error.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/shuffled_z_d/c06"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Keep c04's slotwise recurrence but add a depth-gated, same-side readout from the next deeper slot. The gate increases as the current queue gets shallow, so an external order that reduces displayed depth changes how much the heads see of the reserve immediately behind it. The operator neither moves quotes nor changes recurrent state. It should help less when trades routinely sweep multiple levels, where one neighboring slot is too local, and could hurt if shallow queues are routinely refilled without exposing deeper liquidity. Pre-registered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Fewer than six common valid days leave the response prediction untested; apply the stated viability-recovery rule separately.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C04"
+      ],
+      "source_sha256": "39c4851b2a390346a6c8702a5518057b51dda1277b8504f5b7fd2b46897dae72",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "higher",
+      "weaker_when_z_metric": "trade_to_top1_depth"
+    },
+    {
+      "claim_id": "rep_1-env_alpha-true_z_d-c03",
+      "data_regime_diagnosis": "The median aggressive trade clears the best queue, and 63.9% of quoted events move the midprice. That makes relative level a poor identifier for a resting queue across events. The parent exhausts 87.2% of rollout replicates and has response measurements on only 6 of 12 days. These residuals are consistent with misregistered depletion and replenishment history, though they do not establish it. Trade-sign persistence is weak relative to the finite-window references, so longer directional memory is not the first intervention.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "true_z_d"
+      ],
+      "origin_envs": [
+        "env_alpha"
+      ],
+      "origins": [
+        "rep_1/env_alpha/true_z_d/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "viability_recovery"
+      ],
+      "regime_hypothesis": "Before the GRU update, route 20 queue-local hidden scalars by exact same-side tick match rather than by relative level. Use a bounded learned fill for newly occupied prices and leave 20 global recurrent channels unshifted. This should preserve history for surviving queues without assigning the depleted touch's history to its replacement. The gain should weaken when quotes rarely move and could reverse when queues turn over so completely that matching rarely preserves useful history. Pre-registered prediction: paired exhaustion falls by at least 0.10, with dNLL <= +0.005. If at least six common valid response days remain, predict dResponse <= -0.010 tick; otherwise predict that any available surviving response estimate is <= +0.50 tick.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05",
+        "C04"
+      ],
+      "source_sha256": "ee83f3ff22cb6b4741b7ec8ac64ca85252a30686e545ad743fd13f49f13de160",
+      "target_metric": "exhausted_replicate_rate",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    },
+    {
+      "claim_id": "rep_1-env_beta-shuffled_z_d-c03",
+      "data_regime_diagnosis": "The median trade clears the best queue, and 63.9% of quoted events move the midprice. Relative level is therefore an unreliable identifier for a resting queue. The sign ACF sum (-0.308) is close to its finite-window null (about -0.32), and the flow variance ratio (0.432) is below its approximate null (0.5), so there is little evidence for adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order impact MAE is 0.223623 tick. Both prior edits worsened impact and likelihood.",
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ],
+      "expected_direction": "decrease",
+      "origin_arms": [
+        "shuffled_z_d"
+      ],
+      "origin_envs": [
+        "env_beta"
+      ],
+      "origins": [
+        "rep_1/env_beta/shuffled_z_d/c03"
+      ],
+      "pair_name": "thinness",
+      "promotion_reasons": [
+        "objective_improvement"
+      ],
+      "regime_hypothesis": "Replace rank-to-rank comparison with same-side exact-price alignment across all ten levels. Feed the GRU matched log-depth changes and a separate match mask, so a surviving queue that moves to a new rank is not mistaken for a depth shock, and an entering price is not mistaken for a matched queue with zero change. This may improve the response to best-queue depletion without changing quote legality. The benefit should weaken when quotes rarely move, and the smaller recurrent core could hurt likelihood when price overlap is scarce. Preregistered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Failure of any bound, or insufficient common coverage, does not confirm the prediction.",
+      "role": "final_winner",
+      "selected_card_ids": [
+        "C05"
+      ],
+      "source_sha256": "bf9254320a74dbe711b6694838da0412e447740db7fc2be8adafc1a5dfacf884",
+      "target_metric": "counterfactual_impact_mae",
+      "weaker_when_z_direction": "lower",
+      "weaker_when_z_metric": "midprice_shift_rate"
+    }
+  ],
+  "pairs": {
+    "memory": {
+      "candidate_digests": [
+        "55166e65000540abc3abf94da67dc659601e2331ee7fc3ba5c72dfb0df4095f5",
+        "ae810bc1c28681576a114629f72e73dce45e1517be7091686164f8a482cd4b88",
+        "bdcbea930706d7ffb0a3f95dc466f1052e2c15dc6fc53bcb959c41c9392cde3c"
+      ],
+      "environments": [
+        "w1_thick_short",
+        "w2_thick_long"
+      ]
+    },
+    "thinness": {
+      "candidate_digests": [
+        "203e97d2f8f01c4de558009d9dbc1fac6b15b0daffc82c52dadcb8b2b6ac2a36",
+        "3187201943a7cb169451e0174835e458e494d68fd19c03c900ca128d34982047",
+        "39c4851b2a390346a6c8702a5518057b51dda1277b8504f5b7fd2b46897dae72",
+        "4796324642214256a4557fbe8e657e50c86a8cad78bb91a8c6971de7bdb118ac",
+        "73e19975de6f65f35e511c5c3c56d4f2bce3bae7ed885288191fd3ebb1f5b7cd",
+        "b18226395513615378a23f13011c7f665b3aa46cad9c5aa2925ef36b643109fb",
+        "bf9254320a74dbe711b6694838da0412e447740db7fc2be8adafc1a5dfacf884",
+        "cc41b2b62892bd1a4ae5be747b3b070204573613330b5b9027e5d99cbd0934bc",
+        "ee83f3ff22cb6b4741b7ec8ac64ca85252a30686e545ad743fd13f49f13de160"
+      ],
+      "environments": [
+        "w1_thick_short",
+        "w3_thin_short"
+      ]
+    }
+  },
+  "reference_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+  "schema": "loop2-single-factor-transplant-v1"
+}

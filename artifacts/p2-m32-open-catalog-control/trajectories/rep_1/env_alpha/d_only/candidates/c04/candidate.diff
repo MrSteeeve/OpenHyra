@@ -1,0 +1,73 @@
+--- parent
+
++++ candidate
+
+@@ -7,28 +7,46 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
+-        self.local = nn.Linear(6, 3)
+-        self.readout = nn.Linear(60, 60, bias=False)
++        self.gru = nn.GRU(32, 40, batch_first=True)
++        self.fill = nn.Parameter(torch.zeros(2, 2))
++        self.local = nn.Linear(5, 2)
++        self.readout = nn.Linear(40, 60, bias=False)
++        self.project = nn.Linear(40, 60)
+ 
+-    def _context(self, obs, h):
+-        q = obs.book_shares.to(h.dtype).clamp_min(0)
+-        depth = q.log1p()
+-        scarcity = (1.0 + depth).reciprocal()
+-        relative = (depth - depth.mean(dim=-1, keepdim=True)).tanh()
+-        slots = h.reshape(*h.shape[:-1], 2, 10, 3)
+-        queues = torch.stack((depth / (1.0 + depth), scarcity, relative), dim=-1)
+-        local = self.local(torch.cat((queues, slots), dim=-1)).tanh()
+-        repair = (scarcity.unsqueeze(-1) * local).flatten(-3)
+-        return h + 0.25 * self.readout(repair).tanh()
++    def _step(self, x, ticks, shares, state):
++        ticks = ticks.to(torch.int64)
++        b = x.size(0)
++        if state is None:
++            prior = x.new_zeros(b, 40)
++        else:
++            old, prices = state
++            match = ticks.unsqueeze(-1) == prices.unsqueeze(-2)
++            weights = match.to(old.dtype)
++            count = weights.sum(-1, keepdim=True)
++            routed = (weights / count.clamp_min(1)) @ old.reshape(b, 2, 10, 2)
++            fill = self.fill.tanh().to(old.dtype)[None, :, None, :]
++            prior = torch.where(count > 0, routed, fill).flatten(1)
++        _, hidden = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
++        h = hidden[0]
++        depth = shares.to(h.dtype).clamp_min(0).log1p()
++        scarcity = (1 + depth).reciprocal()
++        relative = (depth - depth.mean(-1, keepdim=True)).tanh()
++        queues = torch.stack((1 - scarcity, scarcity, relative), -1)
++        local = self.local(torch.cat((queues, h.reshape(b, 2, 10, 2)), -1))
++        repair = (scarcity.unsqueeze(-1) * local.tanh()).flatten(1)
++        return self.project(h) + 0.25 * self.readout(repair).tanh(), (h, ticks)
++
++    def step_context(self, obs, state):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        return self._step(x, obs.book_ticks, obs.book_shares, state)
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        h, _ = self.gru(x)
+-        return self._context(obs, h)
+-
+-    def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return self._context(obs, h[0]), h[0]
++        state = None
++        outputs = []
++        for t in range(x.size(1)):
++            context, state = self._step(
++                x[:, t], obs.book_ticks[:, t], obs.book_shares[:, t], state
++            )
++            outputs.append(context)
++        return torch.stack(outputs, 1) if outputs else x.new_empty(x.size(0), 0, 60)

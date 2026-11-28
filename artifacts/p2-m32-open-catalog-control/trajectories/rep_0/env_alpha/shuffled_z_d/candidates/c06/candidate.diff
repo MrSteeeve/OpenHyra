@@ -1,0 +1,60 @@
+--- parent
+
++++ candidate
+
+@@ -14,6 +14,8 @@
+
+         nn.init.zeros_(self.queue_readout.weight)
+         self.key = nn.Linear(20, 5)
+         self.value = nn.Linear(32, 10)
++        self.forecast = nn.Linear(60, 10, bias=False)
++        nn.init.zeros_(self.forecast.weight)
+         self.delta_gate = nn.Linear(32, 1)
+         nn.init.zeros_(self.delta_gate.weight)
+         nn.init.constant_(self.delta_gate.bias, -2.0)
+@@ -21,6 +23,7 @@
+
+     def _advance(self, x, scarcity, prior):
+         if prior is None:
+             prior = x.new_zeros((x.size(0), 60))
++        prediction = self.forecast(prior).tanh()
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         matrix = h[0].reshape(x.size(0), 6, 10)
+         raw_key = self.key(scarcity.flatten(start_dim=-2))
+@@ -29,10 +32,9 @@
+
+             dim=-1,
+         ).unsqueeze(-1)
+         projected = (matrix * key).sum(dim=1)
+-        target = self.value(x).tanh()
++        innovation = self.value(x).tanh() - prediction
+         beta = 0.95 * self.delta_gate(x).sigmoid()
+-        corrected = matrix + key * (beta * (target - projected)).unsqueeze(1)
+-        return corrected.flatten(start_dim=1)
++        return (matrix + key * (beta * (innovation - projected)).unsqueeze(1)).flatten(1)
+ 
+     def _readout(self, scarcity, h):
+         touch = scarcity[..., :1].expand_as(scarcity)
+@@ -40,15 +42,18 @@
+
+         repair = scarcity.unsqueeze(-1) * self.queue_encoder(local).tanh()
+         return h + self.queue_readout(repair.flatten(start_dim=-3))
+ 
+-    def step_context(self, obs, state):
++    def _inputs(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         scarcity = (1 + obs.book_shares.to(x.dtype).clamp_min(0)).reciprocal()
++        return x, scarcity
++
++    def step_context(self, obs, state):
++        x, scarcity = self._inputs(obs)
+         state = self._advance(x, scarcity, state)
+         return self._readout(scarcity, state), state
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        scarcity = (1 + obs.book_shares.to(x.dtype).clamp_min(0)).reciprocal()
++        x, scarcity = self._inputs(obs)
+         if x.size(1) == 0:
+             return x.new_empty((x.size(0), 0, 60))
+         state = None

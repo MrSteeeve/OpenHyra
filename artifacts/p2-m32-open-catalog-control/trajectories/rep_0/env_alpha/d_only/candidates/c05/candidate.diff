@@ -1,0 +1,22 @@
+--- parent
+
++++ candidate
+
+@@ -14,14 +14,14 @@
+
+     def _readout(self, obs, h):
+         q = obs.book_shares.to(h.dtype).clamp_min(0).log1p()
+         thin = (self.thin_bias - q).sigmoid()
+-
+         ticks = obs.book_ticks.to(torch.int64)
+         offset = (ticks - ticks[..., :1]).to(h.dtype)
+         local = torch.cat(
+             (thin.flatten(-2), (thin * (offset / 10).tanh()).flatten(-2)),
+             dim=-1,
+         )
+-        return h + self.queue_readout(local).tanh()
++        liquidity = self.queue_readout(local).tanh()
++        return (1.0 + 0.5 * liquidity) * h + liquidity
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()

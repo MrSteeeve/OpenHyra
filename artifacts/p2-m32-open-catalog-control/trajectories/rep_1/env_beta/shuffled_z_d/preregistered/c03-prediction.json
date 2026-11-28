@@ -1,0 +1,15 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median trade clears the best queue, and 63.9% of quoted events move the midprice. Relative level is therefore an unreliable identifier for a resting queue. The sign ACF sum (-0.308) is close to its finite-window null (about -0.32), and the flow variance ratio (0.432) is below its approximate null (0.5), so there is little evidence for adding slow directional memory. The parent already has zero exhaustion and full quote availability, but fixed-order impact MAE is 0.223623 tick. Both prior edits worsened impact and likelihood.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Replace rank-to-rank comparison with same-side exact-price alignment across all ten levels. Feed the GRU matched log-depth changes and a separate match mask, so a surviving queue that moves to a new rank is not mistaken for a depth shock, and an entering price is not mistaken for a matched queue with zero change. This may improve the response to best-queue depletion without changing quote legality. The benefit should weaken when quotes rarely move, and the smaller recurrent core could hurt likelihood when price overlap is scarce. Preregistered prediction: on at least six common valid days, dResponse <= -0.010 tick, dNLL <= +0.005, and dExhaust <= +0.05. Failure of any bound, or insufficient common coverage, does not confirm the prediction.",
+    "selected_card_ids": [
+      "C05"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "bf9254320a74dbe711b6694838da0412e447740db7fc2be8adafc1a5dfacf884"
+}

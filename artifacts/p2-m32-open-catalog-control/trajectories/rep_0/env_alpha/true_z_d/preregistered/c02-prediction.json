@@ -1,0 +1,16 @@
+{
+  "prediction": {
+    "data_regime_diagnosis": "The median aggressive trade consumes the entire best queue, and 63.9% of quoted events move the midpoint. A queue that survives a quote move can change rank without changing price. The parent's 87.2% rollout exhaustion and 6/12 valid response days make queue survival a priority. Sign autocorrelation is close to its finite-window null, so there is less evidence for adding long directional memory. The rejected C01 trial barely improved exhaustion and worsened NLL by 0.05141.",
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Before each recurrent update, transport smoothed log depth by exact same-side tick equality rather than rank or an assumed contiguous tick grid. Feed current minus transported log depth to the recurrent update and context readout; initialize unmatched slots from current depth so entering quotes do not generate artificial depletion signals. This should help distinguish actual depletion and replenishment from rank changes after an external order. It should help less when quotes rarely move, and may hurt when price-level overlap is scarce or the same price is rapidly canceled and reposted, making tick continuity a poor proxy for queue continuity. Pre-registered prediction: exhaustion falls by at least 0.10 and dNLL is at most +0.005. With at least six common valid response days, predict dResponse <= -0.010 tick; otherwise predict dResponse <= +0.50 tick when a surviving estimate exists, and treat missing response as unavailable, not zero.",
+    "selected_card_ids": [
+      "C05",
+      "C04"
+    ],
+    "target_metric": "exhausted_replicate_rate",
+    "unfold_ids": [],
+    "weaker_when_z_direction": "lower",
+    "weaker_when_z_metric": "midprice_shift_rate"
+  },
+  "source_sha256": "0ebe91a4bf2d29167ec5d1dee68666d9245276a5d7bb979418fb3cf0b42a9998"
+}

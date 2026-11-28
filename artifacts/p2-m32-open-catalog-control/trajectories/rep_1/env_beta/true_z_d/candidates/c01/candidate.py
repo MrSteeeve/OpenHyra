@@ -1,0 +1,51 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.event_embed = nn.Linear(4, 4, bias=False)
+        self.forecast = nn.Linear(12, 4, bias=False)
+        nn.init.zeros_(self.forecast.weight)
+        self.innovation_gate = nn.Parameter(torch.full((4,), -2.0))
+        self.gru = nn.GRU(36, 48, batch_first=True)
+        self.register_buffer("retention", torch.tensor([0.65, 0.90, 0.98]))
+
+    def _advance(self, x, event, state):
+        if state is None:
+            state = x.new_zeros(x.size(0), 60)
+        h, flat = state.split((48, 12), dim=-1)
+        old = flat.reshape(x.size(0), 3, 4)
+        prediction = self.forecast(flat).tanh()
+        innovation = self.innovation_gate.sigmoid() * (event - prediction)
+        r = self.retention.to(dtype=x.dtype)[None, :, None]
+        traces = r * old + (1 - r) * event[:, None, :]
+        _, h_next = self.gru(
+            torch.cat((x, innovation), dim=-1).unsqueeze(1),
+            h.unsqueeze(0).contiguous(),
+        )
+        return torch.cat((h_next[0], traces.flatten(1)), dim=-1)
+
+    def _event(self, obs, x):
+        e = obs.previous_event.to(dtype=x.dtype)
+        return self.event_embed(e.sign() * e.abs().log1p()).tanh()
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        state = self._advance(x, self._event(obs, x), state)
+        return state, state
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        events = self._event(obs, x)
+        state = None
+        contexts = []
+        for t in range(x.size(1)):
+            state = self._advance(x[:, t], events[:, t], state)
+            contexts.append(state)
+        if not contexts:
+            return x.new_empty(x.size(0), 0, 60)
+        return torch.stack(contexts, dim=1)
