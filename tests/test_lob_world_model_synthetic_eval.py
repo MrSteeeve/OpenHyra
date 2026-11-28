@@ -122,3 +122,55 @@ def test_insufficient_support_preserved_as_unavailable() -> None:
     pair = paired_summary({"split": "dev", "daily": rows}, {"split": "dev", "daily": _panel()})
     assert pair["counterfactual_impact_mae"]["interval"] is None
     assert pair["c2_bootstrap_pass_rate"]["estimate"] is None
+
+
+def test_transplant_contrast_refits_frozen_operator_in_both_worlds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """tau_X(beta) - tau_X(alpha) on shared holdout day indices, holdout opened only after the freeze."""
+    effects = {"reference": {"env_alpha": 0., "env_beta": 0.}, "x": {"env_alpha": -1., "env_beta": -3.}}
+    calls = []
+
+    def dev(root: Path, env_id: str) -> dict:
+        root.mkdir(exist_ok=True, parents=True)
+        bridge.atomic_write_json(root / "development.json", {})
+        return {"z": {}}
+
+    def holdout(root: Path, env_id: str, *, freeze_sha256: str) -> dict:
+        (root / "holdout_test.pkl").write_bytes(b"future")
+        bridge.atomic_write_json(root / "holdout.json", {"freeze_sha256": freeze_sha256})
+        return {"freeze_sha256": freeze_sha256}
+
+    def run(work: Path, mode: str, source: str, files: dict[str, Path], timeout_s: float) -> Path:
+        env = files.get("panel.pkl", files.get("train.pkl")).parent.parent.name
+        calls.append((mode, env, source))
+        if source == "bad" and env == "env_beta":
+            raise bridge._CandidateFailure("candidate tensor failure")
+        output = work / "output"
+        output.mkdir(parents=True)
+        if mode == "fit":
+            for seed in bridge.SEEDS:
+                (output / f"{seed}.pt").write_text(f"{source}-{seed}")
+            bridge.atomic_write_json(output / "fit.json", {"params": 17, "state": 6, "fits": []})
+        else:
+            daily = _panel(effects.get(source, effects["reference"])[env])
+            bridge.atomic_write_json(output / "result.json", {"params": 17, "state": 6, "aggregate": {}, "daily": daily})
+        return output
+
+    monkeypatch.setattr(bridge, "prepare_development", dev)
+    monkeypatch.setattr(bridge, "materialize_holdout", holdout)
+    monkeypatch.setattr(bridge, "_run", run)
+    monkeypatch.setattr(bridge, "CandidateGate", lambda max_state_dim: (lambda source: None))
+    result = bridge.transplant_contrast(tmp_path, {"x": "x", "bad": "bad"}, "reference")
+    x = result["candidates"]["x"]
+    assert result["environments"] == ["env_alpha", "env_beta"] and x["status"] == "VALID"
+    assert x["tau"]["env_alpha"]["dt_nll"]["estimate"] == -1 and x["tau"]["env_beta"]["dt_nll"]["estimate"] == -3
+    assert x["tau_difference"]["counterfactual_impact_mae"]["estimate"] == -2
+    assert x["tau_difference"]["counterfactual_impact_mae"]["interval"] == [-2., -2.]
+    assert x["tau_difference"]["dt_nll"]["paired_days"] == 12 and "c2_bootstrap_pass_rate" not in x["tau_difference"]
+    assert result["candidates"]["bad"]["status"] == "UNAVAILABLE"
+    assert result["candidates"]["bad"]["dev_status"] == {"env_alpha": "VALID", "env_beta": "EVALUATION_FAILED"}
+    measured = [(env, source) for mode, env, source in calls if mode == "measure"]
+    assert measured.count(("env_alpha", "bad")) == 1  # dev only; not approved for holdout
+    # Resuming reuses the sealed freeze and cached fits without new worker runs.
+    count = len(calls)
+    assert bridge.transplant_contrast(tmp_path, {"x": "x", "bad": "bad"}, "reference") == result
+    assert len(calls) == count

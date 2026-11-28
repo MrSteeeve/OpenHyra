@@ -10,7 +10,7 @@ import sys
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from experiments.synthetic_tau_z.design import SEEDS
+from experiments.synthetic_tau_z.design import SEEDS, summarize_days
 from stochopia.common import atomic_write_json
 from worker_subprocess import run_worker_subprocess
 
@@ -167,3 +167,76 @@ class SyntheticEvaluator:
                 raise ValueError("holdout approved candidates were changed after the freeze")
             atomic_write_json(self.authorization, authorization)
             return materialize_holdout(self.data, self.env_id, freeze_sha256=freeze_sha256)
+
+
+def transplant_contrast(root: Path, candidates: dict[str, str], reference: str, *,
+                        timeout_s: float = 420.0) -> Json:
+    """Second loop, zero API: refit frozen operators unchanged in both worlds.
+
+    tau_X(z) is candidate minus reference on world z's independent holdout,
+    each fitted on that world's own training days. The paired worlds share
+    registered day indices, so tau_X(z_high) - tau_X(z_low) is resampled over
+    common day indices with the registered draws. Use a fresh work root.
+    """
+    low, high = ENV_IDS
+    evaluators = {env: SyntheticEvaluator(root, env, timeout_s=timeout_s) for env in ENV_IDS}
+    digests = {name: sha256(source.encode("utf-8")).hexdigest() for name, source in candidates.items()}
+    ref = sha256(reference.encode("utf-8")).hexdigest()
+    sources = {ref: reference, **{digests[name]: source for name, source in candidates.items()}}
+    freeze = root.resolve() / "transplant-freeze.json"
+    if not freeze.exists():
+        dev = {env: {digest: evaluator.evaluate(source)["status"] for digest, source in sources.items()}
+               for env, evaluator in evaluators.items()}
+        valid = sorted(d for d in dev[low] if dev[low][d] == dev[high][d] == "VALID")
+        if ref not in valid:
+            raise ValueError("reference model is not valid in both worlds")
+        atomic_write_json(freeze, {"approved": {env: valid for env in ENV_IDS}, "dev_status": dev})
+    sealed = _json(freeze)
+    holdout = {}
+    for env, evaluator in evaluators.items():
+        evaluator.open_holdout(freeze)
+        holdout[env] = {digest: evaluator.evaluate(sources[digest], split="holdout_test")
+                        for digest in sealed["approved"][env]}
+    dates = {env: [row["trading_date"] for row in holdout[env][ref]["daily"]] for env in ENV_IDS}
+    if dates[low] != dates[high]:
+        raise ValueError("paired worlds have different registered holdout day indexes")
+    result: Json = {"environments": [low, high], "reference_sha256": ref, "freeze_sha256": _digest(freeze),
+                    "estimand": "tau_X(high) - tau_X(low); tau = candidate minus reference on holdout",
+                    "candidates": {}}
+    for name, digest in digests.items():
+        runs = {env: holdout[env].get(digest) for env in ENV_IDS}
+        if any(run is None or run["status"] != "VALID" for run in runs.values()):
+            result["candidates"][name] = {"source_sha256": digest, "status": "UNAVAILABLE",
+                                          "dev_status": {env: sealed["dev_status"][env][digest] for env in ENV_IDS}}
+            continue
+        tau = {env: paired_summary(runs[env], holdout[env][ref]) for env in ENV_IDS}
+        difference = {}
+        for metric in METRICS:
+            if metric == "c2_bootstrap_pass_rate":
+                continue  # nonlinear day-panel admission; no per-day effect to difference
+            daily = [None if a is None or b is None else b - a
+                     for a, b in zip(tau[low][metric]["daily"], tau[high][metric]["daily"], strict=True)]
+            difference[metric] = {**summarize_days(daily), "daily": daily}
+        result["candidates"][name] = {"source_sha256": digest, "status": "VALID", "tau": tau,
+                                      "tau_difference": difference}
+    return result
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=transplant_contrast.__doc__)
+    parser.add_argument("--work-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference", type=Path, required=True, help="frozen reference candidate.py (e.g. B0)")
+    parser.add_argument("--candidate", action="append", required=True, metavar="NAME=PATH",
+                        help="frozen discovery candidate.py, repeatable")
+    args = parser.parse_args()
+    candidates = dict(item.split("=", 1) for item in args.candidate)
+    sources = {name: Path(path).read_text(encoding="utf-8") for name, path in candidates.items()}
+    result = transplant_contrast(args.work_root, sources, args.reference.read_text(encoding="utf-8"))
+    atomic_write_json(args.output, result)
+
+
+if __name__ == "__main__":
+    main()

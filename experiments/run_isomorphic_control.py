@@ -1,4 +1,4 @@
-"""Run the calibrated, replicated isomorphic control; no holdout before global freeze."""
+"""Run the replicated open-catalog isomorphic control; no holdout before global freeze."""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +25,6 @@ from tasks.lob_world_model.discovery_loop import (
 from tasks.lob_world_model.folding_ledger import FoldingLedger
 from tasks.lob_world_model.provider import DEFAULT_MODELS_PATH, provider_handshake, registry_transport
 from tasks.lob_world_model.provider_client import load_model_registry
-from tasks.lob_world_model.prior_cards import select_active_cards
 from tasks.lob_world_model.synthetic_eval import DATA_PROTOCOL, SyntheticEvaluator, paired_summary
 from tasks.lob_world_model.token_count import openai_token_counter
 
@@ -35,7 +34,9 @@ ENVS = ('env_alpha', 'env_beta')
 ROUNDS = 6
 REPLICATES = ('rep_0', 'rep_1', 'rep_2')
 MAX_CALLS = len(REPLICATES) * len(ARMS) * len(ENVS) * ROUNDS
-ARTIFACT_NAME = 'p2-m31-calibrated-control'
+Z_HEADER = '[1. Market Data Profile Z]\n'
+CARD_HEADER = '\n\n[2. Prior Mechanism Catalog'
+ARTIFACT_NAME = 'p2-m32-open-catalog-control'
 MODEL = 'gpt-6.2-sol'
 MIN_DAYS = 6
 ALIGNMENT = {'env_alpha': ['C04', 'C05', 'C06'], 'env_beta': ['C03', 'C08']}
@@ -78,11 +79,11 @@ def registration(stochopia: Path, replicates: Sequence[str] = REPLICATES) -> Jso
     """Record all decision rules before seeing any candidate or API response."""
     model = load_model_registry(DEFAULT_MODELS_PATH)[MODEL]
     if tuple(replicates) != REPLICATES:
-        raise ValueError('the formal M3.1 study requires three registered replicates')
+        raise ValueError('the formal study requires three registered replicates')
     if model.temperature is not None and model.temperature <= 0:
         raise ValueError('the sampled search cannot use zero temperature')
     return {
-        'schema': 'isomorphic-control-v2-calibrated', 'stochopia_commit': _git(stochopia, 'rev-parse', 'HEAD'),
+        'schema': 'isomorphic-control-v3-open-catalog', 'stochopia_commit': _git(stochopia, 'rev-parse', 'HEAD'),
         'openhyra_commit': _git(ROOT, 'rev-parse', 'HEAD'), 'model': MODEL,
         'provider': {'model': model.model, 'max_output_tokens': model.max_tokens,
                      'temperature': model.temperature, 'extra_body': model.extra_body,
@@ -96,13 +97,19 @@ def registration(stochopia: Path, replicates: Sequence[str] = REPLICATES) -> Jso
         'paired_days_minimum': MIN_DAYS, 'bootstrap_draws': 2000,
         'promotion': {'nll_max_increase': .005, 'exhaustion_max_increase': .05,
                       'cf_min_improvement_ticks': .01, 'cf_equivalence_ticks': .01,
-                      'exhaustion_min_improvement': .10, 'nll_min_improvement': .008},
+                      'exhaustion_min_improvement': .10, 'nll_min_improvement': .008,
+                      'objective_improvement': 'CF paired estimate with >=6 common valid days decides',
+                      'viability_recovery': 'CF support <6 common days: guardrails and exhaustion or NLL improvement'},
         'stepping_stones': {'nll_max_increase': .025, 'dt_improvement': .010,
                             'exhaustion_improvement': .10, 'acf_relative_improvement': .25,
                             'memory_gap64_absolute_change': .05},
-        'dedup_similarity_strict_gt': .94, 'cooldown_rounds': 2, 'active_cards_max': 3,
+        'dedup_similarity_strict_gt': .94,
+        'card_catalog': 'all C01-C10 every round, order random.Random(f"{env}:{rep}:{round}"), shared by the three arms',
+        'prediction_fields': ['data_regime_diagnosis', 'selected_card_ids (may be empty)', 'regime_hypothesis',
+                              'target_metric', 'expected_direction'],
         'alignment_primary_card': ALIGNMENT, 'alignment_beta_excluded': 'C06',
-        'alignment_denominator': 'all attempted rounds; primary selected card only; malformed/absent counted as nonaligned, report coverage separately',
+        'alignment_denominator': ('all attempted rounds; primary selected card only; malformed/absent counted as nonaligned, '
+                                  'empty selection counted as nonaligned open structure; report coverage separately'),
         'prediction_rule': 'candidate-parent 95% paired day CI wholly predicted side supports, opposite side refutes; crossing zero or absent CI inconclusive; no evaluated candidate non-evaluable',
         'regret_rule': 'holdout CF MAE of final minus minimum over B0 and all valid evaluated candidates, on same intersection of finite paired days across oracle set; require >=6 days; no imputation',
         'controlled_comparison_rule': ('True-Z directional alignment must strictly exceed each comparison arm over all 36 attempts; '
@@ -118,7 +125,7 @@ def registration(stochopia: Path, replicates: Sequence[str] = REPLICATES) -> Jso
             'n_plus if target-metric candidate-minus-parent paired-day 95% CI wholly negative; n_minus if wholly positive; otherwise neither; '
             'all target metrics lower is better, irrespective of declared direction verdict. Posterior mean=(1+n_plus)/(2+n_plus+n_minus).'),
         'holdout_rule': ('materialize 12 independent days only after all 108 slots consumed and all 18 trajectories finished and approved source hashes frozen; '
-            'reuse trained models, oracle does not feed search. Same registered dates as historical M3; unseen by M3.1 search, not novel relative to M3. '
+            'reuse trained models, oracle does not feed search. Same registered dates as historical M3/M3.1; unseen by this search, not novel relative to them. '
             'Ablation and search evaluations use independent artifact and work roots.'),
     }
 
@@ -226,36 +233,39 @@ def _records(artifact: Path, rep: str, env: str, arm: str) -> list[Json]:
 
 
 def _non_z(prompt: list[dict[str, str]]) -> str:
-    start, rest = prompt[1]['content'].split('[Macro Data Regime Z]\n', 1)
-    _, suffix = rest.split('\n\n[Model Residuals D]', 1)
-    return prompt[0]['content'] + '\n' + start + '[Macro Data Regime Z]\n' + suffix
+    start, rest = prompt[1]['content'].split(Z_HEADER, 1)
+    _, suffix = rest.split(CARD_HEADER, 1)
+    return prompt[0]['content'] + '\n' + start + Z_HEADER + CARD_HEADER + suffix
 
 
 def _audit_first_round(artifact: Path, baseline: Json) -> None:
-    """Verify the actual first-round packets before the first network request."""
+    """Verify the actual first-round packets before the first network request.
+
+    Within one replicate the three arms differ only in the Z block; card order
+    differs between replicates by design (per-replicate shuffle).
+    """
     count = openai_token_counter()
     audit: Json = {rep: {env: {} for env in ENVS} for rep in REPLICATES}
     for rep, env, arm in _tracks():
         parent = baseline[env]['evaluation']
-        cards = select_active_cards(parent['aggregate'], {})
         other = ENVS[1 - ENVS.index(env)]
         z = None if arm == 'd_only' else baseline[env if arm == 'true_z_d' else other]['z']
         view = View(arm, env, z)
         loop = DiscoveryLoop(view=view, root=_track_path(artifact, rep, env, arm),
                              seed_result=parent, evaluator=lambda source: parent,
-                             pair=paired_summary, count=count, call_prefix=_track_id(rep, env, arm))
+                             pair=paired_summary, count=count, call_prefix=_track_id(rep, env, arm),
+                             replicate_id=rep)
+        cards = loop.cards(1)
         prompt, tokens = build_messages(view, 'B0', SEED_SOURCE, parent, cards, loop.ledger, (), count)
         prompt_hash = sha256(json.dumps(prompt, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
         audit[rep][env][arm] = {'non_z_sha256': sha256(_non_z(prompt).encode()).hexdigest(),
                                 'prompt_sha256': prompt_hash, 'tokens': tokens,
-                                'active_card_ids': [c.card_id for c in cards],
+                                'card_order': [c.card_id for c in cards],
                                 'training_checkpoint_hashes': parent['training_checkpoint_hashes']}
-    for env in ENVS:
-        if len({audit[rep][env][arm]['non_z_sha256'] for rep in REPLICATES for arm in ARMS}) != 1:
-            raise RuntimeError('first-round information control failed before API')
-        for arm in ARMS:
-            if len({audit[rep][env][arm]['prompt_sha256'] for rep in REPLICATES}) != 1:
-                raise RuntimeError('replicates did not start from the same prompt')
+    for rep in REPLICATES:
+        for env in ENVS:
+            if len({audit[rep][env][arm]['non_z_sha256'] for arm in ARMS}) != 1:
+                raise RuntimeError('first-round information control failed before API')
     _freeze(artifact / 'initial_control_audit.json', audit)
 
 
@@ -290,7 +300,7 @@ def _audit_sampling(artifact: Path, guard: CallBudgetGuard, reservations: Mappin
                 messages = reservations[cid]['messages']
                 prompt_hash = sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
                 if (row['prompt'] != messages or prompt_hash != recorded['prompt_sha256']
-                    or row['active_card_ids'] != recorded['active_card_ids']
+                    or row['card_order'] != recorded['card_order']
                     or sha256(_non_z(messages).encode()).hexdigest() != recorded['non_z_sha256']):
                     raise RuntimeError('first-round request differs from frozen audit')
                 raw = receipts.get(cid, {}).get('raw_reply')
@@ -300,8 +310,6 @@ def _audit_sampling(artifact: Path, guard: CallBudgetGuard, reservations: Mappin
                                 'completed_receipt': cid in receipts,
                                 'raw_reply_sha256': source_hash(raw) if raw else None,
                                 'source_sha256': source_hash(row['source']) if row.get('source') else None}
-            if len({item['prompt_sha256'] for item in entries.values()}) != 1:
-                raise RuntimeError('replicate first-round treatment prompts diverged')
             audit[env][arm] = {'replicates': entries,
                                'distinct_raw_replies': len({item['raw_reply_sha256'] for item in entries.values() if item['raw_reply_sha256']}),
                                'distinct_sources': len({item['source_sha256'] for item in entries.values() if item['source_sha256']})}
@@ -366,7 +374,8 @@ def _run_tracks(artifact: Path, evaluators: Mapping[str, SyntheticEvaluator], ba
         loop = DiscoveryLoop(view=View(arm, env, z), root=_track_path(artifact, rep, env, arm),
                              seed_result=baseline[env]['evaluation'], evaluator=lambda source: evaluate(env, source),
                              pair=paired_summary, count=count, transport=transport, guard=guard,
-                             rounds=ROUNDS, should_stop=stop.is_set, call_prefix=_track_id(rep, env, arm))
+                             rounds=ROUNDS, should_stop=stop.is_set, call_prefix=_track_id(rep, env, arm),
+                             replicate_id=rep)
         result = loop.run()
         print(f'TRACK {_track_id(rep, env, arm)} COMPLETE', flush=True)
         return result
@@ -381,11 +390,13 @@ def _run_tracks(artifact: Path, evaluators: Mapping[str, SyntheticEvaluator], ba
                 raise
 
     # Audit exact non-Z first-round equality and model receipt equality before holdout.
+    for rep in REPLICATES:
+        for env in ENVS:
+            initial = [_records(artifact, rep, env, arm)[1] for arm in ARMS]
+            if any(row['card_order'] != initial[0]['card_order']
+                   or _non_z(row['prompt']) != _non_z(initial[0]['prompt']) for row in initial[1:]):
+                raise RuntimeError('initial non-Z prompt sections are not isomorphic')
     for env in ENVS:
-        initial = [_records(artifact, rep, env, arm)[1] for rep in REPLICATES for arm in ARMS]
-        if any(row['active_card_ids'] != initial[0]['active_card_ids'] or row['prompt'][0] != initial[0]['prompt'][0]
-               or _non_z(row['prompt']) != _non_z(initial[0]['prompt']) for row in initial[1:]):
-            raise RuntimeError('initial non-Z prompt sections are not isomorphic')
         seeds = [_records(artifact, rep, env, arm)[0]['evaluation']['training_checkpoint_hashes']
                  for rep in REPLICATES for arm in ARMS]
         if any(item != seeds[0] for item in seeds[1:]):
@@ -633,16 +644,16 @@ def main() -> None:
     parser.add_argument('--num-replicates', type=int, choices=(3,), default=3)
     args = parser.parse_args()
     artifact, work = args.artifact_root.resolve(), args.work_root.resolve()
-    historical_names = {'p2-m1-validation', 'p2-m2-synthetic', 'p2-m3-isomorphic-control'}
+    historical_names = {'p2-m1-validation', 'p2-m2-synthetic', 'p2-m3-isomorphic-control', 'p2-m31-calibrated-control'}
     if (artifact.name != ARTIFACT_NAME or work.is_relative_to(artifact) or artifact.is_relative_to(work)
         or historical_names.intersection(artifact.parts) or historical_names.intersection(work.parts)):
-        raise ValueError('the study requires an isolated M3.1-only artifact root and private work root')
+        raise ValueError(f'the study requires an isolated {ARTIFACT_NAME} artifact root and private work root')
     artifact.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     started = perf_counter()
     reg = registration(args.stochopia_root.resolve(), tuple(f'rep_{i}' for i in range(args.num_replicates)))
     _freeze(artifact / 'registration.json', reg)
-    work_registration = work / 'm31-registration.json'
+    work_registration = work / 'study-registration.json'
     if not work_registration.exists() and any((work / env).exists() for env in ENVS):
         raise ValueError('private work root already contains an unrelated evaluation cache')
     _freeze(work_registration, {'registration_sha256': _digest(artifact / 'registration.json'),
@@ -662,7 +673,7 @@ def main() -> None:
     holdout = _verify(artifact, evaluators, freeze)
     if not (artifact / 'study_summary.json').exists():
         atomic_write_json(artifact / 'study_summary.json', _summarize(artifact, freeze, holdout, guard, perf_counter() - started))
-    print('M3.1 complete; evidence ready for report and checksums', flush=True)
+    print('Study complete; evidence ready for report and checksums', flush=True)
 
 
 if __name__ == '__main__':

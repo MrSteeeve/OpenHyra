@@ -11,12 +11,14 @@ import pytest
 from tasks.lob_world_model.call_budget import CallBudgetGuard
 from tasks.lob_world_model.contracts import Messages, ProviderReply
 from tasks.lob_world_model.discovery_loop import (
-    D_KEYS, LABELS, OMITTED, PROMPT_CAP, SEED_SOURCE, SYSTEM, Z_KEYS,
+    D_KEYS, OMITTED, PROMPT_CAP, SEED_SOURCE, SYSTEM, Z_KEYS,
     DiscoveryLoop, View, build_messages, prediction_verdict,
 )
-from tasks.lob_world_model.prior_cards import select_active_cards
+from tasks.lob_world_model.prior_cards import shuffled_cards
 
 Json = dict[str, Any]
+SECTIONS = ('Anonymous environment: ', '[1. Market Data Profile Z]', '[2. Prior Mechanism Catalog (C01-C10, Open Reference)]',
+            '[3. Core Parent Residuals D & Trial Ledger]', '[4. Current Parent Source Code]', '[5. Objective & Output Schema]')
 
 
 def _count(messages: Messages) -> int:
@@ -28,6 +30,7 @@ def _result(source: str = 'seed') -> Json:
     levels.update(val_nll_total=5.0, dt_nll=2.0, event_nll=1.8, level_nll=.9, size_nll=.3,
                   counterfactual_impact_mae=1.0, exhausted_replicate_rate=.5)
     return {'status': 'VALID', 'aggregate': levels, 'params': 24000, 'state': 60,
+            'support': {'counterfactual_impact_mae': {'paired_days': 7, 'registered_days': 12}},
             'training_checkpoint_hashes': {'103': 'a', '137': 'b', '211': 'c'}, 'source': source}
 
 
@@ -40,14 +43,11 @@ def _pair(candidate: Json, parent: Json) -> Json:
             for key in D_KEYS}
 
 
-def _reply(messages: Messages, *, response_json: bool) -> ProviderReply:
-    text = messages[1]['content']
-    cards = text.split('[Active Prior Cards]\n')[1].split('\n\n[Objective]')[0]
-    active = re.findall(r'\bC\d\d\b', cards)
-    obj = {'selected_card_ids': active[:1], 'target_metric': 'dt_nll', 'expected_direction': 'decrease',
-           'regime_hypothesis': 'Explicit recurrent gain can improve the clock residual.', 'unfold_ids': []}
-    source = 'from torch import nn\nfrom stochopia.neural.probe_features import ProbeBase\n' + '''
+SOURCE = '''from torch import nn
+from stochopia.neural.probe_features import ProbeBase
+
 class CandidateLOBWorldModel(ProbeBase):
+    """Thin-book Hawkes clock with long memory (ordinary wording is allowed)."""
     def __init__(self):
         super().__init__()
         self.encoder = nn.Linear(75, 60)
@@ -65,57 +65,80 @@ class CandidateLOBWorldModel(ProbeBase):
             values.append(h)
         return __import__('torch').stack(values, 1)
 '''
-    raw = f'```json\n{json.dumps(obj)}\n```\n```python\n{source}\n```'
-    return ProviderReply(raw, 100, 200)
+
+
+def _raw(cards: list[str]) -> str:
+    obj = {'data_regime_diagnosis': 'Bursty, thick-tailed waits (Hawkes-like rather than Poisson) in a thin book.',
+           'selected_card_ids': cards,
+           'regime_hypothesis': 'A recurrent gain sharpens the clock; it should not help under long, short or thick '
+                                'Poisson-like flow with constant rate.',
+           'target_metric': 'dt_nll', 'expected_direction': 'decrease', 'unfold_ids': []}
+    return f'```json\n{json.dumps(obj)}\n```\n```python\n{SOURCE}\n```'
+
+
+def _reply(messages: Messages, *, response_json: bool) -> ProviderReply:
+    catalog = messages[1]['content'].split(SECTIONS[2])[1].split(SECTIONS[3])[0]
+    return ProviderReply(_raw(re.findall(r'^(C\d\d) ', catalog, flags=re.MULTILINE)[:1]), 100, 200)
 
 
 def _without_z(messages: Messages) -> Messages:
     user = messages[1]['content']
-    start, rest = user.split('[Macro Data Regime Z]\n', 1)
-    _, suffix = rest.split('\n\n[Model Residuals D]', 1)
-    return [messages[0], {'role': 'user', 'content': start + '[Macro Data Regime Z]\n' + suffix}]
+    start, rest = user.split(SECTIONS[1] + '\n', 1)
+    _, suffix = rest.split('\n\n' + SECTIONS[2], 1)
+    return [messages[0], {'role': 'user', 'content': start + SECTIONS[1] + suffix}]
 
 
-def test_first_round_isomorphic_except_z(tmp_path: Path) -> None:
-    parent = _result()
-    views = (View('d_only', 'env_alpha', None), View('true_z_d', 'env_alpha', _z(1.0)),
-             View('shuffled_z_d', 'env_alpha', _z(2.0)))
+def _prompts(tmp_path: Path, parent: Json, z_true: Json, z_other: Json, env: str = 'env_alpha') -> list[Messages]:
+    views = (View('d_only', env, None), View('true_z_d', env, z_true), View('shuffled_z_d', env, z_other))
     prompts = []
     for view in views:
-        loop = DiscoveryLoop(view=view, root=tmp_path / view.arm, seed_result=parent,
-                             evaluator=_result, pair=_pair, count=_count)
-        cards = select_active_cards(parent['aggregate'], {})
-        prompt, count = build_messages(view, 'B0', SEED_SOURCE, parent, cards, loop.ledger, (), _count)
+        loop = DiscoveryLoop(view=view, root=tmp_path / view.arm, seed_result=parent, evaluator=_result,
+                             pair=_pair, count=_count, replicate_id='rep_1')
+        prompt, count = build_messages(view, 'B0', SEED_SOURCE, parent, loop.cards(1), loop.ledger, (), _count)
         assert count <= PROMPT_CAP
-        assert not any(LABELS.search(item['content']) for item in prompt)
         prompts.append(prompt)
+    return prompts
+
+
+def test_data_first_layout_isomorphic_except_z(tmp_path: Path) -> None:
+    prompts = _prompts(tmp_path, _result(), _z(1.0), _z(2.0))
     assert _without_z(prompts[0]) == _without_z(prompts[1]) == _without_z(prompts[2])
+    user = prompts[1][1]['content']
+    assert [user.index(section) for section in SECTIONS] == sorted(user.index(section) for section in SECTIONS)
+    assert user.startswith('Anonymous environment: env_alpha\n[1. Market Data Profile Z]\n')
     assert OMITTED in prompts[0][1]['content']
-    assert 'sign_acf_sum_1_32 | 1 |' in prompts[1][1]['content']
+    assert 'metric | median | IQR | reference_and_interpretation' in user
+    assert 'interarrival_cv2 | 1 | 0.12 | var/mean^2 of waits; 1.0 for stationary Poisson arrivals' in user
     assert 'sign_acf_sum_1_32 | 2 |' in prompts[2][1]['content']
+    # Six grouped residual lines with response support; the full catalog in shuffled order.
+    d = user.split(SECTIONS[3] + '\n')[1].split('\n\nTrial ledger:')[0].splitlines()
+    assert [line.split(':')[0] for line in d] == ['nll_overview', 'timing_clustering', 'rollout_viability',
+                                                 'flow_memory', 'impact_response', 'drift_stability']
+    assert 'counterfactual_impact_mae=1 (7/12 valid days)' in d[4]
+    catalog = user.split(SECTIONS[2])[1].split(SECTIONS[3])[0]
+    order = re.findall(r'^(C\d\d) ', catalog, flags=re.MULTILINE)
+    assert sorted(order) == [f'C{i:02d}' for i in range(1, 11)]
+    assert order == [card.card_id for card in shuffled_cards('env_alpha', 'rep_1', 1)]
 
 
-def test_calibrated_first_round_on_frozen_actual_alpha_residuals(tmp_path: Path) -> None:
-    """Use M3's unmodified B0 receipt rather than an invented residual panel."""
+def test_card_order_is_deterministic_and_shared_only_within_a_round() -> None:
+    def ids(env: str, rep: str, round_idx: int) -> list[str]:
+        return [card.card_id for card in shuffled_cards(env, rep, round_idx)]
+    assert ids('env_alpha', 'rep_0', 1) == ids('env_alpha', 'rep_0', 1)
+    orders = {tuple(ids(env, rep, r)) for env in ('env_alpha', 'env_beta') for rep in ('rep_0', 'rep_1') for r in (1, 2)}
+    assert len(orders) > 1 and all(sorted(order) == [f'C{i:02d}' for i in range(1, 11)] for order in orders)
+
+
+def test_calibrated_first_round_on_frozen_actual_residuals(tmp_path: Path) -> None:
+    """Use M3's unmodified B0 receipts rather than an invented residual panel."""
     baseline_path = (Path(__file__).resolve().parents[1] / 'artifacts' /
                      'p2-m3-isomorphic-control' / 'baseline.json')
     baseline = json.loads(baseline_path.read_text())
-    parent = baseline['env_alpha']['evaluation']
-    cards = select_active_cards(parent['aggregate'], {})
-    ids = {card.card_id for card in cards}
-    assert len(cards) == 3 and 'C06' in ids and ids.intersection({'C04', 'C05'})
-    views = (View('d_only', 'env_alpha', None),
-             View('true_z_d', 'env_alpha', baseline['env_alpha']['z']),
-             View('shuffled_z_d', 'env_alpha', baseline['env_beta']['z']))
-    prompts = []
-    for view in views:
-        loop = DiscoveryLoop(view=view, root=tmp_path / view.arm, seed_result=parent,
-                             evaluator=_result, pair=_pair, count=_count)
-        messages, tokens = build_messages(view, 'B0', SEED_SOURCE, parent, cards, loop.ledger, (), _count)
-        assert tokens <= PROMPT_CAP
-        assert not any(LABELS.search(item['content']) for item in messages)
-        prompts.append(messages)
-    assert _without_z(prompts[0]) == _without_z(prompts[1]) == _without_z(prompts[2])
+    for env, other in (('env_alpha', 'env_beta'), ('env_beta', 'env_alpha')):
+        parent = baseline[env]['evaluation']
+        prompts = _prompts(tmp_path / env, parent, baseline[env]['z'], baseline[other]['z'], env)
+        assert _without_z(prompts[0]) == _without_z(prompts[1]) == _without_z(prompts[2])
+        assert all(f'C{i:02d} ' in prompts[0][1]['content'] for i in range(1, 11))
     for shape in ('[B, 2, 10]', '[B, T, 2, 10]', '[B, 4]', '[B, T, 4]', '[B]', '[B, T]', '[B, 60]', '[B, T, 60]'):
         assert shape in SYSTEM
     assert '20 elements per sample' in SYSTEM and 'NEVER reshape/view to just 10' in SYSTEM
@@ -142,6 +165,18 @@ def test_next_prompt_receives_one_line_gate_feedback(tmp_path: Path) -> None:
     assert guard.count == 2
 
 
+def test_professional_terms_and_open_structures_are_not_rejected(tmp_path: Path) -> None:
+    """Thin/thick/Hawkes/Poisson/long are ordinary terms; an empty card list is open innovation."""
+    guard = CallBudgetGuard(tmp_path / 'calls.jsonl', limit=1)
+    loop = DiscoveryLoop(view=View('true_z_d', 'env_beta', _z(1.0)), root=tmp_path / 'track', seed_result=_result(),
+                         evaluator=_result, pair=_pair, count=_count, transport=lambda messages, response_json: ProviderReply(_raw([]), 100, 200), guard=guard, rounds=1)
+    row = loop.run()['records'][1]
+    assert row['outcome'] == 'PROMOTED' and row['promotion_reason'] == 'objective_improvement'
+    assert row['selected_card_ids'] == []
+    assert 'Hawkes' in row['source'] and 'Poisson' in row['prediction']['regime_hypothesis']
+    assert row['prediction']['data_regime_diagnosis'].startswith('Bursty')
+
+
 @pytest.mark.parametrize('arm', ('no_llm', 'greedy_score_llm', 'residual_d_llm', 'full_zd_llm',
                                  'd_only', 'true_z_d', 'shuffled_z_d'))
 def test_offline_modes_run_with_identical_promotion_policy(tmp_path: Path, arm: str) -> None:
@@ -154,12 +189,11 @@ def test_offline_modes_run_with_identical_promotion_policy(tmp_path: Path, arm: 
     assert result['records'][1]['outcome'] == 'PROMOTED'
     assert guard.count == (0 if arm == 'no_llm' else 2)
     if arm == 'greedy_score_llm':
-        assert result['records'][1]['active_card_ids'] == []
-        d = result['records'][1]['prompt'][1]['content'].split('[Model Residuals D]\n')[1].split('\n\n[Active')[0]
+        assert result['records'][1]['card_order'] == []
+        d = result['records'][1]['prompt'][1]['content'].split(SECTIONS[3] + '\n')[1].split('\n\nTrial ledger:')[0]
         assert len(d.splitlines()) == 2
     for row in result['records'][1:]:
         assert row['prompt_tokens'] <= PROMPT_CAP
-        assert not any(LABELS.search(item['content']) for item in row['prompt'])
     # Completed track re-opens the ledger without another request or evaluation.
     assert loop.run()['final_id'] == result['final_id']
     assert guard.count == (0 if arm == 'no_llm' else 2)

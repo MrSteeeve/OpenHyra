@@ -14,7 +14,8 @@ from tasks.lob_world_model.provider import ProviderAttemptError, provider_handsh
 
 
 MESSAGE: Messages = [{"role": "system", "content": "registered task"}, {"role": "user", "content": "fixture"}]
-PREDICTION = {"selected_card_ids": ["C03", "C06"], "target_metric": "dt_nll",
+PREDICTION = {"data_regime_diagnosis": "Waits are overdispersed relative to Poisson arrivals.",
+              "selected_card_ids": ["C03", "C06"], "target_metric": "dt_nll",
               "expected_direction": "decrease", "regime_hypothesis": "Persistent state can condition timing.",
               "unfold_ids": ["candidate-03"]}
 SOURCE = "def create_model():\n    return None\n"
@@ -98,6 +99,7 @@ def test_anthropic_payload_and_multi_block_response(tmp_path: Path, monkeypatch:
     {"selected_card_ids": ["C99"]}, {"selected_card_ids": "C01"},
     {"selected_card_ids": ["C01", "C01"]}, {"unfold_ids": ["a", "b", "c"]},
     {"regime_hypothesis": ""}, {"regime_hypothesis": None}, {"extra": 1},
+    {"data_regime_diagnosis": ""}, {"data_regime_diagnosis": None},
 ])
 def test_prediction_contract_errors_are_explicit(invalid: dict) -> None:
     value = {**PREDICTION, **invalid}
@@ -116,6 +118,15 @@ def test_combined_json_proposal_and_optional_unfold() -> None:
     value = {key: item for key, item in PREDICTION.items() if key != "unfold_ids"}
     proposal = parse_proposal(json.dumps({"candidate_source": SOURCE, "prediction": value}))
     assert proposal.prediction.unfold_ids == () and proposal.source == SOURCE
+    missing = {key: item for key, item in PREDICTION.items() if key != "data_regime_diagnosis"}
+    with pytest.raises(ProposalFormatError):
+        parse_proposal(json.dumps({"candidate_source": SOURCE, "prediction": missing}))
+
+
+def test_empty_card_selection_registers_open_structure() -> None:
+    proposal = parse_proposal(json.dumps({**PREDICTION, "selected_card_ids": [], "candidate_source": SOURCE}))
+    assert proposal.prediction.selected_card_ids == ()
+    assert proposal.prediction.data_regime_diagnosis.startswith("Waits")
 
 
 @pytest.mark.parametrize("failure", ["truncation", "malformed", "mismatched", "HTTP", "timeout"])

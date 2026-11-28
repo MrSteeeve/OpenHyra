@@ -3,90 +3,80 @@
     "card_id": "C01",
     "title": "Depth-normalized order-flow imbalance",
     "citation": "Cont, Kukanov & Stoikov (2014), https://arxiv.org/abs/1011.6402",
-    "symptom_key": "visible_minus_blind_auc",
-    "mechanism_formula": "At the touch, dP ≈ OFI/(Q_bid+Q_ask+eps). A buy at the ask and a cancellation on that same queue both consume ask liquidity. Encode signed net queue changes normalized by current depth; let the price-level head read this feature, not only the last trade.",
-    "regime_boundary": "Potential benefit when depth changes make equal net flows have unequal price responses. If depth is nearly constant or price already reflects the flow, this extra feature can add noise; test rather than assume improvement.",
-    "numerical_guardrails": "Use eps>0 or log-depth normalization. Preserve positive finite depth and the signed direction under empty queues; no future quotes."
+    "mechanism_formula": "At the touch dP ≈ OFI/(Q_bid+Q_ask+eps); trades and cancellations both deplete a queue. Feed depth-normalized signed net queue change to the price-level head, not only the last trade.",
+    "regime_boundary": "Helps when equal net flow moves price differently at different depths; adds noise if depth is near constant or flow is already priced.",
+    "numerical_guardrails": "eps>0 or log-depth; finite and signed under empty queues; no future quotes."
   },
   {
     "card_id": "C02",
     "title": "Permanent versus transient response",
     "citation": "Bouchaud et al. (2009), https://arxiv.org/abs/0809.0822; Jusselin & Rosenbaum (2018), https://arxiv.org/html/1805.07134v1",
-    "symptom_key": "post_stop_relaxation_delta",
-    "mechanism_formula": "Decompose state into slow baseline p and transient depletion q. Update q_t = exp(-gamma*dt) q_prev + u(e_t); a separate additive readout for p and q allows response decay after trading ceases without erasing persistent price discovery.",
-    "regime_boundary": "Most plausible when a large temporary response followed by replenishment is observable; ineffective or harmful if responses are genuinely persistent or recovery already fits.",
-    "numerical_guardrails": "Constrain gamma=softplus(theta)>0 and dt>=0. Use independent additive gates, not a competitive softmax; avoid numerical explosion."
+    "mechanism_formula": "Slow baseline p plus transient depletion q_t = exp(-gamma*dt)*q_prev + u(e_t), read out additively, so response decays after trading stops without erasing persistent price discovery.",
+    "regime_boundary": "Plausible when temporary response is followed by replenishment; harmful if responses are genuinely persistent or recovery already fits.",
+    "numerical_guardrails": "gamma=softplus(theta)>0, dt>=0; independent additive gates, not a competitive softmax."
   },
   {
     "card_id": "C03",
     "title": "Multiscale order-flow memory",
     "citation": "Bouchaud, Farmer & Lillo (2009), https://arxiv.org/abs/0809.0822",
-    "symptom_key": "sign_acf_abs_error",
-    "mechanism_formula": "Order splitting can yield persistent sign autocorrelation C(lag)≈lag^(-alpha). Approximate with sum_m w_m*r_m^lag using several geometrically spaced retention scales. Let normalized traded volume v/mean_v advance the decay clock instead of assuming equal event steps.",
-    "regime_boundary": "Useful if direction persistence extends across many lags and the model misses it. Weak or absent persistence weakens the case; slow modes may retain stale history and hurt current event fit. Separate this claim from a guarantee about impact.",
-    "numerical_guardrails": "Initialize retention r_m in (0.5,0.995); bound volume scaling and use stable causal affine updates. Share the fixed state budget."
+    "mechanism_formula": "Order splitting gives sign autocorrelation C(lag) ~ lag^(-alpha); approximate by sum_m w_m*r_m^lag over geometric retention scales, optionally clocked by normalized volume v/mean_v.",
+    "regime_boundary": "Useful when persistence spans many lags and the model misses it; with weak persistence slow modes keep stale history and hurt event fit. No impact guarantee.",
+    "numerical_guardrails": "r_m in (0.5, 0.995); bounded volume clock; stable causal affine updates within the shared state budget."
   },
   {
     "card_id": "C04",
     "title": "Queue-reactive conditional intensity",
     "citation": "Huang, Lehalle & Rosenbaum (2015), https://arxiv.org/abs/1312.0563",
-    "symptom_key": "exhausted_replicate_rate",
-    "mechanism_formula": "Limit additions, cancellations and market consumption may depend nonlinearly on Q(side,level). Read current queue features locally; an effectively empty touch can require a replenishment-sensitive gate. A level-indexed state can supply separate features to the conditional event and size heads.",
-    "regime_boundary": "Strongest candidate when depth depletion and repair are frequent and current rollouts exhaust. If liquidity stays stable or existing legal masks suffice, extra state may waste capacity or distort event rates.",
-    "numerical_guardrails": "Preserve event legality and actual state budget; use finite bounded transforms for tiny depths. Learn from causal data; never fabricate quotes or force matcher outputs."
+    "mechanism_formula": "Addition, cancellation and market-order rates may depend nonlinearly on Q(side, level). Read local queue features, gate replenishment near an empty touch, and feed level-indexed state to the event and size heads.",
+    "regime_boundary": "Strongest when depletion and repair are frequent and rollouts exhaust; with stable liquidity extra state wastes capacity or distorts rates.",
+    "numerical_guardrails": "Keep event legality and the state budget; bounded transforms of tiny depths; never fabricate quotes."
   },
   {
     "card_id": "C05",
     "title": "Price-coordinate advection",
     "citation": "Huang, Lehalle & Rosenbaum (2015), https://arxiv.org/abs/1312.0563",
-    "symptom_key": "level_nll",
-    "mechanism_formula": "The same resting physical queue changes relative level when a best quote moves. Maintain a [B,10,d] state; shift each side by its known price-coordinate displacement dk before updating: S_t[level] uses S_prev[level±dk]. Use previous and current observed ticks only.",
-    "regime_boundary": "Potentially useful when best quotes move often and local states become misregistered. When coordinates hardly move, a shift adds complexity without benefit; avoid conflating matrix structure with advection itself.",
-    "numerical_guardrails": "Clip dk to [-10,10] and fill incoming boundary slots with learned bounded steady values. Account for stored previous price scalars; verify step/sequence equivalence."
+    "mechanism_formula": "A resting queue changes relative level when the best quote moves. Keep a [B,10,d] state and shift each side by its observed displacement dk before updating: S_t[level] uses S_prev[level±dk].",
+    "regime_boundary": "Useful when best quotes move often and level states misregister; adds complexity without benefit when coordinates rarely move. Matrix state alone is not advection.",
+    "numerical_guardrails": "Clip dk to [-10,10]; learned bounded fill for entering slots; count stored price scalars; step/sequence equivalence."
   },
   {
     "card_id": "C06",
     "title": "Multichannel self-exciting intensity",
     "citation": "Bacry, Mastromatteo & Muzy (2015), https://arxiv.org/abs/1502.04592",
-    "symptom_key": "dt_nll",
-    "mechanism_formula": "Maintain a small intensity state for event arrival types: lambda_t = mu + A*(lambda_prev*exp(-beta*dt_prev)) + B*phi(e_prev). Read its finite positive transform into the waiting-time and event heads, potentially capturing both excitation and cross-excitation from recent events.",
-    "regime_boundary": "Most plausible when arrivals arrive in bursts and excess waits beyond a constant-rate process are observed. Under approximately independent constant-rate arrivals, excitation may simply fit noise; require a time-head improvement.",
-    "numerical_guardrails": "Require beta>0, nonnegative bounded intensity and subcritical excitation (spectral radius <1). Use stable decay at zero wait; enforce finite gradients."
+    "mechanism_formula": "Per event type, lambda_t = mu + A*(lambda_prev*exp(-beta*dt_prev)) + B*phi(e_prev); feed a finite positive transform to the waiting-time and event heads (self- and cross-excitation).",
+    "regime_boundary": "Plausible when arrivals are bursty beyond a constant-rate process; under nearly independent constant-rate arrivals it fits noise. Require a time-head gain.",
+    "numerical_guardrails": "beta>0; bounded nonnegative intensity; subcritical excitation (spectral radius <1); stable at zero wait."
   },
   {
     "card_id": "C07",
     "title": "Imbalance-dependent microprice",
     "citation": "Dayri & Rosenbaum (2015), https://arxiv.org/html/1207.6325v2; Pulido et al. (2024), https://arxiv.org/pdf/2307.15599",
-    "symptom_key": "stylized_impact_mae",
-    "mechanism_formula": "When the quoted spread is one tick, queue imbalance I=(Qb-Qa)/(Qb+Qa+eps) can help locate an implied efficient price. Read a bounded odd function g(I,spread) into the price head; optionally maintain a causal sliding local-liquidity state.",
-    "regime_boundary": "Potentially useful when a narrow spread conceals pressure that predicts quote movement. If imbalance is near noise or wide-spread price changes dominate, this proxy may be misleading.",
-    "numerical_guardrails": "Keep I in [-1,1] and enforce g(-I,s)=-g(I,s). Avoid future quotes and zero denominator."
+    "mechanism_formula": "At a one-tick spread, imbalance I=(Qb-Qa)/(Qb+Qa+eps) can locate an implied efficient price; feed a bounded odd g(I, spread) to the price head.",
+    "regime_boundary": "Useful when a narrow spread hides pressure that predicts quote moves; misleading if imbalance is noise or wide-spread moves dominate.",
+    "numerical_guardrails": "I in [-1,1], g(-I,s) = -g(I,s); no future quotes or zero denominator."
   },
   {
     "card_id": "C08",
     "title": "Prediction innovation filter",
     "citation": "Bouchaud, Farmer & Lillo (2009), https://arxiv.org/abs/0809.0822",
-    "symptom_key": "counterfactual_impact_mae",
-    "mechanism_formula": "Expected order-flow continuation should not necessarily accumulate permanent price displacement. Forecast signed flow phi_hat from previous state, then use innovation nu_t=phi(e_t)-phi_hat(h_prev). Update a slow component with h_t=A*h_prev+K_t*nu_t rather than raw imbalance alone.",
-    "regime_boundary": "If directions are predictable and the model overreacts to expected continuations, an innovation gate may help. If flow is unpredictable or existing state already learns innovation, this may suppress real input signal.",
-    "numerical_guardrails": "Set K_t=sigmoid(gate), initially small (bias -2). Predict before observing that event; keep A stable and verify causal step equivalence."
+    "mechanism_formula": "Expected continuation should not accumulate permanent displacement: forecast phi_hat(h_prev), take innovation nu_t = phi(e_t) - phi_hat, update h_t = A*h_prev + K_t*nu_t instead of raw imbalance.",
+    "regime_boundary": "Helps if directions are predictable and the model overreacts to expected flow; suppresses real signal if flow is unpredictable or state already learns innovation.",
+    "numerical_guardrails": "K_t = sigmoid(gate), initial bias -2; predict before the event; stable A; causal step equivalence."
   },
   {
     "card_id": "C09",
     "title": "Bid-ask reflection symmetry",
     "citation": "Cont, Stoikov & Talreja (2010), https://ideas.repec.org/p/arx/papers/1012.0349.html",
-    "symptom_key": "free_abs_drift_ticks",
-    "mechanism_formula": "For a nearly symmetric book, reflection P exchanges bid and ask queues and reverses signed event/price coordinates. Use shared mirrored encoders or updates and a corresponding output permutation, such that f(P*x)=P_out*f(x) up to a modest bias.",
-    "regime_boundary": "Useful if free-path drift is spurious and opposing sides show unwanted response asymmetry. Under real side-specific persistent asymmetry, hard tying can erase signal; permit a bounded residual instead.",
-    "numerical_guardrails": "Check all event, level and size labels under reflection. Do not impose equality on realized arms; preserve causal state and legal event masks."
+    "mechanism_formula": "Reflection P swaps bid/ask queues and flips signed event and price coordinates; mirrored shared encoders with the matching output permutation give f(P*x) = P_out*f(x) up to a modest bias.",
+    "regime_boundary": "Useful if free-path drift or side asymmetry is spurious; hard tying erases real persistent side asymmetry, so keep a bounded residual.",
+    "numerical_guardrails": "Check event, level and size labels under reflection; keep causal state and legal masks."
   },
   {
     "card_id": "C10",
     "title": "Selective delta erase and route",
     "citation": "Yang et al. (2024), https://arxiv.org/abs/2406.06484; ASI-Arch (2026), https://arxiv.org/html/2507.18074v2",
-    "symptom_key": "memory_gap_64",
-    "mechanism_formula": "A scalar forget gate discards unrelated state with obsolete state. For a matrix S, update S_t=S_prev*(Id-beta*k*k^T)+beta*v*k^T. Normalize key k and write only the affected direction. Keep other memory routes alive with a positive gate floor.",
-    "regime_boundary": "Potential benefit if sparse quote changes invalidate only part of history, while other signals must persist. When every component should reset or no localized change exists, selective state may waste capacity or overfit.",
-    "numerical_guardrails": "Normalize k in L2; constrain beta in (0,1), floor other routes ≥0.05 and count all real state scalars."
+    "mechanism_formula": "A scalar forget gate erases useful state together with obsolete state. Matrix state S_t = S_prev*(I - beta*k*k^T) + beta*v*k^T rewrites only the keyed direction; a positive floor keeps other routes alive.",
+    "regime_boundary": "Helps if sparse quote changes invalidate part of history while other signals persist; wasteful when all state should reset or nothing changes locally.",
+    "numerical_guardrails": "L2-normalize k; beta in (0,1); other routes floored at >=0.05; count all state scalars."
   }
 ]

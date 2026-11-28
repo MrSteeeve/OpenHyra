@@ -49,8 +49,16 @@ def test_exact_108_slots_and_separate_replicates_with_no_new_calls_after_resume(
         for arm in runner.ARMS:
             cell = audit[env][arm]
             assert cell['distinct_raw_replies'] == 3
-            assert len({row['prompt_sha256'] for row in cell['replicates'].values()}) == 1
             assert len({row['call_id'] for row in cell['replicates'].values()}) == 3
+    # Arms share each replicate's card order; replicates use their own shuffle.
+    initial = json.loads((tmp_path / 'initial_control_audit.json').read_text())
+    for env in runner.ENVS:
+        for rep in runner.REPLICATES:
+            cell = initial[rep][env]
+            assert len({cell[arm]['non_z_sha256'] for arm in runner.ARMS}) == 1
+            assert len({tuple(cell[arm]['card_order']) for arm in runner.ARMS}) == 1
+            assert sorted(cell['d_only']['card_order']) == list(runner.CARDS)
+        assert len({tuple(initial[rep][env]['d_only']['card_order']) for rep in runner.REPLICATES}) > 1
     # Reopening all tracks never invokes the provider for completed slots.
     runner._run_tracks(tmp_path, {env: None for env in runner.ENVS}, baseline, guard)
     assert len(calls) == 108
@@ -100,9 +108,10 @@ def test_posterior_counts_only_finite_valid_candidates_and_shared_cards() -> Non
 
 
 def test_old_artifact_root_cannot_be_reopened(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = tmp_path / 'p2-m3-isomorphic-control'
-    monkeypatch.setattr('sys.argv', ['run', '--artifact-root', str(root), '--work-root', str(tmp_path / 'work'),
-                                    '--stochopia-root', str(tmp_path / 'stochopia'), '--num-replicates', '3'])
-    with pytest.raises(ValueError, match='isolated M3.1-only'):
-        runner.main()
-    assert not root.exists()
+    for name in ('p2-m3-isomorphic-control', 'p2-m31-calibrated-control'):
+        root = tmp_path / name
+        monkeypatch.setattr('sys.argv', ['run', '--artifact-root', str(root), '--work-root', str(tmp_path / 'work'),
+                                        '--stochopia-root', str(tmp_path / 'stochopia'), '--num-replicates', '3'])
+        with pytest.raises(ValueError, match='isolated'):
+            runner.main()
+        assert not root.exists()

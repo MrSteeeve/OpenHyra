@@ -18,7 +18,6 @@ CF = "counterfactual_impact_mae"
 ACF = "sign_acf_abs_error"
 MEM = "memory_gap_64"
 _ALIASES = {ACF: (ACF, "direction_acf_mae"), MEM: (MEM, "G_mem(64)", "G_mem_64")}
-_LABELS = re.compile(r"(?<![A-Za-z0-9])(?:w2|w6|thin|thick|hawkes|long)(?![A-Za-z0-9])", re.IGNORECASE)
 _UNEVALUATED = {"DUPLICATE_REJECTED", "INVALID_PROPOSAL", "PROMPT_CAPACITY_REJECTED",
                 "PROVIDER_ERROR", "INTERRUPTED_CALL"}
 _FAILURES = {"GATE_REJECTED", "INVALID_PROPOSAL", "DUPLICATE_REJECTED", "NONFINITE_LOSS",
@@ -29,7 +28,6 @@ _PATH = re.compile(r"(['\"])(?:/|~/|<worker>/|[A-Za-z]:\\)[^'\"\n]+\1|"
 _TOKEN = re.compile(r"(?i)\b(?:bearer\s+[\w./+=-]+|(?:sk-|ghp_|hf_)[A-Za-z0-9_-]+|"
                     r"(?:api[_ -]?key|access[_ -]?token|secret|authorization|password|token)"
                     r"\s*[:=]\s*(?:'[^']*'|\"[^\"]*\"|[^\s,;]+))")
-_ENV = re.compile(r"(?i)(?<![A-Za-z0-9])env_(?:alpha|beta)(?![A-Za-z0-9])")
 
 
 def gate_error(row: Mapping[str, Any]) -> str:
@@ -59,7 +57,6 @@ def gate_error(row: Mapping[str, Any]) -> str:
             reason = f"{fallback.split(':')[0]}: {lines[0]}" if lines else fallback
     reason = _TOKEN.sub("[credential omitted]", reason)
     reason = _PATH.sub(lambda match: "candidate.py" if "candidate.py" in match.group(0) else "[path omitted]", reason)
-    reason = _ENV.sub("[label omitted]", _LABELS.sub("[label omitted]", reason))
     return " ".join(reason.replace("`", "").split())[:120]
 
 
@@ -88,23 +85,28 @@ def _delta(parent: Mapping[str, Any], candidate: Mapping[str, Any], paired: Mapp
 
 
 def promotion_decision(parent: Mapping[str, Any], candidate: Mapping[str, Any],
-                       paired_deltas: Mapping[str, Any] | None = None) -> str:
-    """Return PROMOTED, STEPPING_STONE or REJECTED after contract validity.
+                       paired_deltas: Mapping[str, Any] | None = None) -> tuple[str, str | None]:
+    """Return (PROMOTED | STEPPING_STONE | REJECTED, promotion_reason) after contract validity.
 
-    Deltas are candidate minus parent. Prefer paired day estimates; unavailable
-    estimates require six paired days and a reported interval when specified;
-    unavailable estimates are not imputed, including absent CF response.
-    These are fixed decision thresholds, not a significance or equivalence
-    test of a confidence interval. NLL in nats, CF in ticks, exhaust in [0,1].
+    Deltas are candidate minus parent. Paired estimates count only with six
+    common valid days and a reported interval; nothing is imputed. Both
+    guardrails always apply. With adequate response support the response
+    criterion decides (objective_improvement); without it, a large exhaustion
+    or likelihood gain may restore closed-loop generation (viability_recovery).
+    Fixed decision thresholds, not significance tests. NLL in nats, CF in
+    ticks, exhaust in [0,1].
     """
     nll = _delta(parent, candidate, paired_deltas, NLL)
     exhaust = _delta(parent, candidate, paired_deltas, EXHAUST)
     cf = _delta(parent, candidate, paired_deltas, CF)
     if nll is None or nll > .025 or _metric(candidate, NLL) is None:
-        return "REJECTED"
-    if exhaust is not None and cf is not None and nll <= .005 and exhaust <= .05:
-        if cf <= -.010 or (abs(cf) < .010 and (exhaust <= -.10 or nll <= -.008)):
-            return "PROMOTED"
+        return "REJECTED", None
+    if exhaust is not None and nll <= .005 and exhaust <= .05:
+        recovers = exhaust <= -.10 or nll <= -.008
+        if cf is not None and (cf <= -.010 or (abs(cf) < .010 and recovers)):
+            return "PROMOTED", "objective_improvement"
+        if cf is None and recovers:
+            return "PROMOTED", "viability_recovery"
     dt = _delta(parent, candidate, paired_deltas, "dt_nll")
     acf = _delta(parent, candidate, paired_deltas, ACF)
     base_acf = _metric(parent, ACF)
@@ -112,8 +114,8 @@ def promotion_decision(parent: Mapping[str, Any], candidate: Mapping[str, Any],
     acf_gain = acf is not None and base_acf is not None and base_acf > 0 and acf <= -.25 * base_acf
     if (dt is not None and dt <= -.010 or exhaust is not None and exhaust <= -.10
             or acf_gain or mem is not None and abs(mem) >= .05):
-        return "STEPPING_STONE"
-    return "REJECTED"
+        return "STEPPING_STONE", None
+    return "REJECTED", None
 
 
 def _structural_diff(parent: str, source: str) -> tuple[str, str]:
@@ -124,11 +126,8 @@ def _structural_diff(parent: str, source: str) -> tuple[str, str]:
     calls = r"\b(?:def\s+|class\s+)?([A-Za-z_]\w*)\s*\("
     old_names = set(re.findall(calls, "\n".join(removed)))
     new_names = set(re.findall(calls, "\n".join(added)))
-    # Historical models can choose arbitrary identifiers; the optional ledger
-    # context never emits literal generator labels or prose from their replies.
-    labels = re.compile(r"W[26]|thin|thick|hawkes|long", re.IGNORECASE)
-    plus = [name for name in sorted(new_names - old_names) if not labels.search(name)][:5]
-    minus = [name for name in sorted(old_names - new_names) if not labels.search(name)][:5]
+    plus = sorted(new_names - old_names)[:5]
+    minus = sorted(old_names - new_names)[:5]
     summary = f"+{len(added)}/-{len(removed)} lines, calls/defs +{','.join(plus) or '-'} -{','.join(minus) or '-'}"
     return "\n".join(diff), summary
 
@@ -198,12 +197,13 @@ class FoldingLedger:
             delta = _metric(deltas, metric, require_support=True)
             values.append("NA" if delta is None else f"{delta:+.4g}")
         capacity = f"{row.get('parameters', 'NA')}/{row.get('state_scalars', 'NA')}"
-        line = " | ".join([row["cand_id"], row.get("parent_id") or "-", row["outcome"], capacity,
+        outcome = row["outcome"] + (f":{row['promotion_reason']}" if row.get("promotion_reason") else "")
+        line = " | ".join([row["cand_id"], row.get("parent_id") or "-", outcome, capacity,
                            *values, row["structural_diff"]])
         reason = row.get("gate_error") or gate_error(row)
         if reason:
             line += f" | reason={reason}"
-        return _LABELS.sub("[label omitted]", line)
+        return line
 
     @staticmethod
     def _stone_score(row: Mapping[str, Any]) -> float:

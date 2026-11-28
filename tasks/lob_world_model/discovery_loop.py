@@ -4,15 +4,13 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-import json
 from pathlib import Path
-import re
 from typing import Any, Literal
 
 from stochopia.common import atomic_write_json
 from .code_dedup import find_duplicate
 from .folding_ledger import FoldingLedger, promotion_decision
-from .prior_cards import PriorCard, advance_cooldown, select_active_cards
+from .prior_cards import PriorCard, shuffled_cards
 from .proposal import Proposal, StructuredPrediction, parse_proposal
 from .call_budget import BudgetExceededError, CallBudgetGuard
 from .provider import ProviderAttemptError
@@ -21,21 +19,39 @@ from .contracts import Messages, Transport
 Json = dict[str, Any]
 Arm = Literal['no_llm', 'greedy_score_llm', 'residual_d_llm', 'full_zd_llm',
               'd_only', 'true_z_d', 'shuffled_z_d']
-PROMPT_CAP = 2800
+PROMPT_CAP = 4000
 SOURCE_TOKEN_CAP = 1050
-Z_KEYS = ('sign_acf_sum_1_32', 'flow_vr_32_4', 'trade_to_top1_depth',
-          'midprice_shift_rate', 'cancel_to_limit_ratio', 'zero_wait_prob',
-          'interarrival_cv2', 'book_imbalance_bias', 'flow_sign_bias')
-D_KEYS = ('val_nll_total', 'dt_nll', 'event_nll', 'level_nll', 'size_nll',
-          'counterfactual_impact_mae', 'stylized_impact_mae', 'post_stop_relaxation_delta',
-          'visible_minus_blind_auc', 'c2_bootstrap_pass_rate', 'exhausted_replicate_rate',
-          'sign_acf_abs_error', 'memory_gap_1', 'memory_gap_4', 'memory_gap_16',
-          'memory_gap_64', 'zero_wait_rate_error', 'interarrival_cv2_error', 'interarrival_cv2_rel_error',
-          'free_abs_drift_ticks', 'available_quote_fraction')
+# Exact estimator definitions and null benchmarks only; no empirical thresholds.
+# Finite-window nulls matter: with n ~ 100 trades per session, independent signs
+# give sign_acf_sum ~ -0.33 and flow_vr ~ 0.5, not the population values 0 and 1.
+Z_PREAMBLE = 'Per 256-event training session (n ~ 100 aggressive trades), then median and IQR across sessions.'
+Z_REFERENCE = {
+    'sign_acf_sum_1_32': ('sum of trade-sign autocorrelations over event lags 1..32; 0 for independent signs, '
+                          'finite-window null about -32/n; higher = multi-lag directional persistence'),
+    'flow_vr_32_4': ('per-trade variance ratio of 32- vs 4-trade signed-flow sums; 1.0 for uncorrelated signs, '
+                     'finite-window null about 0.5; higher = multi-step persistence, lower = mean reversion'),
+    'trade_to_top1_depth': '>=0; median trade size over consumed best-quote depth (1 = a median trade clears the best queue)',
+    'midprice_shift_rate': 'in [0, 1]; fraction of quoted events that move the midprice (0 = stationary best quotes; not spread width)',
+    'cancel_to_limit_ratio': '>=0; volume canceled in the best three levels over all newly posted limit volume',
+    'zero_wait_prob': 'in [0, 1]; fraction of events with zero recorded wait (depends on clock resolution and arrival rate)',
+    'interarrival_cv2': 'var/mean^2 of waits; 1.0 for stationary Poisson arrivals; >1 clustering or rate nonstationarity',
+    'book_imbalance_bias': ('in [0, 1]; |session mean| of ten-level (bid-ask)/(bid+ask) depth; 0 in expectation under '
+                            'symmetric depth, >0 in finite windows'),
+    'flow_sign_bias': ('in [0, 1]; |session mean| of buy(+1)/sell(-1) signs; 0 in expectation under balanced flow, '
+                       'about sqrt(2/(pi*n)) for independent signs'),
+}
+Z_KEYS = tuple(Z_REFERENCE)
+D_GROUPS = (
+    ('nll_overview', ('val_nll_total', 'event_nll', 'level_nll', 'size_nll')),
+    ('timing_clustering', ('dt_nll', 'zero_wait_rate_error', 'interarrival_cv2_rel_error')),
+    ('rollout_viability', ('exhausted_replicate_rate', 'available_quote_fraction')),
+    ('flow_memory', ('sign_acf_abs_error', 'memory_gap_64')),
+    ('impact_response', ('counterfactual_impact_mae', 'post_stop_relaxation_delta')),
+    ('drift_stability', ('free_abs_drift_ticks', 'c2_bootstrap_pass_rate')),
+)
+D_KEYS = tuple(key for _, keys in D_GROUPS for key in keys)
 GREEDY_KEYS = ('val_nll_total', 'counterfactual_impact_mae')
-TARGETS = ('dt_nll', 'exhausted_replicate_rate', 'counterfactual_impact_mae', 'sign_acf_abs_error')
-# Match environment labels, not substrings of ordinary words (e.g. within).
-LABELS = re.compile(r'(?i)(?<![A-Za-z0-9])(?:w[26]|thin|thick|hawkes|long)(?![A-Za-z0-9])')
+CF = 'counterfactual_impact_mae'
 OMITTED = 'Regime statistics omitted in this control condition; rely on model residuals and structural boundaries.'
 
 SEED_SOURCE = '''from torch import nn
@@ -58,12 +74,24 @@ class CandidateLOBWorldModel(ProbeBase):
         return h[0], h[0]
 '''
 
-SYSTEM = '''You are studying a causal limit-order-book world model. Propose one substantive tensor operator change to the current parent and make a falsifiable metric prediction BEFORE seeing results. The objective is accurate response to a fixed external order, retaining likelihood and valid quotes. Use only causal StepObservation, not labels or future outcomes. CandidateLOBWorldModel must subclass LOBWorldModel, implement sequence_context, step_context and head_logits (or inherit ProbeBase); legal four heads, finite gradients, <=28000 trainable parameters.
+SYSTEM = '''You are studying a causal limit-order-book world model. Diagnose structure in the market data profile and model residuals, then propose one substantive tensor operator change to the current parent and register a falsifiable prediction BEFORE seeing results. The objective is accurate response to a fixed external order, retaining likelihood and valid quotes. Use only causal StepObservation, not future outcomes. CandidateLOBWorldModel must subclass LOBWorldModel, implement sequence_context, step_context and head_logits (or inherit ProbeBase); legal four heads, finite gradients, <=28000 trainable parameters.
 Exact tensor contract:
 - step_context(self, obs: StepObservation, state): obs.book_ticks and obs.book_shares each [B, 2, 10]; side axis 0=bid, 1=ask, level axis 0..9 (20 elements per sample, NEVER reshape/view to just 10). obs.previous_event [B, 4]; obs.is_own [B]. Return (context, next_state), context [B, 60].
 - sequence_context(self, obs: StepObservation): obs.book_ticks and obs.book_shares each [B, T, 2, 10], obs.previous_event [B, T, 4], obs.is_own [B, T]. Return [B, T, 60], numerically equivalent to successive step_context calls.
 - Recurrent state may be [B, 60] or tensors/tuples/dicts totaling <=60 real scalars per sample, e.g. [B, 10, 6] or ([B, 40], [B, 2, 10]). ProbeBase.raw_features returns 75 features; inherited heads consume 60 context features.
-Available stochopia.neural.probe_features helpers: input_projection, level_inputs, advect_level_state, previous_flow, volume_clock; torch and standard mathematical primitives permitted. Keep complete source below 1050 tokens; prefer explicit changed computation, neutral identifiers and comments; do not label data regimes in source or reply. Use torch.int64 for integer dtype. No file/network operations. A candidate that cannot fit in the next full-parent context is not admissible. Do not merely tune constants or choose a prewritten probe. No extra retries. Return exactly one JSON fenced block followed by one complete Python fenced block. JSON keys: selected_card_ids (list, primary card first, only displayed cards), target_metric (dt_nll, exhausted_replicate_rate, counterfactual_impact_mae, or sign_acf_abs_error), expected_direction (decrease or increase), regime_hypothesis (brief falsifiable explanation), unfold_ids (optional list of at most two existing IDs).'''
+Available stochopia.neural.probe_features helpers: input_projection, level_inputs, advect_level_state, previous_flow, volume_clock; torch and standard mathematical primitives permitted. Keep complete source below 1050 tokens with explicit changed computation. Use torch.int64 for integer dtype. No file/network operations. Do not merely tune constants or choose a prewritten probe. No extra retries.'''
+
+OBJECTIVE = '''[5. Objective & Output Schema]
+Deltas: candidate minus parent on paired days. Guardrails always: dNLL<=+0.005, dExhaust<=+0.05.
+Response measured on >=6 common valid days: promote if dResponse<=-0.010 tick, or |dResponse|<0.010 with dExhaust<=-0.10 or dNLL<=-0.008 (objective_improvement).
+Otherwise: promote if dExhaust<=-0.10 or dNLL<=-0.008 (viability_recovery). NA means unavailable, never zero.
+Reply with one JSON fenced block, then one complete Python fenced block. JSON keys in order:
+data_regime_diagnosis: structure in the data profile or residuals worth exploiting, with evidence;
+selected_card_ids: related catalog IDs, primary first, at most three; [] for a structure outside the catalog;
+regime_hypothesis: the mechanism, and the data conditions where it should be ineffective or harmful;
+target_metric: dt_nll | exhausted_replicate_rate | counterfactual_impact_mae | sign_acf_abs_error;
+expected_direction: decrease | increase;
+unfold_ids: optional, up to two ledger IDs to expand.'''
 
 
 @dataclass(frozen=True)
@@ -92,31 +120,41 @@ def _level_text(value: object) -> str:
 def _z_text(z: Mapping[str, Any] | None) -> str:
     if z is None:
         return OMITTED
-    lines = ['metric | median | IQR']
-    for key in Z_KEYS:
+    lines = [Z_PREAMBLE, 'metric | median | IQR | reference_and_interpretation']
+    for key, reference in Z_REFERENCE.items():
         summary = z[key]
-        lines.append(f'{key} | {_level_text(summary["median"])} | {_level_text(summary["intraday_iqr"])}')
+        lines.append(f'{key} | {_level_text(summary["median"])} | {_level_text(summary["intraday_iqr"])} | {reference}')
     return '\n'.join(lines)
 
 
-def _base_user(view: View, parent_id: str, source: str, result: Json,
-               cards: Sequence[PriorCard]) -> str:
-    if view.env_id not in ('env_alpha', 'env_beta'):
-        raise ValueError('environment must be anonymous')
+def _d_text(view: View, result: Json) -> str:
     levels = result['aggregate']
-    keys = GREEDY_KEYS if view.greedy else D_KEYS
-    d = '\n'.join(f'{key}: {_level_text(levels.get(key))}' for key in keys)
+    if view.greedy:
+        return '\n'.join(f'{key}: {_level_text(levels.get(key))}' for key in GREEDY_KEYS)
+    support = result.get('support', {}).get(CF, {})
+    lines = []
+    for group, keys in D_GROUPS:
+        values = []
+        for key in keys:
+            value = f'{key}={_level_text(levels.get(key))}'
+            if key == CF and 'paired_days' in support:
+                value += f' ({support["paired_days"]}/{support["registered_days"]} valid days)'
+            values.append(value)
+        lines.append(f'{group}: ' + ', '.join(values))
+    return '\n'.join(lines)
+
+
+def _sections(view: View, parent_id: str, source: str, result: Json,
+              cards: Sequence[PriorCard]) -> tuple[str, str]:
+    """Data first; the three isomorphic arms differ only inside section 1."""
     cards_text = '\n\n'.join(card.render() for card in cards) or 'None.'
-    # Identical layout for the three isomorphic arms; only the Z block varies.
-    return (f'Anonymous environment: {view.env_id}\n'
-            f'[Current Parent]\n{parent_id} | params={result["params"]} state={result["state"]}\n'
-            f'```python\n{source.rstrip()}\n```\n\n'
-            f'[Macro Data Regime Z]\n{_z_text(view.z)}\n\n'
-            f'[Model Residuals D]\n{d}\n\n'
-            f'[Active Prior Cards]\n{cards_text}\n\n'
-            '[Objective]\nBoth guardrails: dNLL<=+0.005, dExhaust<=+0.05. '
-            'Improve response error by >=0.010 tick, or when |dResponse|<0.010 '
-            'improve exhaust by >=0.10 or NLL by >=0.008. NA is unavailable, never zero.\n\n')
+    head = (f'Anonymous environment: {view.env_id}\n'
+            f'[1. Market Data Profile Z]\n{_z_text(view.z)}\n\n'
+            f'[2. Prior Mechanism Catalog (C01-C10, Open Reference)]\n{cards_text}\n\n'
+            f'[3. Core Parent Residuals D & Trial Ledger]\n{_d_text(view, result)}\n')
+    tail = (f'\n\n[4. Current Parent Source Code]\n{parent_id} | params={result["params"]} state={result["state"]}\n'
+            f'```python\n{source.rstrip()}\n```\n\n{OBJECTIVE}')
+    return head, tail
 
 
 def _greedy_history(ledger: FoldingLedger) -> str:
@@ -135,44 +173,24 @@ def _greedy_history(ledger: FoldingLedger) -> str:
 def build_messages(view: View, parent_id: str, source: str, result: Json,
                    cards: Sequence[PriorCard], ledger: FoldingLedger,
                    unfold_ids: Sequence[str], count: Callable[[Messages], int]) -> tuple[Messages, int]:
-    """Preserve full parent and D/cards. Trim optional history, never hidden source text."""
-    base = _base_user(view, parent_id, source, result, cards)
+    """Show the complete parent, D, Z and catalog; fold only the optional ledger history."""
+    head, tail = _sections(view, parent_id, source, result, cards)
     def packets(history: str) -> Messages:
         return [{'role': 'system', 'content': SYSTEM},
-                {'role': 'user', 'content': base + '[Folded Lineage]\n' + history}]
+                {'role': 'user', 'content': head + '\nTrial ledger:\n' + history + tail}]
     minimum = count(packets(''))
     if minimum > PROMPT_CAP:
         raise ValueError('complete parent and required context exceed prompt budget')
-    remaining = PROMPT_CAP - minimum
-    while True:
-        if view.greedy:
-            history = _greedy_history(ledger)
-            if count(packets(history)) > PROMPT_CAP:
-                history = ''
-        else:
-            history = ledger.render(parent_id, tuple(unfold_ids), max_tokens=remaining,
-                                    token_count=lambda text: max(0, count(packets(text)) - minimum))
-        messages = packets(history)
-        tokens = count(messages)
-        if tokens <= PROMPT_CAP:
-            break
-        if remaining == 0:
-            raise ValueError('folded prompt exceeds budget')
-        remaining = max(0, remaining - max(16, tokens - PROMPT_CAP))
-    if any(LABELS.search(message['content']) for message in messages):
-        raise ValueError('anonymous prompt contains a reserved label')
-    return messages, tokens
-
-
-def _prediction_dict(prediction: StructuredPrediction) -> Json:
-    return asdict(prediction)
-
-
-def _estimate(pair: Json, key: str) -> float | None:
-    value = pair.get(key, {})
-    if isinstance(value, dict):
-        return value.get('estimate')
-    return value
+    if view.greedy:
+        history = _greedy_history(ledger)
+        if count(packets(history)) > PROMPT_CAP:
+            history = ''
+    else:
+        # The ledger only offers rows whose in-context token cost still fits.
+        history = ledger.render(parent_id, tuple(unfold_ids), max_tokens=PROMPT_CAP - minimum,
+                                token_count=lambda text: count(packets(text)) - minimum)
+    messages = packets(history)
+    return messages, count(messages)
 
 
 def prediction_verdict(prediction: Json, paired: Json) -> str:
@@ -187,14 +205,6 @@ def prediction_verdict(prediction: Json, paired: Json) -> str:
     return 'SUPPORTED' if lo > 0 else 'REFUTED' if hi < 0 else 'INCONCLUSIVE'
 
 
-def _adverse(paired: Json) -> bool:
-    return any(value is not None and value > threshold for value, threshold in (
-        (_estimate(paired, 'val_nll_total'), 0.005),
-        (_estimate(paired, 'counterfactual_impact_mae'), 0.01),
-        (_estimate(paired, 'exhausted_replicate_rate'), 0.05),
-    ))
-
-
 def deterministic_proposal(round_number: int) -> Proposal:
     names = ('gru-multiscale', 'gru-surprise', 'matrix-noshift', 'matrix-advect',
              'flat-readoutgate', 'selective-ssm')
@@ -206,8 +216,9 @@ def deterministic_proposal(round_number: int) -> Proposal:
               '    def __new__(cls):\n'
               f'        return make_probe({name!r})\n')
     metric = 'exhausted_replicate_rate' if name.startswith('matrix') else 'counterfactual_impact_mae'
-    pred = StructuredPrediction(selected_card_ids=(), target_metric=metric,
-                                expected_direction='decrease', regime_hypothesis='Fixed probe sequence.', unfold_ids=())
+    pred = StructuredPrediction(data_regime_diagnosis='Fixed probe sequence.', selected_card_ids=(),
+                                regime_hypothesis='Fixed probe sequence.', target_metric=metric,
+                                expected_direction='decrease')
     return Proposal(source=source, prediction=pred)
 
 
@@ -218,11 +229,12 @@ class DiscoveryLoop:
                  evaluator: Callable[[str], Json], pair: Callable[[Json, Json], Json],
                  count: Callable[[Messages], int], transport: Transport | None = None,
                  guard: CallBudgetGuard | None = None, rounds: int = 6,
-                 should_stop: Callable[[], bool] = lambda: False, call_prefix: str | None = None) -> None:
+                 should_stop: Callable[[], bool] = lambda: False, call_prefix: str | None = None,
+                 replicate_id: str = 'rep_0') -> None:
         self.view, self.root, self.seed_result = view, root, seed_result
         self.evaluator, self.pair, self.count = evaluator, pair, count
         self.transport, self.guard, self.rounds = transport, guard, rounds
-        self.should_stop = should_stop
+        self.should_stop, self.replicate_id = should_stop, replicate_id
         self.call_prefix = call_prefix if call_prefix is not None else f'{view.env_id}/{view.arm}'
         self.ledger = FoldingLedger(root)
         if not self.ledger.records:
@@ -231,13 +243,14 @@ class DiscoveryLoop:
                                 'parameters': seed_result['params'], 'state_scalars': seed_result['state'],
                                 'source_sha256': source_hash(SEED_SOURCE), 'evaluation': seed_result})
 
+    def cards(self, round_number: int) -> list[PriorCard]:
+        return shuffled_cards(self.view.env_id, self.replicate_id, round_number) if self.view.use_cards else []
+
     def run(self) -> Json:
         parent_id, parent_source, parent = 'B0', SEED_SOURCE, self.seed_result
-        cooldown: dict[str, int] = {}
         unfold: Sequence[str] = ()
         # Reconstruct only already completed rounds; no replayed requests.
         for row in self.ledger.records[1:]:
-            cooldown = dict(row.get('cooldown_after', {}))
             unfold = tuple(row.get('unfold_ids', ()))
             if row['outcome'] == 'PROMOTED':
                 parent_id, parent_source, parent = row['cand_id'], row['source'], row['evaluation']
@@ -246,19 +259,19 @@ class DiscoveryLoop:
             if self.should_stop():
                 raise RuntimeError('study interrupted before another proposal')
             cid = f'c{number:02d}'
-            cards = select_active_cards(parent['aggregate'], cooldown) if self.view.use_cards else []
+            cards = self.cards(number)
             messages, tokens = build_messages(self.view, parent_id, parent_source, parent,
                                                cards, self.ledger, unfold, self.count)
-            active = [item.card_id for item in cards]
+            order = [item.card_id for item in cards]
             record: Json = {'round': number, 'cand_id': cid, 'parent_id': parent_id,
                             'parent_source': parent_source, 'prompt': messages, 'prompt_tokens': tokens,
-                            'active_card_ids': active, 'cooldown_before': cooldown, 'outcome': 'INVALID_PROPOSAL',
+                            'card_order': order, 'outcome': 'INVALID_PROPOSAL', 'promotion_reason': None,
                             'source': '', 'raw_reply': '', 'prediction': {}, 'deltas': {}, 'levels': {},
                             'selected_card_ids': [], 'unfold_ids': [], 'parameters': None, 'state_scalars': None}
             directory = self.root / 'preregistered'
             directory.mkdir(parents=True, exist_ok=True)
             atomic_write_json(directory / f'{cid}-request.json', {'messages': messages, 'tokens': tokens,
-                              'parent_id': parent_id, 'active_card_ids': active, 'parent_sha256': source_hash(parent_source)})
+                              'parent_id': parent_id, 'card_order': order, 'parent_sha256': source_hash(parent_source)})
             try:
                 if self.view.arm == 'no_llm':
                     proposal = deterministic_proposal(number)
@@ -271,24 +284,17 @@ class DiscoveryLoop:
                         reply = self.guard.call(self.transport, messages, call_id=call_id)
                     record['raw_reply'] = reply.text
                     record['usage'] = {'input_tokens': reply.input_tokens, 'output_tokens': reply.output_tokens}
-                    if reply.input_tokens > PROMPT_CAP:
-                        raise RuntimeError('provider reported input beyond the fixed prompt limit')
                     if reply.error:
                         raise ValueError(reply.error)
                     proposal = parse_proposal(reply.text)
                 record['source'] = proposal.source
-                prediction = _prediction_dict(proposal.prediction)
+                prediction = asdict(proposal.prediction)
                 record['prediction'] = prediction
-                selected = tuple(prediction['selected_card_ids'])
+                record['selected_card_ids'] = list(prediction['selected_card_ids'])
                 unfold_next = tuple(prediction.get('unfold_ids', ()))
-                record['selected_card_ids'] = list(selected)
-                if any(key not in active for key in selected):
-                    raise ValueError('selection includes a card that was not displayed')
                 if any(key not in {row['cand_id'] for row in self.ledger.records} for key in unfold_next):
                     raise ValueError('unknown unfold node')
                 record['unfold_ids'] = list(unfold_next)
-                if LABELS.search(proposal.source):
-                    raise ValueError('proposal uses a reserved environment label')
                 atomic_write_json(directory / f'{cid}-prediction.json', {'prediction': prediction,
                                   'source_sha256': source_hash(proposal.source)})
                 # A single source-size ceiling applies to every information arm, so the
@@ -316,7 +322,8 @@ class DiscoveryLoop:
                             record['levels'] = candidate['aggregate']
                             record['deltas'] = paired
                             record['prediction_verdict'] = prediction_verdict(prediction, paired)
-                            record['outcome'] = promotion_decision(parent['aggregate'], candidate['aggregate'], paired)
+                            record['outcome'], record['promotion_reason'] = promotion_decision(
+                                parent['aggregate'], candidate['aggregate'], paired)
             except BudgetExceededError as exc:
                 record['outcome'] = 'INTERRUPTED_CALL'
                 record['error'] = str(exc)
@@ -330,9 +337,6 @@ class DiscoveryLoop:
             except ValueError as exc:
                 record['error'] = str(exc)
             finally:
-                cooldown = advance_cooldown(cooldown, record['selected_card_ids'],
-                                            record['outcome'] != 'PROMOTED' and _adverse(record['deltas']))
-                record['cooldown_after'] = cooldown
                 self.ledger.append(record)
             print(f'ROUND {self.call_prefix}/{cid} {record["outcome"]}', flush=True)
             if record['outcome'] == 'PROMOTED':
