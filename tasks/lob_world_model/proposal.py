@@ -8,9 +8,29 @@ from dataclasses import asdict, dataclass
 from typing import Literal
 
 
-TargetMetric = Literal["dt_nll", "exhausted_replicate_rate", "counterfactual_impact_mae", "sign_acf_abs_error"]
+TargetMetric = Literal[
+    "val_nll_total", "dt_nll", "event_nll", "level_nll", "size_nll",
+    "zero_wait_rate_error", "interarrival_cv2_rel_error", "exhausted_replicate_rate",
+    "sign_acf_abs_error", "counterfactual_impact_mae", "free_abs_drift_ticks",
+]
 Direction = Literal["decrease", "increase"]
-TARGET_METRICS = ("dt_nll", "exhausted_replicate_rate", "counterfactual_impact_mae", "sign_acf_abs_error")
+ZMetric = Literal[
+    "sign_acf_sum_1_32", "flow_vr_32_4", "trade_to_top1_depth", "midprice_shift_rate",
+    "cancel_to_limit_ratio", "zero_wait_prob", "interarrival_cv2",
+    "book_imbalance_bias", "flow_sign_bias",
+]
+WeakerDirection = Literal["lower", "higher"]
+
+TARGET_METRICS = (
+    "val_nll_total", "dt_nll", "event_nll", "level_nll", "size_nll",
+    "zero_wait_rate_error", "interarrival_cv2_rel_error", "exhausted_replicate_rate",
+    "sign_acf_abs_error", "counterfactual_impact_mae", "free_abs_drift_ticks",
+)
+Z_METRICS = (
+    "sign_acf_sum_1_32", "flow_vr_32_4", "trade_to_top1_depth", "midprice_shift_rate",
+    "cancel_to_limit_ratio", "zero_wait_prob", "interarrival_cv2",
+    "book_imbalance_bias", "flow_sign_bias",
+)
 CARD_IDS = tuple(f"C{index:02d}" for index in range(1, 11))
 
 
@@ -20,11 +40,11 @@ class ProposalFormatError(ValueError):
 
 @dataclass(frozen=True)
 class StructuredPrediction:
-    """Ex ante causal chain registered before a candidate is evaluated.
+    """Ex ante causal chain and machine-falsifiable Z boundary registered before evaluation.
 
     Diagnosis of exploitable structure -> optional catalog cards (empty means an
-    open structure outside the catalog) -> mechanism with its failure condition
-    -> one readout and direction that can refute it.
+    open structure outside the catalog) -> mechanism with prose and structured Z
+    failure boundary -> one lower-is-better readout and direction that can refute it.
     """
 
     data_regime_diagnosis: str
@@ -32,6 +52,8 @@ class StructuredPrediction:
     regime_hypothesis: str
     target_metric: TargetMetric
     expected_direction: Direction
+    weaker_when_z_metric: ZMetric
+    weaker_when_z_direction: WeakerDirection
     unfold_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -44,9 +66,13 @@ class StructuredPrediction:
         if len(set(self.selected_card_ids)) != len(self.selected_card_ids):
             raise ProposalFormatError("selected_card_ids must not contain duplicates")
         if self.target_metric not in TARGET_METRICS:
-            raise ProposalFormatError("target_metric must be one of the four registered readouts")
+            raise ProposalFormatError("target_metric must be one of the eleven lower-is-better residual readouts")
         if self.expected_direction not in ("decrease", "increase"):
             raise ProposalFormatError("expected_direction must be decrease or increase")
+        if self.weaker_when_z_metric not in Z_METRICS:
+            raise ProposalFormatError("weaker_when_z_metric must be one of the nine Z profile metrics")
+        if self.weaker_when_z_direction not in ("lower", "higher"):
+            raise ProposalFormatError("weaker_when_z_direction must be lower or higher")
         if len(self.unfold_ids) > 2 or any(not isinstance(value, str) or not value.strip() for value in self.unfold_ids):
             raise ProposalFormatError("unfold_ids must contain at most two nonempty candidate IDs")
         if len(set(self.unfold_ids)) != len(self.unfold_ids):
@@ -56,8 +82,10 @@ class StructuredPrediction:
     def from_dict(cls, value: object) -> StructuredPrediction:
         if not isinstance(value, dict):
             raise ProposalFormatError("prediction must be a JSON object")
-        required = {"data_regime_diagnosis", "selected_card_ids", "regime_hypothesis",
-                    "target_metric", "expected_direction"}
+        required = {
+            "data_regime_diagnosis", "selected_card_ids", "regime_hypothesis",
+            "target_metric", "expected_direction", "weaker_when_z_metric", "weaker_when_z_direction",
+        }
         if not required.issubset(value) or set(value) - required - {"unfold_ids"}:
             raise ProposalFormatError("prediction fields do not match the registered output protocol")
         card_ids = value["selected_card_ids"]
@@ -65,8 +93,11 @@ class StructuredPrediction:
         for field, ids in (("selected_card_ids", card_ids), ("unfold_ids", unfold_ids)):
             if not isinstance(ids, list) or any(not isinstance(item, str) for item in ids):
                 raise ProposalFormatError(f"{field} must be a JSON array of strings")
-        return cls(value["data_regime_diagnosis"], tuple(card_ids), value["regime_hypothesis"],
-                   value["target_metric"], value["expected_direction"], tuple(unfold_ids))
+        return cls(
+            value["data_regime_diagnosis"], tuple(card_ids), value["regime_hypothesis"],
+            value["target_metric"], value["expected_direction"],
+            value["weaker_when_z_metric"], value["weaker_when_z_direction"], tuple(unfold_ids),
+        )
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

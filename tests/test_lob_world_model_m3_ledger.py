@@ -46,6 +46,8 @@ def test_catalog_is_complete_open_reference_without_urls() -> None:
 OBJECTIVE, VIABILITY = ("PROMOTED", "objective_improvement"), ("PROMOTED", "viability_recovery")
 STONE, REJECT = ("STEPPING_STONE", None), ("REJECTED", None)
 SPARSE_CF = {"estimate": -.2, "interval": None, "paired_days": 4}
+SPARSE_CF_BLOWUP = {"estimate": .51, "interval": None, "paired_days": 3}
+SPARSE_CF_BORDER = {"estimate": .50, "interval": None, "paired_days": 3}
 
 
 @pytest.mark.parametrize(("deltas", "expected"), [
@@ -62,8 +64,11 @@ SPARSE_CF = {"estimate": -.2, "interval": None, "paired_days": 4}
     ({"val_nll_total": .0251, "dt_nll": -.2}, REJECT),
     ({"val_nll_total": -.01, "counterfactual_impact_mae": None, "exhausted_replicate_rate": -.2}, VIABILITY),
     ({"val_nll_total": -.01, "counterfactual_impact_mae": -.1, "exhausted_replicate_rate": .051}, REJECT),
-    ({"val_nll_total": -.01, "counterfactual_impact_mae": SPARSE_CF, "exhausted_replicate_rate": .0}, VIABILITY),
+    # Under sparse CF (<6 days), NLL drop alone never promotes; exhaustion drop <= -0.10 with surviving CF <= +0.50 does.
+    ({"val_nll_total": -.01, "counterfactual_impact_mae": SPARSE_CF, "exhausted_replicate_rate": .0}, REJECT),
     ({"val_nll_total": .0, "counterfactual_impact_mae": SPARSE_CF, "exhausted_replicate_rate": -.1}, VIABILITY),
+    ({"val_nll_total": .0, "counterfactual_impact_mae": SPARSE_CF_BORDER, "exhausted_replicate_rate": -.1}, VIABILITY),
+    ({"val_nll_total": .0, "counterfactual_impact_mae": SPARSE_CF_BLOWUP, "exhausted_replicate_rate": -.2}, STONE),
     ({"val_nll_total": .0, "counterfactual_impact_mae": SPARSE_CF, "exhausted_replicate_rate": -.09}, REJECT),
     ({"val_nll_total": .006, "counterfactual_impact_mae": SPARSE_CF, "exhausted_replicate_rate": -.5}, STONE),
     ({"val_nll_total": .01, "dt_nll": {"estimate": -.03, "interval": [-.04, -.02],

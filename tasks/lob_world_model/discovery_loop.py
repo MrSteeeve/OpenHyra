@@ -19,7 +19,7 @@ from .contracts import Messages, Transport
 Json = dict[str, Any]
 Arm = Literal['no_llm', 'greedy_score_llm', 'residual_d_llm', 'full_zd_llm',
               'd_only', 'true_z_d', 'shuffled_z_d']
-PROMPT_CAP = 4000
+PROMPT_CAP = 4500
 SOURCE_TOKEN_CAP = 1050
 # Exact estimator definitions and null benchmarks only; no empirical thresholds.
 # Finite-window nulls matter: with n ~ 100 trades per session, independent signs
@@ -84,13 +84,15 @@ Available stochopia.neural.probe_features helpers: input_projection, level_input
 OBJECTIVE = '''[5. Objective & Output Schema]
 Deltas: candidate minus parent on paired days. Guardrails always: dNLL<=+0.005, dExhaust<=+0.05.
 Response measured on >=6 common valid days: promote if dResponse<=-0.010 tick, or |dResponse|<0.010 with dExhaust<=-0.10 or dNLL<=-0.008 (objective_improvement).
-Otherwise: promote if dExhaust<=-0.10 or dNLL<=-0.008 (viability_recovery). NA means unavailable, never zero.
-Reply with one JSON fenced block, then one complete Python fenced block. JSON keys in order:
+With <6 common valid response days: promote only if dExhaust<=-0.10 and surviving point dResponse<=+0.50 tick when present (viability_recovery). NA means unavailable, never zero.
+Reply with one JSON fenced block, then one complete Python fenced block. JSON keys:
 data_regime_diagnosis: structure in the data profile or residuals worth exploiting, with evidence;
-selected_card_ids: related catalog IDs, primary first, at most three; [] for a structure outside the catalog;
-regime_hypothesis: the mechanism, and the data conditions where it should be ineffective or harmful;
-target_metric: dt_nll | exhausted_replicate_rate | counterfactual_impact_mae | sign_acf_abs_error;
+selected_card_ids: related catalog IDs (C01..C10), primary first, at most three; [] for an open structure outside the catalog;
+regime_hypothesis: the mathematical mechanism, and the data conditions where it should be ineffective or harmful;
+target_metric: val_nll_total | dt_nll | event_nll | level_nll | size_nll | zero_wait_rate_error | interarrival_cv2_rel_error | exhausted_replicate_rate | sign_acf_abs_error | counterfactual_impact_mae | free_abs_drift_ticks;
 expected_direction: decrease | increase;
+weaker_when_z_metric: sign_acf_sum_1_32 | flow_vr_32_4 | trade_to_top1_depth | midprice_shift_rate | cancel_to_limit_ratio | zero_wait_prob | interarrival_cv2 | book_imbalance_bias | flow_sign_bias;
+weaker_when_z_direction: lower | higher (when weaker_when_z_metric is lower or higher, the expected improvement on target_metric should weaken toward zero or worsen);
 unfold_ids: optional, up to two ledger IDs to expand.'''
 
 
@@ -216,9 +218,12 @@ def deterministic_proposal(round_number: int) -> Proposal:
               '    def __new__(cls):\n'
               f'        return make_probe({name!r})\n')
     metric = 'exhausted_replicate_rate' if name.startswith('matrix') else 'counterfactual_impact_mae'
+    z_metric = ('midprice_shift_rate' if name.startswith('matrix')
+                else 'interarrival_cv2' if name == 'selective-ssm' else 'sign_acf_sum_1_32')
     pred = StructuredPrediction(data_regime_diagnosis='Fixed probe sequence.', selected_card_ids=(),
                                 regime_hypothesis='Fixed probe sequence.', target_metric=metric,
-                                expected_direction='decrease')
+                                expected_direction='decrease', weaker_when_z_metric=z_metric,
+                                weaker_when_z_direction='lower')
     return Proposal(source=source, prediction=pred)
 
 

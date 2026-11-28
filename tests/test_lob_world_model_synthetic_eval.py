@@ -174,3 +174,63 @@ def test_transplant_contrast_refits_frozen_operator_in_both_worlds(tmp_path: Pat
     count = len(calls)
     assert bridge.transplant_contrast(tmp_path, {"x": "x", "bad": "bad"}, "reference") == result
     assert len(calls) == count
+    # Passing an unregistered candidate against an already-sealed transplant-freeze raises ValueError, never KeyError.
+    with pytest.raises(ValueError, match="absent from sealed"):
+        bridge.transplant_contrast(tmp_path, {"x": "x", "unseen": "unseen"}, "reference")
+
+
+def test_single_factor_pairs_and_boundary_falsification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert bridge.single_factor_pair_for_z("sign_acf_sum_1_32") == ("memory", ("w1_thick_short", "w2_thick_long"))
+    assert bridge.single_factor_pair_for_z("midprice_shift_rate") == ("thinness", ("w1_thick_short", "w3_thin_short"))
+    assert bridge.single_factor_pair_for_z("interarrival_cv2") == ("clustering", ("w3_thin_short", "w6_thin_hawkes"))
+
+    effects = {"reference": {"w3_thin_short": 0., "w6_thin_hawkes": 0.},
+               "hawkes_op": {"w3_thin_short": .02, "w6_thin_hawkes": -.20}}
+    z_values = {"w3_thin_short": {"interarrival_cv2": {"median": .94, "intraday_iqr": .12}},
+                "w6_thin_hawkes": {"interarrival_cv2": {"median": 5.03, "intraday_iqr": .91}}}
+
+    def dev(root: Path, env_id: str) -> dict:
+        root.mkdir(exist_ok=True, parents=True)
+        bridge.atomic_write_json(root / "development.json", {})
+        return {"z": z_values[env_id]}
+
+    def holdout(root: Path, env_id: str, *, freeze_sha256: str) -> dict:
+        (root / "holdout_test.pkl").write_bytes(b"future")
+        bridge.atomic_write_json(root / "holdout.json", {"freeze_sha256": freeze_sha256})
+        return {"freeze_sha256": freeze_sha256}
+
+    def run(work: Path, mode: str, source: str, files: dict[str, Path], timeout_s: float) -> Path:
+        env = files.get("panel.pkl", files.get("train.pkl")).parent.parent.name
+        output = work / "output"
+        output.mkdir(parents=True)
+        if mode == "fit":
+            for seed in bridge.SEEDS:
+                (output / f"{seed}.pt").write_text(f"{source}-{seed}")
+            bridge.atomic_write_json(output / "fit.json", {"params": 17, "state": 6, "fits": []})
+        else:
+            bridge.atomic_write_json(output / "result.json", {
+                "params": 17, "state": 6, "aggregate": {}, "daily": _panel(effects[source][env]),
+            })
+        return output
+
+    monkeypatch.setattr(bridge, "prepare_development", dev)
+    monkeypatch.setattr(bridge, "materialize_holdout", holdout)
+    monkeypatch.setattr(bridge, "_run", run)
+    monkeypatch.setattr(bridge, "CandidateGate", lambda max_state_dim: (lambda source: None))
+    res = bridge.transplant_contrast(tmp_path / "pair", {"hawkes_op": "hawkes_op"}, "reference",
+                                     environments=("w3_thin_short", "w6_thin_hawkes"))
+    entry = res["candidates"]["hawkes_op"]
+    confirmed = bridge.evaluate_boundary_claim(entry, res["world_z"], "interarrival_cv2", "lower", "dt_nll")
+    assert confirmed["verdict"] == "BOUNDARY_CONFIRMED"
+    assert confirmed["z_weak_env"] == "w3_thin_short" and confirmed["z_strong_env"] == "w6_thin_hawkes"
+    assert confirmed["delta_strong_minus_weak"]["estimate"] == pytest.approx(-.22)
+    refuted = bridge.evaluate_boundary_claim(entry, res["world_z"], "interarrival_cv2", "higher", "dt_nll")
+    assert refuted["verdict"] == "BOUNDARY_REFUTED"
+
+    # Malformed transplant-freeze.json raises ValueError cleanly.
+    bad_root = tmp_path / "bad_freeze"
+    bad_root.mkdir()
+    (bad_root / "transplant-freeze.json").write_text(json.dumps({"approved": {"w3_thin_short": []}}))
+    with pytest.raises(ValueError, match="approved"):
+        bridge.transplant_contrast(bad_root, {"hawkes_op": "hawkes_op"}, "reference",
+                                   environments=("w3_thin_short", "w6_thin_hawkes"))

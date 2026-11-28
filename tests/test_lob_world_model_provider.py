@@ -17,6 +17,7 @@ MESSAGE: Messages = [{"role": "system", "content": "registered task"}, {"role": 
 PREDICTION = {"data_regime_diagnosis": "Waits are overdispersed relative to Poisson arrivals.",
               "selected_card_ids": ["C03", "C06"], "target_metric": "dt_nll",
               "expected_direction": "decrease", "regime_hypothesis": "Persistent state can condition timing.",
+              "weaker_when_z_metric": "interarrival_cv2", "weaker_when_z_direction": "lower",
               "unfold_ids": ["candidate-03"]}
 SOURCE = "def create_model():\n    return None\n"
 
@@ -95,11 +96,12 @@ def test_anthropic_payload_and_multi_block_response(tmp_path: Path, monkeypatch:
 
 
 @pytest.mark.parametrize("invalid", [
-    {"expected_direction": "equivalent"}, {"target_metric": "val_nll_total"},
+    {"expected_direction": "equivalent"}, {"target_metric": "memory_gap_64"}, {"target_metric": "available_quote_fraction"},
     {"selected_card_ids": ["C99"]}, {"selected_card_ids": "C01"},
     {"selected_card_ids": ["C01", "C01"]}, {"unfold_ids": ["a", "b", "c"]},
     {"regime_hypothesis": ""}, {"regime_hypothesis": None}, {"extra": 1},
     {"data_regime_diagnosis": ""}, {"data_regime_diagnosis": None},
+    {"weaker_when_z_metric": "unknown_z"}, {"weaker_when_z_direction": "same"},
 ])
 def test_prediction_contract_errors_are_explicit(invalid: dict) -> None:
     value = {**PREDICTION, **invalid}
@@ -124,8 +126,15 @@ def test_combined_json_proposal_and_optional_unfold() -> None:
 
 
 def test_empty_card_selection_registers_open_structure() -> None:
-    proposal = parse_proposal(json.dumps({**PREDICTION, "selected_card_ids": [], "candidate_source": SOURCE}))
-    assert proposal.prediction.selected_card_ids == ()
+    for metric in ("val_nll_total", "level_nll", "interarrival_cv2_rel_error", "free_abs_drift_ticks"):
+        proposal = parse_proposal(json.dumps({
+            **PREDICTION, "selected_card_ids": [], "target_metric": metric,
+            "weaker_when_z_metric": "midprice_shift_rate", "weaker_when_z_direction": "higher",
+            "candidate_source": SOURCE,
+        }))
+        assert proposal.prediction.selected_card_ids == ()
+        assert proposal.prediction.target_metric == metric
+        assert proposal.prediction.weaker_when_z_direction == "higher"
     assert proposal.prediction.data_regime_diagnosis.startswith("Waits")
 
 

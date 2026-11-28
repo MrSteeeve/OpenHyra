@@ -67,12 +67,14 @@ class CandidateLOBWorldModel(ProbeBase):
 '''
 
 
-def _raw(cards: list[str]) -> str:
+def _raw(cards: list[str], target_metric: str = 'dt_nll', z_metric: str = 'interarrival_cv2',
+         z_dir: str = 'lower') -> str:
     obj = {'data_regime_diagnosis': 'Bursty, thick-tailed waits (Hawkes-like rather than Poisson) in a thin book.',
            'selected_card_ids': cards,
            'regime_hypothesis': 'A recurrent gain sharpens the clock; it should not help under long, short or thick '
                                 'Poisson-like flow with constant rate.',
-           'target_metric': 'dt_nll', 'expected_direction': 'decrease', 'unfold_ids': []}
+           'target_metric': target_metric, 'expected_direction': 'decrease',
+           'weaker_when_z_metric': z_metric, 'weaker_when_z_direction': z_dir, 'unfold_ids': []}
     return f'```json\n{json.dumps(obj)}\n```\n```python\n{SOURCE}\n```'
 
 
@@ -166,13 +168,20 @@ def test_next_prompt_receives_one_line_gate_feedback(tmp_path: Path) -> None:
 
 
 def test_professional_terms_and_open_structures_are_not_rejected(tmp_path: Path) -> None:
-    """Thin/thick/Hawkes/Poisson/long are ordinary terms; an empty card list is open innovation."""
+    """Thin/thick/Hawkes/Poisson/long are ordinary terms; empty card list + expanded target metrics work."""
+    assert PROMPT_CAP == 4500
     guard = CallBudgetGuard(tmp_path / 'calls.jsonl', limit=1)
     loop = DiscoveryLoop(view=View('true_z_d', 'env_beta', _z(1.0)), root=tmp_path / 'track', seed_result=_result(),
-                         evaluator=_result, pair=_pair, count=_count, transport=lambda messages, response_json: ProviderReply(_raw([]), 100, 200), guard=guard, rounds=1)
+                         evaluator=_result, pair=_pair, count=_count,
+                         transport=lambda messages, response_json: ProviderReply(
+                             _raw([], target_metric='level_nll', z_metric='midprice_shift_rate', z_dir='lower'), 100, 200),
+                         guard=guard, rounds=1)
     row = loop.run()['records'][1]
     assert row['outcome'] == 'PROMOTED' and row['promotion_reason'] == 'objective_improvement'
     assert row['selected_card_ids'] == []
+    assert row['prediction']['target_metric'] == 'level_nll'
+    assert row['prediction']['weaker_when_z_metric'] == 'midprice_shift_rate'
+    assert row['prediction_verdict'] == 'SUPPORTED'
     assert 'Hawkes' in row['source'] and 'Poisson' in row['prediction']['regime_hypothesis']
     assert row['prediction']['data_regime_diagnosis'].startswith('Bursty')
 

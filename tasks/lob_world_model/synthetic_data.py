@@ -20,8 +20,33 @@ from stochopia.sim.queue_reactive_data import QueueDataset, generate_dataset, ge
 from stochopia.sim.queue_reactive_world import standard_worlds
 
 ENV_IDS = ("env_alpha", "env_beta")
+SINGLE_FACTOR_PAIRS: dict[str, tuple[str, str]] = {
+    "memory": ("w1_thick_short", "w2_thick_long"),
+    "thinness": ("w1_thick_short", "w3_thin_short"),
+    "clustering": ("w3_thin_short", "w6_thin_hawkes"),
+}
+Z_TO_SINGLE_FACTOR_PAIR: dict[str, str] = {
+    "sign_acf_sum_1_32": "memory",
+    "flow_vr_32_4": "memory",
+    "flow_sign_bias": "memory",
+    "trade_to_top1_depth": "thinness",
+    "midprice_shift_rate": "thinness",
+    "cancel_to_limit_ratio": "thinness",
+    "book_imbalance_bias": "thinness",
+    "zero_wait_prob": "clustering",
+    "interarrival_cv2": "clustering",
+}
 # Only the materializer sees generator names. The worker gets anonymous day arrays.
-_WORLD_KEYS = {"env_alpha": "W6_thin_hawkes", "env_beta": "W2_thick_long"}
+_WORLD_KEYS = {
+    "env_alpha": "W6_thin_hawkes",
+    "env_beta": "W2_thick_long",
+    "w1_thick_short": "W1_thick_short",
+    "w2_thick_long": "W2_thick_long",
+    "w3_thin_short": "W3_thin_short",
+    "w4_thin_long": "W4_thin_long",
+    "w6_thin_hawkes": "W6_thin_hawkes",
+}
+WORLD_IDS = tuple(_WORLD_KEYS)
 Z_KEYS = (
     "sign_acf_sum_1_32", "flow_vr_32_4", "trade_to_top1_depth", "midprice_shift_rate",
     "cancel_to_limit_ratio", "zero_wait_prob", "interarrival_cv2", "book_imbalance_bias", "flow_sign_bias",

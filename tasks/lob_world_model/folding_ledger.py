@@ -91,21 +91,22 @@ def promotion_decision(parent: Mapping[str, Any], candidate: Mapping[str, Any],
     Deltas are candidate minus parent. Paired estimates count only with six
     common valid days and a reported interval; nothing is imputed. Both
     guardrails always apply. With adequate response support the response
-    criterion decides (objective_improvement); without it, a large exhaustion
-    or likelihood gain may restore closed-loop generation (viability_recovery).
+    criterion decides (objective_improvement); without it, only a >=0.10
+    exhaustion drop (with surviving point CF delta <= +0.50 tick when present)
+    may promote to restore closed-loop generation (viability_recovery).
     Fixed decision thresholds, not significance tests. NLL in nats, CF in
     ticks, exhaust in [0,1].
     """
     nll = _delta(parent, candidate, paired_deltas, NLL)
     exhaust = _delta(parent, candidate, paired_deltas, EXHAUST)
     cf = _delta(parent, candidate, paired_deltas, CF)
+    cf_point = _metric(paired_deltas, CF) if paired_deltas is not None else None
     if nll is None or nll > .025 or _metric(candidate, NLL) is None:
         return "REJECTED", None
     if exhaust is not None and nll <= .005 and exhaust <= .05:
-        recovers = exhaust <= -.10 or nll <= -.008
-        if cf is not None and (cf <= -.010 or (abs(cf) < .010 and recovers)):
+        if cf is not None and (cf <= -.010 or (abs(cf) < .010 and (exhaust <= -.10 or nll <= -.008))):
             return "PROMOTED", "objective_improvement"
-        if cf is None and recovers:
+        if cf is None and exhaust <= -.10 and (cf_point is None or cf_point <= .50):
             return "PROMOTED", "viability_recovery"
     dt = _delta(parent, candidate, paired_deltas, "dt_nll")
     acf = _delta(parent, candidate, paired_deltas, ACF)

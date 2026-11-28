@@ -115,3 +115,29 @@ def test_old_artifact_root_cannot_be_reopened(tmp_path: Path, monkeypatch: pytes
         with pytest.raises(ValueError, match='isolated'):
             runner.main()
         assert not root.exists()
+
+
+def test_r2_72_slot_pilot_roster_and_zero_api_empty_transplant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prior = runner.ROOT / 'artifacts' / 'p2-m3-isomorphic-control' / 'baseline.json'
+    baseline = json.loads(prior.read_text(encoding='utf-8'))
+    monkeypatch.setattr(runner, 'openai_token_counter', lambda: _count)
+    replicates = ('rep_0', 'rep_1')
+    guard = CallBudgetGuard(tmp_path / 'api_calls.jsonl', limit=72)
+    calls: list[str] = []
+    lock = Lock()
+
+    def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
+        with lock:
+            reply = f'invalid offline unique response {len(calls):03d}'
+            calls.append(reply)
+        return ProviderReply(reply, 100, 20)
+
+    monkeypatch.setattr(runner, 'registry_transport', lambda *args: transport)
+    monkeypatch.setattr(runner, '_check_model_cache', lambda evaluator, result: result)
+    runner._audit_first_round(tmp_path, baseline, replicates)
+    runner._run_tracks(tmp_path, {env: None for env in runner.ENVS}, baseline, guard, replicates)
+    assert len(calls) == guard.count == 72
+    freeze = runner._make_freeze(tmp_path, guard, {env: None for env in runner.ENVS}, replicates)
+    assert len(freeze['trajectories']) == 12 and freeze['num_replicates'] == 2
+    loop2 = runner.run_loop2_transplants(tmp_path, tmp_path / 'work', freeze, replicates)
+    assert loop2['api_calls'] == 0 and loop2['total_claims'] == 0
