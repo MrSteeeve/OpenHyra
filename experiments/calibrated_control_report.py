@@ -176,6 +176,26 @@ def _calibration_table(old: Mapping[str, list[Json]], current: Mapping[str, list
     return control + '\n\n' + _table(('环境', '臂', '首轮不同回复哈希 / 3', '不同源码哈希 / 3', '有回复 / 3'), random_rows)
 
 
+def _feedback_receipt(tracks: Mapping[str, list[Json]]) -> str:
+    """Verify stored failure receipts and actual next-round visibility under the token cap."""
+    failure_types = {'GATE_REJECTED', 'INVALID_PROPOSAL', 'DUPLICATE_REJECTED', 'NONFINITE_LOSS'}
+    failures = opportunities = visible = 0
+    for ledger in tracks.values():
+        for index, row in enumerate(ledger[1:], start=1):
+            if row['outcome'] not in failure_types:
+                continue
+            reason = row.get('gate_error')
+            if not isinstance(reason, str) or not reason or len(reason) > 120 or '\n' in reason:
+                raise ValueError('missing or malformed calibrated gate-error receipt')
+            failures += 1
+            if index + 1 < len(ledger):
+                opportunities += 1
+                if any(reason in message['content'] for message in ledger[index + 1]['prompt']):
+                    visible += 1
+    return (f'失败回执单行错误共 {failures} 条（均≤120字符）；有下一轮的 {opportunities} 次，'
+            f'实际下一轮提示保留原脱敏错误 {visible}/{opportunities} 次。')
+
+
 def _alignment_table(tracks: Mapping[str, list[Json]]) -> str:
     result = []
     for env in ENVIRONMENTS:
@@ -274,23 +294,29 @@ def _ablation_table(abl: Json) -> str:
     """Render exact frozen ablation schema (levels and independent daily contrasts)."""
     if abl['formal_fits'] != 12:
         raise ValueError('ablation must have twelve fitted instances')
-    metrics = ('val_nll_total', 'counterfactual_impact_mae', 'post_stop_relaxation_delta',
-               'sign_acf_abs_error', 'memory_gap_1', 'memory_gap_4', 'memory_gap_16', 'memory_gap_64')
-    rows = []
-    for name in ('A00', 'A10', 'A01', 'A11'):
-        model = abl['models'][name]
-        if model['state'] != 60 or len(model['fits']) != 3:
-            raise ValueError('ablation state or fit roster differs')
-        result = [name, model['params'], model.get('used_params', model['params']), model['state']]
-        for metric in metrics:
-            result.append(_number(model['aggregate'][metric]))
-        rows.append(result)
-    levels = _table(('模型', '登记参数', '使用参数', '状态', *metrics), rows)
-    diffs = []
-    for contrast, values in abl['contrasts'].items():
-        diffs.append([contrast, *[_pair(values.get(metric)) for metric in metrics]])
-    diffs.append(['(A11−A10)−(A01−A00)', *[_pair(abl['synergy'].get(metric)) for metric in metrics]])
-    return levels + '\n\n' + _table(('配对差', *metrics), diffs)
+    metric_groups = (
+        ('主要读数', ('val_nll_total', 'counterfactual_impact_mae', 'post_stop_relaxation_delta',
+                     'sign_acf_abs_error', 'memory_gap_1', 'memory_gap_4', 'memory_gap_16', 'memory_gap_64')),
+        ('分项及护栏', ('dt_nll', 'event_nll', 'level_nll', 'size_nll', 'exhausted_replicate_rate')),
+    )
+    tables = []
+    for title, metrics in metric_groups:
+        rows = []
+        for name in ('A00', 'A10', 'A01', 'A11'):
+            model = abl['models'][name]
+            if model['state'] != 60 or len(model['fits']) != 3:
+                raise ValueError('ablation state or fit roster differs')
+            result = [name, model['params'], model.get('used_params', model['params']), model['state']]
+            result.extend(_number(model['aggregate'][metric]) for metric in metrics)
+            rows.append(result)
+        levels = _table(('模型', '登记参数', '使用参数', '状态', *metrics), rows)
+        diffs = []
+        for contrast, values in abl['contrasts'].items():
+            diffs.append([contrast, *[_pair(values.get(metric)) for metric in metrics]])
+        diffs.append(['A11−A00', *[_pair(abl['paired_vs_A00']['A11'].get(metric)) for metric in metrics]])
+        diffs.append(['(A11−A10)−(A01−A00)', *[_pair(abl['synergy'].get(metric)) for metric in metrics]])
+        tables.extend((f'**{title}**', levels, _table(('配对差', *metrics), diffs)))
+    return '\n\n'.join(tables)
 
 
 def _ablation_interpretation(abl: Json) -> str:
@@ -302,10 +328,12 @@ def _ablation_interpretation(abl: Json) -> str:
 
     reproduction = abl['m3_reference_reproduction']
     matches = sum(sum(row['checkpoint_hash_match'].values()) for row in reproduction.values())
+    exact = sum(sum(metric['difference'] == 0 for metric in row['aggregate_comparison'].values()) for row in reproduction.values())
     return (f'消融正式拟合 {abl["formal_fits"]} 次，API {abl["api_calls"]} 次，墙钟 {_number(abl["wall_seconds"])} 秒；'
-            f'A00/A11 对照旧 M3 权重 SHA256 共 {matches}/6 一致。'
+            f'A00/A11 对照旧 M3 权重 SHA256 共 {matches}/6 一致，汇总读数 {exact}/26 完全相同。'
             f'总 NLL 交互：{verdict("val_nll_total")}；冲击 MAE 交互：{verdict("counterfactual_impact_mae")}。'
-            '交互判定依据冻结的共同日区间，不以事后最佳模型排名代替。')
+            f'A11−A10 冲击 MAE 直接配对差为 {_pair(abl["contrasts"]["A11-A10"]["counterfactual_impact_mae"])}。'
+            '交互判定依据冻结的共同日区间，不以事后最佳模型排名代替；组合收益低于加总不意味着A11绝对性能差于A00。')
 
 
 def render(artifact: Path) -> str:
@@ -339,6 +367,7 @@ def render(artifact: Path) -> str:
         '训练16日、开发12日、留出12日；三训练初值、模型K=4、生成真值K=16。M3.1 留出日对本轮搜索隔离，在18条轨迹冻结后才实体化；但它与历史M3使用相同日期，不能称为跨里程碑全新数据集。消融复用相同日期，独立于在线闭环。',
         '## 表 1 · M3→M3.1 校准前后与同构、独立采样审计',
         _calibration_table(old, tracks, audit),
+        _feedback_receipt(tracks),
         '所有108个实际请求和账本提示逐字符匹配；每环境9条轨迹首轮去除Z块后逐字符一致，初始D和权重一致；逐轮Z正确置换，匿名标签与预算检查通过。有效率为完成契约及开发测量/全部尝试；同轨迹重复错误只计同类形状错误首次之后的次数。三个修复联合上线，前后率差是整体Harness校准对照，不能分别归因；M3只有R=1。不同回复哈希是独立请求输出的实测多样性，而不是声称供应商独立同分布。',
         '## 表 2 · c06 的 2×2 机制消融（独立、零 API）',
         _ablation_table(abl),
