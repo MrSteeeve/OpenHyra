@@ -1,0 +1,25 @@
+wind_code,name,board,price_tier,median_price_rmb_5d,active_days_5d,one_sided_days_5d,n_snapshots_5d,top1_quote_match_rate_5d,vol_aligned_touch_match_rate_5d,top10_depth_mae_5d,top10_log_vol_mae_5d,invalid_spread_rate_5d,mean_daily_events_5d,passed_stage1_qrec_gate,top1_quote_match_rate_16d,invalid_spread_rate_16d,final_disposition,pool_role,quadrant,reason
+000001.SZ,平安银行,深市主板,low_3_15,9.095,5,0,23284,0.999914,0.98965,35.1456,0.000108,0.0,31315.2,True,0.999825,0.0,LOCKED_CLEAN,unseen_validation_pool,Q1_thick_locked_long_memory,低换档厚盘 + 长方向记忆（未见验证）
+000725.SZ,京东方A,深市主板,low_3_15,3.875,5,0,23699,0.999873,0.998903,228.1319,0.000188,0.0,122138.6,True,0.999868,0.0,LOCKED_CLEAN,exploration_pool,Q1_thick_locked_long_memory,低换档锁价厚盘 + 长方向记忆
+000100.SZ,TCL集团,深市主板,low_3_15,0.0,0,5,0,0.0,0.0,0.0,0.0,1.0,0.0,False,,,REJECTED_SUSPENDED,rejected,none,首5日连续停牌（有效交易日 0/5）
+000333.SZ,美的集团,深市主板,mid_20_60,36.585,5,0,23682,0.996157,0.901149,83.6689,0.005232,0.0,58161.8,True,0.99537,0.0,ELIGIBLE_RESERVE,eligible_unselected,clean_reserve,通过 Q_rec >= 95% 硬门槛（16日均有效），同象限已有跨度更极端代表股入选
+000651.SZ,格力电器,深市主板,mid_20_60,33.855,5,0,23698,0.997173,0.947464,141.803,0.003379,0.0,121643.8,True,0.994818,0.0,LOCKED_CLEAN,unseen_validation_pool,Q1_thick_mid_short_persistence,中低换档厚盘 + 强短窗记忆与同刻簇聚（未见验证）
+000858.SZ,五粮液,深市主板,mid_20_60,47.935,5,0,23631,0.995938,0.862977,45.2117,0.005476,0.0,53180.2,True,0.995208,0.0,LOCKED_CLEAN,unseen_validation_pool,Q4_mid_high_shift_short_persistence,中高换档薄盘 + 强短窗方向持续（未见验证）
+000538.SZ,云南白药,深市主板,high_70_200,89.975,5,0,21623,0.997826,0.831846,7.3138,0.002904,0.0,16919.4,True,0.997758,0.0,ELIGIBLE_RESERVE,eligible_unselected,clean_reserve,通过 Q_rec >= 95% 硬门槛（16日均有效），同象限已有跨度更极端代表股入选
+000661.SZ,长春高新,深市主板,high_70_200,114.52,5,0,16169,0.998516,0.718783,3.001,0.001934,0.0,6928.2,True,0.998314,0.0,LOCKED_CLEAN,exploration_pool,Q4_thin_high_shift_short_persistence,高换档极薄盘 + 强短窗方向持续
+002024.SZ,苏宁云商,中小板,low_3_15,10.405,5,0,23113,0.998745,0.965561,65.8472,0.001107,0.0,25268.0,True,0.998601,0.0,LOCKED_CLEAN,exploration_pool,Q2_thick_low_memory_baseline,低换档厚盘 + 低记忆近泊松基准
+002027.SZ,分众传媒,中小板,low_3_15,13.595,5,0,23606,0.994578,0.921122,218.512,0.005588,0.0,57074.8,True,0.994857,0.0,ELIGIBLE_RESERVE,eligible_unselected,clean_reserve,通过 Q_rec >= 95% 硬门槛（16日均有效），同象限已有跨度更极端代表股入选
+002415.SZ,海康威视,中小板,mid_20_60,28.005,5,0,23698,0.987214,0.902397,245.0578,0.015627,0.0,98097.6,True,0.98593,0.0,ELIGIBLE_RESERVE,eligible_unselected,clean_reserve,通过 Q_rec >= 95% 硬门槛（16日均有效），同象限已有跨度更极端代表股入选
+002475.SZ,立讯精密,中小板,mid_20_60,28.125,5,0,21622,0.992646,0.846268,72.7399,0.00923,0.0,14610.6,True,0.993814,0.0,LOCKED_CLEAN,unseen_validation_pool,Q3_thin_high_clustering_low_mem,中高换档薄盘 + 高簇聚低记忆对照（未见验证）
+002230.SZ,科大讯飞,中小板,mid_20_60,30.405,5,0,23382,0.992815,0.904542,84.7853,0.007677,0.0,40171.8,True,0.993321,0.0,LOCKED_CLEAN,unseen_validation_pool,Q2_mid_low_clustering_baseline,中换档 + 最低时间簇聚近泊松基准（未见验证）
+002594.SZ,比亚迪,中小板,mid_20_60,49.94,5,0,19908,0.993621,0.855636,35.9613,0.008582,0.0,12365.2,True,0.992606,0.0,ELIGIBLE_RESERVE,eligible_unselected,clean_reserve,通过 Q_rec >= 95% 硬门槛（16日均有效），同象限已有跨度更极端代表股入选
+002304.SZ,洋河股份,中小板,high_70_200,86.41,5,0,19920,0.994578,0.779568,9.0758,0.005587,0.0,11752.0,True,0.993257,0.0,LOCKED_CLEAN,exploration_pool,Q3_thin_active_high_clustering,高换档活跃薄盘 + 强时间簇聚
+002821.SZ,凯莱英,中小板,high_70_200,136.86,5,0,15108,0.99166,0.635359,6.9626,0.008825,0.0,6265.4,True,0.989443,0.0,LOCKED_CLEAN,unseen_validation_pool,Q3_ultra_thin_high_shift_low_mem,最高换档极薄盘 + 低长记忆反事实对照（未见验证）
+300001.SZ,特锐德,创业板,low_3_15,16.22,5,0,19487,0.831785,0.89865,1748.4679,0.199135,0.0,11807.0,False,0.836923,0.0,LOCKED_CONTROL,low_qrec_control,CONTROL_low_qrec_contaminated,低重构保真度敏感性对照（创业板通道失配 ~83.7%）
+300059.SZ,东方财富,创业板,low_3_15,12.165,5,0,23623,0.74982,0.952038,20534.8391,0.261966,0.0,79515.8,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 74.98% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300017.SZ,网宿科技,创业板,low_3_15,11.295,5,0,23346,0.855992,0.970573,8783.1382,0.149524,0.0,36367.8,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 85.60% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300015.SZ,爱尔眼科,创业板,mid_20_60,21.525,5,0,20520,0.751901,0.851357,2244.7698,0.274065,0.0,12759.8,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 75.19% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300124.SZ,汇川技术,创业板,mid_20_60,22.575,5,0,20469,0.771459,0.893986,2862.3693,0.295945,0.0,12676.0,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 77.15% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300136.SZ,信维通信,创业板,mid_20_60,35.925,5,0,21376,0.667057,0.831025,1764.8375,0.421506,0.0,14731.0,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 66.71% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300618.SZ,寒锐钴业,创业板,high_70_200,75.43,5,0,20455,0.619262,0.712931,703.098,0.474445,0.0,14159.6,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 61.93% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）
+300628.SZ,亿联网络,创业板,high_70_200,295.55,5,0,19711,0.606971,0.629883,201.2089,0.344973,0.0,12505.0,False,,,REJECTED_LOW_QREC,rejected,none,首5日一档匹配率 60.70% < 95% 硬门槛（深市创业板 2017 委托/成交双通道独立序列号在同 10ms 内跨通道排序失配）

@@ -22,6 +22,22 @@ from .store import validate_dates
 
 SYMBOLS = ("000001.SZ", "300001.SZ")
 REGISTERED_HOLDOUT_SCHEMA = "stochopia-p1-m5-v1"  # Immutable identifier of the registered slice schema.
+REGISTERED_M4_HOLDOUT_SCHEMA = "stochopia-p2-m4-v1"
+_REPLACEMENT_SCHEMAS = {
+    REGISTERED_HOLDOUT_SCHEMA: 10,
+    REGISTERED_M4_HOLDOUT_SCHEMA: 8,
+}
+
+
+def _manifest_symbols(record: dict[str, Any]) -> tuple[str, ...]:
+    source = record["data"] if "data" in record and isinstance(record["data"], dict) else record
+    raw = source.get("symbols", SYMBOLS)
+    if not isinstance(raw, (list, tuple)) or not raw:
+        raise ValueError("registered symbols must be a non-empty list of .SZ stock codes")
+    symbols = tuple(raw)
+    if any(not isinstance(s, str) or not s.endswith(".SZ") for s in symbols) or len(set(symbols)) != len(symbols):
+        raise ValueError("registered symbols must be distinct .SZ stock codes")
+    return symbols
 
 
 _UNAVAILABLE_REASONS = frozenset({
@@ -36,6 +52,7 @@ class HoldoutDayUnavailable(ValueError):
 def _download(cache_root: Path, dates: tuple[int, ...], revision: str) -> None:
     """Reuse the M2 projected range reader with the exact sealed date allowlist."""
     registered = json.loads((cache_root / "manifest.json").read_text(encoding="utf-8"))
+    expected_symbols = _manifest_symbols(registered)
     allowed = (*registered["test_dates"], *registered.get("replacement_test_dates", ()))
     if revision != registered["source_revision"] or not dates or not set(dates).issubset(allowed):
         raise ValueError("projected holdout acquisition must use only registered dates and revision")
@@ -46,7 +63,7 @@ def _download(cache_root: Path, dates: tuple[int, ...], revision: str) -> None:
         sys.path.pop(0)
     if (Path(fetcher.__file__).resolve() != cache_root / "fetch_fast_m2.py"
             or Path(fetcher.ROOT).resolve() != cache_root
-            or tuple(fetcher.SYMBOLS) != SYMBOLS or fetcher.REPO != registered["source_repo"]):
+            or tuple(fetcher.SYMBOLS) != expected_symbols or fetcher.REPO != registered["source_repo"]):
         raise ValueError("the projected downloader must match the registered market-data root and symbols")
 
     from huggingface_hub.errors import EntryNotFoundError
@@ -115,8 +132,9 @@ def _build(market: Path, symbols: list[str], train_dates: list[int], test_dates:
 def _replacement_calendars(manifest: dict[str, Any]) -> tuple[tuple[int, ...], tuple[int, ...]]:
     primary = tuple(manifest["test_dates"])
     replacements = tuple(manifest["replacement_test_dates"])
-    if manifest["schema"] != REGISTERED_HOLDOUT_SCHEMA or len(primary) != 20 or len(replacements) != 10:
-        raise ValueError("Registered holdout requires its registered twenty-day and ten-day replacement calendars")
+    expected_replacements = _REPLACEMENT_SCHEMAS.get(manifest.get("schema"))
+    if expected_replacements is None or len(primary) != 20 or len(replacements) != expected_replacements:
+        raise ValueError("Registered holdout requires its registered twenty-day and replacement calendars")
     if any(type(day) is not int for day in (*primary, *replacements)):
         raise ValueError("Registered holdout calendar dates must be integers")
     validate_dates((*primary, *replacements), "Registered holdout test and replacement dates")
@@ -126,12 +144,18 @@ def _replacement_calendars(manifest: dict[str, Any]) -> tuple[tuple[int, ...], t
     return primary, replacements
 
 
-def _registered_horizons(market: Path, train_dates: list[int]) -> dict[str, int]:
+def _registered_horizons(
+    market: Path, train_dates: list[int], symbols: tuple[str, ...] | None = None,
+) -> dict[str, int]:
     """Calibrate the registered injection horizon on training days once per stock."""
     from stochopia.market.windows import CHILDREN, calibrate_market, load_market_days
 
+    if symbols is None:
+        manifest_path = market / "manifest.json"
+        symbols = (_manifest_symbols(json.loads(manifest_path.read_text(encoding="utf-8")))
+                   if manifest_path.exists() else SYMBOLS)
     horizons = {}
-    for symbol in SYMBOLS:
+    for symbol in symbols:
         fitted = load_market_days(market, symbol, train_dates)
         horizons[symbol] = 2 * CHILDREN * int(calibrate_market(market, fitted, symbol)["spacing_ms"])
         del fitted
@@ -139,13 +163,15 @@ def _registered_horizons(market: Path, train_dates: list[int]) -> dict[str, int]
 
 
 def _build_registered_day(market: Path, date: int, horizons: dict[str, int]) -> dict[str, Any]:
-    """Accept a date only when both stocks have both registered positive-spread anchors."""
+    """Accept a date only when all registered stocks have both positive-spread anchors."""
     from stochopia.market.windows import select_windows
 
+    if not horizons:
+        raise ValueError("registered horizons must be non-empty")
     rows = []
     anchors = []
     days: list[SZSEDaySlice] = []
-    for symbol in SYMBOLS:
+    for symbol in horizons:
         try:
             day, report = reconstruct_szse_day(market / "raw" / str(date), symbol)
         except ValueError as exc:
@@ -179,11 +205,13 @@ def _build_registered_day(market: Path, date: int, horizons: dict[str, int]) -> 
     return {"reconciliation": rows, "anchors": anchors}
 
 
-def _validate_anchor_panel(report: dict[str, Any], dates: tuple[int, ...]) -> None:
+def _validate_anchor_panel(
+    report: dict[str, Any], dates: tuple[int, ...], symbols: tuple[str, ...] = SYMBOLS,
+) -> None:
     """Check each date contributes once per stock and session, with positive spreads."""
     rows = report["reconciliation"]
     anchors = report["anchors"]
-    expected_rows = {(symbol, date) for symbol in SYMBOLS for date in dates}
+    expected_rows = {(symbol, date) for symbol in symbols for date in dates}
     expected_anchors = {(symbol, date, session) for symbol, date in expected_rows for session in (0, 1)}
     if (len(rows) != len(expected_rows) or len(anchors) != len(expected_anchors)
             or {(row["symbol"], row["date"]) for row in rows} != expected_rows
@@ -205,9 +233,10 @@ def validate_holdout_receipt(manifest: dict[str, Any], receipt: dict[str, Any]) 
 
     Twenty accepted dates and every excluded date must account for a prefix of
     the primary calendar plus its replacement pool. The evidence panel has
-    2 x 20 stock-day rows and 2 x 20 x 2 session anchor rows.
+    N x 20 stock-day rows and N x 20 x 2 session anchor rows.
     """
     primary, replacements = _replacement_calendars(manifest)
+    symbols = _manifest_symbols(manifest)
     if (tuple(receipt["planned_test_dates"]) != primary
             or tuple(receipt["replacement_test_dates"]) != replacements
             or receipt["source_revision"] != manifest["data"]["source_revision"]):
@@ -225,7 +254,7 @@ def validate_holdout_receipt(manifest: dict[str, Any], receipt: dict[str, Any]) 
         raise ValueError("Registered holdout holdout receipt violates chronological replacement order")
     for row in excluded:
         _validate_exclusion_reason(row["reason"])
-    _validate_anchor_panel(receipt, dates)
+    _validate_anchor_panel(receipt, dates, symbols)
     return dates
 
 
@@ -233,6 +262,7 @@ def validate_holdout_receipt(manifest: dict[str, Any], receipt: dict[str, Any]) 
 
 def _acquisition_progress(path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     primary, replacements = _replacement_calendars(manifest)
+    symbols = _manifest_symbols(manifest)
     registration = {
         "planned_test_dates": list(primary), "replacement_test_dates": list(replacements),
         "source_revision": manifest["data"]["source_revision"],
@@ -250,7 +280,7 @@ def _acquisition_progress(path: Path, manifest: dict[str, Any]) -> dict[str, Any
         if accepted == 20:
             raise ValueError("Registered holdout acquisition must stop at the twentieth valid date")
         if row["status"] == "accepted":
-            _validate_anchor_panel(row, (row["date"],))
+            _validate_anchor_panel(row, (row["date"],), symbols)
             accepted += 1
         elif row["status"] == "excluded":
             _validate_exclusion_reason(row["reason"])
@@ -265,6 +295,7 @@ def _prepare_with_replacements(
 ) -> None:
     """Download one sealed calendar day at a time and persist only completed decisions."""
     primary, replacements = _replacement_calendars(manifest)
+    symbols = _manifest_symbols(manifest)
     progress_path = acquisition / "progress.json"
     progress = _acquisition_progress(progress_path, manifest)
     attempts = progress["attempts"]
@@ -284,7 +315,7 @@ def _prepare_with_replacements(
             _validate_exclusion_reason(reason)
             row = {"date": date, "status": "excluded", "reason": reason}
         else:
-            _validate_anchor_panel(report, (date,))
+            _validate_anchor_panel(report, (date,), symbols)
             row = {"date": date, "status": "accepted", **report}
             accepted += 1
         attempts.append(row)
@@ -329,15 +360,17 @@ def prepare_holdout_data(
     dates = tuple(manifest["test_dates"])
     revision = manifest["data"]["source_revision"]
     train_dates = manifest["data"]["train_dates"]
+    expected_symbols = _manifest_symbols(manifest)
+    registered_symbols = _manifest_symbols(registered)
     if (dates != tuple(registered["test_dates"]) or revision != registered["source_revision"]
-            or train_dates != registered["train_dates"] or registered["symbols"] != ["000001.SZ", "300001.SZ"]):
+            or train_dates != registered["train_dates"] or registered_symbols != expected_symbols):
         raise ValueError("market-data registration differs from the frozen study")
-    has_replacement_pool = manifest["schema"] == REGISTERED_HOLDOUT_SCHEMA
+    has_replacement_pool = manifest.get("schema") in _REPLACEMENT_SCHEMAS
     if has_replacement_pool:
         _, replacements = _replacement_calendars(manifest)
         if (replacements != tuple(registered["replacement_test_dates"])
                 or manifest["data"]["dev_dates"] != registered["dev_dates"]
-                or manifest["data"]["embargo_dates"] != registered["embargo_dates"]
+                or manifest["data"].get("embargo_dates", []) != registered.get("embargo_dates", [])
                 or manifest["data"]["source_repo"] != registered["source_repo"]):
             raise ValueError("Registered holdout market-data registration differs from the frozen study")
     verification = artifact_root.resolve() / "verification"
@@ -352,6 +385,6 @@ def prepare_holdout_data(
             _prepare_with_replacements(market, manifest, acquisition, receipt, download)
         else:
             download(market, dates, revision)
-            report = _build(market, registered["symbols"], train_dates, dates)
+            report = _build(market, list(registered_symbols), train_dates, dates)
             atomic_write_json(receipt, {"test_dates": dates, "source_revision": revision, **report})
     return receipt

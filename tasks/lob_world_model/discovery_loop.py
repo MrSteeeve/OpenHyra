@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+from math import isfinite, pi, sqrt
 from pathlib import Path
 from typing import Any, Literal
 
@@ -119,13 +120,64 @@ def _level_text(value: object) -> str:
     return format(value, '.6g') if type(value) in (int, float) else 'NA'
 
 
-def _z_text(z: Mapping[str, Any] | None) -> str:
+def finite_window_nulls(n_trades: float) -> dict[str, float]:
+    """Pure-mathematical finite-sample expectations for i.i.d. symmetric signs of length n >= 33."""
+    n = float(n_trades)
+    if not isfinite(n) or n < 33.0:
+        raise ValueError('finite_window_nulls requires n_trades >= 33')
+    acf_exact = -(32.0 * n - 528.0) / (n * (n - 1.0))
+    acf_approx = -32.0 / n
+    n_int = max(33, int(round(n)))
+
+    def _norm_var(length: int) -> float:
+        m = n_int - length + 1
+        cov_sum = m * length + 2 * sum((m - d) * (length - d) for d in range(1, min(length, m)))
+        return 1.0 - cov_sum / (length * m * m)
+
+    vr_analytical = _norm_var(32) / _norm_var(4)
+    return {
+        'sign_acf_sum_1_32': acf_exact,
+        'sign_acf_sum_approx': acf_approx,
+        'flow_vr_32_4': vr_analytical,
+        'flow_sign_bias': sqrt(2.0 / (pi * n)),
+    }
+
+
+def _z_reference_for(n_trades: float | None) -> tuple[str, dict[str, str]]:
+    if n_trades is None:
+        return Z_PREAMBLE, dict(Z_REFERENCE)
+    nulls = finite_window_nulls(n_trades)
+    preamble = (f'Per 256-event training window (n ~ {n_trades:.1f} aggressive trades), '
+                'then median and IQR across windows.')
+    ref = dict(Z_REFERENCE)
+    ref['sign_acf_sum_1_32'] = (
+        'sum of trade-sign autocorrelations over event lags 1..32; 0 for independent signs, '
+        f'finite-window null -(32n-528)/(n(n-1)) = {nulls["sign_acf_sum_1_32"]:.3f} '
+        f'(~ -32/n = {nulls["sign_acf_sum_approx"]:.3f}) at n={n_trades:.1f}; '
+        'higher = multi-lag directional persistence'
+    )
+    ref['flow_vr_32_4'] = (
+        'per-trade variance ratio of 32- vs 4-trade signed-flow sums; 1.0 asymptotically for uncorrelated signs, '
+        f'finite-window null about {nulls["flow_vr_32_4"]:.3f} at n={n_trades:.1f}; '
+        'higher = multi-step persistence, lower = mean reversion'
+    )
+    ref['flow_sign_bias'] = (
+        'in [0, 1]; |session mean| of buy(+1)/sell(-1) signs; 0 in expectation under balanced flow, '
+        f'about sqrt(2/(pi*n)) = {nulls["flow_sign_bias"]:.3f} at n={n_trades:.1f} for independent signs'
+    )
+    return preamble, ref
+
+
+def _z_text(z: Mapping[str, Any] | None, *, n_trades: float | None = None) -> str:
     if z is None:
         return OMITTED
-    lines = [Z_PREAMBLE, 'metric | median | IQR | reference_and_interpretation']
-    for key, reference in Z_REFERENCE.items():
+    raw_n = n_trades if n_trades is not None else z.get('mean_window_trades')
+    eff_n = float(raw_n) if type(raw_n) in (int, float) and isfinite(raw_n) and float(raw_n) >= 33.0 else None
+    preamble, ref_map = _z_reference_for(eff_n)
+    lines = [preamble, 'metric | median | IQR | reference_and_interpretation']
+    for key in Z_KEYS:
         summary = z[key]
-        lines.append(f'{key} | {_level_text(summary["median"])} | {_level_text(summary["intraday_iqr"])} | {reference}')
+        lines.append(f'{key} | {_level_text(summary["median"])} | {_level_text(summary["intraday_iqr"])} | {ref_map[key]}')
     return '\n'.join(lines)
 
 

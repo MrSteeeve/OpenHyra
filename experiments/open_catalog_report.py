@@ -8,7 +8,6 @@ from hashlib import sha256
 import json
 from math import exp, isfinite, log
 from pathlib import Path
-import re
 from statistics import fmean, stdev
 from typing import Any
 
@@ -34,27 +33,6 @@ TRUE_Z_AXES: dict[str, set[str]] = {
                   'zero_wait_prob', 'interarrival_cv2'},
     'env_beta': {'sign_acf_sum_1_32', 'flow_vr_32_4', 'flow_sign_bias'},
 }
-_ALPHA_TRUE_RE = re.compile(
-    r'(?i)(?:cv2|interarrival|zero[ _-]?wait|burst|cluster|hawkes|overdispers|'
-    r'midprice[ _-]?shift|trade[ _-]?to[ _-]?top1|thin|deplet|exhaust|queue)',
-)
-_ALPHA_FALSE_RE = re.compile(
-    r'(?i)(?:2\.115|2\.12|1\.72[0-9]*|one[- ]third\s+of\s+(?:the\s+)?(?:best[- ]queue|best|touch)|'
-    r'(?:trade\s+signs|trade\s+direction|flow)\s+persists?\s+across\s+lags|'
-    r'best\s+quotes\s+are\s+stationary|shift\s+rate\s+is\s+zero|'
-    r'midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of)\s*0(?:\.0+)?(?![0-9.]))',
-)
-_BETA_TRUE_RE = re.compile(
-    r'(?i)(?:2\.115|2\.12|1\.72[0-9]*|'
-    r'(?:signs?|directions?|flow)\s+persists?\s+across\s+(?:lags|horizons)|'
-    r'stationary\s+best|midprice[ _-]?shift[ _-]?rate\s*(?:=|is|of|at|equals)?\s*0(?:\.0+)?(?![0-9.]))',
-)
-_BETA_FALSE_RE = re.compile(
-    r'(?i)(?:5\.028|0\.639|63\.9%|64%\s+of\s+quoted\s+events|'
-    r'(?:clears|consumes)\s+(?:the\s+|an\s+)?(?:entire\s+|consumed\s+)?best\s+queue|'
-    r'hawkes[ -]like\s+burst|strong\s+temporal\s+clustering|'
-    r'frequent\s+(?:midprice|quote)[ -]?(?:grid\s+)?shifts)',
-)
 
 
 def _finite(value: object) -> bool:
@@ -84,16 +62,6 @@ def _parsed(row: Json) -> bool:
     pred = row.get('prediction')
     return (isinstance(pred, Mapping) and bool(pred.get('data_regime_diagnosis'))
             and row.get('outcome') not in ('INVALID_PROPOSAL', 'PROVIDER_ERROR', 'INTERRUPTED_CALL'))
-
-
-def _diagnosis_accurate(row: Json, env: str) -> bool:
-    """Deterministic regime-feature consistency check on ex ante data_regime_diagnosis."""
-    if not _parsed(row):
-        return False
-    text = str(row['prediction'].get('data_regime_diagnosis', ''))
-    if env == 'env_alpha':
-        return bool(_ALPHA_TRUE_RE.search(text)) and not bool(_ALPHA_FALSE_RE.search(text))
-    return bool(_BETA_TRUE_RE.search(text)) and not bool(_BETA_FALSE_RE.search(text))
 
 
 def _z_axis_aligned(row: Json, env: str) -> bool:
@@ -304,7 +272,6 @@ def _table2_alignment(tracks: Mapping[str, list[Json]], replicates: Sequence[str
         for arm in ARMS:
             per_rep = [tracks[f'{rep}/{env}/{arm}'][1:] for rep in replicates]
             flat = [r for trk in per_rep for r in trk]
-            diag_ok = sum(_diagnosis_accurate(r, env) for r in flat)
             z_axis_ok = sum(_z_axis_aligned(r, env) for r in flat)
             aligned_per_rep = [sum(_primary_match(r, env) for r in trk) / ROUNDS for trk in per_rep]
             aligned_tot = sum(_primary_match(r, env) for r in flat)
@@ -314,7 +281,6 @@ def _table2_alignment(tracks: Mapping[str, list[Json]], replicates: Sequence[str
             s, ref, inc, ne = (verdicts[k] for k in ('SUPPORTED', 'REFUTED', 'INCONCLUSIVE', 'NOT_EVALUABLE'))
             rows_out.append([
                 env, arm,
-                _rate(diag_ok, cell_n),
                 _rate(z_axis_ok, cell_n),
                 _rate(aligned_tot, cell_n),
                 _mean_sd(aligned_per_rep),
@@ -326,7 +292,6 @@ def _table2_alignment(tracks: Mapping[str, list[Json]], replicates: Sequence[str
     for arm in ARMS:
         flat_env = [(env, r) for env in ENVIRONMENTS for rep in replicates for r in tracks[f'{rep}/{env}/{arm}'][1:]]
         tot_n = len(flat_env)
-        diag_ok = sum(_diagnosis_accurate(r, env) for env, r in flat_env)
         z_axis_ok = sum(_z_axis_aligned(r, env) for env, r in flat_env)
         aligned_tot = sum(_primary_match(r, env) for env, r in flat_env)
         open_tot = sum(_parsed(r) and r.get('selected_card_ids') == [] for _, r in flat_env)
@@ -335,7 +300,6 @@ def _table2_alignment(tracks: Mapping[str, list[Json]], replicates: Sequence[str
         s, ref, inc, ne = (verdicts[k] for k in ('SUPPORTED', 'REFUTED', 'INCONCLUSIVE', 'NOT_EVALUABLE'))
         rows_out.append([
             '两环境合计', arm,
-            _rate(diag_ok, tot_n),
             _rate(z_axis_ok, tot_n),
             _rate(aligned_tot, tot_n),
             '—',
@@ -345,7 +309,7 @@ def _table2_alignment(tracks: Mapping[str, list[Json]], replicates: Sequence[str
             _rate(s, s + ref),
         ])
     return _table((
-        '环境', '臂', 'data_regime_diagnosis 准确', 'Z 边界轴对齐',
+        '环境', '臂', 'Z 边界轴对齐',
         '主卡对齐', '轨迹主卡比例均值 ± SD', '开放创新 ([])',
         '绑定 target_metric 覆盖', '方向 SUPPORTED/REFUTED/INCONCLUSIVE/未测', '命中 / 可判方向',
     ), rows_out)
@@ -516,7 +480,7 @@ def render(artifact: Path, *, m31_artifact: Path | None = None) -> str:
         '主卡均匀度定义为 `C01–C10` 主卡经验分布的归一化香农熵 $H/\\ln 10 \\in [0,1]$，括号内 $\\exp(H)$ 为等效均匀卡数。',
         f'## 表 2 · 账本一：`Z → X` 诊断与机制选择对齐表（`R = {len(replicates)}`）',
         _table2_alignment(tracks, replicates),
-        '口径说明：`data_regime_diagnosis 准确`按确定性规则核验事前文本是否指出真实环境的物理特征（`env_alpha` 为簇聚等待/薄盘换档且未误判为正号长记忆；`env_beta` 为方向长记忆/稳态报价或泊松等待且未误判为高频换档或自激簇聚），用于度量置换 `Z` 与缺失 `Z` 对文字诊断的直接误导率，不等同于代码机制因果证明。'
+        '口径说明：本表仅统计 100% 事前锁定的结构化 JSON 硬指标，不对自由文本 `data_regime_diagnosis` 做事后正则或主观评分。'
         '`Z 边界轴对齐`检验结构化声明 `(weaker_when_z_metric, weaker_when_z_direction)` 是否落在真实环境的主导物理轴上。'
         '主卡对齐沿用预注册规则（`env_alpha`: `C04/C05/C06`；`env_beta`: `C03/C08` 且不含 `C06`），开放创新 `[]` 单独列计不混入主卡匹配。'
         '`target_metric` 已放开至六行残差面板全部 11 项越低越好的误差指标；单步方向预测仅当候选减父模型 95% 按日配对区间完全位于预测侧记 `SUPPORTED`、完全位于反侧记 `REFUTED`，跨零或共同有效日不足 6 日记 `INCONCLUSIVE`。',

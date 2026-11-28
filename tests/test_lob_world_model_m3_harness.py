@@ -12,7 +12,7 @@ from tasks.lob_world_model.call_budget import CallBudgetGuard
 from tasks.lob_world_model.contracts import Messages, ProviderReply
 from tasks.lob_world_model.discovery_loop import (
     D_KEYS, OMITTED, PROMPT_CAP, SEED_SOURCE, SYSTEM, Z_KEYS,
-    DiscoveryLoop, View, build_messages, prediction_verdict,
+    DiscoveryLoop, View, _z_text, build_messages, finite_window_nulls, prediction_verdict,
 )
 from tasks.lob_world_model.prior_cards import shuffled_cards
 
@@ -227,3 +227,22 @@ def test_direction_is_not_point_estimate_only() -> None:
     assert prediction_verdict(pred, {'dt_nll': {'estimate': -.2, 'interval': [-.5, .1]}}) == 'INCONCLUSIVE'
     assert prediction_verdict(pred, {'dt_nll': {'estimate': .2, 'interval': [.1, .3]}}) == 'REFUTED'
     assert prediction_verdict(pred, {'dt_nll': {'estimate': -.2, 'interval': [-.3, -.1]}}) == 'SUPPORTED'
+
+
+def test_dynamic_finite_window_nulls_calibrate_reference_without_altering_default() -> None:
+    z_default = _z(0.5)
+    default_rendered = _z_text(z_default)
+    assert 'n ~ 100 aggressive trades' in default_rendered
+    assert 'finite-window null about -32/n;' in default_rendered
+
+    nulls_33 = finite_window_nulls(33.0)
+    assert nulls_33['sign_acf_sum_1_32'] == pytest.approx(-0.5)
+
+    z_szse = {**z_default, 'mean_window_trades': 60.0}
+    calibrated = _z_text(z_szse)
+    nulls_60 = finite_window_nulls(60.0)
+    assert 'n ~ 60.0 aggressive trades' in calibrated
+    assert f'{nulls_60["sign_acf_sum_1_32"]:.3f}' in calibrated
+    assert f'{nulls_60["sign_acf_sum_approx"]:.3f}' in calibrated
+    assert f'{nulls_60["flow_vr_32_4"]:.3f}' in calibrated
+    assert f'{nulls_60["flow_sign_bias"]:.3f}' in calibrated

@@ -1,0 +1,1513 @@
+{
+  "note": "Offline covariate audit only. Discovery loop and LLM prompts MUST NEVER read z_holdout or drift_audit.json.",
+  "planned_holdout_test_dates": [
+    20170711,
+    20170712,
+    20170713,
+    20170714,
+    20170717,
+    20170718,
+    20170719,
+    20170720,
+    20170721,
+    20170724,
+    20170725,
+    20170726,
+    20170727,
+    20170728,
+    20170731,
+    20170801,
+    20170802,
+    20170803,
+    20170804,
+    20170807
+  ],
+  "stocks": {
+    "000001.SZ": {
+      "board": "深市主板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.644707,
+        "z_asym.book_imbalance_bias": 0.175763,
+        "z_asym.flow_sign_bias": -0.083423,
+        "z_burst.interarrival_cv2": -0.098515,
+        "z_burst.zero_wait_prob": 1.0,
+        "z_mem.flow_vr_32_4": 0.236048,
+        "z_mem.sign_acf_log_slope": -0.157062,
+        "z_mem.sign_acf_sum_1_32": 0.180633,
+        "z_thin.cancel_to_limit_ratio": -0.400712,
+        "z_thin.midprice_shift_rate": 1.25,
+        "z_thin.trade_to_top1_depth": 1.128196
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 1.529085,
+        "z_asym.book_imbalance_bias": -0.067916,
+        "z_asym.flow_sign_bias": -0.056088,
+        "z_burst.interarrival_cv2": 0.341827,
+        "z_burst.zero_wait_prob": 1.198095,
+        "z_mem.flow_vr_32_4": -0.12481,
+        "z_mem.sign_acf_log_slope": -0.934913,
+        "z_mem.sign_acf_sum_1_32": -0.078726,
+        "z_thin.cancel_to_limit_ratio": -0.621932,
+        "z_thin.midprice_shift_rate": 3.42138,
+        "z_thin.trade_to_top1_depth": 2.971953
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 76.09,
+      "holdout_n_windows_256": 6691,
+      "name": "平安银行",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q1_thick_locked_long_memory",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.30006048673911495,
+          "median": 0.2793733702519116
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.11700387974877888,
+          "median": 0.06540084388185655
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.23655913978494622,
+          "median": 0.2
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.7025127314240447,
+          "median": 0.5172288102643857
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.19263124700233392,
+          "median": 1.029800155300876
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.0392156862745098,
+          "median": 0.023529411764705882
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.670575222410616,
+          "median": -0.2635876631819837
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.0285376045315917,
+          "median": 0.018975332068311195
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.04296875,
+          "median": 0.04296875
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.18743182494879934,
+          "median": 0.16870194889430534
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.04638527767380447,
+          "median": 0.11206037783481235
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.08131411120237958,
+          "median": 0.07902593864457452
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.7408440608011166,
+          "median": 2.3791455400395827
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.41042991514680205,
+          "median": 1.4797598557214218
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.008830952335691686,
+          "median": 0.030375230501732083
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.2871329889388996,
+          "median": 1.8735444930788636
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.007875236901152789,
+          "median": 0.018991749724915772
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.0261584213608834,
+          "median": 0.05509399317027393
+        }
+      }
+    },
+    "000651.SZ": {
+      "board": "深市主板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.073142,
+        "z_asym.book_imbalance_bias": 0.035225,
+        "z_asym.flow_sign_bias": 0.057243,
+        "z_burst.interarrival_cv2": -0.039438,
+        "z_burst.zero_wait_prob": 0.0,
+        "z_mem.flow_vr_32_4": -0.056942,
+        "z_mem.sign_acf_log_slope": -0.016649,
+        "z_mem.sign_acf_sum_1_32": -0.031484,
+        "z_thin.cancel_to_limit_ratio": -0.134877,
+        "z_thin.midprice_shift_rate": 0.083333,
+        "z_thin.trade_to_top1_depth": 0.133332
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.257527,
+        "z_asym.book_imbalance_bias": -0.170735,
+        "z_asym.flow_sign_bias": 0.136295,
+        "z_burst.interarrival_cv2": 0.008636,
+        "z_burst.zero_wait_prob": -0.243291,
+        "z_mem.flow_vr_32_4": 0.148977,
+        "z_mem.sign_acf_log_slope": -0.174317,
+        "z_mem.sign_acf_sum_1_32": 0.185615,
+        "z_thin.cancel_to_limit_ratio": -0.21673,
+        "z_thin.midprice_shift_rate": 0.444205,
+        "z_thin.trade_to_top1_depth": 0.474222
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 69.26,
+      "holdout_n_windows_256": 12312,
+      "name": "格力电器",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q1_thick_mid_short_persistence",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.3980829665234802,
+          "median": 0.3918895836029297
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.07671618331276382,
+          "median": 0.038321093430325415
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.2608695652173913,
+          "median": 0.21428571428571427
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.6943581125160272,
+          "median": 0.4799771492570098
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.17366074757617822,
+          "median": 1.017605933972958
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.047058823529411764,
+          "median": 0.050980392156862744
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.695060122131038,
+          "median": -0.2690601122288207
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.09274193548387097,
+          "median": 0.06496199916135591
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.0625,
+          "median": 0.0703125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.26132652370460274,
+          "median": 0.25623869704485497
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.036519114443688744,
+          "median": 0.07258183787423597
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.09936190029320258,
+          "median": 0.06978192819183736
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.5875517704988709,
+          "median": 2.756808428893949
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.4485890350772752,
+          "median": 1.6611741958764614
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.01229854875723388,
+          "median": 0.052342026199148184
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.0486487248740115,
+          "median": 2.6036819365439126
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.021779280806896617,
+          "median": 0.058823529411764705
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.029064944763076625,
+          "median": 0.08590179965715225
+        }
+      }
+    },
+    "000661.SZ": {
+      "board": "深市主板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.168637,
+        "z_asym.book_imbalance_bias": 0.322376,
+        "z_asym.flow_sign_bias": 0.227781,
+        "z_burst.interarrival_cv2": 0.181605,
+        "z_burst.zero_wait_prob": 0.0,
+        "z_mem.flow_vr_32_4": 0.008452,
+        "z_mem.sign_acf_log_slope": -0.04878,
+        "z_mem.sign_acf_sum_1_32": -0.011056,
+        "z_thin.cancel_to_limit_ratio": 0.174701,
+        "z_thin.midprice_shift_rate": 0.25,
+        "z_thin.trade_to_top1_depth": 0.0
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.435661,
+        "z_asym.book_imbalance_bias": 0.749373,
+        "z_asym.flow_sign_bias": 0.860692,
+        "z_burst.interarrival_cv2": 0.374101,
+        "z_burst.zero_wait_prob": -0.515231,
+        "z_mem.flow_vr_32_4": 0.151849,
+        "z_mem.sign_acf_log_slope": -0.141572,
+        "z_mem.sign_acf_sum_1_32": 0.155461,
+        "z_thin.cancel_to_limit_ratio": 0.189122,
+        "z_thin.midprice_shift_rate": 0.295301,
+        "z_thin.trade_to_top1_depth": 0.0
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 86.12,
+      "holdout_n_windows_256": 502,
+      "name": "长春高新",
+      "pool_role": "exploration_pool",
+      "quadrant": "Q4_thin_high_shift_short_persistence",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.28531159612309515,
+          "median": 0.2802287139112534
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.11806525420085257,
+          "median": 0.10328047208524024
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.2908998270978185,
+          "median": 0.2605717689100655
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.7625789454317925,
+          "median": 0.617499150276485
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.4393740360854286,
+          "median": 1.2713405991608178
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.07058823529411765,
+          "median": 0.23529411764705882
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.6817863028504504,
+          "median": -0.22620799788606272
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.31486175115207377,
+          "median": 0.5
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.02734375,
+          "median": 0.01171875
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.20916296892189123,
+          "median": 0.1612064951320727
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.06700853684187225,
+          "median": 0.11447878571840875
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.15399549868637585,
+          "median": 0.20269332633105586
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.7109316488034336,
+          "median": 2.5195577172984036
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.49333575879181235,
+          "median": 1.7911650060628133
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.039923351332178586,
+          "median": 0.234695364110382
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.2304924119987115,
+          "median": 1.9513715551913255
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.10892857142857137,
+          "median": 0.5
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.019685239762692385,
+          "median": 0.016704253737639726
+        }
+      }
+    },
+    "000725.SZ": {
+      "board": "深市主板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.066281,
+        "z_asym.book_imbalance_bias": -0.095098,
+        "z_asym.flow_sign_bias": 0.028308,
+        "z_burst.interarrival_cv2": -0.068371,
+        "z_burst.zero_wait_prob": -0.142857,
+        "z_mem.flow_vr_32_4": -0.014389,
+        "z_mem.sign_acf_log_slope": 0.036509,
+        "z_mem.sign_acf_sum_1_32": -0.027593,
+        "z_thin.cancel_to_limit_ratio": 0.003429,
+        "z_thin.midprice_shift_rate": 0.0,
+        "z_thin.trade_to_top1_depth": -0.0818
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.240979,
+        "z_asym.book_imbalance_bias": -0.232111,
+        "z_asym.flow_sign_bias": -0.021954,
+        "z_burst.interarrival_cv2": -0.419342,
+        "z_burst.zero_wait_prob": -0.519541,
+        "z_mem.flow_vr_32_4": -0.062174,
+        "z_mem.sign_acf_log_slope": 0.189078,
+        "z_mem.sign_acf_sum_1_32": -0.14829,
+        "z_thin.cancel_to_limit_ratio": -0.101248,
+        "z_thin.midprice_shift_rate": -0.053625,
+        "z_thin.trade_to_top1_depth": -0.076481
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 56.57,
+      "holdout_n_windows_256": 9149,
+      "name": "京东方A",
+      "pool_role": "exploration_pool",
+      "quadrant": "Q1_thick_locked_long_memory",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.13982322079208087,
+          "median": 0.1339631658729294
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.26916632789740036,
+          "median": 0.19583495020049152
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.35714285714285715,
+          "median": 0.2982456140350877
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.2964599560609759,
+          "median": 0.20378632962060572
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.17906162073861043,
+          "median": 1.013730278246145
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.0,
+          "median": 0.0
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.2747456614144584,
+          "median": -0.43909995477159736
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.0007860392990859552,
+          "median": 0.00037119977600744944
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.04296875,
+          "median": 0.05078125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.09829292250943879,
+          "median": 0.12469075898885806
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.11999514375474982,
+          "median": 0.24473805709135943
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.1728230084597361,
+          "median": 0.15819975299091898
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.8928169136210387,
+          "median": 3.228582184136369
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.2368092792225871,
+          "median": 1.381098468552087
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.0008435684434711143,
+          "median": 0.0010261979262809963
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.8649004541853094,
+          "median": 3.320453402326995
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.00021644979146380255,
+          "median": 0.00043360325971339333
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.019223633817943245,
+          "median": 0.07806903731053122
+        }
+      }
+    },
+    "000858.SZ": {
+      "board": "深市主板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.091209,
+        "z_asym.book_imbalance_bias": -0.015531,
+        "z_asym.flow_sign_bias": -0.080899,
+        "z_burst.interarrival_cv2": -0.118374,
+        "z_burst.zero_wait_prob": -0.2,
+        "z_mem.flow_vr_32_4": -0.066762,
+        "z_mem.sign_acf_log_slope": 0.078339,
+        "z_mem.sign_acf_sum_1_32": -0.031887,
+        "z_thin.cancel_to_limit_ratio": -0.00747,
+        "z_thin.midprice_shift_rate": 0.0,
+        "z_thin.trade_to_top1_depth": 0.103568
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.294334,
+        "z_asym.book_imbalance_bias": -0.185767,
+        "z_asym.flow_sign_bias": -0.338081,
+        "z_burst.interarrival_cv2": -0.066467,
+        "z_burst.zero_wait_prob": -0.40552,
+        "z_mem.flow_vr_32_4": 0.066719,
+        "z_mem.sign_acf_log_slope": -0.575419,
+        "z_mem.sign_acf_sum_1_32": -0.132893,
+        "z_thin.cancel_to_limit_ratio": 0.017885,
+        "z_thin.midprice_shift_rate": 0.009626,
+        "z_thin.trade_to_top1_depth": 0.441612
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 75.31,
+      "holdout_n_windows_256": 5316,
+      "name": "五粮液",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q4_mid_high_shift_short_persistence",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.3447671613331756,
+          "median": 0.3104841976613266
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.07915420257707145,
+          "median": 0.04317419093471384
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.20765998707175176,
+          "median": 0.16455696202531644
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.630362745316337,
+          "median": 0.4691240959072021
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.19222493960073705,
+          "median": 1.0392821760170325
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.058823529411764705,
+          "median": 0.09411764705882353
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.5686000253173092,
+          "median": -0.2945209693413432
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.1672774973964592,
+          "median": 0.14322414691325866
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.03125,
+          "median": 0.03515625
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.1858571529405833,
+          "median": 0.12193562462121191
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.028331842122696772,
+          "median": 0.07606045700027411
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.07888525352140366,
+          "median": 0.04638119709834726
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.46248379466657785,
+          "median": 2.1160648689237984
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.3151362664810997,
+          "median": 1.6048697663970783
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.018067742043138116,
+          "median": 0.0986991053999192
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.5884656620949844,
+          "median": 1.5057540170265877
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.05555555555555555,
+          "median": 0.13793103448275862
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.010643777011519445,
+          "median": 0.047293257207636254
+        }
+      }
+    },
+    "002024.SZ": {
+      "board": "中小板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.133842,
+        "z_asym.book_imbalance_bias": 0.246349,
+        "z_asym.flow_sign_bias": -0.029787,
+        "z_burst.interarrival_cv2": 0.007688,
+        "z_burst.zero_wait_prob": 0.285714,
+        "z_mem.flow_vr_32_4": 0.038875,
+        "z_mem.sign_acf_log_slope": -0.11228,
+        "z_mem.sign_acf_sum_1_32": 0.071509,
+        "z_thin.cancel_to_limit_ratio": -0.128895,
+        "z_thin.midprice_shift_rate": 0.0,
+        "z_thin.trade_to_top1_depth": -0.004996
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.310657,
+        "z_asym.book_imbalance_bias": 0.486705,
+        "z_asym.flow_sign_bias": -0.229021,
+        "z_burst.interarrival_cv2": 0.084287,
+        "z_burst.zero_wait_prob": 0.330676,
+        "z_mem.flow_vr_32_4": 0.121252,
+        "z_mem.sign_acf_log_slope": -0.580013,
+        "z_mem.sign_acf_sum_1_32": 0.251961,
+        "z_thin.cancel_to_limit_ratio": -0.380289,
+        "z_thin.midprice_shift_rate": 0.008161,
+        "z_thin.trade_to_top1_depth": -0.002751
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807,
+        20170808
+      ],
+      "excluded_holdout_dates": [
+        {
+          "date": 20170731,
+          "reason": "incomplete_day:002024.SZ"
+        }
+      ],
+      "holdout_mean_window_trades": 66.21,
+      "holdout_n_windows_256": 3800,
+      "name": "苏宁云商",
+      "pool_role": "exploration_pool",
+      "quadrant": "Q2_thick_low_memory_baseline",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.3184991226093906,
+          "median": 0.33277494239424743
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.13928944120099856,
+          "median": 0.08535475356118874
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.2692662060761833,
+          "median": 0.2112676056338028
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.5391470227710708,
+          "median": 0.3865718205080103
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.18903918606603376,
+          "median": 1.0282900572392588
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.03137254901960784,
+          "median": 0.0196078431372549
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.5136893024469091,
+          "median": -0.3321586200684562
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.038368136840029016,
+          "median": 0.02631578947368421
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.04296875,
+          "median": 0.03125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.23038651054678785,
+          "median": 0.2757516826851103
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.06576661627115753,
+          "median": 0.14729958287585151
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.09263094532924157,
+          "median": 0.08975680366196542
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.44397142552278934,
+          "median": 2.2677197111687803
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.3958936112728011,
+          "median": 1.5306192128005274
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.011521566836650544,
+          "median": 0.02178303689357179
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.7963546151640897,
+          "median": 1.8233942560155283
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.017404447878445535,
+          "median": 0.022407267126782468
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.016921240074819086,
+          "median": 0.039443816472584145
+        }
+      }
+    },
+    "002230.SZ": {
+      "board": "中小板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.717349,
+        "z_asym.book_imbalance_bias": 0.01017,
+        "z_asym.flow_sign_bias": 0.279375,
+        "z_burst.interarrival_cv2": 0.032415,
+        "z_burst.zero_wait_prob": 2.142857,
+        "z_mem.flow_vr_32_4": 0.250213,
+        "z_mem.sign_acf_log_slope": -0.174231,
+        "z_mem.sign_acf_sum_1_32": 0.247507,
+        "z_thin.cancel_to_limit_ratio": -0.475447,
+        "z_thin.midprice_shift_rate": 0.272727,
+        "z_thin.trade_to_top1_depth": -0.142158
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 2.79377,
+        "z_asym.book_imbalance_bias": -1.34066,
+        "z_asym.flow_sign_bias": 0.794285,
+        "z_burst.interarrival_cv2": 0.502609,
+        "z_burst.zero_wait_prob": 7.152162,
+        "z_mem.flow_vr_32_4": 2.917181,
+        "z_mem.sign_acf_log_slope": 0.290976,
+        "z_mem.sign_acf_sum_1_32": 3.351147,
+        "z_thin.cancel_to_limit_ratio": -1.769872,
+        "z_thin.midprice_shift_rate": 0.929161,
+        "z_thin.trade_to_top1_depth": -0.629782
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 75.41,
+      "holdout_n_windows_256": 13113,
+      "name": "科大讯飞",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q2_mid_low_clustering_baseline",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.32967332564884916,
+          "median": 0.29685287180487907
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.04136299599542969,
+          "median": 0.015819209039548022
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.26841373833631127,
+          "median": 0.21568627450980393
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.8482256090140403,
+          "median": 0.5750419679752068
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.16985687341542288,
+          "median": 1.0152380790688733
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.050980392156862744,
+          "median": 0.08627450980392157
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.8274411436639308,
+          "median": -0.205128205128205
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.13550883528956534,
+          "median": 0.11553030303030304
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.08984375,
+          "median": 0.078125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.1037496534018231,
+          "median": 0.09579176616044593
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.019434656507273516,
+          "median": 0.04105644473983471
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.08381933092555473,
+          "median": 0.10047981005017712
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.7532721894103842,
+          "median": 2.8280729905847206
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.5221677795294508,
+          "median": 1.9219730058853182
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.010314086234223543,
+          "median": 0.08857819420060561
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.4613916677425136,
+          "median": 2.796167703756444
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.035503118545305884,
+          "median": 0.10380747126436782
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.04429240022885643,
+          "median": 0.09014604299608878
+        }
+      }
+    },
+    "002304.SZ": {
+      "board": "中小板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.103672,
+        "z_asym.book_imbalance_bias": 0.109153,
+        "z_asym.flow_sign_bias": -0.035511,
+        "z_burst.interarrival_cv2": -0.098324,
+        "z_burst.zero_wait_prob": -0.166667,
+        "z_mem.flow_vr_32_4": -0.02641,
+        "z_mem.sign_acf_log_slope": 0.027027,
+        "z_mem.sign_acf_sum_1_32": -0.032185,
+        "z_thin.cancel_to_limit_ratio": 0.085543,
+        "z_thin.midprice_shift_rate": 0.111111,
+        "z_thin.trade_to_top1_depth": 0.186365
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.286115,
+        "z_asym.book_imbalance_bias": 0.48386,
+        "z_asym.flow_sign_bias": 0.005724,
+        "z_burst.interarrival_cv2": -0.066038,
+        "z_burst.zero_wait_prob": -0.533136,
+        "z_mem.flow_vr_32_4": 0.067394,
+        "z_mem.sign_acf_log_slope": 0.114357,
+        "z_mem.sign_acf_sum_1_32": -0.119906,
+        "z_thin.cancel_to_limit_ratio": 0.466558,
+        "z_thin.midprice_shift_rate": 0.210451,
+        "z_thin.trade_to_top1_depth": -0.043646
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 86.05,
+      "holdout_n_windows_256": 1120,
+      "name": "洋河股份",
+      "pool_role": "exploration_pool",
+      "quadrant": "Q3_thin_active_high_clustering",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.2977051344342617,
+          "median": 0.27014164054930556
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.15347406634689226,
+          "median": 0.14609564503489197
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.22624611488430985,
+          "median": 0.17792998477929983
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.5944889792056929,
+          "median": 0.48612015951757603
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.29245909134778025,
+          "median": 1.1925834338430712
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.0823529411764706,
+          "median": 0.20392156862745098
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.4815498909532489,
+          "median": -0.3165648756842958
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.25,
+          "median": 0.4
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.0390625,
+          "median": 0.0234375
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.15640833600306506,
+          "median": 0.1435724349638713
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.09713113072192778,
+          "median": 0.18740465892825137
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.10984964793914893,
+          "median": 0.1128231083149804
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.8204454113997697,
+          "median": 2.045582884676878
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.32128508616113316,
+          "median": 1.5966834505721392
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.05190653109101617,
+          "median": 0.19700245205096525
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.9952688359232946,
+          "median": 1.1806897731709196
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.17500000000000004,
+          "median": 0.3333333333333333
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.02180629607221311,
+          "median": 0.03193022762494378
+        }
+      }
+    },
+    "002475.SZ": {
+      "board": "中小板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.117389,
+        "z_asym.book_imbalance_bias": 0.0057,
+        "z_asym.flow_sign_bias": 0.160986,
+        "z_burst.interarrival_cv2": 0.061639,
+        "z_burst.zero_wait_prob": 0.142857,
+        "z_mem.flow_vr_32_4": -0.038542,
+        "z_mem.sign_acf_log_slope": -0.078023,
+        "z_mem.sign_acf_sum_1_32": 0.010019,
+        "z_thin.cancel_to_limit_ratio": 0.019595,
+        "z_thin.midprice_shift_rate": -0.25,
+        "z_thin.trade_to_top1_depth": -0.130725
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.447594,
+        "z_asym.book_imbalance_bias": 0.119947,
+        "z_asym.flow_sign_bias": 0.326133,
+        "z_burst.interarrival_cv2": 0.393237,
+        "z_burst.zero_wait_prob": 0.636361,
+        "z_mem.flow_vr_32_4": 0.427599,
+        "z_mem.sign_acf_log_slope": -0.113856,
+        "z_mem.sign_acf_sum_1_32": 0.702828,
+        "z_thin.cancel_to_limit_ratio": 0.070695,
+        "z_thin.midprice_shift_rate": -0.698891,
+        "z_thin.trade_to_top1_depth": -0.373955
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 88.16,
+      "holdout_n_windows_256": 1353,
+      "name": "立讯精密",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q3_thin_high_clustering_low_mem",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.3212187200480767,
+          "median": 0.2782495415779721
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.12632483446875398,
+          "median": 0.10013801564177273
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.25697125697125694,
+          "median": 0.225
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.6109632914931875,
+          "median": 0.48189780440855084
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.3752173589791601,
+          "median": 1.1892506749722054
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.06274509803921569,
+          "median": 0.11372549019607843
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.49494047619047693,
+          "median": -0.2944944944944938
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.16133557800224468,
+          "median": 0.15789473684210525
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.03515625,
+          "median": 0.0234375
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.18635234664195502,
+          "median": 0.16720065118428
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.057084335788521165,
+          "median": 0.12015685862946213
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.13557518636434912,
+          "median": 0.1628860345122351
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.5455623056135837,
+          "median": 2.1243027100267096
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.35422087813305914,
+          "median": 1.6502820966996137
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.025916600035629372,
+          "median": 0.12012954270829701
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.9777869459929924,
+          "median": 1.5255389032447049
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.0770552051064084,
+          "median": 0.14881850175967823
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.020693760436920495,
+          "median": 0.03252245472982922
+        }
+      }
+    },
+    "002821.SZ": {
+      "board": "中小板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.20368,
+        "z_asym.book_imbalance_bias": 0.090035,
+        "z_asym.flow_sign_bias": 0.017169,
+        "z_burst.interarrival_cv2": 0.228271,
+        "z_burst.zero_wait_prob": 0.333333,
+        "z_mem.flow_vr_32_4": -0.092778,
+        "z_mem.sign_acf_log_slope": -0.159766,
+        "z_mem.sign_acf_sum_1_32": 0.023101,
+        "z_thin.cancel_to_limit_ratio": 0.393649,
+        "z_thin.midprice_shift_rate": -0.2,
+        "z_thin.trade_to_top1_depth": 0.116667
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.327481,
+        "z_asym.book_imbalance_bias": 0.099673,
+        "z_asym.flow_sign_bias": -0.027848,
+        "z_burst.interarrival_cv2": -0.060312,
+        "z_burst.zero_wait_prob": -0.153336,
+        "z_mem.flow_vr_32_4": 0.373888,
+        "z_mem.sign_acf_log_slope": -0.527164,
+        "z_mem.sign_acf_sum_1_32": 0.15335,
+        "z_thin.cancel_to_limit_ratio": 0.645744,
+        "z_thin.midprice_shift_rate": -0.419981,
+        "z_thin.trade_to_top1_depth": 0.0
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 69.57,
+      "holdout_n_windows_256": 413,
+      "name": "凯莱英",
+      "pool_role": "unseen_validation_pool",
+      "quadrant": "Q3_ultra_thin_high_shift_low_mem",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.1920821104744051,
+          "median": 0.18734677020927204
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.1327827003079583,
+          "median": 0.12866817155756208
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.20793716411740387,
+          "median": 0.16417910447761194
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.6175911470106679,
+          "median": 0.4177207977207976
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.2940045923317469,
+          "median": 1.1283706188087164
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.05882352941176469,
+          "median": 0.2196078431372549
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.5930811779611265,
+          "median": -0.28231789240025623
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.44285714285714284,
+          "median": 0.6666666666666666
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.015625,
+          "median": 0.0078125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.12466318066253015,
+          "median": 0.09707479726183935
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.12891974352109745,
+          "median": 0.17671292275088096
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.09057301539791812,
+          "median": 0.08221635883905012
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.9665937668648816,
+          "median": 2.115379150206154
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.4500839592286132,
+          "median": 1.594741396902128
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.027539932979552123,
+          "median": 0.2291142843823676
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.5067597865756284,
+          "median": 1.2544423636657673
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.125,
+          "median": 0.6666666666666666
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.006434073359611348,
+          "median": 0.011122242241396942
+        }
+      }
+    },
+    "300001.SZ": {
+      "board": "创业板",
+      "drift_256_iqr_units": {
+        "total_rms": 0.22251,
+        "z_asym.book_imbalance_bias": 0.042229,
+        "z_asym.flow_sign_bias": 0.07464,
+        "z_burst.interarrival_cv2": 0.359474,
+        "z_burst.zero_wait_prob": 0.5,
+        "z_mem.flow_vr_32_4": 0.018213,
+        "z_mem.sign_acf_log_slope": -0.031715,
+        "z_mem.sign_acf_sum_1_32": 0.007686,
+        "z_thin.cancel_to_limit_ratio": 0.145257,
+        "z_thin.midprice_shift_rate": -0.090909,
+        "z_thin.trade_to_top1_depth": -0.278876
+      },
+      "drift_session_iqr_units": {
+        "total_rms": 0.357156,
+        "z_asym.book_imbalance_bias": 0.05679,
+        "z_asym.flow_sign_bias": 0.619087,
+        "z_burst.interarrival_cv2": -0.006172,
+        "z_burst.zero_wait_prob": 0.004982,
+        "z_mem.flow_vr_32_4": -0.142701,
+        "z_mem.sign_acf_log_slope": -0.387998,
+        "z_mem.sign_acf_sum_1_32": -0.342828,
+        "z_thin.cancel_to_limit_ratio": 0.445004,
+        "z_thin.midprice_shift_rate": -0.253408,
+        "z_thin.trade_to_top1_depth": -0.581694
+      },
+      "effective_holdout_dates": [
+        20170711,
+        20170712,
+        20170713,
+        20170714,
+        20170717,
+        20170718,
+        20170719,
+        20170720,
+        20170721,
+        20170724,
+        20170725,
+        20170726,
+        20170727,
+        20170728,
+        20170731,
+        20170801,
+        20170802,
+        20170803,
+        20170804,
+        20170807
+      ],
+      "excluded_holdout_dates": [],
+      "holdout_mean_window_trades": 73.9,
+      "holdout_n_windows_256": 562,
+      "name": "特锐德",
+      "pool_role": "low_qrec_control",
+      "quadrant": "CONTROL_low_qrec_contaminated",
+      "z_holdout_256_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.29736637019561524,
+          "median": 0.2693522620708685
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.16740278515495544,
+          "median": 0.16188189281728244
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.2763718820861678,
+          "median": 0.23182297154899895
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.598421382808702,
+          "median": 0.4996329173196463
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.4523224405963939,
+          "median": 1.1441884002806988
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.04215686274509804,
+          "median": 0.08235294117647059
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 0.6068401348393615,
+          "median": -0.2877035591598911
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.1573703203248249,
+          "median": 0.1650032144005143
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.03125,
+          "median": 0.0078125
+        }
+      },
+      "z_holdout_session_flat": {
+        "book_imbalance_bias": {
+          "intraday_iqr": 0.15694325534308912,
+          "median": 0.20323088734841166
+        },
+        "cancel_to_limit_ratio": {
+          "intraday_iqr": 0.09100062481425683,
+          "median": 0.1955234552984152
+        },
+        "flow_sign_bias": {
+          "intraday_iqr": 0.1753803699408334,
+          "median": 0.16570400255420425
+        },
+        "flow_vr_32_4": {
+          "intraday_iqr": 0.6724559131571046,
+          "median": 2.2717577574547887
+        },
+        "interarrival_cv2": {
+          "intraday_iqr": 0.7469689369250201,
+          "median": 1.7122198846215129
+        },
+        "midprice_shift_rate": {
+          "intraday_iqr": 0.0263532655757331,
+          "median": 0.08334776349054783
+        },
+        "sign_acf_sum_1_32": {
+          "intraday_iqr": 1.1690966871171922,
+          "median": 1.4990331620823882
+        },
+        "trade_to_top1_depth": {
+          "intraday_iqr": 0.08813937488469345,
+          "median": 0.16109119872560734
+        },
+        "zero_wait_prob": {
+          "intraday_iqr": 0.015733797528706975,
+          "median": 0.014523082010323159
+        }
+      }
+    }
+  },
+  "train_dates": [
+    20170601,
+    20170602,
+    20170605,
+    20170606,
+    20170607,
+    20170608,
+    20170609,
+    20170612,
+    20170613,
+    20170614,
+    20170615,
+    20170616,
+    20170619,
+    20170620,
+    20170621,
+    20170622
+  ]
+}

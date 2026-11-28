@@ -289,3 +289,43 @@ def test_download_classifies_only_explicit_remote_entry_404(
     failure = TimeoutError("transport")
     with pytest.raises(TimeoutError, match="transport"):
         holdout_data._download(tmp_path, (PRIMARY[0],), REVISION)
+
+
+def test_multi_symbol_holdout_reads_dynamic_symbols_from_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    multi_symbols = ("000001.SZ", "000333.SZ", "002415.SZ", "300015.SZ", "300001.SZ")
+    m4_replacements = REPLACEMENTS[:8]
+    frozen = {
+        "schema": holdout_data.REGISTERED_M4_HOLDOUT_SCHEMA,
+        "test_dates": list(PRIMARY),
+        "replacement_test_dates": list(m4_replacements),
+        "data": {
+            "test_dates": list(PRIMARY),
+            "replacement_test_dates": list(m4_replacements),
+            "train_dates": [20170601, 20170602],
+            "dev_dates": [20170623, 20170626],
+            "symbols": list(multi_symbols),
+            "source_repo": "synthetic/l2",
+            "source_revision": REVISION,
+        },
+    }
+    artifact = tmp_path / "artifact-m4"
+    market = tmp_path / "market-m4"
+    market.mkdir()
+    (market / "manifest.json").write_text(json.dumps(frozen["data"]), encoding="utf-8")
+
+    monkeypatch.setattr(
+        holdout_data,
+        "reconstruct_szse_day",
+        lambda root, stock: (_synthetic_day(stock, int(root.name)), BookReconciliation(12, 0.99, 0.01, 0.02)),
+    )
+    monkeypatch.setattr(holdout_data, "_registered_horizons", lambda root, train: {s: 50 for s in multi_symbols})
+    receipt_path = holdout_data.prepare_holdout_data(
+        artifact, market, load_registration=lambda _root: frozen, download=lambda *args: None,
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert holdout_data.validate_holdout_receipt(frozen, receipt) == PRIMARY
+    assert len(receipt["reconciliation"]) == len(multi_symbols) * 20
+    assert len(receipt["anchors"]) == len(multi_symbols) * 20 * 2
+    assert {r["symbol"] for r in receipt["reconciliation"]} == set(multi_symbols)

@@ -26,7 +26,11 @@ def test_frozen_validation_files_match_original_tree_bytes() -> None:
 
 
 def test_frozen_synthetic_receipts_match_every_file() -> None:
-    for name in ("p2-m2-synthetic", "p2-m3-isomorphic-control", "p2-m31-calibrated-control", "p2-m32-open-catalog-control"):
+    for name in (
+        "p2-m2-synthetic", "p2-m3-isomorphic-control",
+        "p2-m31-calibrated-control", "p2-m32-open-catalog-control",
+        "p2-m4a-szse-stratification",
+    ):
         folder = ROOT / name
         for line in (folder / "SHA256SUMS").read_text().splitlines():
             digest, path = line.split(maxsplit=1)

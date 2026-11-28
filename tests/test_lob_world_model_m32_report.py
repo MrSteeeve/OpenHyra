@@ -5,7 +5,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
-from experiments.open_catalog_report import _diagnosis_accurate, _z_axis_aligned, render
+from experiments.open_catalog_report import _z_axis_aligned, render
 from tasks.lob_world_model.discovery_loop import SEED_SOURCE, View, build_messages, source_hash
 from tasks.lob_world_model.folding_ledger import FoldingLedger
 from tasks.lob_world_model.prior_cards import shuffled_cards
@@ -20,19 +20,17 @@ def _pair_box(est: float, lo: float, hi: float, days: int = 12) -> dict:
             'bootstrap_valid': 2000, 'bootstrap_total': 2000, 'daily': [est] * 12}
 
 
-def test_diagnosis_and_z_axis_rules_distinguish_swapped_regimes() -> None:
+def test_z_axis_rules_distinguish_swapped_regimes_without_text_regex() -> None:
     alpha_ok = {'outcome': 'PROMOTED', 'prediction': {
-        'data_regime_diagnosis': 'interarrival_cv2=5.028 and midprice_shift_rate=0.639 show bursty thin book.',
+        'data_regime_diagnosis': 'any free-text wording',
         'weaker_when_z_metric': 'interarrival_cv2', 'weaker_when_z_direction': 'lower',
     }}
     alpha_swapped = {'outcome': 'PROMOTED', 'prediction': {
-        'data_regime_diagnosis': 'sign_acf_sum=2.115 and flow_vr=1.724 indicate long-memory order splitting, midprice_shift_rate=0.',
+        'data_regime_diagnosis': 'any free-text wording',
         'weaker_when_z_metric': 'sign_acf_sum_1_32', 'weaker_when_z_direction': 'lower',
     }}
-    assert _diagnosis_accurate(alpha_ok, 'env_alpha') and _z_axis_aligned(alpha_ok, 'env_alpha')
-    assert not _diagnosis_accurate(alpha_ok, 'env_beta') and not _z_axis_aligned(alpha_ok, 'env_beta')
-    assert not _diagnosis_accurate(alpha_swapped, 'env_alpha') and not _z_axis_aligned(alpha_swapped, 'env_alpha')
-    assert _diagnosis_accurate(alpha_swapped, 'env_beta') and _z_axis_aligned(alpha_swapped, 'env_beta')
+    assert _z_axis_aligned(alpha_ok, 'env_alpha') and not _z_axis_aligned(alpha_ok, 'env_beta')
+    assert not _z_axis_aligned(alpha_swapped, 'env_alpha') and _z_axis_aligned(alpha_swapped, 'env_beta')
 
 
 def test_render_m32_five_tables_with_open_innovation_and_transplant(tmp_path: Path) -> None:
