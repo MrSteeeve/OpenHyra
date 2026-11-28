@@ -32,11 +32,14 @@ class ProviderAttemptError(RuntimeError):
     def __init__(
         self, message: str, *, retryable: bool = False,
         input_tokens: int | None = None, output_tokens: int | None = None,
+        raw_reply: str | None = None, status_code: int | None = None,
     ) -> None:
         super().__init__(message)
         self.retryable = retryable
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+        self.raw_reply = raw_reply
+        self.status_code = status_code
 
 
 class ProviderOutageError(ProviderAttemptError):
@@ -44,6 +47,10 @@ class ProviderOutageError(ProviderAttemptError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, retryable=True)
+
+
+def _known_usage(usage: dict, key: str) -> int | None:
+    return usage[key] if usage.get(f"{key}_reported") or usage["calls"] else None
 
 
 def registry_transport(
@@ -55,8 +62,8 @@ def registry_transport(
     if model_name not in registry:
         raise ValueError(f"Registered model {model_name!r} is absent from the model registry")
     config = registry[model_name]
-    if config.provider != "openai-compatible":
-        raise ValueError("The provider requires the registered OpenAI-compatible JSON/text protocol")
+    if config.provider not in ("openai-compatible", "anthropic"):
+        raise ValueError("Unknown registered provider protocol")
     if not 1 <= config.max_tokens <= MAX_OUTPUT_TOKENS:
         raise ValueError(f"Completion cap must be between 1 and {MAX_OUTPUT_TOKENS}")
     if completion_limit is not None:
@@ -74,8 +81,8 @@ def registry_transport(
         error = None
         try:
             text = asyncio.run(client.chat(messages, max_tokens=request_config.max_tokens))
-        except LLMTruncationError:
-            text = ""
+        except LLMTruncationError as exc:
+            text = exc.raw_reply or ""
             error = f"Registered provider stopped at its {request_config.max_tokens}-token output cap"
         except LLMRequestError as exc:
             if exc.status_code is not None:
@@ -88,15 +95,17 @@ def registry_transport(
             raise ProviderAttemptError(
                 message,
                 retryable=retryable,
-                input_tokens=usage["prompt_tokens"] if usage["calls"] else None,
-                output_tokens=usage["completion_tokens"] if usage["calls"] else None,
+                input_tokens=_known_usage(usage, "prompt_tokens"),
+                output_tokens=_known_usage(usage, "completion_tokens"),
+                raw_reply=exc.raw_reply, status_code=status,
             ) from exc
         except LLMError as exc:
             usage = client.total_usage
             raise ProviderAttemptError(
                 "Provider rejected the request or returned an invalid response",
-                input_tokens=usage["prompt_tokens"] if usage["calls"] else None,
-                output_tokens=usage["completion_tokens"] if usage["calls"] else None,
+                input_tokens=_known_usage(usage, "prompt_tokens"),
+                output_tokens=_known_usage(usage, "completion_tokens"),
+                raw_reply=exc.raw_reply,
             ) from exc
         usage = client.total_usage
         return ProviderReply(text, usage["prompt_tokens"], usage["completion_tokens"], error)
@@ -106,13 +115,16 @@ def registry_transport(
 
 def provider_handshake(
     models_path: Path, model_name: str, *, client_factory: ClientFactory = create_client,
+    completion_limit: int | None = None,
 ) -> ProviderReply:
     """Send one data-free JSON probe on the registered transport and return its metered reply."""
     messages: Messages = [
         {"role": "system", "content": 'Return only the JSON object {"ok": true}.'},
         {"role": "user", "content": "Connectivity check."},
     ]
-    reply = registry_transport(models_path, model_name, client_factory=client_factory)(
+    reply = registry_transport(
+        models_path, model_name, client_factory=client_factory, completion_limit=completion_limit,
+    )(
         messages, response_json=True,
     )
     try:
@@ -124,5 +136,6 @@ def provider_handshake(
             "Provider handshake did not return the expected JSON object",
             input_tokens=reply.input_tokens,
             output_tokens=reply.output_tokens,
+            raw_reply=reply.text,
         ) from exc
     return reply

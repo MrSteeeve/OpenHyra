@@ -1,4 +1,4 @@
-"""Registry and OpenAI-compatible metered provider client for the research harness."""
+"""Registered, metered chat providers for the research harness."""
 
 from __future__ import annotations
 
@@ -16,7 +16,11 @@ import yaml
 
 
 class LLMError(Exception):
-    """LLM 调用相关的统一异常，报错信息应带足上下文。"""
+    """Provider error; optional assistant text is distinct from transport diagnostics."""
+
+    def __init__(self, message: str, *, raw_reply: str | None = None) -> None:
+        super().__init__(message)
+        self.raw_reply = raw_reply
 
 
 class LLMTruncationError(LLMError):
@@ -55,7 +59,7 @@ class ModelRegistry(dict):
 
 
 def load_model_registry(path: str | Path) -> ModelRegistry:
-    """解析 config/models.yaml；文件缺失或格式错误抛 LLMError。"""
+    """Read the adjacent models.yaml registry or an explicitly supplied registry file."""
     p = Path(path)
     if not p.is_file():
         raise LLMError(f"模型注册表文件不存在：{p}")
@@ -92,6 +96,31 @@ class BaseLLMClient:
         seed: int | None = None,
     ) -> str:
         raise NotImplementedError
+
+    def _record_provider_usage(
+        self, data: object, input_key: str, output_key: str,
+    ) -> bool:
+        """Record known usage before checking text; missing/malformed counts stay unknown."""
+        if not isinstance(data, dict) or not isinstance(data.get("usage"), dict):
+            return False
+        usage = data["usage"]
+        complete = True
+        for source, target in ((input_key, "prompt_tokens"), (output_key, "completion_tokens")):
+            value = usage.get(source)
+            if type(value) is int and value >= 0:
+                self.total_usage[target] += value
+                self.total_usage[f"{target}_reported"] = True
+            else:
+                complete = False
+        if complete:
+            self.total_usage["calls"] += 1
+        return complete
+
+    def _record_error_usage(self, response: httpx.Response, input_key: str, output_key: str) -> None:
+        try:
+            self._record_provider_usage(response.json(), input_key, output_key)
+        except (json.JSONDecodeError, ValueError):
+            pass
 
     def _record_max_tokens_escalation(self, requested: int, effective: int) -> None:
         """截断升额重试后成功：把实际生效的 max_tokens 记入 usage（随 trace 序列化）。"""
@@ -132,7 +161,7 @@ class OpenAICompatClient(BaseLLMClient):
         if not api_key:
             raise LLMError(
                 f"模型 {cfg.name} 缺少 API key：请设置环境变量 {cfg.api_key_env}"
-                "（可复制 .env.example 为 .env 并填入）。"
+                "。"
             )
         url = cfg.base_url.rstrip("/") + "/chat/completions"
         token_cap = "max_completion_tokens" if cfg.use_max_completion_tokens else "max_tokens"
@@ -167,24 +196,26 @@ class OpenAICompatClient(BaseLLMClient):
             except httpx.TimeoutException as exc:
                 # 超时：可重试
                 failed_transport = True
-                last_error = f"请求超时：{exc!r}"
+                last_error = "请求超时"
             except httpx.TransportError as exc:
                 # 瞬时传输层故障（连接被掐断、协议错误、代理抖动等）：可重试
                 failed_transport = True
-                last_error = f"网络传输错误：{exc!r}"
+                last_error = "网络传输错误"
             except httpx.HTTPError as exc:
                 # 其他请求错误（非法 URL、重定向过多等）：不重试，直接抛出
                 raise LLMError(f"模型 {cfg.name} 请求失败（{url}）：{exc!r}") from exc
             else:
                 status_code = resp.status_code
+                if resp.status_code >= 400:
+                    self._record_error_usage(resp, "prompt_tokens", "completion_tokens")
                 if resp.status_code == 429 or resp.status_code >= 500:
                     # 限流或服务端错误：可重试
-                    last_error = f"HTTP {resp.status_code}：{resp.text[:200]}"
+                    last_error = f"HTTP {resp.status_code}"
                 elif resp.status_code >= 400:
                     # 其余 4xx：不重试，带响应体摘要直接抛出
                     raise LLMRequestError(
-                        f"模型 {cfg.name} 调用失败（HTTP {resp.status_code}，不可重试）："
-                        f"{resp.text[:300]}", status_code=status_code,
+                        f"模型 {cfg.name} 调用失败（HTTP {resp.status_code}，不可重试）",
+                        status_code=status_code,
                     )
                 else:
                     try:
@@ -216,31 +247,101 @@ class OpenAICompatClient(BaseLLMClient):
             )
 
     def _parse_response(self, resp: httpx.Response) -> str:
-        """解析响应体，累加 usage；输出被 max_tokens 截断时报错而非静默接受。"""
+        """Meter usage before inspecting content, including truncated or malformed replies."""
         cfg = self.config
         try:
             data = resp.json()
         except (json.JSONDecodeError, ValueError) as exc:
-            raise LLMError(f"模型 {cfg.name} 响应不是合法 JSON：{resp.text[:300]}") from exc
+            raise LLMError(f"Model {cfg.name} returned a malformed JSON response") from exc
+        metered = self._record_provider_usage(data, "prompt_tokens", "completion_tokens")
         try:
             choice = data["choices"][0]
             content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise LLMError(f"模型 {cfg.name} 响应格式异常：{str(data)[:300]}") from exc
-        usage = data.get("usage") or {}
-        if isinstance(usage, dict):
-            self.total_usage["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
-            self.total_usage["completion_tokens"] += int(usage.get("completion_tokens") or 0)
-        self.total_usage["calls"] += 1
+            raise LLMError(f"Model {cfg.name} returned a malformed assistant response") from exc
+        raw_reply = content if isinstance(content, str) else None
         if cfg.strict_model_match and data.get("model") != cfg.model:
             self.unexpected_model = str(data.get("model") or "")
-            raise LLMError(f"模型 {cfg.name} 的响应 model 与已登记的 {cfg.model} 不匹配")
-        if isinstance(choice, dict) and choice.get("finish_reason") == "length":
-            raise LLMTruncationError(
-                f"模型 {cfg.name} 输出因 max_tokens 上限被截断（finish_reason=length），"
-                "自动升额重试后仍不完整；可在 config/models.yaml 调大该模型的 max_tokens 默认值。"
-            )
-        return content if isinstance(content, str) else str(content)
+            raise LLMError(f"Model {cfg.name} returned an unregistered model ID", raw_reply=raw_reply)
+        if not metered:
+            raise LLMError(f"Model {cfg.name} did not report complete token usage", raw_reply=raw_reply)
+        if choice.get("finish_reason") == "length":
+            raise LLMTruncationError(f"Model {cfg.name} exceeded its output cap", raw_reply=raw_reply)
+        if not isinstance(content, str) or not content.strip():
+            raise LLMError(f"Model {cfg.name} returned no assistant text")
+        return content
+
+
+class AnthropicClient(BaseLLMClient):
+    """Messages protocol with one physical HTTP request and explicit metering."""
+
+    def __init__(self, config: ModelConfig) -> None:
+        super().__init__()
+        self.config = config
+
+    async def chat(
+        self, messages: list[dict], temperature: float | None = None,
+        max_tokens: int | None = None, seed: int | None = None,
+    ) -> str:
+        cfg = self.config
+        api_key = os.environ.get(cfg.api_key_env, "").strip()
+        if not api_key:
+            raise LLMError(f"Model {cfg.name} requires environment variable {cfg.api_key_env}")
+        if seed is not None:
+            raise LLMError("The Anthropic Messages protocol does not accept a seed")
+        system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
+        conversation = [m for m in messages if m["role"] != "system"]
+        payload = {
+            **(cfg.extra_body or {}),
+            "model": cfg.model,
+            "messages": conversation,
+            "max_tokens": cfg.max_tokens if max_tokens is None else max_tokens,
+        }
+        if system:
+            payload["system"] = system
+        effective_temperature = cfg.temperature if temperature is None else temperature
+        if effective_temperature is not None:
+            payload["temperature"] = effective_temperature
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+        self.total_usage["api_attempts"] = self.total_usage.get("api_attempts", 0) + 1
+        started = perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=cfg.timeout) as client:
+                response = await client.post(cfg.base_url.rstrip("/") + "/messages", json=payload, headers=headers)
+        except httpx.TransportError as exc:
+            raise LLMRequestError("Provider transport failure", transport=True) from exc
+        except httpx.HTTPError as exc:
+            raise LLMRequestError("Provider request failed") from exc
+        finally:
+            self.total_usage["api_seconds"] = self.total_usage.get("api_seconds", 0) + perf_counter() - started
+        if response.status_code >= 400:
+            self._record_error_usage(response, "input_tokens", "output_tokens")
+            raise LLMRequestError(f"Provider HTTP {response.status_code}", status_code=response.status_code)
+        return self._parse_response(response)
+
+    def _parse_response(self, response: httpx.Response) -> str:
+        cfg = self.config
+        try:
+            data = response.json()
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise LLMError(f"Model {cfg.name} returned a malformed JSON response") from exc
+        metered = self._record_provider_usage(data, "input_tokens", "output_tokens")
+        if not isinstance(data, dict) or not isinstance(data.get("content"), list):
+            raise LLMError(f"Model {cfg.name} returned a malformed assistant response")
+        text_blocks = [block.get("text") for block in data["content"]
+                       if isinstance(block, dict) and block.get("type") == "text"]
+        if any(not isinstance(text, str) for text in text_blocks):
+            raise LLMError(f"Model {cfg.name} returned a malformed text block")
+        raw_reply = "\n".join(text_blocks)
+        if cfg.strict_model_match and data.get("model") != cfg.model:
+            raise LLMError(f"Model {cfg.name} returned an unregistered model ID", raw_reply=raw_reply)
+        if not metered:
+            raise LLMError(f"Model {cfg.name} did not report complete token usage", raw_reply=raw_reply)
+        if data.get("stop_reason") == "max_tokens":
+            raise LLMTruncationError(f"Model {cfg.name} exceeded its output cap", raw_reply=raw_reply)
+        if not raw_reply.strip():
+            raise LLMError(f"Model {cfg.name} returned no assistant text")
+        return raw_reply
 
 
 def create_client(model_name: str, registry: dict[str, ModelConfig]) -> BaseLLMClient:
@@ -248,6 +349,8 @@ def create_client(model_name: str, registry: dict[str, ModelConfig]) -> BaseLLMC
     if model_name not in registry:
         raise LLMError(f"Unknown registered model {model_name!r}")
     config = registry[model_name]
-    if config.provider != "openai-compatible":
-        raise LLMError(f"Unsupported provider {config.provider!r}")
-    return OpenAICompatClient(config)
+    if config.provider == "openai-compatible":
+        return OpenAICompatClient(config)
+    if config.provider == "anthropic":
+        return AnthropicClient(config)
+    raise LLMError(f"Unsupported provider {config.provider!r}")
