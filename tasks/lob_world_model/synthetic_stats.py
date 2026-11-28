@@ -17,7 +17,7 @@ SCALAR_METRICS = (
     "stylized_impact_mae", "post_stop_relaxation_delta", "visible_minus_blind_auc",
     "exhausted_replicate_rate", "sign_acf_abs_error", "memory_gap_1", "memory_gap_4",
     "memory_gap_16", "memory_gap_64", "available_quote_fraction", "acf_support_lags",
-    "zero_wait_rate_error", "interarrival_cv2_error", "free_abs_drift_ticks",
+    "zero_wait_rate_error", "interarrival_cv2_error", "interarrival_cv2_rel_error", "free_abs_drift_ticks",
     "zero_wait_rate_generated", "zero_wait_rate_historical", "interarrival_cv2_generated", "interarrival_cv2_historical",
 )
 METRICS = (*SCALAR_METRICS, C2)

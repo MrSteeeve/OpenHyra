@@ -27,8 +27,8 @@ class CallBudgetGuard:
     """
 
     def __init__(self, path: Path, limit: int = 36) -> None:
-        if type(limit) is not int or not 1 <= limit <= 36:
-            raise ValueError("formal call limit must be an integer between 1 and 36")
+        if type(limit) is not int or not 1 <= limit <= 108:
+            raise ValueError("formal call limit must be an integer between 1 and 108")
         self.path = Path(path)
         self.limit = limit
         self.path.parent.mkdir(parents=True, exist_ok=True)

@@ -25,7 +25,9 @@ _WORKER = Path(__file__).resolve().with_name("synthetic_worker.py")
 
 
 class _CandidateFailure(RuntimeError):
-    pass
+    def __init__(self, message: str, *, status: str = "EVALUATION_FAILED") -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def _json(path: Path) -> Json:
@@ -55,7 +57,9 @@ def _run(work: Path, mode: str, source: str, files: dict[str, Path], timeout_s: 
             raise RuntimeError("synthetic worker cancelled")
         trace = (result["stdout"] + "\n" + result["stderr"]).replace(str(work), "<worker>")
         detail = f"{mode} failed: {trace[-1800:]}"
-        if result["timed_out"] or result["returncode"] in (MODEL_FAILURE_EXIT, NONFINITE_LOSS_EXIT):
+        if result["returncode"] == NONFINITE_LOSS_EXIT and not result["timed_out"]:
+            raise _CandidateFailure(detail, status="NONFINITE_LOSS")
+        if result["timed_out"] or result["returncode"] == MODEL_FAILURE_EXIT:
             raise _CandidateFailure(detail)
         raise RuntimeError(f"unexpected synthetic worker failure ({result['returncode']}): {detail}")
     return output
@@ -140,7 +144,7 @@ class SyntheticEvaluator:
                         raise _CandidateFailure("checkpoint model capacity mismatch")
                     result = {**base, **fit, **measured, "status": "VALID"}
             except _CandidateFailure as exc:
-                result = {**base, "status": "EVALUATION_FAILED", "error": str(exc)}
+                result = {**base, "status": exc.status, "error": str(exc)}
             atomic_write_json(path, result)
             return result
 

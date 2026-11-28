@@ -6,13 +6,20 @@ import pickle
 import numpy as np
 import torch
 
-from experiments.synthetic_tau_z.discovery_metrics import MeasurementPanel, reference_calibration
+from experiments.synthetic_tau_z.discovery_metrics import MeasurementPanel, _relative_clock_error, reference_calibration
 from experiments.synthetic_tau_z.design import SEEDS
 from stochopia.neural.probes import GRUProbe
 from stochopia.sim.queue_reactive_data import generate_dataset, generate_evaluation_dataset, counterfactual_truth
 from stochopia.sim.queue_reactive_world import standard_worlds
 from tasks.lob_world_model.synthetic_eval import _json, _run
 from tasks.lob_world_model.synthetic_stats import METRICS
+
+
+def test_relative_clock_residual_uses_historical_denominator_floor() -> None:
+    assert _relative_clock_error(3.0, 5.0) == .4
+    assert _relative_clock_error(.75, .5) == .25
+    assert _relative_clock_error(None, 1.0) is None
+    assert _relative_clock_error(1.0, float('nan')) is None
 
 
 def test_disjoint_calendar_and_real_measurement_worker(tmp_path: Path) -> None:

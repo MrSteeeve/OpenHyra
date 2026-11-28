@@ -30,7 +30,7 @@ D_KEYS = ('val_nll_total', 'dt_nll', 'event_nll', 'level_nll', 'size_nll',
           'counterfactual_impact_mae', 'stylized_impact_mae', 'post_stop_relaxation_delta',
           'visible_minus_blind_auc', 'c2_bootstrap_pass_rate', 'exhausted_replicate_rate',
           'sign_acf_abs_error', 'memory_gap_1', 'memory_gap_4', 'memory_gap_16',
-          'memory_gap_64', 'zero_wait_rate_error', 'interarrival_cv2_error',
+          'memory_gap_64', 'zero_wait_rate_error', 'interarrival_cv2_error', 'interarrival_cv2_rel_error',
           'free_abs_drift_ticks', 'available_quote_fraction')
 GREEDY_KEYS = ('val_nll_total', 'counterfactual_impact_mae')
 TARGETS = ('dt_nll', 'exhausted_replicate_rate', 'counterfactual_impact_mae', 'sign_acf_abs_error')
@@ -58,7 +58,12 @@ class CandidateLOBWorldModel(ProbeBase):
         return h[0], h[0]
 '''
 
-SYSTEM = '''You are studying a causal limit-order-book world model. Propose one substantive tensor operator change to the current parent and make a falsifiable metric prediction BEFORE seeing results. The objective is accurate response to a fixed external order, retaining likelihood and valid quotes. Use only causal StepObservation (book_ticks, book_shares, previous_event, is_own), not labels or future outcomes. CandidateLOBWorldModel must subclass LOBWorldModel, implement sequence_context, step_context and head_logits (or inherit ProbeBase); batched sequence and step must agree, legal four heads, finite gradients, <=28000 trainable parameters, <=60 real recurrent scalars. ProbeBase.raw_features returns 75 features; inherited heads consume 60 context features. Available stochopia.neural.probe_features helpers: input_projection, level_inputs, advect_level_state, previous_flow, volume_clock; torch and standard mathematical primitives permitted. Keep complete source below 1050 tokens; prefer explicit changed computation, neutral identifiers and comments; do not label data regimes in source or reply. Use torch.int64 for integer dtype. No file/network operations. A candidate that cannot fit in the next full-parent context is not admissible. Do not merely tune constants or choose a prewritten probe. No extra retries. Return exactly one JSON fenced block followed by one complete Python fenced block. JSON keys: selected_card_ids (list, primary card first, only displayed cards), target_metric (dt_nll, exhausted_replicate_rate, counterfactual_impact_mae, or sign_acf_abs_error), expected_direction (decrease or increase), regime_hypothesis (brief falsifiable explanation), unfold_ids (optional list of at most two existing IDs).'''
+SYSTEM = '''You are studying a causal limit-order-book world model. Propose one substantive tensor operator change to the current parent and make a falsifiable metric prediction BEFORE seeing results. The objective is accurate response to a fixed external order, retaining likelihood and valid quotes. Use only causal StepObservation, not labels or future outcomes. CandidateLOBWorldModel must subclass LOBWorldModel, implement sequence_context, step_context and head_logits (or inherit ProbeBase); legal four heads, finite gradients, <=28000 trainable parameters.
+Exact tensor contract:
+- step_context(self, obs: StepObservation, state): obs.book_ticks and obs.book_shares each [B, 2, 10]; side axis 0=bid, 1=ask, level axis 0..9 (20 elements per sample, NEVER reshape/view to just 10). obs.previous_event [B, 4]; obs.is_own [B]. Return (context, next_state), context [B, 60].
+- sequence_context(self, obs: StepObservation): obs.book_ticks and obs.book_shares each [B, T, 2, 10], obs.previous_event [B, T, 4], obs.is_own [B, T]. Return [B, T, 60], numerically equivalent to successive step_context calls.
+- Recurrent state may be [B, 60] or tensors/tuples/dicts totaling <=60 real scalars per sample, e.g. [B, 10, 6] or ([B, 40], [B, 2, 10]). ProbeBase.raw_features returns 75 features; inherited heads consume 60 context features.
+Available stochopia.neural.probe_features helpers: input_projection, level_inputs, advect_level_state, previous_flow, volume_clock; torch and standard mathematical primitives permitted. Keep complete source below 1050 tokens; prefer explicit changed computation, neutral identifiers and comments; do not label data regimes in source or reply. Use torch.int64 for integer dtype. No file/network operations. A candidate that cannot fit in the next full-parent context is not admissible. Do not merely tune constants or choose a prewritten probe. No extra retries. Return exactly one JSON fenced block followed by one complete Python fenced block. JSON keys: selected_card_ids (list, primary card first, only displayed cards), target_metric (dt_nll, exhausted_replicate_rate, counterfactual_impact_mae, or sign_acf_abs_error), expected_direction (decrease or increase), regime_hypothesis (brief falsifiable explanation), unfold_ids (optional list of at most two existing IDs).'''
 
 
 @dataclass(frozen=True)
@@ -213,11 +218,12 @@ class DiscoveryLoop:
                  evaluator: Callable[[str], Json], pair: Callable[[Json, Json], Json],
                  count: Callable[[Messages], int], transport: Transport | None = None,
                  guard: CallBudgetGuard | None = None, rounds: int = 6,
-                 should_stop: Callable[[], bool] = lambda: False) -> None:
+                 should_stop: Callable[[], bool] = lambda: False, call_prefix: str | None = None) -> None:
         self.view, self.root, self.seed_result = view, root, seed_result
         self.evaluator, self.pair, self.count = evaluator, pair, count
         self.transport, self.guard, self.rounds = transport, guard, rounds
         self.should_stop = should_stop
+        self.call_prefix = call_prefix if call_prefix is not None else f'{view.env_id}/{view.arm}'
         self.ledger = FoldingLedger(root)
         if not self.ledger.records:
             self.ledger.append({'cand_id': 'B0', 'parent_id': '', 'outcome': 'SEED',
@@ -259,7 +265,7 @@ class DiscoveryLoop:
                 else:
                     if self.transport is None or self.guard is None:
                         raise RuntimeError('language-model arm requires a metered transport')
-                    call_id = f'{self.view.env_id}/{self.view.arm}/{cid}'
+                    call_id = f'{self.call_prefix}/{cid}'
                     reply = self.guard.result(call_id, messages=messages)
                     if reply is None:
                         reply = self.guard.call(self.transport, messages, call_id=call_id)
@@ -328,7 +334,7 @@ class DiscoveryLoop:
                                             record['outcome'] != 'PROMOTED' and _adverse(record['deltas']))
                 record['cooldown_after'] = cooldown
                 self.ledger.append(record)
-            print(f'ROUND {self.view.env_id}/{self.view.arm}/{cid} {record["outcome"]}', flush=True)
+            print(f'ROUND {self.call_prefix}/{cid} {record["outcome"]}', flush=True)
             if record['outcome'] == 'PROMOTED':
                 parent_id, parent_source, parent = cid, record['source'], record['evaluation']
             unfold = tuple(record['unfold_ids'])

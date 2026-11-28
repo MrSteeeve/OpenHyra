@@ -12,7 +12,7 @@ import pytest
 
 from tasks.lob_world_model.code_dedup import find_duplicate, normalize_source
 from tasks.lob_world_model.folding_ledger import FoldingLedger, promotion_decision
-from tasks.lob_world_model.prior_cards import advance_cooldown, load_cards, select_active_cards
+from tasks.lob_world_model.prior_cards import _urgency, advance_cooldown, load_cards, select_active_cards
 
 
 LABELS = re.compile(r"(?<![A-Za-z0-9])(?:w2|w6|thin|thick|hawkes|long)(?![A-Za-z0-9])", re.I)
@@ -67,6 +67,19 @@ def test_two_future_round_cooling_and_rotation() -> None:
     assert first in [c.card_id for c in select_active_cards(symptoms, cooldown)]
 
 
+def test_clock_residual_urgency_is_not_diluted_by_other_heads() -> None:
+    symptoms = {'dt_nll': 1.6, 'zero_wait_rate_error': .08, 'interarrival_cv2_rel_error': .5,
+                'val_nll_total': 4.0, 'exhausted_replicate_rate': .9, 'free_abs_drift_ticks': 100.0}
+    inflated = {**symptoms, 'val_nll_total': 400.0, 'level_nll': 396.0}
+    assert _urgency(symptoms)['C06'] == _urgency(inflated)['C06']
+    assert _urgency(symptoms)['C06'] > _urgency({'dt_nll': 1.6})['C06']
+    ids = [c.card_id for c in select_active_cards(inflated, {})]
+    assert ids[0] in {'C04', 'C05'} and ids[1] == 'C06' and len(ids) == 3
+    cooled = {card: 2 for card in ('C03', 'C06', 'C08')}
+    selected = [c.card_id for c in select_active_cards(symptoms, cooled)]
+    assert not set(selected).intersection(cooled) and len(selected) == 3
+
+
 @pytest.mark.parametrize(("deltas", "expected"), [
     ({"val_nll_total": .005, "counterfactual_impact_mae": -.010, "exhausted_replicate_rate": .05}, "PROMOTED"),
     ({"val_nll_total": .006, "counterfactual_impact_mae": -.020, "exhausted_replicate_rate": .0}, "REJECTED"),
@@ -117,7 +130,8 @@ def test_folded_ledger_preserves_original_but_hides_prose_and_labels(tmp_path: P
     folded = restored.render("B0", ["c1"], max_tokens=400, token_count=lambda text: len(text.split()))
     assert not LABELS.search(folded)
     assert "thought about" not in folded and "exact original prompt" not in folded
-    assert "[Branch taboos]\nc2" in folded
+    taboos = folded.split('[Branch taboos]')[1].split('[Stepping stones]')[0]
+    assert all(cid in taboos for cid in ('c2', 'c3', 'c4'))
     assert "[Stepping stones]\nc1" in folded
     assert "[Requested nodes]\nc1" in folded
     assert "-0.03" in folded
@@ -125,6 +139,49 @@ def test_folded_ledger_preserves_original_but_hides_prose_and_labels(tmp_path: P
         ledger.append(probe)
     with pytest.raises(ValueError):
         ledger.append({"cand_id": "../bad", "outcome": "SEED"})
+
+
+def test_failure_reasons_are_single_line_and_redacted(tmp_path: Path) -> None:
+    ledger = FoldingLedger(tmp_path)
+    ledger.append({'cand_id': 'B0', 'parent_id': '', 'source': SOURCE, 'outcome': 'SEED'})
+    raw = ('Worker crash\n  File "/tmp/private/candidate.py", line 2\n'
+           'RuntimeError: /tmp/private/candidate.py in env_alpha W6_hawkes api_key=SECRET123 '
+           'Bearer fakecredential ' + 'x' * 150 + '\nignored second line')
+    first = ledger.append({'cand_id': 'c01', 'parent_id': 'B0', 'source': SOURCE,
+                           'outcome': 'GATE_REJECTED', 'error': raw})
+    assert first['error'] == raw
+    reason = first['gate_error']
+    assert reason.startswith('RuntimeError: candidate.py') and len(reason) <= 120 and '\n' not in reason
+    assert all(value not in reason for value in ('/tmp/', 'private', 'env_alpha', 'SECRET123', 'fakecredential'))
+    assert not LABELS.search(reason)
+    for cid, outcome, text in [('c02', 'INVALID_PROPOSAL', 'invalid fenced block'),
+                               ('c03', 'NONFINITE_LOSS', 'NonfiniteModelLoss: nonfinite loss'),
+                               ('c04', 'DUPLICATE_REJECTED', '')]:
+        row = ledger.append({'cand_id': cid, 'parent_id': 'B0', 'source': SOURCE,
+                             'outcome': outcome, 'error': text})
+        assert row['gate_error'] and 'reason=' in ledger._line(row)
+    folded = ledger.render('B0', max_tokens=700, token_count=lambda text: len(text.split()))
+    taboos = folded.split('[Branch taboos]')[1].split('[Stepping stones]')[0]
+    assert 'reason=' + reason in taboos
+    assert all(cid in taboos for cid in ('c02', 'c03', 'c04'))
+
+
+def test_tight_history_budget_prioritizes_latest_gate_reason(tmp_path: Path) -> None:
+    ledger = FoldingLedger(tmp_path)
+    ledger.append({'cand_id': 'B0', 'parent_id': '', 'source': SOURCE, 'outcome': 'SEED'})
+    ledger.append({'cand_id': 'c01', 'parent_id': 'B0', 'source': SOURCE,
+                   'outcome': 'GATE_REJECTED', 'error': 'RuntimeError: old gate failure'})
+    latest = ledger.append({'cand_id': 'c02', 'parent_id': 'B0', 'source': SOURCE,
+                            'outcome': 'GATE_REJECTED', 'error': "RuntimeError: shape '[4, 10]' is invalid for input of size 80"})
+    ledger.append({'cand_id': 'c03', 'parent_id': 'B0', 'source': SOURCE,
+                   'outcome': 'STEPPING_STONE', 'deltas': {'dt_nll': -.03}})
+    reason = 'reason=' + latest['gate_error']
+    # A full lineage row cannot fit, nor the four conventional headings.
+    assert len(ledger._line(latest)) > len(reason)
+    assert ledger.render('B0', max_tokens=len(reason), token_count=len) == reason
+    compact = '[Branch taboos]\nc02 | GATE_REJECTED | ' + reason
+    assert ledger.render('B0', max_tokens=len(compact), token_count=len) == compact
+    assert 'old gate failure' not in compact
 
 
 def test_folded_context_remains_bounded_for_32_rounds(tmp_path: Path) -> None:

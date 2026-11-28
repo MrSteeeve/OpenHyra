@@ -21,6 +21,46 @@ _ALIASES = {ACF: (ACF, "direction_acf_mae"), MEM: (MEM, "G_mem(64)", "G_mem_64")
 _LABELS = re.compile(r"(?<![A-Za-z0-9])(?:w2|w6|thin|thick|hawkes|long)(?![A-Za-z0-9])", re.IGNORECASE)
 _UNEVALUATED = {"DUPLICATE_REJECTED", "INVALID_PROPOSAL", "PROMPT_CAPACITY_REJECTED",
                 "PROVIDER_ERROR", "INTERRUPTED_CALL"}
+_FAILURES = {"GATE_REJECTED", "INVALID_PROPOSAL", "DUPLICATE_REJECTED", "NONFINITE_LOSS",
+             "EVALUATION_FAILED", "PROMPT_CAPACITY_REJECTED"}
+_ERROR_LINE = re.compile(r"^\s*(?:[\w.]+\.)?([A-Za-z_]\w*(?:Error|Exception)|Error|Exception)\s*:\s*(.*)$")
+_PATH = re.compile(r"(['\"])(?:/|~/|<worker>/|[A-Za-z]:\\)[^'\"\n]+\1|"
+                   r"(?<!\w)(?:/|~/|<worker>/|[A-Za-z]:\\)[^\s'\"<>;,\])]+")
+_TOKEN = re.compile(r"(?i)\b(?:bearer\s+[\w./+=-]+|(?:sk-|ghp_|hf_)[A-Za-z0-9_-]+|"
+                    r"(?:api[_ -]?key|access[_ -]?token|secret|authorization|password|token)"
+                    r"\s*[:=]\s*(?:'[^']*'|\"[^\"]*\"|[^\s,;]+))")
+_ENV = re.compile(r"(?i)(?<![A-Za-z0-9])env_(?:alpha|beta)(?![A-Za-z0-9])")
+
+
+def gate_error(row: Mapping[str, Any]) -> str:
+    """Keep only the surfaced exception and its first line, not its traceback.
+
+    This projection is the only error text permitted in the next proposal's
+    objective lineage and taboos. Raw failure evidence stays in the receipt.
+    """
+    outcome = row["outcome"]
+    if outcome not in _FAILURES:
+        return ""
+    if outcome == "DUPLICATE_REJECTED":
+        duplicate = row.get("duplicate") or {}
+        reason = f"DuplicateError: matches {duplicate.get('cand_id', 'a prior candidate')}"
+    else:
+        raw = row.get("error") or ""
+        lines = str(raw).splitlines()
+        # The final exception line in a Python traceback is the exception
+        # that escaped the worker; use its message's first line only.
+        errors = [match for line in lines if (match := _ERROR_LINE.match(line))]
+        if errors:
+            reason = f"{errors[-1].group(1)}: {errors[-1].group(2)}"
+        else:
+            fallback = {"NONFINITE_LOSS": "NonfiniteModelLoss: nonfinite model loss or probabilities",
+                        "PROMPT_CAPACITY_REJECTED": "ValueError: candidate source exceeds token allowance",
+                        "INVALID_PROPOSAL": "ValueError: invalid proposal"}.get(outcome, "RuntimeError: candidate checks failed")
+            reason = f"{fallback.split(':')[0]}: {lines[0]}" if lines else fallback
+    reason = _TOKEN.sub("[credential omitted]", reason)
+    reason = _PATH.sub(lambda match: "candidate.py" if "candidate.py" in match.group(0) else "[path omitted]", reason)
+    reason = _ENV.sub("[label omitted]", _LABELS.sub("[label omitted]", reason))
+    return " ".join(reason.replace("`", "").split())[:120]
 
 
 # --- Symmetric decisions, based on paired estimates when provided ---
@@ -126,6 +166,7 @@ class FoldingLedger:
         full_diff, summary = _structural_diff(parent_source, source or "")
         row["structural_diff"] = summary if source else "no parsed source"
         row["code_diff"] = full_diff if source else ""
+        row["gate_error"] = gate_error(row)
         encoded = _json(row)  # Validate serializability before touching the journal.
         folder = self.root / "candidates" / cand_id
         folder.mkdir(parents=True, exist_ok=True)
@@ -159,6 +200,9 @@ class FoldingLedger:
         capacity = f"{row.get('parameters', 'NA')}/{row.get('state_scalars', 'NA')}"
         line = " | ".join([row["cand_id"], row.get("parent_id") or "-", row["outcome"], capacity,
                            *values, row["structural_diff"]])
+        reason = row.get("gate_error") or gate_error(row)
+        if reason:
+            line += f" | reason={reason}"
         return _LABELS.sub("[label omitted]", line)
 
     @staticmethod
@@ -171,7 +215,7 @@ class FoldingLedger:
 
     @staticmethod
     def _taboo(row: Mapping[str, Any]) -> bool:
-        if row["outcome"] == "DUPLICATE_REJECTED":
+        if row["outcome"] in _FAILURES:
             return True
         if row["outcome"] != "REJECTED":
             return False
@@ -185,7 +229,8 @@ class FoldingLedger:
 
         The caller accounts for parent source, residuals, cards, Z block and
         provider framing separately (then checks the complete request). The
-        newest L0 rows and current-branch taboos outrank optional node details.
+        latest gate failure outranks other history, even when there is
+        only room for its compact reason rather than a full lineage entry.
         """
         rows = [row for row in self.records if row["outcome"] != "SEED"]
         by_id = {row["cand_id"]: row for row in self.records}
@@ -200,22 +245,41 @@ class FoldingLedger:
         headings = ["[L0 lineage: id | parent | outcome | params/state | ΔNLL | Δdt | ΔCF | Δexhaust | ΔG64 | edit]",
                     "[Branch taboos]", "[Stepping stones]", "[Requested nodes]"]
         sections: list[list[str]] = [[] for _ in headings]
+        taboos = [row for row in rows if row.get("parent_id") in ancestors and self._taboo(row)]
+        latest_failure = next((row for row in reversed(taboos) if row["outcome"] in _FAILURES), None)
+        reason = "" if latest_failure is None else latest_failure.get("gate_error") or gate_error(latest_failure)
+        compact = "" if latest_failure is None else (
+            f"{latest_failure['cand_id']} | {latest_failure['outcome']} | reason={reason}"
+        )
+
+        def fallback() -> str:
+            if not reason:
+                return ""
+            for option in ("[Branch taboos]\n" + compact, compact, "reason=" + reason):
+                if token_count(option) <= max_tokens:
+                    return option
+            return ""
 
         def text() -> str:
             return "\n".join("\n".join([header, *(lines or ["none"])])
                              for header, lines in zip(headings, sections, strict=True))
 
         if token_count(text()) > max_tokens:
-            return ""
+            return fallback()
 
-        def offer(index: int, line: str) -> None:
+        def offer(index: int, line: str) -> bool:
             sections[index].append(line)
             if token_count(text()) > max_tokens:
                 sections[index].pop()
+                return False
+            return True
 
-        taboos = [row for row in rows if row.get("parent_id") in ancestors and self._taboo(row)]
+        if latest_failure is not None:
+            if not offer(1, self._line(latest_failure)) and not offer(1, compact):
+                return fallback()
         for row in reversed(taboos[-5:]):
-            offer(1, self._line(row))
+            if row is not latest_failure:
+                offer(1, self._line(row))
         for row in reversed(rows):
             offer(0, self._line(row))
         stones = sorted((row for row in rows if row["outcome"] == "STEPPING_STONE"),

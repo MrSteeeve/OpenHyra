@@ -11,7 +11,7 @@ import pytest
 from tasks.lob_world_model.call_budget import CallBudgetGuard
 from tasks.lob_world_model.contracts import Messages, ProviderReply
 from tasks.lob_world_model.discovery_loop import (
-    D_KEYS, LABELS, OMITTED, PROMPT_CAP, SEED_SOURCE, Z_KEYS,
+    D_KEYS, LABELS, OMITTED, PROMPT_CAP, SEED_SOURCE, SYSTEM, Z_KEYS,
     DiscoveryLoop, View, build_messages, prediction_verdict,
 )
 from tasks.lob_world_model.prior_cards import select_active_cards
@@ -93,6 +93,53 @@ def test_first_round_isomorphic_except_z(tmp_path: Path) -> None:
     assert OMITTED in prompts[0][1]['content']
     assert 'sign_acf_sum_1_32 | 1 |' in prompts[1][1]['content']
     assert 'sign_acf_sum_1_32 | 2 |' in prompts[2][1]['content']
+
+
+def test_calibrated_first_round_on_frozen_actual_alpha_residuals(tmp_path: Path) -> None:
+    """Use M3's unmodified B0 receipt rather than an invented residual panel."""
+    baseline_path = (Path(__file__).resolve().parents[1] / 'artifacts' /
+                     'p2-m3-isomorphic-control' / 'baseline.json')
+    baseline = json.loads(baseline_path.read_text())
+    parent = baseline['env_alpha']['evaluation']
+    cards = select_active_cards(parent['aggregate'], {})
+    ids = {card.card_id for card in cards}
+    assert len(cards) == 3 and 'C06' in ids and ids.intersection({'C04', 'C05'})
+    views = (View('d_only', 'env_alpha', None),
+             View('true_z_d', 'env_alpha', baseline['env_alpha']['z']),
+             View('shuffled_z_d', 'env_alpha', baseline['env_beta']['z']))
+    prompts = []
+    for view in views:
+        loop = DiscoveryLoop(view=view, root=tmp_path / view.arm, seed_result=parent,
+                             evaluator=_result, pair=_pair, count=_count)
+        messages, tokens = build_messages(view, 'B0', SEED_SOURCE, parent, cards, loop.ledger, (), _count)
+        assert tokens <= PROMPT_CAP
+        assert not any(LABELS.search(item['content']) for item in messages)
+        prompts.append(messages)
+    assert _without_z(prompts[0]) == _without_z(prompts[1]) == _without_z(prompts[2])
+    for shape in ('[B, 2, 10]', '[B, T, 2, 10]', '[B, 4]', '[B, T, 4]', '[B]', '[B, T]', '[B, 60]', '[B, T, 60]'):
+        assert shape in SYSTEM
+    assert '20 elements per sample' in SYSTEM and 'NEVER reshape/view to just 10' in SYSTEM
+
+
+def test_next_prompt_receives_one_line_gate_feedback(tmp_path: Path) -> None:
+    guard = CallBudgetGuard(tmp_path / 'calls.jsonl', limit=2)
+    sent = []
+
+    def transport(messages: Messages, *, response_json: bool) -> ProviderReply:
+        sent.append(messages)
+        return _reply(messages, response_json=response_json)
+
+    error = "Worker crash (returncode 1)\n  File '/tmp/private/candidate.py', line 4\nRuntimeError: shape '[4, 10]' is invalid for input of size 80"
+    loop = DiscoveryLoop(view=View('d_only', 'env_alpha', None), root=tmp_path / 'track', seed_result=_result(),
+                         evaluator=lambda source: {'status': 'GATE_REJECTED', 'error': error}, pair=_pair,
+                         count=_count, transport=transport, guard=guard, rounds=2)
+    records = loop.run()['records']
+    reason = "RuntimeError: shape '[4, 10]' is invalid for input of size 80"
+    assert records[1]['outcome'] == 'GATE_REJECTED' and records[1]['gate_error'] == reason
+    assert records[1]['error'] == error
+    assert 'reason=' + reason in sent[1][1]['content'].split('[Branch taboos]')[1]
+    assert '/tmp/private' not in sent[1][1]['content']
+    assert guard.count == 2
 
 
 @pytest.mark.parametrize('arm', ('no_llm', 'greedy_score_llm', 'residual_d_llm', 'full_zd_llm',
