@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Conditioning the readout on current queue depth will let the same flow history imply different responses before and after touch depletion. Predict impact MAE <= 6.7599, with NLL increase <= 0.005 and exhaustion increase <= 0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

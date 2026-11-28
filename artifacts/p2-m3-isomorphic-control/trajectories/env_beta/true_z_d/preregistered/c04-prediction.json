@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "An external order changes near-touch depth, but the parent uses the same recurrent mixing operator at every depth. Conditioning the recurrent proposal on side-specific touch depletion should reduce impact MAE by at least 0.010 tick while keeping total NLL within +0.005 and exhaustion within +0.05 of the parent.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "d7e80ed2127ce951c75f19a12a0d707bba7ea19dfc166f14608fa65e0de35a10"
+}

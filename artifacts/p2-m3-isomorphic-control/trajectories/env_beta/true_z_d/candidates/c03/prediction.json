@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A readout that lets current queue depth modulate the effect of recent history will reduce counterfactual impact MAE by at least 0.010 tick versus c01, with dNLL <= +0.005 and dExhaust <= +0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

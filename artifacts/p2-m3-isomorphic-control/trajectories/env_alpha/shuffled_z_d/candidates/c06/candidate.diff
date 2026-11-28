@@ -1,0 +1,37 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,28 @@
+
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
++        self.queue_gate = nn.Linear(10, 32)
++        nn.init.zeros_(self.queue_gate.weight)
++        nn.init.zeros_(self.queue_gate.bias)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+ 
++    def _encode(self, obs):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        q = obs.book_shares.to(dtype=x.dtype).reshape(*x.shape[:-1], 10)
++        scarcity = (1 + q.clamp_min(0).log1p()).reciprocal()
++        gain = 1 + 0.5 * self.queue_gate(scarcity).tanh()
++        return x * gain
++
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        return self.gru(self._encode(obs))[0]
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        x = self._encode(obs)
+         prior = x.new_zeros((x.size(0), 60)) if state is None else state
+         _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+         return h[0], h[0]

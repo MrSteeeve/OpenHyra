@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A bank of persistent flow traces will help distinguish the fixed order's effect from continuation of recent flow. Predict impact MAE <= 6.7599, with total NLL <= 4.31127 and exhausted replicate rate <= 0.921528.", "selected_card_ids": ["C03"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

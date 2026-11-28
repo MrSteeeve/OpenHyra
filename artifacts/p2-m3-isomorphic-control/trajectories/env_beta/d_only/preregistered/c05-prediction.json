@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Giving the routed GRU a separate multiscale baseline for recent observations should help it distinguish a fixed order's effect from ongoing book dynamics. Predict impact MAE at or below 0.205166 tick, total NLL at or below 4.82534, and exhausted replicate rate at or below 0.05.",
+    "selected_card_ids": [
+      "C03"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "4fa132ac45c6054ec486d8308ca542a537bf5ff4eae773b7f5577001a4dd3f88"
+}

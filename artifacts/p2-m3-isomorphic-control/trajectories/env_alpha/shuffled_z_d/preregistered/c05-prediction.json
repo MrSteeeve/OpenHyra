@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A queue-conditioned readout lets the same event history produce different responses at different remaining depths. Predict impact MAE <= 6.7599 ticks, with total NLL increasing by at most 0.005 and exhaustion rate increasing by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "53708cf18ec8105ed07bedc6d92fe21ce6353dac7a9e85545bf4f8ce5c95b8b2"
+}

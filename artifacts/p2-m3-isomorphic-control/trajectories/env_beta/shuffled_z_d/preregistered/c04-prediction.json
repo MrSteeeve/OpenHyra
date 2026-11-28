@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Predicting the routed observation from the pre-update state should reduce repeated writes for expected continuation while preserving a write for a surprising external order. I predict impact MAE at or below 0.20823, with total NLL increasing by no more than 0.005 and exhaustion increasing by no more than 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "331534a484f71ae3993a32f881eaf9cc46fbbc65784f89a4216f00096b421fc1"
+}

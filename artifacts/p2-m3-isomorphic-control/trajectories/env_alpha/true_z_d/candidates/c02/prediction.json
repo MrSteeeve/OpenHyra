@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A shared nonlinear queue readout will make shallow queues more distinguishable from deep queues, reducing fixed-order impact MAE by at least 0.010 tick while keeping total NLL and exhaustion within the stated guardrails.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

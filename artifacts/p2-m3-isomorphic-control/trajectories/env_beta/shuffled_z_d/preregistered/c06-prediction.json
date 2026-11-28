@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A separate bounded trace of recent event and book features should help distinguish a transient response to the external order from a persistent book change. Predict impact MAE <= 0.20823, with total NLL increasing by no more than 0.005 and exhaustion increasing by no more than 0.05.",
+    "selected_card_ids": [
+      "C06"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "c87e7b4a510da4a1604ac1193bae7f97c35d1c95cb71dcbdd1ee50a49760235f"
+}

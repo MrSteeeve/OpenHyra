@@ -1,0 +1,66 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,54 @@
+
++import torch
+ from torch import nn
++from torch.nn import functional as F
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
++        self.queue = nn.Linear(3, 6)
++        nn.init.zeros_(self.queue.weight)
++        nn.init.zeros_(self.queue.bias)
++
++    def _inputs(self, obs):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        q = obs.book_shares.reshape(*x.shape[:-1], 2, 5).to(x.dtype)
++        q = q.clamp_min(0)
++        total = q.sum(dim=-1, keepdim=True)
++        local = torch.stack((
++            q.log1p().tanh(),
++            q / (1 + total),
++            (q.cumsum(dim=-1) - q) / (1 + total),
++        ), dim=-1)
++        return x, self.queue(local).tanh().flatten(-3)
++
++    def _update(self, a, b, h):
++        ar, az, an = a.chunk(3, dim=-1)
++        hr, hz, hn = F.linear(
++            h, self.gru.weight_hh_l0, self.gru.bias_hh_l0
++        ).chunk(3, dim=-1)
++        r = (ar + hr).sigmoid()
++        z = (az + hz + b).sigmoid()
++        n = (an + r * hn).tanh()
++        return n + z * (h - n)
++
++    def _project(self, x):
++        return F.linear(x, self.gru.weight_ih_l0, self.gru.bias_ih_l0)
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        x, b = self._inputs(obs)
++        h = x.new_zeros((x.size(0), 60))
++        states = []
++        for a_t, b_t in zip(self._project(x).unbind(1), b.unbind(1)):
++            h = self._update(a_t, b_t, h)
++            states.append(h)
++        return torch.stack(states, dim=1) if states else b
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        x, b = self._inputs(obs)
++        h = x.new_zeros((x.size(0), 60)) if state is None else state
++        h = self._update(self._project(x), b, h)
++        return h, h

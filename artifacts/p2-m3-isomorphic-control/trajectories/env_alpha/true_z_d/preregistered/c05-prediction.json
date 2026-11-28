@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Multiplicative conditioning on observed queue depths will let the same event produce different recurrent updates before and after depletion. Predict impact MAE at least 0.010 tick below B0, with total NLL rising by no more than 0.005 and exhaustion rate rising by no more than 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "a061a0b37485be2e7fea9fbb7ffdb9ae10fe2ecde720abac7f98b9517cb164b4"
+}

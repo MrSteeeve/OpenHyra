@@ -1,0 +1,49 @@
+--- parent
+
++++ candidate
+
+@@ -14,6 +14,10 @@
+
+         nn.init.zeros_(self.gain.weight)
+         nn.init.constant_(self.gain.bias, -2.0)
+         self.retention = nn.Parameter(torch.linspace(-1.0, 1.0, 8))
++        self.depth = nn.Linear(3, 12, bias=False)
++        self.history = nn.Linear(60, 12)
++        self.mix = nn.Linear(12, 60, bias=False)
++        nn.init.zeros_(self.mix.weight)
+ 
+     def _update(self, x, prior):
+         fast = self.cell(x, prior[:, :52].contiguous())
+@@ -21,6 +25,16 @@
+
+         decay = 0.8 + 0.19 * self.retention.sigmoid()
+         slow = decay * prior[:, 52:] + self.gain(x).sigmoid() * innovation
+         return torch.cat((fast, slow), dim=-1)
++
++    def _read(self, obs, state):
++        q = obs.book_shares.to(dtype=state.dtype).flatten(state.ndim - 1)
++        scarcity = (1.0 + q.clamp_min(0)).reciprocal()
++        depth = torch.stack(
++            (scarcity.mean(-1), scarcity.square().mean(-1), scarcity.amax(-1)),
++            dim=-1,
++        )
++        interaction = self.depth(depth).tanh() * self.history(state).tanh()
++        return state + self.mix(interaction)
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+@@ -31,11 +45,11 @@
+
+         for xt in x.unbind(dim=1):
+             state = self._update(xt, state)
+             contexts.append(state)
+-        return torch.stack(contexts, dim=1)
++        return self._read(obs, torch.stack(contexts, dim=1))
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         if state is None:
+             state = x.new_zeros((x.size(0), 60))
+         state = self._update(x, state)
+-        return state, state
++        return self._read(obs, state), state

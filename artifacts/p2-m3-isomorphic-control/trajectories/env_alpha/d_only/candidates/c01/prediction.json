@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A shared nonlinear readout of touch and near-touch depth will distinguish depletion from nearby replenishment capacity. Predict impact MAE <= 6.7599, total NLL <= 4.31127, and exhausted replicate rate <= 0.921528.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

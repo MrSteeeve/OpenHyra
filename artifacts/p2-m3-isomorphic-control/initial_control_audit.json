@@ -1,0 +1,60 @@
+{
+  "env_alpha": {
+    "d_only": {
+      "active_card_ids": [
+        "C04",
+        "C09",
+        "C05"
+      ],
+      "non_z_sha256": "33df08b8f300c147a9efeea7e5149b42030d8bf0c43f82ac982c9c50a1c83a46",
+      "tokens": 1467
+    },
+    "shuffled_z_d": {
+      "active_card_ids": [
+        "C04",
+        "C09",
+        "C05"
+      ],
+      "non_z_sha256": "33df08b8f300c147a9efeea7e5149b42030d8bf0c43f82ac982c9c50a1c83a46",
+      "tokens": 1613
+    },
+    "true_z_d": {
+      "active_card_ids": [
+        "C04",
+        "C09",
+        "C05"
+      ],
+      "non_z_sha256": "33df08b8f300c147a9efeea7e5149b42030d8bf0c43f82ac982c9c50a1c83a46",
+      "tokens": 1617
+    }
+  },
+  "env_beta": {
+    "d_only": {
+      "active_card_ids": [
+        "C03",
+        "C08",
+        "C06"
+      ],
+      "non_z_sha256": "17f135149659b1ba0b5ed34941e9c919e59229bf6cd8e349c31fb060b65fd869",
+      "tokens": 1496
+    },
+    "shuffled_z_d": {
+      "active_card_ids": [
+        "C03",
+        "C08",
+        "C06"
+      ],
+      "non_z_sha256": "17f135149659b1ba0b5ed34941e9c919e59229bf6cd8e349c31fb060b65fd869",
+      "tokens": 1646
+    },
+    "true_z_d": {
+      "active_card_ids": [
+        "C03",
+        "C08",
+        "C06"
+      ],
+      "non_z_sha256": "17f135149659b1ba0b5ed34941e9c919e59229bf6cd8e349c31fb060b65fd869",
+      "tokens": 1642
+    }
+  }
+}

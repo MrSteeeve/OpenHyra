@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Queue depth can change which features matter after an external order. Conditioning the recurrent input on current depth should lower impact MAE by at least 0.010 tick versus B0, with total NLL rising by no more than 0.005 and exhaustion rate by no more than 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "f30b381a59d14d7cf8aec1244bfe58dd5314640549863a468d8bea2cecf47c45"
+}

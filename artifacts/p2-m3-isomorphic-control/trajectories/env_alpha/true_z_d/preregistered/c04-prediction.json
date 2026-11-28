@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A current-depth gate on the recurrent readout will reduce fixed-order impact MAE by at least 0.010 tick by letting the heads rely less on stale history when visible depth is depleted, while keeping delta NLL at or below +0.005 and delta exhaustion at or below +0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "306ea7a0012d5092c53153919e8dfe98ff321c992716bacda410687d6a5fe1e8"
+}

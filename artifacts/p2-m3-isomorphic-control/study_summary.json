@@ -1,0 +1,2512 @@
+{
+  "alignment_counts": {
+    "d_only": 9,
+    "shuffled_z_d": 9,
+    "true_z_d": 10
+  },
+  "alignment_supported": true,
+  "cross_arm_effects": {
+    "env_alpha/true_z_d-vs-d_only": {
+      "acf_support_lags": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "available_quote_fraction": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "c2_bootstrap_pass_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 0,
+        "estimand": "day-bootstrap C2 admission frequency; interval of draw-wise indicators",
+        "estimate": null,
+        "interval": null,
+        "paired_days": 0,
+        "registered_days": 12
+      },
+      "counterfactual_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          null,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 7,
+        "registered_days": 12
+      },
+      "dt_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "event_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "exhausted_replicate_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "level_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_1": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_16": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_4": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_64": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "post_stop_relaxation_delta": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 9,
+        "registered_days": 12
+      },
+      "sign_acf_abs_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "size_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "stylized_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          null,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 7,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "visible_minus_blind_auc": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 1989,
+        "daily": [
+          null,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          null,
+          null
+        ],
+        "estimate": 0.0,
+        "interval": null,
+        "paired_days": 4,
+        "registered_days": 12
+      },
+      "zero_wait_rate_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      }
+    },
+    "env_alpha/true_z_d-vs-shuffled_z_d": {
+      "acf_support_lags": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "available_quote_fraction": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "c2_bootstrap_pass_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 0,
+        "estimand": "day-bootstrap C2 admission frequency; interval of draw-wise indicators",
+        "estimate": null,
+        "interval": null,
+        "paired_days": 0,
+        "registered_days": 12
+      },
+      "counterfactual_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          null,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 7,
+        "registered_days": 12
+      },
+      "dt_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "event_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "exhausted_replicate_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "level_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_1": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_16": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_4": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_64": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "post_stop_relaxation_delta": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 9,
+        "registered_days": 12
+      },
+      "sign_acf_abs_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "size_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "stylized_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          null,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          0.0,
+          0.0,
+          0.0,
+          null,
+          null,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 7,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "visible_minus_blind_auc": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 1989,
+        "daily": [
+          null,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          0.0,
+          null,
+          null,
+          null
+        ],
+        "estimate": 0.0,
+        "interval": null,
+        "paired_days": 4,
+        "registered_days": 12
+      },
+      "zero_wait_rate_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      }
+    },
+    "env_beta/true_z_d-vs-d_only": {
+      "acf_support_lags": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.33333333333333215,
+          -0.16666666666666607,
+          0.0,
+          -1.3333333333333321,
+          0.0,
+          0.0,
+          -1.3333333333333357,
+          0.0,
+          -0.6666666666666679,
+          -0.16666666666666607,
+          0.0,
+          0.0
+        ],
+        "estimate": -0.3333333333333333,
+        "interval": [
+          -0.6250000000000001,
+          -0.08333333333333304
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "available_quote_fraction": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "c2_bootstrap_pass_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "estimand": "day-bootstrap C2 admission frequency; interval of draw-wise indicators",
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "counterfactual_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.01625631313131315,
+          -0.12326388888888892,
+          -0.01025883838383837,
+          -0.10037878787878785,
+          -0.0285669191919192,
+          0.0029987373737373757,
+          -0.04482323232323235,
+          -0.0039457070707071,
+          -0.0505050505050505,
+          -0.00536616161616163,
+          0.04592803030303036,
+          -0.022727272727272707
+        ],
+        "estimate": -0.02705439814814814,
+        "interval": [
+          -0.05305726536195287,
+          -0.0031772806186868927
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "dt_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.00021649568918213902,
+          0.0006170652451968905,
+          0.002514767416176067,
+          0.0038454953935884717,
+          0.00190105422266873,
+          -0.0028144526517106527,
+          0.003951793270451365,
+          0.0003092716492356651,
+          0.000663993259271134,
+          0.0019075676266639974,
+          0.0009003721532367948,
+          0.0021011684799479013
+        ],
+        "estimate": 0.001342882646159042,
+        "interval": [
+          0.00033172475384727804,
+          0.002320097499187015
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "event_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.03266951140193708,
+          -0.029011960451801544,
+          -0.02168191894001903,
+          -0.0198274173197297,
+          -0.015728786055531074,
+          -0.015677913402517563,
+          -0.01622186463680997,
+          -0.010790644923136306,
+          -0.021210947428785376,
+          -0.03813152130515829,
+          -0.015674708056307773,
+          -0.026343671915431743
+        ],
+        "estimate": -0.021914238819763787,
+        "interval": [
+          -0.02643914205467496,
+          -0.017619323366901765
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "exhausted_replicate_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.29166666666666674,
+          -0.6666666666666666,
+          0.02083333333333337,
+          0.0,
+          -0.5625,
+          0.0625,
+          0.04166666666666652,
+          0.14583333333333331,
+          -0.125,
+          -0.29166666666666663,
+          -0.10416666666666663,
+          0.1875000000000001
+        ],
+        "estimate": -0.08333333333333333,
+        "interval": [
+          -0.24999999999999997,
+          0.060763888888888895
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.01369415263705552,
+          0.021351615289436215,
+          0.02564148695106161,
+          -0.0225444955823636,
+          0.007975517928800802,
+          -0.008594578501749661,
+          0.008692701085332988,
+          0.013033995325689607,
+          -0.013018521544090653,
+          -0.01480741312999155,
+          0.1420815515413288,
+          -0.0188778005149417
+        ],
+        "estimate": 0.010603325517621442,
+        "interval": [
+          -0.008227199841686112,
+          0.03677336527374896
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.057345959626950105,
+          -0.039272748984522265,
+          -0.0256414869510615,
+          0.0225444955823636,
+          -0.007975517928800802,
+          0.02407046120929679,
+          -0.04804560812999503,
+          -0.013033995325689607,
+          0.004541060722212831,
+          0.04807767514425132,
+          0.1403207747445111,
+          0.021675239088810194
+        ],
+        "estimate": 0.015383859066527228,
+        "interval": [
+          -0.010693266283090202,
+          0.043631535691273184
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "level_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.032760011054397964,
+          -0.025433647507313806,
+          -0.02825436238864687,
+          -0.02505029520640778,
+          -0.021750916859933356,
+          -0.024379730770652808,
+          -0.021938615980269915,
+          -0.024695755428789767,
+          -0.021685994288418442,
+          -0.03167735798273319,
+          -0.021052632508577807,
+          -0.032752495613836086
+        ],
+        "estimate": -0.025952651299164815,
+        "interval": [
+          -0.028435939424294673,
+          -0.023673676631872167
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_1": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.633003772197602,
+          0.6390264210002933,
+          0.6337908487129459,
+          0.6105442666420942,
+          0.6269162120796473,
+          0.6142341856625743,
+          0.6468516261638371,
+          0.60069686215138,
+          0.6366541538695211,
+          0.6469306481234355,
+          0.6151347339826844,
+          0.5846383816110786
+        ],
+        "estimate": 0.6240351760164244,
+        "interval": [
+          0.6136621334442969,
+          0.6341914025447019
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_16": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.25410071021455904,
+          0.265176786741774,
+          0.26707017958064405,
+          0.2548360807787896,
+          0.26884583029563436,
+          0.25919124168216234,
+          0.2868657175789672,
+          0.23388856236401584,
+          0.2615218125741068,
+          0.27476215876578003,
+          0.2427856767469733,
+          0.24362198978667995
+        ],
+        "estimate": 0.25938889559250716,
+        "interval": [
+          0.2516005529900299,
+          0.2674357839232614
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_4": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.455174097054018,
+          0.4701943019033582,
+          0.46797128697203105,
+          0.44607458705182346,
+          0.4607466707931878,
+          0.45547072316514325,
+          0.4899990085174239,
+          0.43662669480268246,
+          0.4612479165592787,
+          0.4702573898068204,
+          0.45035389182019175,
+          0.4374313508368293
+        ],
+        "estimate": 0.458462326606899,
+        "interval": [
+          0.4505308446965903,
+          0.4669898741721556
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_64": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.07011892011533345,
+          0.06929856962856906,
+          0.06519811008668815,
+          0.06221902908735129,
+          0.06835263452791937,
+          0.05143001703185075,
+          0.07257921333491286,
+          0.04683308124575477,
+          0.08108600926269607,
+          0.07836572591553577,
+          0.05151855920502423,
+          0.060526270323732
+        ],
+        "estimate": 0.06479384498044731,
+        "interval": [
+          0.05885959861631218,
+          0.07063158540596703
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "post_stop_relaxation_delta": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.125,
+          -0.17708333333333331,
+          0.16666666666666669,
+          0.08333333333333333,
+          -0.15625,
+          0.2916666666666667,
+          0.3020833333333333,
+          0.17708333333333331,
+          -0.04166666666666663,
+          0.16666666666666669,
+          0.10416666666666669,
+          -0.2604166666666667
+        ],
+        "estimate": 0.044270833333333336,
+        "interval": [
+          -0.05815972222222221,
+          0.1467230902777777
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "sign_acf_abs_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.00366583734272502,
+          0.014808567721393967,
+          -0.0041564192938435135,
+          0.009055776840102475,
+          -0.013414900027954327,
+          0.0012453052561861438,
+          -0.008629603882012435,
+          -0.03545952957717666,
+          -0.0006583915108412386,
+          -0.009356338354446492,
+          0.009104709025735527,
+          0.02389491426582832
+        ],
+        "estimate": -0.001435978906646104,
+        "interval": [
+          -0.010416618690304124,
+          0.0065260695528024356
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "size_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.03899093600366976,
+          -0.03296529216736205,
+          -0.03267532783571547,
+          -0.029961174966523563,
+          -0.032183315943083934,
+          -0.03151249307778753,
+          -0.030955349275332278,
+          -0.03583700945490004,
+          -0.030759670895003144,
+          -0.036990969914421856,
+          -0.03913089005869719,
+          -0.026475883478442874
+        ],
+        "estimate": -0.03320319275591164,
+        "interval": [
+          -0.03523045183365967,
+          -0.03122360758459271
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "stylized_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.01641414141414138,
+          -0.1328914141414141,
+          -0.004103535353535415,
+          -0.10795454545454541,
+          -0.03030303030303033,
+          0.0018939393939393923,
+          -0.07417929292929287,
+          -0.024621212121212044,
+          -0.06755050505050514,
+          -0.0012626262626262985,
+          0.010416666666666685,
+          -0.0883838383838384
+        ],
+        "estimate": -0.04187710437710438,
+        "interval": [
+          -0.06970880681818184,
+          -0.01551517781986535
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.104203962770824,
+          -0.08679383488128067,
+          -0.08009684174820464,
+          -0.07099339209907285,
+          -0.06776196463587869,
+          -0.07438458990266827,
+          -0.0651640366219608,
+          -0.07101413815759017,
+          -0.07299261935293622,
+          -0.10489228157565034,
+          -0.07495785847034586,
+          -0.08347088252776302
+        ],
+        "estimate": -0.0797272002286813,
+        "interval": [
+          -0.08723141650132782,
+          -0.07281356406772492
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "visible_minus_blind_auc": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.02641369047619046,
+          -0.32886904761904745,
+          -0.12760416666666663,
+          -0.06138392857142854,
+          -0.02232142857142856,
+          -0.018973214285714274,
+          -0.16703869047619044,
+          0.02232142857142856,
+          0.010788690476190466,
+          0.0078125,
+          -0.11755952380952375,
+          -0.24069940476190477
+        ],
+        "estimate": -0.08475942460317458,
+        "interval": [
+          -0.1494644407242063,
+          -0.027092633928571436
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.00013473977289766605,
+          -0.0010328574666809975,
+          -0.0015113177522367224,
+          0.0,
+          0.0036222237069666666,
+          -0.0006525290653580131,
+          0.0010727111152807733,
+          0.0010594389710937777,
+          -0.0017856960291170836,
+          4.2554002725250784e-05,
+          0.00042388294612988667,
+          -4.201592403524357e-06
+        ],
+        "estimate": 0.00011407905077480667,
+        "interval": [
+          -0.0006127641821233258,
+          0.00098725268095787
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          7.265846081635444e-05,
+          0.0013883137044901784,
+          -0.0015113177522367224,
+          0.0,
+          -0.0036222237069666718,
+          -0.0006525290653580131,
+          -0.0008622734048430638,
+          -0.001068866794722496,
+          -0.0018953451519240988,
+          4.2554002725253386e-05,
+          0.00042388294612988667,
+          -4.201592403520887e-06
+        ],
+        "estimate": -0.0006407790295244095,
+        "interval": [
+          -0.0013659697089089579,
+          1.0436515701567194e-05
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      }
+    },
+    "env_beta/true_z_d-vs-shuffled_z_d": {
+      "acf_support_lags": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.33333333333333215,
+          0.16666666666666785,
+          0.0,
+          -0.5,
+          0.0,
+          0.0,
+          -0.6666666666666679,
+          0.16666666666666607,
+          0.16666666666666607,
+          0.3333333333333339,
+          0.0,
+          0.0
+        ],
+        "estimate": -0.055555555555555504,
+        "interval": [
+          -0.22222222222222246,
+          0.08333333333333348
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "available_quote_fraction": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "c2_bootstrap_pass_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "estimand": "day-bootstrap C2 admission frequency; interval of draw-wise indicators",
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "counterfactual_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.004419191919191878,
+          -0.1447285353535354,
+          0.01783459595959594,
+          -0.06123737373737373,
+          -0.0050505050505050275,
+          -0.030303030303030276,
+          -0.0029987373737373757,
+          0.01041666666666663,
+          -0.07086489898989898,
+          0.044507575757575746,
+          0.10748106060606062,
+          -0.020202020202020166
+        ],
+        "estimate": -0.013297032828282823,
+        "interval": [
+          -0.046261113741582496,
+          0.01965093644781145
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "dt_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0032049915975047583,
+          -0.0015290670451664212,
+          0.004134514502116549,
+          0.009512400432002188,
+          0.009159242024733505,
+          0.006891758225503253,
+          0.006005107114712249,
+          0.004551008698486125,
+          0.004375364365322376,
+          0.004059648229962631,
+          0.0007544210446732702,
+          0.0014328157440539613
+        ],
+        "estimate": 0.004379350411158704,
+        "interval": [
+          0.0027117031593142256,
+          0.006217221586432838
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "event_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.02561221546715209,
+          -0.01866421236523541,
+          -0.013571521622084637,
+          -0.009987649906959106,
+          -0.008436453617399753,
+          -0.011271811888686312,
+          -0.011648359220652438,
+          -0.008473923208103251,
+          -0.018212921784392266,
+          -0.02438872866332531,
+          -0.009848978503473882,
+          -0.019027497042857444
+        ],
+        "estimate": -0.014928689440860158,
+        "interval": [
+          -0.018458617381503936,
+          -0.01182320317316303
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "exhausted_replicate_rate": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "free_abs_drift_ticks": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.3750000000000001,
+          -0.20833333333333326,
+          0.0,
+          0.20833333333333337,
+          -0.5,
+          0.25,
+          0.16666666666666663,
+          -0.125,
+          -0.04166666666666674,
+          -0.16666666666666663,
+          0.04166666666666663,
+          -0.04166666666666652
+        ],
+        "estimate": -0.0034722222222222008,
+        "interval": [
+          -0.13541666666666666,
+          0.11805555555555558
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.012542667596918966,
+          0.02455695225820778,
+          0.04174836065021695,
+          -0.046329373732718726,
+          0.03619415383466862,
+          0.01113001827287724,
+          0.014847038273594737,
+          0.03101023673223252,
+          -0.01302438526125893,
+          -0.014160695426189307,
+          0.2382996506411056,
+          -0.01075570345641308
+        ],
+        "estimate": 0.025081132099117037,
+        "interval": [
+          -0.005204441215348668,
+          0.06814575037867532
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.014549429150710003,
+          -0.10654774522360222,
+          -0.04174836065021692,
+          0.04632937373271884,
+          -0.03619415383466851,
+          -0.04199700352600344,
+          -0.07002491176027037,
+          -0.031010236732232577,
+          -0.010536325629337928,
+          0.040442084279429746,
+          0.19237723212040447,
+          0.007159872671180234
+        ],
+        "estimate": -0.003100062116824056,
+        "interval": [
+          -0.03970993869981096,
+          0.04106920794271245
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "interarrival_cv2_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "level_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.03398134643932604,
+          -0.024773817090872008,
+          -0.02564051641716747,
+          -0.025404882520282057,
+          -0.022838150774727506,
+          -0.023715472569511897,
+          -0.018761429860855383,
+          -0.025086928125736985,
+          -0.02364660591618828,
+          -0.031313755618785244,
+          -0.022301440035724873,
+          -0.03082870638241897
+        ],
+        "estimate": -0.025691087645966393,
+        "interval": [
+          -0.028123674252555988,
+          -0.023431196707517542
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_1": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.6031408071285107,
+          0.5501327352637105,
+          0.5740615071152287,
+          0.5436869837659687,
+          0.5578374691928429,
+          0.5724751521969053,
+          0.5735357219347789,
+          0.597491121903572,
+          0.591153585037406,
+          0.5908750566762009,
+          0.610532270867788,
+          0.5701760442531111
+        ],
+        "estimate": 0.5779248712780021,
+        "interval": [
+          0.5667936395934082,
+          0.5890532696884135
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_16": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.2802787808025077,
+          0.21462743406993362,
+          0.254021177830596,
+          0.22958681369034117,
+          0.23179067225040276,
+          0.2659199188194519,
+          0.2537594576022544,
+          0.2823961284150194,
+          0.25896188232166306,
+          0.27649358060582385,
+          0.29140697014268613,
+          0.28662905110728154
+        ],
+        "estimate": 0.2604893223048301,
+        "interval": [
+          0.24694863832192782,
+          0.272485680673786
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_4": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.4528351264390424,
+          0.374485318920397,
+          0.4242074755935133,
+          0.38409022791477526,
+          0.3949233981159826,
+          0.4383438019722229,
+          0.4184731801561578,
+          0.4695631567405402,
+          0.425439005602606,
+          0.43678964190379005,
+          0.4790197421056544,
+          0.45616631494374865
+        ],
+        "estimate": 0.4295280325340359,
+        "interval": [
+          0.4113378967810272,
+          0.4459726116199178
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "memory_gap_64": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0812204727387454,
+          0.050137250645395724,
+          0.059428265903123105,
+          0.05348476826856381,
+          0.04708748127588851,
+          0.05389774075038437,
+          0.0624602483308303,
+          0.07388880730806235,
+          0.08355116676345187,
+          0.08077681813405668,
+          0.0785548830019597,
+          0.08389164074019195
+        ],
+        "estimate": 0.0673649619883878,
+        "interval": [
+          0.05958922874044254,
+          0.07475866028782756
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "post_stop_relaxation_delta": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.10416666666666666,
+          -0.19791666666666663,
+          0.13541666666666669,
+          0.031249999999999993,
+          -0.3020833333333333,
+          0.20833333333333334,
+          -0.11458333333333333,
+          0.0,
+          0.22916666666666669,
+          0.052083333333333336,
+          -0.03125,
+          -0.09375
+        ],
+        "estimate": -0.015624999999999988,
+        "interval": [
+          -0.10069444444444443,
+          0.07120225694444435
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "sign_acf_abs_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.007393703321138229,
+          0.011035600148493002,
+          0.00701230670714352,
+          0.0002839689671813028,
+          -0.015475866084657203,
+          -0.001455282972691943,
+          -0.009852481404943936,
+          -0.03585806497877578,
+          0.006410120050223261,
+          -0.01642096791752376,
+          0.008484242813286913,
+          0.01830776775421003
+        ],
+        "estimate": -0.00167791279974303,
+        "interval": [
+          -0.010506648145171427,
+          0.006004130706680212
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "size_nll": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.037077407904213155,
+          -0.03492451459169388,
+          -0.032056524060733116,
+          -0.030672513270041002,
+          -0.030538720547199416,
+          -0.02979665358378991,
+          -0.03250201465007624,
+          -0.03207593055586111,
+          -0.03208906864442507,
+          -0.035594470185017046,
+          -0.03704679426820284,
+          -0.02612715704128188
+        ],
+        "estimate": -0.03254181410854456,
+        "interval": [
+          -0.0341674994049725,
+          -0.03087082123398313
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "stylized_impact_mae": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.0015782828282828176,
+          -0.1407828282828283,
+          0.01041666666666663,
+          -0.03630050505050503,
+          -0.0015782828282828731,
+          -0.041666666666666685,
+          -0.007575757575757569,
+          -0.0009469696969697239,
+          -0.10669191919191917,
+          0.07575757575757572,
+          0.06723484848484851,
+          -0.10700757575757575
+        ],
+        "estimate": -0.024226641414141423,
+        "interval": [
+          -0.06000236742424243,
+          0.010654724326599307
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "val_nll_total": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.09346597821318614,
+          -0.07989161109296816,
+          -0.06713404759786812,
+          -0.05655264526528114,
+          -0.05265408291459206,
+          -0.0578921798164842,
+          -0.0569066966168732,
+          -0.06108577319121533,
+          -0.06957323197968357,
+          -0.08723730623716541,
+          -0.0684427917627275,
+          -0.07455054472250477
+        ],
+        "estimate": -0.06878224078421247,
+        "interval": [
+          -0.07619818292272566,
+          -0.06188907733460309
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "visible_minus_blind_auc": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          -0.03571428571428573,
+          -0.35565476190476186,
+          -0.16183035714285715,
+          0.05580357142857141,
+          -0.040922619047619055,
+          -0.11681547619047618,
+          -0.026413690476190486,
+          -0.03683035714285715,
+          -0.16815476190476192,
+          0.3363095238095238,
+          0.04650297619047618,
+          -0.28571428571428564
+        ],
+        "estimate": -0.06578621031746033,
+        "interval": [
+          -0.15736762152777775,
+          0.032103329613095144
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_error": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0010502301075622812,
+          0.0012127799569750033,
+          -0.002756549095151953,
+          -0.002136752136752136,
+          0.005110941559484793,
+          -0.0010294632331270242,
+          0.0024615984428357635,
+          0.004854651306134862,
+          -0.002003102267864789,
+          -2.9001499589734886e-05,
+          -0.00487258658925094,
+          -0.00010653495358118117
+        ],
+        "estimate": 0.00014635096647291207,
+        "interval": [
+          -0.001463775310961227,
+          0.0018286865261306494
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_generated": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0009347299920621673,
+          -0.0034957060015109523,
+          -0.002756549095151953,
+          -0.0021367521367521365,
+          -0.005110941559484793,
+          -0.0010294632331270242,
+          -0.0024654888879026803,
+          -0.00508146226748922,
+          -0.0021127513906718026,
+          -0.00010327363268539808,
+          -0.00487258658925094,
+          -0.0001065349535811777
+        ],
+        "estimate": -0.002361398312962159,
+        "interval": [
+          -0.0034674529106127295,
+          -0.0012484314786257976
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      },
+      "zero_wait_rate_historical": {
+        "bootstrap_total": 2000,
+        "bootstrap_valid": 2000,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "paired_days": 12,
+        "registered_days": 12
+      }
+    }
+  },
+  "formal_calls": 36,
+  "formal_input_tokens": 63255,
+  "formal_output_tokens": 21265,
+  "holdout_refuted": false,
+  "holdout_supported": false,
+  "regret": {
+    "env_alpha/d_only": {
+      "estimate": null,
+      "oracle_models": 2,
+      "paired_days": 4,
+      "reason": "oracle common-day support insufficient"
+    },
+    "env_alpha/shuffled_z_d": {
+      "estimate": null,
+      "oracle_models": 2,
+      "paired_days": 4,
+      "reason": "oracle common-day support insufficient"
+    },
+    "env_alpha/true_z_d": {
+      "best_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+      "estimate": 0.0,
+      "final_mae": 4.302734187109187,
+      "oracle_mae": 4.302734187109187,
+      "oracle_models": 1,
+      "paired_days": 7,
+      "reason": null
+    },
+    "env_beta/d_only": {
+      "best_sha256": "4fa132ac45c6054ec486d8308ca542a537bf5ff4eae773b7f5577001a4dd3f88",
+      "estimate": 0.012797243265993241,
+      "final_mae": 0.23151436237373738,
+      "oracle_mae": 0.21871711910774413,
+      "oracle_models": 7,
+      "paired_days": 12,
+      "reason": null
+    },
+    "env_beta/shuffled_z_d": {
+      "best_sha256": "c87e7b4a510da4a1604ac1193bae7f97c35d1c95cb71dcbdd1ee50a49760235f",
+      "estimate": 0.018281776094276114,
+      "final_mae": 0.21775699705387205,
+      "oracle_mae": 0.19947522095959594,
+      "oracle_models": 6,
+      "paired_days": 12,
+      "reason": null
+    },
+    "env_beta/true_z_d": {
+      "best_sha256": "563f34670ced48a5762f0e467e93745ce32cb896efce63498458ac745e779660",
+      "estimate": 0.0,
+      "final_mae": 0.20445996422558924,
+      "oracle_mae": 0.20445996422558924,
+      "oracle_models": 7,
+      "paired_days": 12,
+      "reason": null
+    }
+  },
+  "status": "PARTIAL",
+  "unknown_usage_calls": 0,
+  "wall_seconds": 535.4464507499943
+}

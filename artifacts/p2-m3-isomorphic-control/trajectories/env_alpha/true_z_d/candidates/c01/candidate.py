@@ -1,0 +1,35 @@
+import torch
+from torch import nn
+from stochopia.neural.probe_features import ProbeBase, input_projection
+
+
+class CandidateLOBWorldModel(ProbeBase):
+    def __init__(self):
+        super().__init__()
+        self.encoder = input_projection(32)
+        self.gru = nn.GRU(32, 60, batch_first=True)
+        self.local = nn.Linear(8, 6)
+        self.mix = nn.Linear(60, 60, bias=False)
+        nn.init.zeros_(self.mix.weight)
+
+    def readout(self, obs, h):
+        q = obs.book_shares.to(dtype=h.dtype).reshape(*h.shape[:-1], 10)
+        z = q.clamp_min(0).log1p()
+        blocks = z.reshape(*h.shape[:-1], 2, 5)
+        touch = blocks[..., :1].expand_as(blocks).reshape_as(z)
+        local = torch.stack((z.tanh(), (z - touch).tanh()), dim=-1)
+        hist = h.reshape(*h.shape[:-1], 10, 6)
+        gate = self.local(torch.cat((hist, local), dim=-1)).tanh()
+        return h + self.mix((hist * gate).flatten(-2))
+
+    def sequence_context(self, obs):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        h, _ = self.gru(x)
+        return self.readout(obs, h)
+
+    def step_context(self, obs, state):
+        x = self.encoder(self.raw_features(obs)).tanh()
+        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+        _, last = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+        h = last[0]
+        return self.readout(obs, h), h

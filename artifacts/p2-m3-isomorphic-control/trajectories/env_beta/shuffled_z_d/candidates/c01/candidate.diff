@@ -1,0 +1,52 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,41 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.observe = nn.Linear(32, 8)
++        self.predict = nn.Linear(60, 8, bias=False)
++        self.gate = nn.Linear(32, 8)
++        nn.init.constant_(self.gate.bias, -2.0)
++        self.cell = nn.GRUCell(40, 52)
++
++    def _advance(self, x, state):
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        fast, slow = state.split((52, 8), dim=-1)
++        # The prediction uses only state from before this observation.
++        innovation = self.observe(x).tanh() - self.predict(state).tanh()
++        gain = self.gate(x).sigmoid()
++        slow = (1.0 - gain) * (0.9 * slow) + gain * innovation
++        fast = self.cell(torch.cat((x, innovation), dim=-1), fast)
++        return torch.cat((fast, slow), dim=-1)
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        if x.size(1) == 0:
++            return x.new_empty((x.size(0), 0, 60))
++        state = None
++        contexts = []
++        for row in x.unbind(dim=1):
++            state = self._advance(row, state)
++            contexts.append(state)
++        return torch.stack(contexts, dim=1)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        state = self._advance(x, state)
++        return state, state

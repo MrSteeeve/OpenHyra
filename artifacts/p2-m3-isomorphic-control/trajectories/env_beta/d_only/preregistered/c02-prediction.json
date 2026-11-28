@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "The waiting-time dispersion error suggests that recent activity is not fully captured by the GRU. Bounded cross-channel activity traces should help distinguish similar books with different recent activity, reducing impact MAE to 0.213623 or less while keeping total NLL at or below 4.84304 and exhaustion at or below 0.05.",
+    "selected_card_ids": [
+      "C06"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "a5954712bf0117786d29e4b8559effdbaf79bedaf75ede189278f9ca8939a24d"
+}

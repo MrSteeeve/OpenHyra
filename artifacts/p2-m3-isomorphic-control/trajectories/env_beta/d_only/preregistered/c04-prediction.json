@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Forecasting the routed write target from the pre-step state should reduce repeated corrections for predictable continuations while preserving the correction for an unexpected external order. I predict impact MAE <= 0.205166 tick, with total NLL rising by at most 0.005 and exhaustion rising by at most 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "48e8a44a5e70e942e075898312475ffd6b343353a572f73799191e9e7020979e"
+}

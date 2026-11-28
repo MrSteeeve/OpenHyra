@@ -1,0 +1,68 @@
+--- parent
+
++++ candidate
+
+@@ -7,34 +7,45 @@
+
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
+-        self.route = nn.Linear(32, 22)
++        self.gru = nn.GRU(37, 55, batch_first=True)
++        self.route = nn.Linear(32, 21)
+         nn.init.constant_(self.route.bias[16:], -2.0)
++        self.mark = nn.Linear(75, 5)
++        self.cross = nn.Parameter(torch.zeros(5, 5))
++        self.keep = nn.Parameter(torch.linspace(-1.0, 1.0, 5))
+ 
+-    def _advance(self, x, state):
++    def _advance(self, raw, state):
++        x = self.encoder(raw).tanh()
+         if state is None:
+             state = x.new_zeros((x.size(0), 60))
+-        _, h = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+-        s = h[0].reshape(x.size(0), 6, 10)
+-        k, v, b = self.route(x).split((10, 6, 6), dim=-1)
+-        k = k / (k.square().sum(-1, keepdim=True) + 1e-4).sqrt()
+-        k = k.unsqueeze(1)
+-        read = (s * k).sum(-1)
+-        delta = 0.95 * b.sigmoid() * (v.tanh() - read)
+-        return (s + delta.unsqueeze(-1) * k).flatten(1)
++        h, trace = state.split((55, 5), dim=-1)
++
++        # Event-clock update: each row of the transition sums to keep.
++        keep = 0.45 + 0.50 * self.keep.sigmoid()
++        cross = self.cross.softmax(dim=-1)
++        trace = keep * (0.85 * trace + 0.15 * (trace @ cross.T))
++        trace = trace + (1.0 - keep) * self.mark(raw).sigmoid()
++        inp = torch.cat((x, trace.log1p()), dim=-1)
++
++        _, hn = self.gru(inp.unsqueeze(1), h.unsqueeze(0))
++        s = hn[0].reshape(x.size(0), 5, 11)
++        k, v, b = self.route(x).split((11, 5, 5), dim=-1)
++        k = (k / (k.square().sum(-1, keepdim=True) + 1e-4).sqrt()).unsqueeze(1)
++        delta = 0.95 * b.sigmoid() * (v.tanh() - (s * k).sum(-1))
++        h = (s + delta.unsqueeze(-1) * k).flatten(1)
++        return torch.cat((h, trace), dim=-1)
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
++        raw = self.raw_features(obs)
+         state = None
+         contexts = []
+-        for xt in x.unbind(1):
+-            state = self._advance(xt, state)
++        for rt in raw.unbind(1):
++            state = self._advance(rt, state)
+             contexts.append(state)
+         if not contexts:
+-            return x.new_empty((x.size(0), 0, 60))
++            return raw.new_empty((raw.size(0), 0, 60))
+         return torch.stack(contexts, dim=1)
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        state = self._advance(x, state)
++        state = self._advance(self.raw_features(obs), state)
+         return state, state

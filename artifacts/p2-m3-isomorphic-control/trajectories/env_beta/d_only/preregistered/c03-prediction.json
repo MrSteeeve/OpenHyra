@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "An input-conditioned rank-one correction to the GRU state will let an external order revise one memory direction without erasing unrelated context. Predict impact MAE at or below 0.213623, with total validation NLL at or below 4.84304 and exhaustion at or below 0.05.",
+    "selected_card_ids": [
+      "C10"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "c87b77c88740a9250b524483620e343fe75cd4a823e6ec8412a37feaa6e68db2"
+}

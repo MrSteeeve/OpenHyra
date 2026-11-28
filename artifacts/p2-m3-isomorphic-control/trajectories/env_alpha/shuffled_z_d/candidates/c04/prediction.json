@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "Depth-conditioned gating of recurrent features at readout will reduce fixed-order impact MAE by at least 0.010 tick versus B0, with total NLL rising by no more than 0.005 and exhaustion by no more than 0.05.", "selected_card_ids": ["C04"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

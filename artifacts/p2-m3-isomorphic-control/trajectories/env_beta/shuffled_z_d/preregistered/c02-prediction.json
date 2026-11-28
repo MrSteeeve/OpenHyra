@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A bounded excitation trace from causal observations will help distinguish an isolated book change from one followed by a burst of activity. Predict impact MAE <= 0.213623, total NLL <= 4.84304, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C06"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "25deb4fa652c80d9dc8bcd0f9a85f1e2ad5c2523ba985d469651752442d2728a"
+}

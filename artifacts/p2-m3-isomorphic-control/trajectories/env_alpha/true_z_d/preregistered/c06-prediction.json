@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Depth-conditioned readout will distinguish depletion from replenishment without overwriting recurrent memory. Predict impact MAE falls by at least 0.010 tick, with total NLL rising by at most 0.005 and exhaustion rising by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "e2b9599f7c68eda4e4850da32d5229c20738a4a4af1f43921fd471e9b2a6546d"
+}

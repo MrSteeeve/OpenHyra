@@ -1,0 +1,25 @@
+--- parent
+
++++ candidate
+
+@@ -9,14 +9,18 @@
+
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+         self.route = nn.Linear(32, 22)
++        self.forecast = nn.Linear(60, 32, bias=False)
++        nn.init.zeros_(self.forecast.weight)
+         nn.init.constant_(self.route.bias[16:], -2.0)
+ 
+     def _advance(self, x, state):
+         if state is None:
+             state = x.new_zeros((x.size(0), 60))
++        # Predict in observation space before incorporating the new input.
++        residual = x - self.forecast(state).tanh()
+         _, h = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+         s = h[0].reshape(x.size(0), 6, 10)
+-        k, v, b = self.route(x).split((10, 6, 6), dim=-1)
++        k, v, b = self.route(residual).split((10, 6, 6), dim=-1)
+         k = k / (k.square().sum(-1, keepdim=True) + 1e-4).sqrt()
+         k = k.unsqueeze(1)
+         read = (s * k).sum(-1)

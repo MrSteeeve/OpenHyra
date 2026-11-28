@@ -1,0 +1,51 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,40 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.gru = nn.GRU(32, 56, batch_first=True)
++        self.measure = nn.Linear(32, 4, bias=False)
++        self.predict = nn.Linear(60, 4, bias=False)
++        self.gate = nn.Linear(32, 4)
++        nn.init.constant_(self.gate.bias, -2.0)
++
++    def _slow(self, x, prior, slow):
++        innovation = self.measure(x).tanh() - self.predict(prior).tanh()
++        return 0.95 * slow + 0.05 * self.gate(x).sigmoid() * innovation
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        if x.size(1) == 0:
++            return x.new_zeros((x.size(0), 0, 60))
++        fast, _ = self.gru(x)
++        prev = torch.cat((torch.zeros_like(fast[:, :1]), fast[:, :-1]), dim=1)
++        slow = x.new_zeros((x.size(0), 4))
++        path = []
++        for xt, pt in zip(x.unbind(1), prev.unbind(1)):
++            slow = self._slow(xt, torch.cat((pt, slow), dim=-1), slow)
++            path.append(slow)
++        return torch.cat((fast, torch.stack(path, dim=1)), dim=-1)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        slow = self._slow(x, state, state[:, 56:])
++        _, fast = self.gru(x.unsqueeze(1), state[:, :56].unsqueeze(0).contiguous())
++        context = torch.cat((fast[0], slow), dim=-1)
++        return context, context

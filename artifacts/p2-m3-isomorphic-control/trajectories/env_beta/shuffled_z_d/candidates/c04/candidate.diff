@@ -1,0 +1,33 @@
+--- parent
+
++++ candidate
+
+@@ -9,18 +9,23 @@
+
+         self.encoder = input_projection(32)
+         self.gru = nn.GRU(32, 60, batch_first=True)
+         self.route = nn.Linear(32, 22)
+-        nn.init.constant_(self.route.bias[16:], -2.0)
++        self.predict = nn.Linear(60, 6, bias=False)
++        nn.init.zeros_(self.predict.weight)
++        with torch.no_grad():
++            self.route.bias[16:].fill_(-2.0)
+ 
+     def _advance(self, x, state):
+         if state is None:
+             state = x.new_zeros((x.size(0), 60))
++        forecast = self.predict(state).tanh()
+         _, h = self.gru(x.unsqueeze(1), state.unsqueeze(0))
+         s = h[0].reshape(x.size(0), 6, 10)
+         k, v, b = self.route(x).split((10, 6, 6), dim=-1)
+-        k = k / (k.square().sum(-1, keepdim=True) + 1e-4).sqrt()
+-        k = k.unsqueeze(1)
++        k = (k / (k.square().sum(-1, keepdim=True) + 1e-4).sqrt()).unsqueeze(1)
+         read = (s * k).sum(-1)
+-        delta = 0.95 * b.sigmoid() * (v.tanh() - read)
++        # Route the residual of a forecast made before the current input.
++        innovation = v.tanh() - forecast
++        delta = 0.95 * b.sigmoid() * (innovation - read)
+         return (s + delta.unsqueeze(-1) * k).flatten(1)
+ 
+     def sequence_context(self, obs):

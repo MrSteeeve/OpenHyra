@@ -1,0 +1,62 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,51 @@
+
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.pulse = nn.Linear(32, 4)
++        self.mix = nn.Parameter(torch.zeros(4, 4))
++        self.clock = nn.Linear(32, 1)
++        self.gru = nn.GRU(36, 56, batch_first=True)
++        self.read = nn.Linear(60, 60)
++
++    def _trace(self, x, z):
++        # Positive cross-channel transport with row sums below one.
++        rates = x.new_tensor([0.12, 0.25, 0.5, 1.0])
++        elapsed = 2 * self.clock(x).sigmoid()
++        decay = torch.exp(-rates * elapsed)
++        mixed = z @ self.mix.softmax(-1).transpose(0, 1)
++        return decay * (0.82 * z + 0.13 * mixed) + 0.05 * self.pulse(x).sigmoid()
++
++    def _context(self, h, z):
++        joined = torch.cat((h, z), dim=-1)
++        return joined + 0.25 * self.read(joined).tanh()
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        if x.size(1) == 0:
++            return x.new_zeros((x.size(0), 0, 60))
++        z = x.new_zeros((x.size(0), 4))
++        history = []
++        for xt in x.unbind(1):
++            z = self._trace(xt, z)
++            history.append(z)
++        traces = torch.stack(history, dim=1)
++        h, _ = self.gru(torch.cat((x, traces), dim=-1))
++        return self._context(h, traces)
+ 
+     def step_context(self, obs, state):
+         x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        if state is None:
++            state = x.new_zeros((x.size(0), 60))
++        h, z = state.split((56, 4), dim=-1)
++        z = self._trace(x, z)
++        _, next_h = self.gru(
++            torch.cat((x, z), dim=-1).unsqueeze(1), h.unsqueeze(0)
++        )
++        h = next_h[0]
++        return self._context(h, z), torch.cat((h, z), dim=-1)

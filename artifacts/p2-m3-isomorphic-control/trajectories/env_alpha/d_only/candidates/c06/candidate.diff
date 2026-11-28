@@ -1,0 +1,65 @@
+--- parent
+
++++ candidate
+
+@@ -1,18 +1,52 @@
+
++import math
++
++import torch
+ from torch import nn
+ from stochopia.neural.probe_features import ProbeBase, input_projection
++
+ 
+ class CandidateLOBWorldModel(ProbeBase):
+     def __init__(self):
+         super().__init__()
+         self.encoder = input_projection(32)
+-        self.gru = nn.GRU(32, 60, batch_first=True)
++        self.drive = nn.Linear(32, 12)
++        self.gru = nn.GRU(44, 48, batch_first=True)
++        # Two learned drive channels at each of six half-lives.
++        half_lives = 2.0 ** torch.linspace(1.0, 7.0, 6)
++        self.register_buffer(
++            "log_retention", (-math.log(2.0) / half_lives).repeat_interleave(2)
++        )
++
++    def _advance(self, x, clock, state):
++        if state is None:
++            state = x.new_zeros(x.size(0), 60)
++        h, m = state.split((48, 12), dim=-1)
++        alpha = -torch.expm1(clock * self.log_retention.to(dtype=x.dtype))
++        m = m + alpha * (self.drive(x).tanh() - m)
++        z = torch.cat((x, m), dim=-1)
++        _, h = self.gru(z.unsqueeze(1), h.unsqueeze(0).contiguous())
++        return torch.cat((h[0], m), dim=-1)
++
++    def _inputs(self, obs):
++        x = self.encoder(self.raw_features(obs)).tanh()
++        # Advance faster when observed displayed depth is thin.
++        depth = obs.book_shares.to(dtype=x.dtype).reshape(*x.shape[:-1], -1)
++        depth = depth.clamp_min(0).mean(dim=-1, keepdim=True)
++        clock = (2.0 / (1.0 + depth.log1p())).clamp(0.5, 2.0)
++        return x, clock
+ 
+     def sequence_context(self, obs):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        return self.gru(x)[0]
++        x, clock = self._inputs(obs)
++        if x.size(1) == 0:
++            return x.new_empty(x.size(0), 0, 60)
++        state = None
++        out = []
++        for xt, ct in zip(x.unbind(1), clock.unbind(1)):
++            state = self._advance(xt, ct, state)
++            out.append(state)
++        return torch.stack(out, dim=1)
+ 
+     def step_context(self, obs, state):
+-        x = self.encoder(self.raw_features(obs)).tanh()
+-        prior = x.new_zeros((x.size(0), 60)) if state is None else state
+-        _, h = self.gru(x.unsqueeze(1), prior.unsqueeze(0))
+-        return h[0], h[0]
++        x, clock = self._inputs(obs)
++        state = self._advance(x, clock, state)
++        return state, state

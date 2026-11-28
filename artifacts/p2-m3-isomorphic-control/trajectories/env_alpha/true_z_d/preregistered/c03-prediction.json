@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A bounded queue-conditioned readout lets the same flow history produce different responses when visible depth is depleted. Predict impact MAE <= 6.7599, with total NLL <= 4.31127 and exhaustion <= 0.921528.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "576757956ce401ae04d9aa9c851126a8517aadd37442512db17d0d0287fc4006"
+}

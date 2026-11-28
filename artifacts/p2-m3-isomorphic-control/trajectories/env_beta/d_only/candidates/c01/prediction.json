@@ -1,0 +1,1 @@
+{"expected_direction": "decrease", "regime_hypothesis": "A slow state driven by deviations from predicted order-flow features should distinguish a fixed external order from expected continuation. I predict impact MAE <= 0.213623 tick, total NLL <= 4.84304, and exhaustion <= 0.05.", "selected_card_ids": ["C08"], "target_metric": "counterfactual_impact_mae", "unfold_ids": []}

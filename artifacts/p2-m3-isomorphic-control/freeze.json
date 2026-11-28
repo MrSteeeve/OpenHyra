@@ -1,0 +1,56 @@
+{
+  "approved": {
+    "env_alpha": [
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+      "73591876a94ba49f54297b55848899bb8e3d69e0f18bfe3121651399227b54da",
+      "aaa4faf5ea21e791daba93302f6a74ac4ca051498122a8d032876fcf8e3e047a"
+    ],
+    "env_beta": [
+      "25deb4fa652c80d9dc8bcd0f9a85f1e2ad5c2523ba985d469651752442d2728a",
+      "331534a484f71ae3993a32f881eaf9cc46fbbc65784f89a4216f00096b421fc1",
+      "48e8a44a5e70e942e075898312475ffd6b343353a572f73799191e9e7020979e",
+      "49a8aa7091260843b28350b266dd3217ebfddd02b20e889cf5ff0afa1592d282",
+      "4fa132ac45c6054ec486d8308ca542a537bf5ff4eae773b7f5577001a4dd3f88",
+      "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35",
+      "563f34670ced48a5762f0e467e93745ce32cb896efce63498458ac745e779660",
+      "5713a30deffb01f35ad818e88356f6dae5e2aaa075bc4cb0daa3201d3ae82066",
+      "7d0377f98dd034d9ba2343c5122c5edada45a7735416ee0dd53f4a7a761230d5",
+      "886766ccec0871aaf00a7a6cdfad6aa2d4951de7c4d1b7c4d5751985e16d85a0",
+      "a5954712bf0117786d29e4b8559effdbaf79bedaf75ede189278f9ca8939a24d",
+      "b1bf794c1b7459d83c3bfda8407dae91a98f8d0cf316a96ca3c084f2615bb939",
+      "c87b77c88740a9250b524483620e343fe75cd4a823e6ec8412a37feaa6e68db2",
+      "c87e7b4a510da4a1604ac1193bae7f97c35d1c95cb71dcbdd1ee50a49760235f",
+      "d2c4902b1e29dd7eaaa2ff0cbdafc243f3214784b0c58342a96b90b8d098a16e",
+      "d7e80ed2127ce951c75f19a12a0d707bba7ea19dfc166f14608fa65e0de35a10",
+      "e29a826943076d4e1f9c3c035c8a5274cba7b7320beac609be3028721e3646da",
+      "ffa5e38e82a85c52ad1ae3aed58f9a11d2bf3dd0725cbd5de7f698d5dd51953a"
+    ]
+  },
+  "formal_calls": 36,
+  "trajectories": {
+    "env_alpha/d_only": {
+      "final_id": "B0",
+      "final_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35"
+    },
+    "env_alpha/shuffled_z_d": {
+      "final_id": "B0",
+      "final_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35"
+    },
+    "env_alpha/true_z_d": {
+      "final_id": "B0",
+      "final_sha256": "548c520efb63cccff9567a22efdd4224ff3a5d126e6aba86d2eb0abd4dd47d35"
+    },
+    "env_beta/d_only": {
+      "final_id": "c03",
+      "final_sha256": "c87b77c88740a9250b524483620e343fe75cd4a823e6ec8412a37feaa6e68db2"
+    },
+    "env_beta/shuffled_z_d": {
+      "final_id": "c03",
+      "final_sha256": "ffa5e38e82a85c52ad1ae3aed58f9a11d2bf3dd0725cbd5de7f698d5dd51953a"
+    },
+    "env_beta/true_z_d": {
+      "final_id": "c06",
+      "final_sha256": "563f34670ced48a5762f0e467e93745ce32cb896efce63498458ac745e779660"
+    }
+  }
+}

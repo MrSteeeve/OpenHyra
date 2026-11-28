@@ -1,0 +1,62 @@
+--- parent
+
++++ candidate
+
+@@ -11,25 +11,44 @@
+
+         self.measure = nn.Linear(32, 8)
+         self.predict = nn.Linear(60, 8, bias=False)
+         self.gain = nn.Linear(32, 8)
++        self.route = nn.Linear(32, 64)
+         nn.init.zeros_(self.gain.weight)
+         nn.init.constant_(self.gain.bias, -2.0)
++        nn.init.zeros_(self.route.weight)
++        nn.init.zeros_(self.route.bias)
+         self.retention = nn.Parameter(torch.linspace(-1.0, 1.0, 8))
+ 
+-    def _update(self, x, prior):
++    def _update(self, raw, x, prior):
+         fast = self.cell(x, prior[:, :52].contiguous())
+         innovation = self.measure(x).tanh() - self.predict(prior).tanh()
++        logits = self.route(raw).reshape(-1, 8, 8).tanh()
++        eye = torch.eye(8, device=x.device, dtype=x.dtype)
++        # Each destination takes a bounded, book-conditioned mixture.
++        route = (logits + 5.0 * eye).softmax(dim=-1)
++        routed = (route @ innovation.unsqueeze(-1)).squeeze(-1)
+         decay = 0.8 + 0.19 * self.retention.sigmoid()
+-        slow = decay * prior[:, 52:] + self.gain(x).sigmoid() * innovation
++        slow = decay * prior[:, 52:] + self.gain(x).sigmoid() * routed
+         return torch.cat((fast, slow), dim=-1)
++
++    def _book(self, obs, x):
++        shares = obs.book_shares.to(dtype=x.dtype)
++        ticks = obs.book_ticks.to(dtype=x.dtype)
++        shape = (*x.shape[:-1], -1)
++        shares = shares.reshape(shape).clamp_min(0).log1p()
++        ticks = ticks.reshape(shape)
++        ticks = ((ticks - ticks[..., :1]) / 16.0).tanh()
++        book = torch.cat((shares, ticks), dim=-1)
++        return torch.nn.functional.pad(book, (0, max(0, 32 - book.size(-1))))[..., :32]
+ 
+     def sequence_context(self, obs):
+         x = self.encoder(self.raw_features(obs)).tanh()
+         if x.size(1) == 0:
+             return x.new_zeros((x.size(0), 0, 60))
++        book = self._book(obs, x)
+         state = x.new_zeros((x.size(0), 60))
+         contexts = []
+-        for xt in x.unbind(dim=1):
+-            state = self._update(xt, state)
++        for bt, xt in zip(book.unbind(1), x.unbind(1)):
++            state = self._update(bt, xt, state)
+             contexts.append(state)
+         return torch.stack(contexts, dim=1)
+ 
+@@ -37,5 +56,5 @@
+
+         x = self.encoder(self.raw_features(obs)).tanh()
+         if state is None:
+             state = x.new_zeros((x.size(0), 60))
+-        state = self._update(x, state)
++        state = self._update(self._book(obs, x), x, state)
+         return state, state

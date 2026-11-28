@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Let current book features route persistent writes across innovation channels, so the same surprise can have different effects at different depths. Predict impact MAE <= 0.222159 tick, total NLL <= 4.78854, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "49a8aa7091260843b28350b266dd3217ebfddd02b20e889cf5ff0afa1592d282"
+}

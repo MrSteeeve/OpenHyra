@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A queue-conditioned multiplicative gate on the GRU input will let the same flow features drive different updates when visible depth is scarce. Predict impact MAE of 6.7599 ticks or lower, with total NLL rising by at most 0.005 and exhaustion by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "1c71d2656b9b5b5388eec9b69558df18c28d1e87d5e47edf6a9ee35dfc1366fb"
+}

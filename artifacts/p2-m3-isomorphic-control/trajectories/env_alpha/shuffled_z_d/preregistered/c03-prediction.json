@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "A depth-conditioned residual on the GRU update logits should help distinguish depletion from replenishment after a fixed external order. Predict impact MAE <= 6.7599, total NLL <= 4.31127, and exhausted replicate rate <= 0.921528.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "ab7b24b667677398bbc107c9d5a6eacc0bcab44d306a64ce9903e75b169f92b3"
+}

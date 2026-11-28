@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "If the recurrent context underrepresents which queues remain depleted after an order, a current-depth gate on the head inputs will lower fixed-order impact MAE by at least 0.010 tick versus B0, with total NLL rising by at most 0.005 and exhaustion rate by at most 0.05.",
+    "selected_card_ids": [
+      "C04"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "19edec78f4fc569dce3209b15e309241889167d4ea5c5fe1fb397eb37b693e33"
+}

@@ -1,0 +1,12 @@
+{
+  "prediction": {
+    "expected_direction": "decrease",
+    "regime_hypothesis": "Subtracting a history-only prediction from a learned observation projection should help distinguish a fixed order's effect from routine book changes. Predict counterfactual impact MAE <= 0.213623 ticks, total NLL <= 4.84304, and exhausted replicate rate <= 0.05.",
+    "selected_card_ids": [
+      "C08"
+    ],
+    "target_metric": "counterfactual_impact_mae",
+    "unfold_ids": []
+  },
+  "source_sha256": "5713a30deffb01f35ad818e88356f6dae5e2aaa075bc4cb0daa3201d3ae82066"
+}
